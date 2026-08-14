@@ -1,4 +1,4 @@
-name = "teacher-site-cloudflare"
+name = 'web-teacher'
 main = "src/index.tsx"
 compatibility_date = "2026-08-13"
 compatibility_flags = ["nodejs_compat"]
