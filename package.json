@@ -1,0 +1,24 @@
+{
+  "name": "teacher-site-cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "preview": "node tools/local-preview.mjs",
+    "local:init": "node tools/local-init.mjs",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply teacher_site --local",
+    "db:migrate:remote": "wrangler d1 migrations apply teacher_site --remote",
+    "db:seed:local": "wrangler d1 execute teacher_site --local --file=./seed/demo.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241230.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.99.0"
+  }
+}

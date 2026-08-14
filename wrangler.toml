@@ -1,0 +1,27 @@
+name = "teacher-site-cloudflare"
+main = "src/index.tsx"
+compatibility_date = "2026-08-13"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "teacher-site-sql"
+database_id = "1ab205fb-9fe9-438e-abb3-c4abc63b52b6"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "teacher-site-media"
+
+[vars]
+SITE_URL = "https://example.com"
+PUBLIC_MEDIA_BASE_URL = ""
+ADMIN_EMAILS = ""
+LOCAL_ADMIN_TOKEN = ""
+TRANSLATION_PROVIDER = "gtranslate"
+CROSSREF_ENDPOINT = "https://api.crossref.org/works"
+OPENALEX_ENDPOINT = "https://api.openalex.org/works"

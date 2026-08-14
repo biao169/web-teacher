@@ -1,0 +1,10 @@
+# Copy this file to .dev.vars for local Worker development.
+# Do not commit real secrets.
+
+LOCAL_ADMIN_TOKEN=change-me-to-a-long-random-token
+ADMIN_EMAILS=you@example.com
+SITE_URL=http://127.0.0.1:8787
+PUBLIC_MEDIA_BASE_URL=
+TRANSLATION_PROVIDER=
+CROSSREF_ENDPOINT=https://api.crossref.org/works
+OPENALEX_ENDPOINT=https://api.openalex.org/works

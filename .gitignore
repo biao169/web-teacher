@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+.dev.vars
+dist/
+*.log
+data/
+media/
+public/media/*
+!public/media/.gitkeep
+seed/*.sql
+*.sqlite3

@@ -1,0 +1,17 @@
+services:
+  node-tools:
+    image: node:24-alpine
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - node-tools-npm-cache:/root/.npm
+      - node-tools-wrangler-cache:/root/.config/.wrangler
+    environment:
+      - CI=1
+    ports:
+      - "8787:8787"
+    command: npm run preview
+
+volumes:
+  node-tools-npm-cache:
+  node-tools-wrangler-cache:
