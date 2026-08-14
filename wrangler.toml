@@ -18,7 +18,7 @@ binding = "MEDIA"
 bucket_name = "teacher-site-media"
 
 [vars]
-SITE_URL = "https://example.com"
+SITE_URL = "https://web-teacher.2948531734.workers.dev"
 PUBLIC_MEDIA_BASE_URL = ""
 ADMIN_EMAILS = ""
 LOCAL_ADMIN_TOKEN = ""
