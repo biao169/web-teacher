@@ -10,8 +10,8 @@ run_worker_first = ["/admin/*", "/api/*", "/media/*", "/login", "/logout", "/reg
 
 [[d1_databases]]
 binding = "DB"
-database_name = "teacher_site"
-database_id = "replace-with-cloudflare-d1-id"
+database_name = "teacher_site_sql_v2"
+database_id = "ef523b9f-b17c-444b-a62b-9bfeb6e33de9"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
