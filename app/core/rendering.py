@@ -9,6 +9,7 @@ import mimetypes
 import re
 import shutil
 import time
+import zipfile
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -40,7 +41,13 @@ from .security import (
 ResponseTuple = tuple[int, list[tuple[str, str]], bytes]
 MEDIA_STATS_CACHE_TTL_SECONDS = 300
 MEDIA_STATS_CACHE_PATH = Path(".cache") / "media_stats.json"
-ASSET_VERSION = "20260821-media-picker-grid"
+MEDIA_SCAN_EXTENSIONS = {
+    ".apng", ".avif", ".bmp", ".gif", ".ico", ".jpeg", ".jpg", ".png", ".svg", ".tif", ".tiff", ".webp",
+    ".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".ogv", ".webm",
+    ".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav",
+    ".csv", ".doc", ".docx", ".json", ".md", ".pdf", ".ppt", ".pptx", ".txt", ".xls", ".xlsx", ".yaml", ".yml",
+}
+ASSET_VERSION = "20260821-media-delete-confirm"
 LOGIN_RATE_LIMIT_CACHE_PATH = Path(".cache") / "login_rate_limits.json"
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
 LOGIN_RATE_LIMIT_LOCK_SECONDS = 15 * 60
@@ -1432,12 +1439,21 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             if len(parts) >= 4 and parts[3] == "save":
                 form_uid = _form(body).get("uid", "")
                 action = "can_edit" if form_uid and repo.get(table, form_uid) else "can_create"
+            elif table == "media_assets" and len(parts) >= 4 and parts[3] == "export-used":
+                action = "can_export"
             elif len(parts) >= 4 and parts[3] in {"delete"}:
                 action = "can_delete"
             elif table == "media_assets" and any(part in {"trash", "clear", "batch"} for part in parts[3:]):
                 action = "can_delete" if "delete" in parts[3:] or "clear" in parts[3:] else "can_edit"
             if not has_permission(repo, env, table, action):
                 return html_response(admin_layout(repo, meta.label, admin_denied_panel(meta.label, f"当前账号没有{admin_action_label(action)}该类型数据的权限。"), env, table_breadcrumbs), 403)
+        if table == "media_assets" and len(parts) >= 4 and parts[3] == "export-used":
+            if not has_permission(repo, env, table, "can_export"):
+                return html_response(admin_layout(repo, meta.label, admin_denied_panel(meta.label, "当前账号没有导出媒体文件的权限。"), env, table_breadcrumbs), 403)
+            mode = "trash" if query.get("scope") == "trash" else "library"
+            response, result = media_export_used_response(repo, query, body if method == "POST" else b"", env, mode)
+            audit_admin_action(repo, env, "export_media", table, "", "导出媒体文件", result, "warning" if result.get("skipped") else "success")
+            return response
         if method == "POST" and table == "media_assets" and len(parts) >= 5 and parts[3] == "trash" and parts[4] == "clear":
             deleted = media_clear_trash(repo)
             audit_admin_action(repo, env, "delete", table, "trash", "清空媒体回收站", {"deleted": deleted})
@@ -1446,6 +1462,18 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             media_apply_action(repo, parts[4], parts[5])
             audit_admin_action(repo, env, parts[5], table, parts[4], f"媒体回收站操作：{parts[5]}")
             return redirect(f"/admin/table/{table}/trash")
+        if method == "POST" and table == "media_assets" and len(parts) >= 4 and parts[3] == "scan":
+            result = media_scan_project_files(repo, env)
+            audit_admin_action(repo, env, "scan", table, "", "扫描项目媒体目录", result, "warning" if result.get("unsupported") else "success")
+            params = {
+                "scan_done": 1,
+                "scan_unsupported": result.get("unsupported", 0),
+                "scan_scanned": result.get("scanned", 0),
+                "scan_added": result.get("added", 0),
+                "scan_updated": result.get("updated", 0),
+                "scan_skipped": result.get("skipped", 0),
+            }
+            return redirect(f"/admin/table/{table}?{urlencode({key: str(value) for key, value in params.items() if value})}")
         if method == "POST" and table == "media_assets" and len(parts) >= 5:
             media_key = parts[3]
             action = parts[4]
@@ -5960,7 +5988,7 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
           <div class="media-actions">
             <a class="button ghost" href="/admin/table/media_assets/{esc(row.get("uid") or row.get("id"))}">编辑</a>
             {media_action_button(row, "restore", "恢复", trash_context=is_trash) if status == "trash" else media_action_button(row, "trash", "回收站")}
-            {media_action_button(row, "delete", "删除", danger=True, trash_context=is_trash)}
+            {media_action_button(row, "delete", "删除", danger=True, trash_context=is_trash, delete_files=env.get("PLATFORM") != "cloudflare")}
           </div>
         </article>""")
     title = "媒体回收站" if is_trash else "媒体库"
@@ -5970,23 +5998,33 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
         if is_trash else
         f'<a class="button ghost" href="/admin/table/media_assets/trash">回收站 {trash_count}</a>'
     )
-    clear_trash = '<form method="post" action="/admin/table/media_assets/trash/clear"><button class="button danger" type="submit" data-confirm="确定清空回收站中的媒体库记录吗？">一键清空回收站</button></form>' if is_trash and total_rows else ""
+    scan_action = "" if is_trash else '<form method="post" action="/admin/table/media_assets/scan"><button class="button light" type="submit">扫描项目媒体</button></form>'
+    export_used_action = f'<a class="button light" href="{esc(media_export_used_url(query, mode))}" title="快捷导出当前筛选范围内被使用的媒体文件">导出媒体</a>'
+    delete_scope_label = "媒体库记录" if env.get("PLATFORM") == "cloudflare" else "媒体文件和媒体库记录"
+    clear_trash = (
+        f'<form method="post" action="/admin/table/media_assets/trash/clear" '
+        f'data-confirm="确定清空回收站中的{delete_scope_label}吗？" '
+        f'data-confirm-second="二次确认：请输入 CLEAR 后继续。此操作不可撤销。" data-confirm-token="CLEAR">'
+        f'<button class="button danger" type="submit">一键清空回收站</button></form>'
+    ) if is_trash and total_rows else ""
     return f"""<section class="admin-card media-admin-card">
       <div class="admin-card-head">
         <div><h1>{title}</h1><p class="admin-muted">{subtitle} 可用 {active_count} / 缺失 {missing_count} / 回收站 {trash_count}。</p></div>
-        <div class="admin-card-head-actions">{top_action}{clear_trash}<a class="button" href="/admin/table/media_assets/new">新增</a></div>
+        <div class="admin-card-head-actions">{top_action}{scan_action}{export_used_action}{clear_trash}<a class="button" href="/admin/table/media_assets/new">新增</a></div>
       </div>
+      {media_scan_result_notice(query)}
       {media_capacity_panel(queried_rows)}
       <div class="media-sticky-tools">
       {admin_batch_result_notice(query)}
       {media_filter_form(query, all_rows, mode)}
-      <form id="media-batch-form" class="media-batch-toolbar" method="post" action="/admin/table/media_assets/batch">
+      <form id="media-batch-form" class="media-batch-toolbar" method="post" action="/admin/table/media_assets/batch" data-delete-scope="{esc(delete_scope_label)}">
         <input type="hidden" name="return_to" value="{esc('/admin/table/media_assets/trash' if is_trash else '/admin/table/media_assets')}">
+        <input type="hidden" name="scope" value="{esc(mode)}">
         <label><input type="checkbox" id="admin-media-select-all"> 全选</label>
         <select name="batch_action">
           <option value="update">批量修改</option>
           {'<option value="restore">恢复可用</option>' if is_trash else '<option value="trash">移到回收站</option>'}
-          <option value="delete">彻底删除记录</option>
+          <option value="delete">彻底删除{'记录' if env.get("PLATFORM") == "cloudflare" else '文件'}</option>
         </select>
         <select name="batch_status">
           <option value="">状态不变</option>
@@ -5995,8 +6033,9 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
         </select>
         <input name="batch_category" placeholder="例：profile / icon / news-cover，留空不改">
         <button type="submit">应用到选中</button>
+        <button class="button light" type="submit" formaction="/admin/table/media_assets/export-used" formmethod="post" title="导出所有选中的本地媒体文件">导出选中媒体</button>
         <span id="admin-media-selected-count" class="admin-muted">已选 0 个</span>
-        <small class="media-batch-help">示例：筛选“文件缺失”后全选，可批量移到回收站或彻底删除记录；统一分类只在选择“批量修改”时生效。</small>
+        <small class="media-batch-help">示例：筛选“文件缺失”后全选，可批量移到回收站或彻底删除；统一分类只在选择“批量修改”时生效。</small>
       </form>
       </div>
       <div class="media-admin-list"><div class="media-list-head"><span>选择</span><span>预览</span><span>媒体文件</span><span>文件信息</span><span>使用位置</span><span>操作</span></div>{"".join(items) or '<p class="empty">暂无媒体文件。</p>'}</div>
@@ -6014,6 +6053,33 @@ def media_capacity_panel(rows: list[dict[str, Any]]) -> str:
       <div><span>磁盘容量</span><strong id="media-disk-total">待检测</strong><small id="media-disk-free">点击刷新或等待自动检测</small></div>
       <button type="button" id="media-refresh-stats">刷新检测</button>
     </section>"""
+
+
+def media_scan_result_notice(query: dict[str, str]) -> str:
+    if "scan_done" not in query and "scan_added" not in query and "scan_unsupported" not in query:
+        return ""
+    if query.get("scan_unsupported"):
+        return '<p class="admin-result warning">当前运行环境不支持扫描项目文件系统；Cloudflare Worker 生产环境建议通过部署资源或 R2 管理媒体。</p>'
+    added = int_value(query.get("scan_added"))
+    updated = int_value(query.get("scan_updated"))
+    skipped = int_value(query.get("scan_skipped"))
+    scanned = int_value(query.get("scan_scanned"))
+    return (
+        f'<p class="admin-result success">已扫描 {scanned} 个媒体文件，新增登记 {added} 个，'
+        f'更新元数据 {updated} 个，跳过 {skipped} 个。</p>'
+    )
+
+
+def media_export_used_url(query: dict[str, str], mode: str) -> str:
+    params = {
+        key: query.get(key, "")
+        for key in ("q", "category", "mime_type", "sort")
+        if query.get(key)
+    }
+    if mode == "trash":
+        params["scope"] = "trash"
+    suffix = f"?{urlencode(params)}" if params else ""
+    return f"/admin/table/media_assets/export-used{suffix}"
 
 
 def media_filter_form(query: dict[str, str], rows: list[dict[str, Any]], mode: str) -> str:
@@ -7293,6 +7359,7 @@ def media_auto_empty_trash(repo: Repository) -> None:
             continue
         changed_at = parse_timestamp(row.get("updated_at") or row.get("created_at"))
         if changed_at and changed_at < cutoff:
+            media_delete_physical_file_for_row(row)
             repo.delete("media_assets", str(row.get("uid") or row.get("id")))
 
 
@@ -7472,8 +7539,280 @@ def media_target_path_for_key(key: str) -> Path | None:
     return None
 
 
+def media_scan_project_files(repo: Repository, env: dict[str, str]) -> dict[str, int | str]:
+    if env.get("PLATFORM") == "cloudflare":
+        return {"unsupported": 1, "scanned": 0, "added": 0, "updated": 0, "skipped": 0}
+    existing_by_key: dict[str, dict[str, Any]] = {}
+    for row in repo.list("media_assets", Query(limit=1000)):
+        key = normalize_media_key(str(row.get("object_key") or ""))
+        if key and key not in existing_by_key:
+            existing_by_key[key] = row
+    scanned = 0
+    added = 0
+    updated = 0
+    skipped = 0
+    seen: set[str] = set()
+    for root in media_scan_roots():
+        try:
+            root_resolved = root.resolve()
+        except OSError:
+            skipped += 1
+            continue
+        for item in root.rglob("*"):
+            if not item.is_file():
+                continue
+            suffix = item.suffix.lower()
+            if suffix not in MEDIA_SCAN_EXTENSIONS:
+                skipped += 1
+                continue
+            try:
+                key = normalize_media_key(item.resolve().relative_to(root_resolved).as_posix())
+            except (OSError, ValueError):
+                skipped += 1
+                continue
+            if not key or key in seen:
+                skipped += 1
+                continue
+            seen.add(key)
+            scanned += 1
+            try:
+                stat = item.stat()
+            except OSError:
+                skipped += 1
+                continue
+            mime = mimetypes.guess_type(item.name)[0] or media_guess_mime_from_suffix(suffix)
+            category = safe_media_folder(key.rsplit("/", 1)[0]) if "/" in key else "media"
+            title = text_only(item.stem, 160) or key
+            checksum = hashlib.sha1(f"{key}:{stat.st_size}:{int(stat.st_mtime)}".encode("utf-8")).hexdigest()[:12]
+            row = existing_by_key.get(key) or media_find_record_by_key(repo, key)
+            if row:
+                before = dict(row)
+                row["size"] = stat.st_size
+                row["mime_type"] = row.get("mime_type") or mime
+                row["category"] = row.get("category") or category
+                row["title"] = row.get("title") or title
+                row["checksum"] = row.get("checksum") or checksum
+                if row != before:
+                    repo.save("media_assets", row)
+                    updated += 1
+                else:
+                    skipped += 1
+                continue
+            saved = save_media_record(repo, key, title, category, mime, stat.st_size)
+            saved["checksum"] = checksum
+            repo.save("media_assets", saved)
+            existing_by_key[key] = saved
+            added += 1
+    return {"unsupported": 0, "scanned": scanned, "added": added, "updated": updated, "skipped": skipped}
+
+
+def media_find_record_by_key(repo: Repository, key: str) -> dict[str, Any] | None:
+    clean = normalize_media_key(key)
+    if not clean:
+        return None
+    for row in repo.list("media_assets", Query(q=clean, limit=1000)):
+        if normalize_media_key(str(row.get("object_key") or "")) == clean:
+            return row
+    return None
+
+
+def media_scan_roots() -> list[Path]:
+    roots = []
+    for root in (Path("media"), Path("public") / "media"):
+        if root.exists() and root.is_dir():
+            roots.append(root)
+    return roots
+
+
+def media_guess_mime_from_suffix(suffix: str) -> str:
+    if suffix in {".svg"}:
+        return "image/svg+xml"
+    if suffix in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".bmp", ".ico", ".tif", ".tiff"}:
+        return f"image/{suffix.lstrip('.').replace('jpg', 'jpeg')}"
+    if suffix in {".mp4", ".webm", ".mov", ".m4v", ".ogv"}:
+        return "video/mp4" if suffix in {".mp4", ".m4v", ".mov"} else f"video/{suffix.lstrip('.')}"
+    if suffix in {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"}:
+        return f"audio/{suffix.lstrip('.')}"
+    if suffix == ".pdf":
+        return "application/pdf"
+    return "application/octet-stream"
+
+
+def media_delete_physical_file_for_row(row: dict[str, Any] | None) -> bool:
+    if not row:
+        return False
+    key = normalize_media_key(str(row.get("object_key") or ""))
+    path = media_local_path(key)
+    if not path:
+        return False
+    if not media_path_inside_managed_root(path):
+        return False
+    try:
+        path.unlink()
+        media_cache_forget_file(key)
+        return True
+    except OSError:
+        return False
+
+
+def media_path_inside_managed_root(path: Path) -> bool:
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    for root in (Path("media"), Path("public") / "media"):
+        try:
+            resolved.relative_to(root.resolve())
+            return True
+        except (OSError, ValueError):
+            continue
+    return False
+
+
+def media_cache_forget_file(key: str) -> None:
+    clean = normalize_media_key(key)
+    if not clean:
+        return
+    cache = media_cache_load()
+    files = cache.get("files")
+    if isinstance(files, dict) and clean in files:
+        files.pop(clean, None)
+        media_cache_save(cache)
+
+
+def media_export_used_response(repo: Repository, query: dict[str, str], body: bytes, env: dict[str, str], mode: str = "library") -> tuple[ResponseTuple, dict[str, Any]]:
+    if env.get("PLATFORM") == "cloudflare":
+        result = {"ok": False, "exported": 0, "skipped": 0, "reason": "cloudflare"}
+        return json_response({"ok": False, "message": "Cloudflare Worker 环境暂不能从 Static Assets 文件系统打包媒体文件；如需生产环境导出媒体，请后续接入 R2 对象读取。"}, 501), result
+    form = _form_multi(body) if body else {}
+    selected = [value for value in form.get("selected", []) if value][:500]
+    selected_mode = bool(selected)
+    usage_map = media_usage_map(repo)
+    raw_rows = media_export_candidate_rows(repo, query, selected, mode)
+    entries: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+    seen_keys: set[str] = set()
+    for row in raw_rows:
+        key = normalize_media_key(str(row.get("object_key") or ""))
+        if not key or key in seen_keys:
+            continue
+        seen_keys.add(key)
+        usage = usage_map.get(key, [])
+        if not selected_mode and not usage:
+            skipped.append({"object_key": key, "reason": "未发现使用位置"})
+            continue
+        path = media_local_path(key)
+        if not path or not path.is_file():
+            skipped.append({"object_key": key, "reason": "本地文件缺失"})
+            continue
+        if not media_path_inside_managed_root(path):
+            skipped.append({"object_key": key, "reason": "文件不在受管理媒体目录"})
+            continue
+        try:
+            size = path.stat().st_size
+        except OSError:
+            skipped.append({"object_key": key, "reason": "无法读取文件信息"})
+            continue
+        entries.append({
+            "object_key": key,
+            "title": text_only(row.get("title") or key, 200),
+            "category": text_only(row.get("category"), 120),
+            "mime_type": text_only(row.get("mime_type"), 160) or mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+            "size": size,
+            "status": text_only(row.get("status") or "active", 40),
+            "path": path,
+            "usage": usage,
+        })
+    result = {"ok": bool(entries), "selected": len(selected), "candidates": len(raw_rows), "exported": len(entries), "skipped": len(skipped), "scope": "selected" if selected_mode else "used"}
+    if not entries:
+        message = "没有可导出的选中媒体文件。请确认所选记录是本地媒体且文件存在。" if selected_mode else "没有可导出的已使用媒体文件。请先确认媒体仍被引用且本地文件存在。"
+        return json_response({"ok": False, "message": message, "skipped": skipped[:50]}, 404), result
+    payload = io.BytesIO()
+    exported_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    manifest_files = []
+    with zipfile.ZipFile(payload, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for entry in entries:
+            key = str(entry["object_key"])
+            arcname = media_zip_arcname(key)
+            archive.write(entry["path"], arcname)
+            manifest_files.append({
+                "object_key": key,
+                "archive_path": arcname,
+                "title": entry["title"],
+                "category": entry["category"],
+                "mime_type": entry["mime_type"],
+                "size": entry["size"],
+                "status": entry["status"],
+                "usage": entry["usage"],
+            })
+        manifest = {
+            "exported_at": exported_at,
+            "scope": "selected" if selected_mode else f"{mode}_used",
+            "scope_note": "导出所有选中的本地媒体文件；usage 为空表示当前未发现引用。" if selected_mode else "快捷导出当前筛选范围内被使用的媒体文件。",
+            "file_count": len(manifest_files),
+            "total_bytes": sum(int_value(item.get("size")) for item in manifest_files),
+            "skipped": skipped,
+            "files": manifest_files,
+        }
+        archive.writestr("media_manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        archive.writestr("media_manifest.csv", csv_bytes(media_manifest_csv_rows(manifest_files, skipped), ["object_key", "archive_path", "title", "category", "mime_type", "size", "status", "usage", "skip_reason"]))
+    filename = f"teacher-site-used-media-{time.strftime('%Y%m%d-%H%M%S')}.zip"
+    return binary_response(payload.getvalue(), "application/zip", filename), result
+
+
+def media_export_candidate_rows(repo: Repository, query: dict[str, str], selected: list[str], mode: str) -> list[dict[str, Any]]:
+    if selected:
+        return [row for key in selected if (row := repo.get("media_assets", key))]
+    filters = {"status": "trash" if mode == "trash" else "active"}
+    if query.get("category"):
+        filters["category"] = query["category"]
+    if query.get("mime_type"):
+        filters["mime_type"] = query["mime_type"]
+    order_by, descending = media_sort_args(query.get("sort", "updated_desc"))
+    return repo.list("media_assets", Query(q=query.get("q", ""), filters=filters, limit=1000, order_by=order_by, descending=descending))
+
+
+def media_zip_arcname(key: str) -> str:
+    clean = normalize_media_key(key)
+    parts = [part for part in clean.replace("\\", "/").split("/") if part and part not in {".", ".."}]
+    if not parts:
+        parts = ["media.bin"]
+    return "media/" + "/".join(parts)
+
+
+def media_manifest_csv_rows(files: list[dict[str, Any]], skipped: list[dict[str, str]]) -> list[dict[str, Any]]:
+    rows = []
+    for item in files:
+        usage = item.get("usage") if isinstance(item.get("usage"), list) else []
+        rows.append({
+            "object_key": item.get("object_key", ""),
+            "archive_path": item.get("archive_path", ""),
+            "title": item.get("title", ""),
+            "category": item.get("category", ""),
+            "mime_type": item.get("mime_type", ""),
+            "size": item.get("size", 0),
+            "status": item.get("status", ""),
+            "usage": "; ".join(f"{use.get('table_label', '')}/{use.get('field_label', '')}/{use.get('title', '')}" for use in usage if isinstance(use, dict)),
+            "skip_reason": "",
+        })
+    for item in skipped:
+        rows.append({
+            "object_key": item.get("object_key", ""),
+            "archive_path": "",
+            "title": "",
+            "category": "",
+            "mime_type": "",
+            "size": "",
+            "status": "",
+            "usage": "",
+            "skip_reason": item.get("reason", ""),
+        })
+    return rows
+
+
 def media_apply_action(repo: Repository, media_key: str, action: str) -> None:
     if action == "delete":
+        media_delete_physical_file_for_row(repo.get("media_assets", media_key))
         repo.delete("media_assets", media_key)
         return
     row = repo.get("media_assets", media_key)
@@ -7491,6 +7830,7 @@ def media_apply_action(repo: Repository, media_key: str, action: str) -> None:
 def media_clear_trash(repo: Repository) -> int:
     deleted = 0
     for row in repo.list("media_assets", Query(filters={"status": "trash"}, limit=1000)):
+        media_delete_physical_file_for_row(row)
         if repo.delete("media_assets", str(row.get("uid") or row.get("id"))):
             deleted += 1
     return deleted
@@ -7507,6 +7847,7 @@ def media_batch_update(repo: Repository, body: bytes) -> tuple[str, dict[str, in
     skipped = 0
     for key in selected[:500]:
         if action == "delete":
+            media_delete_physical_file_for_row(repo.get("media_assets", key))
             if repo.delete("media_assets", key):
                 deleted += 1
             else:
@@ -7674,12 +8015,17 @@ def admin_status_badge(status: str) -> str:
     return f'<span class="admin-status-badge status-{esc(status or "active")}">{label}</span>'
 
 
-def media_action_button(row: dict[str, Any], action: str, label: str, danger: bool = False, trash_context: bool = False) -> str:
+def media_action_button(row: dict[str, Any], action: str, label: str, danger: bool = False, trash_context: bool = False, delete_files: bool = True) -> str:
     key = esc(row.get("uid") or row.get("id"))
-    confirm = ' onsubmit="return confirm(\'确定彻底删除该媒体库记录吗？此操作不会经过回收站。\')"' if danger else ""
+    confirm_text = "确定彻底删除该媒体文件和媒体库记录吗？此操作不会经过回收站。" if delete_files else "确定彻底删除该媒体库记录吗？Cloudflare 静态资源文件不会被运行时删除。"
+    confirm_attrs = (
+        f' data-confirm="{esc(confirm_text)}"'
+        f' data-confirm-second="二次确认：请输入 DELETE 后继续。此操作不可撤销。"'
+        f' data-confirm-token="DELETE"'
+    ) if danger else ""
     klass = "button danger" if danger else "button light"
     action_path = f"/admin/table/media_assets/trash/{key}/{action}" if trash_context else f"/admin/table/media_assets/{key}/{action}"
-    return f'<form method="post" action="{action_path}"{confirm}><button class="{klass}" type="submit">{esc(label)}</button></form>'
+    return f'<form method="post" action="{action_path}"{confirm_attrs}><button class="{klass}" type="submit">{esc(label)}</button></form>'
 
 
 def admin_fact(label: str, value: Any) -> str:

@@ -116,8 +116,23 @@
         if (mediaCount) mediaCount.textContent = "请先选择媒体";
         return;
       }
-      if (action === "delete" && !confirm("确定彻底删除选中的媒体库记录吗？此操作不会经过回收站。")) {
-        event.preventDefault();
+      const submitterAction = event.submitter?.getAttribute?.("formaction") || "";
+      const isExportSubmit = submitterAction.includes("/export-used");
+      if (isExportSubmit) {
+        delete mediaBatchForm.dataset.confirm;
+        delete mediaBatchForm.dataset.confirmSecond;
+        delete mediaBatchForm.dataset.confirmToken;
+        return;
+      }
+      if (action === "delete") {
+        const scope = mediaBatchForm.dataset.deleteScope || "媒体文件和媒体库记录";
+        mediaBatchForm.dataset.confirm = `确定彻底删除选中的 ${selected} 个${scope}吗？`;
+        mediaBatchForm.dataset.confirmSecond = "二次确认：请输入 DELETE 后继续。此操作不可撤销。";
+        mediaBatchForm.dataset.confirmToken = "DELETE";
+      } else {
+        delete mediaBatchForm.dataset.confirm;
+        delete mediaBatchForm.dataset.confirmSecond;
+        delete mediaBatchForm.dataset.confirmToken;
       }
     });
   }
@@ -2081,11 +2096,29 @@
   };
   const closeFrontNav = setupFloatingToggle("[data-front-nav-toggle]", "#front-site-nav", "front-nav-open");
   const closeAdminNav = setupFloatingToggle("[data-admin-nav-toggle]", "#admin-sidebar-panel", "admin-nav-open");
+  const runDangerConfirmation = (target) => {
+    const message = target.dataset.confirm || "确定继续执行此操作吗？";
+    if (!confirm(message)) return false;
+    const token = (target.dataset.confirmToken || "").trim();
+    const second = target.dataset.confirmSecond || (token ? `二次确认：请输入 ${token} 后继续。` : "");
+    if (!second && !token) return true;
+    if (!token) return confirm(second);
+    const input = prompt(second, "");
+    return input !== null && input.trim() === token;
+  };
+  document.addEventListener("submit", (event) => {
+    const target = event.target?.closest?.("form[data-confirm]");
+    if (!target) return;
+    if (!runDangerConfirmation(target)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
   document.addEventListener("click", (event) => {
     const target = event.target?.closest?.("[data-confirm]");
     if (!target) return;
-    const message = target.dataset.confirm || "确定继续执行此操作吗？";
-    if (!confirm(message)) {
+    if (target.matches("form") || target.closest("form[data-confirm]")) return;
+    if (!runDangerConfirmation(target)) {
       event.preventDefault();
       event.stopPropagation();
     }

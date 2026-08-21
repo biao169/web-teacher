@@ -126,6 +126,8 @@ class Default(WorkerEntrypoint):
                 form = _form(body)
                 key = form.get("uid", "")
                 action = "can_edit" if key and repo.get(table, key) else "can_create"
+            elif table == "media_assets" and len(parts) >= 4 and parts[3] == "export-used":
+                action = "can_export"
             elif "delete" in parts[3:] or "clear" in parts[3:]:
                 action = "can_delete"
             if not same_origin_post_allowed("POST", env) or not current_auth(repo, env) or not has_permission(repo, env, table, action):
