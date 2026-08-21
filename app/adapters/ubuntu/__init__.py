@@ -1,0 +1,2 @@
+"""Ubuntu ASGI adapter."""
+

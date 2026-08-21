@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Allow: /assets/
+Allow: /media/
+Disallow: /admin
+Disallow: /api
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /logout
+Disallow: /exports/
+Disallow: /data/
+Disallow: /.cache/
+Disallow: /migrations/
+Disallow: /seed/
+Disallow: /src/
+Disallow: /tools/
+Disallow: /*?next=
+Disallow: /*?token=
+Disallow: /*?preview=
+
+Sitemap: https://example.com/sitemap.xml
+Sitemap: https://example.com/sitemap-index.xml

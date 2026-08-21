@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="400" viewBox="0 0 320 400" role="img" aria-label="学生照片占位图">
+  <rect width="320" height="400" fill="#edf2f7"/>
+  <circle cx="160" cy="124" r="56" fill="#4b6785"/>
+  <path d="M76 342c16-70 58-108 84-108s68 38 84 108" fill="#176b63"/>
+  <text x="160" y="374" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#1d2424">学生照片</text>
+</svg>
+

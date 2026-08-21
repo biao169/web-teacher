@@ -1,0 +1,28 @@
+name = "teacher-site-dual"
+main = "src/worker.py"
+compatibility_date = "2026-08-14"
+compatibility_flags = ["python_workers"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/admin/*", "/api/*", "/media/*", "/login", "/logout", "/register", "/sitemap.xml", "/sitemap.txt", "/sitemap-index.xml", "/robots.txt", "/security.txt", "/.well-known/security.txt", "/llms.txt"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "teacher_site"
+database_id = "replace-with-cloudflare-d1-id"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "teacher-site-media"
+
+[vars]
+SITE_URL = "https://example.com"
+PUBLIC_MEDIA_BASE_URL = ""
+ADMIN_EMAILS = ""
+LOCAL_ADMIN_TOKEN = ""
+
+[secrets]
+required = ["TEACHER_SITE_AUTH_SECRET"]

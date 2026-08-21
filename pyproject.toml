@@ -1,0 +1,17 @@
+[project]
+name = "teacher-site-dual"
+version = "0.1.0"
+description = "A lightweight teacher personal/team website for Cloudflare Workers and Ubuntu."
+requires-python = ">=3.12"
+dependencies = [
+  "uvicorn>=0.30",
+  "openpyxl>=3.1",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+cloudflare = ["workers-py"]
+
+[tool.pyright]
+include = ["app", "src", "tools"]
+
