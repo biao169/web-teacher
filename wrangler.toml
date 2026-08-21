@@ -25,4 +25,4 @@ ADMIN_EMAILS = ""
 LOCAL_ADMIN_TOKEN = ""
 
 [secrets]
-required = ["d03X3MpRjK6GTTKgmqT_mN3-ls1DkkU7uhUOwPnDktWtP4CO8QnKDAeWGfOeioSr"]
+required = ["TEACHER_SITE_AUTH_SECRET"]
