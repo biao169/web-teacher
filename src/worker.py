@@ -173,6 +173,11 @@ class Default(WorkerEntrypoint):
             result["checks"]["latest_auth_user"] = self._safe_row(row, ("uid", "role_uid", "status"))
         except Exception as error:
             result["checks"]["latest_auth_user_error"] = str(error)
+        try:
+            rows = await db.prepare("SELECT * FROM auth_users ORDER BY id DESC LIMIT 1").all()
+            result["checks"]["auth_users_select_all"] = {"ok": True, "rows": len(getattr(rows, "results", []) or [])}
+        except Exception as error:
+            result["checks"]["auth_users_select_all"] = {"ok": False, "error": str(error)}
         return result
 
     async def _r2_system_check(self, bucket) -> dict:

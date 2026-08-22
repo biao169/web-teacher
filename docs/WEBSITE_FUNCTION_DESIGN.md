@@ -2762,3 +2762,25 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 兼容性与部署注意：
 
 - 诊断接口不写入 D1/R2，不会改变站点数据。生产环境排障完成后，可继续增加环境变量开关或仅允许管理员访问。
+
+
+### 2026-08-22
+
+修复 Cloudflare D1 仓库加载 auth_users 失败导致无法进入后台的问题。
+
+变更内容：
+
+- 线上诊断显示 D1 直接查询 `auth_users` 有 active 管理员，但 `repository_view.auth_users_count = 0`，说明问题发生在 Worker 的 D1 到内存仓库加载层，而不是 D1 绑定、R2 或 Cookie。
+- `CloudflareD1Loader.load_repository()` 改为按模型字段显式选择列，并提供无排序和 `SELECT *` 兜底，避免单个查询形式失败时整张表被静默置空。
+- D1 结果归一化函数新增按列名逐项读取的兜底逻辑，避免 Cloudflare Python 运行时返回的行对象不能直接 `dict(row)` 时丢失数据。
+- `/api/admin/system-check` 增加 `auth_users_select_all` 探针，用于判断线上 `SELECT * FROM auth_users` 是否仍有运行时异常。
+
+涉及文件：
+
+- `app/adapters/cloudflare_repository.py`
+- `src/worker.py`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与部署注意：
+
+- 该修复不改变 D1 表结构，不需要重新执行迁移；部署新 Worker 后可直接再次访问 `/api/admin/system-check` 验证 `repository_view.auth_users_count` 是否变为 1。

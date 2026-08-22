@@ -16,16 +16,35 @@ class CloudflareD1Loader:
 
     def __init__(self, db: Any):
         self.db = db
+        self.load_errors: dict[str, str] = {}
 
     async def load_repository(self) -> MemoryRepository:
         rows: dict[str, list[dict[str, Any]]] = {}
+        self.load_errors = {}
         for table in TABLES:
-            try:
-                result = await self.db.prepare(f"SELECT * FROM {table.name} ORDER BY id DESC LIMIT 1000").all()
-                rows[table.name] = normalize_d1_results(result)
-            except Exception:
-                rows[table.name] = []
+            rows[table.name] = await self._load_table_rows(table.name, table.field_names)
         return MemoryRepository(rows)
+
+    async def _load_table_rows(self, table_name: str, field_names: list[str]) -> list[dict[str, Any]]:
+        columns = unique_columns(["id", *field_names, "created_at", "updated_at"])
+        column_sql = ", ".join(columns)
+        attempts = (
+            f"SELECT {column_sql} FROM {table_name} ORDER BY id DESC LIMIT 1000",
+            f"SELECT {column_sql} FROM {table_name} LIMIT 1000",
+            f"SELECT * FROM {table_name} ORDER BY id DESC LIMIT 1000",
+            f"SELECT * FROM {table_name} LIMIT 1000",
+        )
+        last_error = ""
+        for sql in attempts:
+            try:
+                result = await self.db.prepare(sql).all()
+                rows = normalize_d1_results(result, columns)
+                self.load_errors.pop(table_name, None)
+                return rows
+            except Exception as error:
+                last_error = str(error)
+        self.load_errors[table_name] = last_error or "unknown D1 load error"
+        return []
 
     async def save(self, table_name: str, data: dict[str, Any]) -> None:
         meta = TABLE_MAP[table_name]
@@ -79,14 +98,33 @@ class CloudflareD1Loader:
         await self.db.prepare("DELETE FROM media_assets WHERE status = 'trash'").run()
 
 
-def normalize_d1_results(result: Any) -> list[dict[str, Any]]:
+def normalize_d1_results(result: Any, columns: list[str] | None = None) -> list[dict[str, Any]]:
     if result is None:
         return []
     if isinstance(result, dict):
         data = result.get("results", [])
     else:
         data = getattr(result, "results", [])
-    return [dict(row) for row in data]
+    rows: list[dict[str, Any]] = []
+    for row in data or []:
+        try:
+            rows.append(dict(row))
+            continue
+        except Exception:
+            pass
+        if columns:
+            rows.append({column: d1_value(row, column) for column in columns})
+    return rows
+
+
+def unique_columns(columns: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for column in columns:
+        if column and column not in seen:
+            seen.add(column)
+            result.append(column)
+    return result
 
 
 def d1_value(obj: Any, key: str) -> Any:
