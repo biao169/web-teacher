@@ -2503,3 +2503,25 @@ Ubuntu 设计约束：
 - 本地/Ubuntu 环境可直接从 `media/` 和 `public/media/` 打包真实文件。
 - Cloudflare Worker 当前不能从 Static Assets 文件系统同步读取并打包媒体文件，因此该接口会返回“不支持”；如后续使用 R2 存储媒体，可接入 R2 对象读取后再启用生产环境媒体包导出。
 - 导出是手动触发，不随媒体库页面加载自动扫描或读取文件内容，避免大量媒体文件时影响后台列表性能。
+
+### 2026-08-22
+
+修复 Cloudflare 网页端部署时找不到本地 `app` 模块。
+
+变更内容：
+
+- `wrangler.toml` 保留 Python Worker 入口 `src/worker.py`，同时新增 `base_dir = "."` 和 `find_additional_modules = true`。
+- 新增 `[[rules]] type = "PythonModule"`，显式把 `app/*.py`、`app/**/*.py` 和 `src/*.py` 打包进 Worker，解决网页端部署时报 `ModuleNotFoundError: No module named 'app'` 的问题。
+- `compatibility_flags` 增加 `disable_python_external_sdk`，用于绕开网页端构建环境中 `workers` SDK 外部包缺失的问题。
+- `CLOUDFLARE_DEPLOYMENT.md` 增加密钥配置和网页端 Python 本地模块打包说明。
+
+涉及文件：
+
+- `wrangler.toml`
+- `CLOUDFLARE_DEPLOYMENT.md`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与部署注意：
+
+- 该改动只影响 Cloudflare Wrangler 打包，不改变本地 Windows/Ubuntu 的运行入口。
+- 如果 Cloudflare 仍使用旧提交构建，需要确认 GitHub main 分支已经包含本次配置并触发重新部署。

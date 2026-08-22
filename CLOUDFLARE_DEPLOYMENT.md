@@ -39,3 +39,25 @@ Cloudflare 后台可先导出 `/api/export/site.json`。完整 Excel/ZIP 导出�
 ```powershell
 D:\Python\Miniconda\envs\py312\python.exe -m tools.export_bundle
 ```
+
+## 生成密钥，配置到cloudflare，不是填入.toml
+```powershell
+D:\Python\Miniconda\envs\py312\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+将生成的密钥，手动在worker中添加变量
+
+## 网页端部署 Python 本地模块
+
+Cloudflare 网页端部署不会自动把项目根目录的 `app/` 业务包作为 Python 模块加入 Worker。`wrangler.toml` 已配置：
+
+```toml
+base_dir = "."
+find_additional_modules = true
+
+[[rules]]
+type = "PythonModule"
+globs = ["app/*.py", "app/**/*.py", "src/*.py"]
+fallthrough = true
+```
+
+如果部署时报 `ModuleNotFoundError: No module named 'app'`，需要确认这些配置已经推送到 GitHub，并由 Cloudflare 使用最新提交重新部署。
