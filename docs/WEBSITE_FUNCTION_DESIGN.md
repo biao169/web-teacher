@@ -2790,3 +2790,9 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 - `migrations/0001_initial.sql` 在建表后写入最小可用数据：站点设置、通用设置和前台导航项。该初始化只提供首页、团队、项目、代表论文、论文、专利与软著、学生、动态、课程、联系等基础入口，不写入教师、论文、项目等示例业务数据。
 - `src/worker.py` 的 Cloudflare R2 媒体上传在调用 `MEDIA.put()` 前，将 Python `bytes` 转换为 JavaScript `Uint8Array`，避免 Pyodide/Workers 环境把二进制上传体识别为非法类型。
 - 新部署策略：Cloudflare D1/SQLite 首次执行 `migrations/0001_initial.sql` 后即可看到前台基础导航；示例数据仍由 `seed` 相关脚本手动触发，避免生产站点自动混入测试内容。
+
+## 2026-08-22 首次部署系统配置预置
+
+- `migrations/0001_initial.sql` 的最小初始化从“基础导航”扩展为“系统配置预置”：首次建库会写入站点设置、通用设置、前台导航、默认公共媒体索引、系统权限角色和角色权限矩阵。
+- 初始化仍然不会创建高级管理员账号，也不会写入教师、论文、项目、专利、学生、动态、课程、留言等私有或示例业务内容；管理员账号继续通过 `/admin/setup` 安全初始化。
+- 通用设置默认启用自动翻译配置列表、论文/专利联网查验平台、上传限制、媒体回收站保留时间、缓存时间和 PDF 相关开关；API Key、通知邮箱等私有信息保持空值，由管理员上线后填写。
