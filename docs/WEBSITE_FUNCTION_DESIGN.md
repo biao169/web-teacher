@@ -2529,3 +2529,26 @@ Ubuntu 设计约束：
 
 - 该改动只影响 Cloudflare Wrangler 打包，不改变本地 Windows/Ubuntu 的运行入口。
 - 如果 Cloudflare 仍使用旧提交构建，需要确认 GitHub main 分支已经包含本次配置并触发重新部署。
+
+### 2026-08-22
+
+修复 Cloudflare 部署成功后 workers.dev 根路径 404。
+
+变更内容：
+
+- `src/worker.py` 调整 Cloudflare 路由分发：只有 `/assets/...` 直接交给 Static Assets；`/media/...` 优先查 R2，失败后回退 Static Assets；其他前台页面如 `/`、`/team`、`/publications` 全部交给 `route_request()` 动态渲染。
+- 修复原先把所有非后台、非 API 路径直接交给 Static Assets 的问题；由于 `public/` 没有静态 `index.html`，Cloudflare 会对 `/` 返回 404。
+- `wrangler.toml` 新增 `workers_dev = true`，明确启用 `*.workers.dev` 访问地址。
+- `CLOUDFLARE_DEPLOYMENT.md` 补充 R2 空桶说明：R2 为空不影响首页显示，当前静态媒体来自 `public/media/` 的 Static Assets，R2 用于未来运行时媒体对象。
+
+涉及文件：
+
+- `src/worker.py`
+- `wrangler.toml`
+- `CLOUDFLARE_DEPLOYMENT.md`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与部署注意：
+
+- 该改动只影响 Cloudflare Worker 路由；本地 `tools/dev_server.py` 原本就是 `/assets`、`/media` 静态优先，其余动态渲染。
+- 部署后如仍 404，应确认 Cloudflare 使用的是包含本记录的最新 GitHub 提交，并检查 Worker 的 Domains & Routes 中 workers.dev 是否启用。

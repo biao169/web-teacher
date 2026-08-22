@@ -32,6 +32,8 @@ uv run pywrangler dev
 uv run pywrangler deploy
 ```
 
+`wrangler.toml` 中已设置 `workers_dev = true`，部署后可以通过 Cloudflare 提供的 `*.workers.dev` 地址访问。若部署成功但访问根路径显示 404，优先检查 Worker 路由逻辑：本项目只有 `/assets/...` 和 `/media/...` 走静态资源/R2，`/`、`/team`、`/publications` 等前台页面必须由 Python Worker 动态渲染。
+
 ## 数据迁移
 
 Cloudflare 后台可先导出 `/api/export/site.json`。完整 Excel/ZIP 导出建议在本地或 Ubuntu 运行：
@@ -59,3 +61,7 @@ watch_dir = "app"
 该脚本会在部署前把 `app/` 复制成 `src/app/`，让 `src/worker.py` 可以在 Cloudflare Python Worker 入口目录内导入本地业务包。`src/app/` 是生成目录，已经加入 `.gitignore`，不要手动维护。
 
 如果部署时报 `ModuleNotFoundError: No module named 'app'`，需要确认 `tools/prepare_cloudflare_build.py`、`.gitignore` 和 `wrangler.toml` 的 `[build]` 配置已经推送到 GitHub，并由 Cloudflare 使用最新提交重新部署。
+
+## R2 媒体桶说明
+
+`teacher-site-media` R2 桶为空不影响网站首页显示。当前静态 CSS/JS 和示例媒体来自 `public/` 的 Cloudflare Static Assets，其中 `public/media/` 会随部署一起发布。R2 主要用于未来生产环境运行时媒体对象；当前 Worker 上传接口仍提示暂未接入 R2 写入。

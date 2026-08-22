@@ -21,7 +21,7 @@ class Default(WorkerEntrypoint):
             if media is not None:
                 return media
 
-        if not path.startswith(("/admin", "/api", "/media", "/sitemap.xml", "/sitemap.txt", "/sitemap-index.xml", "/robots.txt", "/security.txt", "/.well-known/security.txt", "/llms.txt")):
+        if path.startswith("/assets/"):
             return await self._asset_response(request)
 
         if path in {"/admin/table/media_assets", "/admin/table/media_assets/trash"} and getattr(self.env, "DB", None) is not None:
