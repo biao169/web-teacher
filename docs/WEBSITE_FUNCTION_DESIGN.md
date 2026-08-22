@@ -2510,14 +2510,18 @@ Ubuntu 设计约束：
 
 变更内容：
 
-- `wrangler.toml` 保留 Python Worker 入口 `src/worker.py`，同时新增 `base_dir = "."` 和 `find_additional_modules = true`。
-- 新增 `[[rules]] type = "PythonModule"`，显式把 `app/*.py`、`app/**/*.py` 和 `src/*.py` 打包进 Worker，解决网页端部署时报 `ModuleNotFoundError: No module named 'app'` 的问题。
+- `wrangler.toml` 保留 Python Worker 入口 `src/worker.py`，同时新增 `[build] command = "python tools/prepare_cloudflare_build.py"`。
+- 新增 `tools/prepare_cloudflare_build.py`，在 Cloudflare 网页端执行 `npx wrangler deploy` 前，把项目根目录 `app/` 复制成 `src/app/`，让入口目录旁边存在可导入的本地业务包。
+- `.gitignore` 新增 `/src/app/`，避免构建生成目录被提交；真实业务源码仍维护在根目录 `app/`。
+- 曾尝试的 `[[rules]] type = "PythonModule"` 会被 Wrangler 4.125 拒绝，错误为 rules type 只能是 `ESModule`、`CommonJS`、`CompiledWasm`、`Text` 或 `Data`，因此改用 build copy 方案。
 - `compatibility_flags` 增加 `disable_python_external_sdk`，用于绕开网页端构建环境中 `workers` SDK 外部包缺失的问题。
 - `CLOUDFLARE_DEPLOYMENT.md` 增加密钥配置和网页端 Python 本地模块打包说明。
 
 涉及文件：
 
 - `wrangler.toml`
+- `.gitignore`
+- `tools/prepare_cloudflare_build.py`
 - `CLOUDFLARE_DEPLOYMENT.md`
 - `docs/WEBSITE_FUNCTION_DESIGN.md`
 

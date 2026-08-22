@@ -48,16 +48,14 @@ D:\Python\Miniconda\envs\py312\python.exe -c "import secrets; print(secrets.toke
 
 ## 网页端部署 Python 本地模块
 
-Cloudflare 网页端部署不会自动把项目根目录的 `app/` 业务包作为 Python 模块加入 Worker。`wrangler.toml` 已配置：
+Cloudflare 网页端部署不会自动把项目根目录的 `app/` 业务包作为 Python 模块加入 Worker。`wrangler.toml` 已配置构建前脚本：
 
 ```toml
-base_dir = "."
-find_additional_modules = true
-
-[[rules]]
-type = "PythonModule"
-globs = ["app/*.py", "app/**/*.py", "src/*.py"]
-fallthrough = true
+[build]
+command = "python tools/prepare_cloudflare_build.py"
+watch_dir = "app"
 ```
 
-如果部署时报 `ModuleNotFoundError: No module named 'app'`，需要确认这些配置已经推送到 GitHub，并由 Cloudflare 使用最新提交重新部署。
+该脚本会在部署前把 `app/` 复制成 `src/app/`，让 `src/worker.py` 可以在 Cloudflare Python Worker 入口目录内导入本地业务包。`src/app/` 是生成目录，已经加入 `.gitignore`，不要手动维护。
+
+如果部署时报 `ModuleNotFoundError: No module named 'app'`，需要确认 `tools/prepare_cloudflare_build.py`、`.gitignore` 和 `wrangler.toml` 的 `[build]` 配置已经推送到 GitHub，并由 Cloudflare 使用最新提交重新部署。
