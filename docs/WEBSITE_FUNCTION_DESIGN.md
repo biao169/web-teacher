@@ -2742,3 +2742,23 @@ Ubuntu 设计约束：
 
 - 不改变已有管理员账号场景的登录流程。
 - 不改变 `/admin/setup` 的创建逻辑；一旦存在启用账号，访问 `/admin/setup` 会回到后台登录链路。
+
+### 2026-08-22
+
+新增 Cloudflare 运行时连接诊断接口。
+
+变更内容：
+
+- Worker 新增 /api/admin/system-check 只读诊断接口，用于排查 Cloudflare 首次初始化、D1 绑定、R2 词典、会话 Cookie 和内存仓库视图不一致的问题。
+- 诊断结果只返回绑定状态、表计数、角色是否存在、cookie 是否可解析等布尔或计数信息；不返回密码哈希、密钥值或完整用户资料。
+- 该接口用于部署排障，重点比较
+epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一致；若 D1 直接计数有用户但仓库视图为 0，说明 Worker 加载 D1 表时发生异常或表结构不兼容。
+
+涉及文件：
+
+- src/worker.py
+- docs/WEBSITE_FUNCTION_DESIGN.md
+
+兼容性与部署注意：
+
+- 诊断接口不写入 D1/R2，不会改变站点数据。生产环境排障完成后，可继续增加环境变量开关或仅允许管理员访问。

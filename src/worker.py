@@ -5,9 +5,37 @@ from workers import Response, WorkerEntrypoint
 from app.adapters.cloudflare_repository import CloudflareD1Loader
 from app.core.media import media_storage_kind, r2_preferred_key
 from app.core.models import TABLE_MAP
-from app.core.rendering import I18N_DICTIONARY_R2_KEY, _form, admin_batch_update, audit_admin_action, current_auth, ensure_auth_defaults, has_permission, i18n_dictionary_update_payload, normalize_admin_data, prepare_media_crop, prepare_media_upload, redirect, route_request, same_origin_post_allowed, security_headers, translation_auto_translate, translation_auto_translate_step, translation_delete_cache, translation_inline_payload, translation_inline_update, translation_job_start, translation_job_status_payload, translation_job_stop, translation_scan_database
+from app.core.rendering import (
+    AUTH_COOKIE_NAME,
+    I18N_DICTIONARY_R2_KEY,
+    _form,
+    admin_batch_update,
+    audit_admin_action,
+    auth_secret,
+    auth_users_exist,
+    current_auth,
+    ensure_auth_defaults,
+    has_permission,
+    i18n_dictionary_update_payload,
+    normalize_admin_data,
+    prepare_media_crop,
+    prepare_media_upload,
+    redirect,
+    route_request,
+    same_origin_post_allowed,
+    security_headers,
+    translation_auto_translate,
+    translation_auto_translate_step,
+    translation_delete_cache,
+    translation_inline_payload,
+    translation_inline_update,
+    translation_job_start,
+    translation_job_status_payload,
+    translation_job_stop,
+    translation_scan_database,
+)
 from app.core.repository import MemoryRepository
-from app.core.security import hash_password, stable_uid
+from app.core.security import hash_password, parse_cookie_header, read_signed_session, stable_uid
 
 
 class Default(WorkerEntrypoint):
@@ -46,6 +74,8 @@ class Default(WorkerEntrypoint):
             repo = await self._repo()
         if path.startswith(("/admin", "/api/admin")):
             ensure_auth_defaults(repo)
+        if path == "/api/admin/system-check":
+            return await self._system_check_response(repo, env, request)
         if request.method == "POST" and path in {"/api/admin/media/upload", "/api/admin/media/crop"}:
             action = "can_create" if path.endswith("/upload") else "can_edit"
             if not same_origin_post_allowed("POST", env) or not current_auth(repo, env) or not has_permission(repo, env, "media_assets", action):
@@ -68,6 +98,108 @@ class Default(WorkerEntrypoint):
                 for row in repo.list(table):
                     await loader.save(table, row)
         return Response(payload.decode("utf-8"), status=status, headers=dict(headers))
+
+
+    async def _system_check_response(self, repo, env: dict[str, str], request):
+        import json
+        import time
+
+        db = getattr(self.env, "DB", None)
+        bucket = getattr(self.env, "MEDIA", None)
+        cookies = parse_cookie_header(request.headers.get("cookie") or "")
+        token = cookies.get(AUTH_COOKIE_NAME, "")
+        session_payload = read_signed_session(token, auth_secret(repo, env)) if token else {}
+        auth = current_auth(repo, env)
+        role_uid = str(((auth.get("user") or {}).get("role_uid")) or session_payload.get("role_uid") or "")
+        payload = {
+            "ok": True,
+            "platform": "cloudflare",
+            "checked_at": int(time.time()),
+            "bindings": {
+                "d1_db_bound": db is not None,
+                "r2_media_bound": bucket is not None,
+            },
+            "environment": {
+                "site_url_configured": bool(getattr(self.env, "SITE_URL", "")),
+                "public_media_base_url_configured": bool(getattr(self.env, "PUBLIC_MEDIA_BASE_URL", "")),
+                "auth_secret_configured": bool(getattr(self.env, "TEACHER_SITE_AUTH_SECRET", "")),
+                "auth_secret_length_ok": len(str(getattr(self.env, "TEACHER_SITE_AUTH_SECRET", "") or "")) >= 32,
+            },
+            "repository_view": {
+                "auth_users_exist": auth_users_exist(repo),
+                "auth_users_count": len(repo.list("auth_users")),
+                "auth_roles_count": len(repo.list("auth_roles")),
+                "auth_permissions_count": len(repo.list("auth_permissions")),
+                "super_admin_role_seen": bool(repo.get("auth_roles", "role-super-admin")),
+            },
+            "cookie": {
+                "present": bool(token),
+                "valid_signature": bool(session_payload),
+                "uid_present": bool(session_payload.get("uid")),
+                "current_auth_ok": bool(auth),
+                "current_role_uid": role_uid,
+            },
+            "d1_direct": await self._d1_system_check(db),
+            "r2_direct": await self._r2_system_check(bucket),
+        }
+        headers = {key: value for key, value in security_headers()}
+        headers["content-type"] = "application/json; charset=utf-8"
+        headers["cache-control"] = "no-store"
+        return Response(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), status=200, headers=headers)
+
+    async def _d1_system_check(self, db) -> dict:
+        if db is None:
+            return {"ok": False, "error": "DB binding is missing"}
+        result: dict = {"ok": True, "tables": {}, "checks": {}}
+        for table in ("auth_users", "auth_roles", "auth_permissions", "global_settings", "site_settings", "media_assets", "translation_cache"):
+            try:
+                row = await db.prepare(f"SELECT COUNT(*) AS count FROM {table}").first()
+                result["tables"][table] = {"ok": True, "count": self._binding_value(row, "count", 0)}
+            except Exception as error:
+                result["ok"] = False
+                result["tables"][table] = {"ok": False, "error": str(error)}
+        try:
+            row = await db.prepare("SELECT COUNT(*) AS count FROM auth_users WHERE status = 'active'").first()
+            result["checks"]["active_auth_users"] = self._binding_value(row, "count", 0)
+        except Exception as error:
+            result["checks"]["active_auth_users_error"] = str(error)
+        try:
+            row = await db.prepare("SELECT uid, level, is_active FROM auth_roles WHERE uid = 'role-super-admin' LIMIT 1").first()
+            result["checks"]["super_admin_role"] = self._safe_row(row, ("uid", "level", "is_active"))
+        except Exception as error:
+            result["checks"]["super_admin_role_error"] = str(error)
+        try:
+            row = await db.prepare("SELECT uid, role_uid, status FROM auth_users ORDER BY id DESC LIMIT 1").first()
+            result["checks"]["latest_auth_user"] = self._safe_row(row, ("uid", "role_uid", "status"))
+        except Exception as error:
+            result["checks"]["latest_auth_user_error"] = str(error)
+        return result
+
+    async def _r2_system_check(self, bucket) -> dict:
+        if bucket is None:
+            return {"ok": False, "error": "MEDIA R2 binding is missing"}
+        try:
+            obj = await bucket.get(I18N_DICTIONARY_R2_KEY)
+            if obj is None:
+                return {"ok": True, "i18n_dictionary_exists": False, "key": I18N_DICTIONARY_R2_KEY}
+            size = self._binding_value(obj, "size", None)
+            return {"ok": True, "i18n_dictionary_exists": True, "key": I18N_DICTIONARY_R2_KEY, "size": size}
+        except Exception as error:
+            message = str(error)
+            missing = "does not exist" in message.lower() or "10007" in message
+            return {"ok": not missing, "i18n_dictionary_exists": False, "key": I18N_DICTIONARY_R2_KEY, "error": message}
+
+    def _safe_row(self, row, fields: tuple[str, ...]) -> dict | None:
+        if row is None:
+            return None
+        return {field: self._binding_value(row, field, "") for field in fields}
+
+    def _binding_value(self, item, key: str, default=None):
+        if item is None:
+            return default
+        if isinstance(item, dict):
+            return item.get(key, default)
+        return getattr(item, key, default)
 
     def _host(self, url: str) -> str:
         parsed = self._parse_url(url)
