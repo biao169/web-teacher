@@ -15,8 +15,8 @@ run_worker_first = ["/admin/*", "/api/*", "/media/*", "/login", "/logout", "/reg
 
 [[d1_databases]]
 binding = "DB"
-database_name = "teacher_site_sql_v2"
-database_id = "198e1cee-b150-45c7-853d-366714a50116"
+database_name = "teacher_site_sql_v3"
+database_id = "3ad816b6-2923-4f96-8cc1-1d4a4c868ce3"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
