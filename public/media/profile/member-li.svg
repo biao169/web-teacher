@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="320" height="400" viewBox="0 0 320 400" role="img" aria-label="团队成员照片占位图">
-  <rect width="320" height="400" fill="#f4f1ea"/>
-  <circle cx="160" cy="124" r="58" fill="#1f4d7a"/>
-  <path d="M70 342c20-72 62-112 90-112s70 40 90 112" fill="#176b63"/>
-  <text x="160" y="374" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#1d2424">团队成员</text>
-</svg>
-

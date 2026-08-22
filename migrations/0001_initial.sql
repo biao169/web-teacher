@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS media_assets (
   category TEXT,
   mime_type TEXT,
   size INTEGER,
+  storage_kind TEXT DEFAULT 'static',
   status TEXT DEFAULT 'active',
   checksum TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,

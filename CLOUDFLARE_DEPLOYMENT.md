@@ -18,7 +18,7 @@ npx wrangler d1 migrations apply teacher_site --remote
 migrations/0001_initial.sql
 ```
 
-该文件已经合并为单个完整初始化脚本，适合空数据库首次建表。不要在已有正式数据的数据库中反复手动执行初始化脚本；已有数据迁移应先备份，再使用后台“导入与导出”恢复。
+`0001_initial.sql` 是首次部署唯一需要执行的数据库初始化文件，包含当前全部表、字段和索引。初始化脚本只建表，不插入示例数据。不要在已有正式数据的数据库中反复手动执行初始化脚本；已有数据迁移应先备份，再使用后台“导入与导出”恢复或按后续新增迁移说明升级。
 
 ## 本地调试
 
@@ -58,10 +58,38 @@ command = "python tools/prepare_cloudflare_build.py"
 watch_dir = "app"
 ```
 
-该脚本会在部署前把 `app/` 复制成 `src/app/`，让 `src/worker.py` 可以在 Cloudflare Python Worker 入口目录内导入本地业务包。`src/app/` 是生成目录，已经加入 `.gitignore`，不要手动维护。
+该脚本会在部署前把 `app/` 复制成 `src/app/`，让 `src/worker.py` 可以在 Cloudflare Python Worker 入口目录内导入本地业务包；同时会把根目录 `i18n_dictionary.json` 复制为 `src/i18n_dictionary.json`，作为 R2 词典不存在时的随包默认词典。`src/app/` 和 `src/i18n_dictionary.json` 都是生成内容，已经加入 `.gitignore`，不要手动维护。
 
 如果部署时报 `ModuleNotFoundError: No module named 'app'`，需要确认 `tools/prepare_cloudflare_build.py`、`.gitignore` 和 `wrangler.toml` 的 `[build]` 配置已经推送到 GitHub，并由 Cloudflare 使用最新提交重新部署。
 
 ## R2 媒体桶说明
 
-`teacher-site-media` R2 桶为空不影响网站首页显示。当前静态 CSS/JS 和示例媒体来自 `public/` 的 Cloudflare Static Assets，其中 `public/media/` 会随部署一起发布。R2 主要用于未来生产环境运行时媒体对象；当前 Worker 上传接口仍提示暂未接入 R2 写入。
+`teacher-site-media` R2 桶为空不影响网站首页显示。静态 CSS/JS 和三张默认媒体来自 `public/` 的 Cloudflare Static Assets，其中 `public/media/default/` 会随部署一起发布，仅包含网站默认图标、教师默认头像和学生默认头像。
+
+后台在 Cloudflare Worker 环境上传或裁剪媒体时，会写入 R2 的 `MEDIA` 绑定，并在 D1 的 `media_assets` 表记录 `storage_kind = r2`。新上传对象默认使用 `uploads/<category>/<filename>-<timestamp>` key，前台访问路径仍是 `/media/uploads/...`。
+
+Worker 的 `/media/...` 路由按 key 优化读取顺序：
+
+- `/media/uploads/...` 和 `/media/r2/...`：先查 R2，找不到再回退 Static Assets。
+- `/media/profile/...`、`/media/icons/...` 等普通静态媒体：先查 Static Assets，找不到再回退 R2。
+
+迁移到 Ubuntu 时，导出 D1 数据和 R2 媒体对象，将 R2 对象恢复到 Ubuntu 项目的 `media/uploads/...`，数据库中的 `object_key` 不需要改变。
+
+## R2 翻译词典说明
+
+根目录 `i18n_dictionary.json` 是本项目唯一正式维护的手动中英互译词典源文件，主要用于前台固定 UI 文案和可复用内容译文。
+
+Cloudflare Worker 渲染动态页面时，词典读取顺序为：
+
+1. R2 `MEDIA` 桶中的 `i18n/i18n_dictionary.json`。
+2. 随部署包生成的 `src/i18n_dictionary.json`。
+3. 内置 `TRANSLATIONS` 和 D1 中的 `translation_cache`。
+
+在后台“手动中英词典”界面点击“保存词典文件”时：
+
+- Cloudflare Worker 环境会把当前词典文件内容写入 R2 的 `i18n/i18n_dictionary.json`。
+- 本地/Ubuntu 环境会直接写回根目录 `i18n_dictionary.json`。
+
+后台“翻译缓存”页只显示模型字段翻译任务。若某个字段原文命中手动词典，前台英文会直接使用词典译文，后台缓存列表显示为“词典命中”，对应英文内容不可在缓存列表中修改，只能进入“手动中英词典”页修改词典文件。
+
+如需把线上词典同步回本地，可从 R2 下载 `i18n/i18n_dictionary.json`，覆盖项目根目录的 `i18n_dictionary.json` 后再提交代码。

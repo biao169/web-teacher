@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from .exporting import csv_bytes, excel_bytes, export_json
-from .media import image_tag, media_url
+from .media import image_tag, media_storage_kind, media_url, r2_preferred_key
 from .models import TABLES, TABLE_MAP, Table, int_value
 from .repository import Query, Repository
 from .security import (
@@ -47,7 +47,10 @@ MEDIA_SCAN_EXTENSIONS = {
     ".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav",
     ".csv", ".doc", ".docx", ".json", ".md", ".pdf", ".ppt", ".pptx", ".txt", ".xls", ".xlsx", ".yaml", ".yml",
 }
-ASSET_VERSION = "20260821-media-delete-confirm"
+ASSET_VERSION = "20260822-media-confirm"
+I18N_DICTIONARY_FILENAME = "i18n_dictionary.json"
+I18N_DICTIONARY_R2_KEY = "i18n/i18n_dictionary.json"
+I18N_DICTIONARY_CACHE: dict[str, Any] = {"path": "", "mtime": -1.0, "data": None}
 LOGIN_RATE_LIMIT_CACHE_PATH = Path(".cache") / "login_rate_limits.json"
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
 LOGIN_RATE_LIMIT_LOCK_SECONDS = 15 * 60
@@ -771,13 +774,13 @@ def home_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> s
     </section>
     {section(t(env, "research_interests"), '<div class="tags">' + ''.join(f'<span title="{esc(front_value(repo, env, "research_interests", item, "description", 500))}">{esc(front_value(repo, env, "research_interests", item, "name", 200))}</span>' for item in interests) + '</div>') if interests else ""}
     <section class="two-col">
-      <div>{section_head(t(env, "featured_publications"), lang_url("/publications", env), env)}{publication_list(pubs, display_style=publication_display_style, repo=repo, env=env)}</div>
+      <div>{section_head(t(env, "featured_publications"), lang_url("/publications", env), env)}{home_publication_list(pubs, publication_display_style, repo, env)}</div>
       <div>{section_head(t(env, "latest_news"), lang_url("/news", env), env)}{news_list(news, repo=repo, env=env)}</div>
     </section>
     <section class="three-col">
-      <div>{section_head(t(env, "projects"), lang_url("/projects", env), env)}{simple_items(projects, "name", "source", repo, env, "projects")}</div>
-      <div>{section_head(t(env, "patents"), lang_url("/patents", env), env)}{simple_items(patents, "name", "patent_type", repo, env, "patents")}</div>
-      <div>{section_head(t(env, "students"), lang_url("/students", env), env)}{simple_items(students, "name", "degree", repo, env, "students")}</div>
+      <div>{section_head(t(env, "projects"), lang_url("/projects", env), env)}{home_project_items(projects, repo, env)}</div>
+      <div>{section_head(t(env, "patents"), lang_url("/patents", env), env)}{home_patent_items(patents, repo, env)}</div>
+      <div>{section_head(t(env, "students"), lang_url("/students", env), env)}{home_student_items(students, repo, env)}</div>
     </section>
     """
     return layout(repo, str(site_display.get("seo_title") or site_name), content, env, site)
@@ -1107,10 +1110,11 @@ def student_filter_form(query: dict[str, str], placeholder: str, filter_groups: 
         ("category", t(env, "group_by_category")),
         ("degree", t(env, "group_by_degree")),
     ]
+    group_style = filter_select_style(t(env, "student_group_mode"), group_options, student_group_mode(query))
     return f"""<form class="filters compact-filterbar student-filterbar" method="get">
       {lang_hidden(env)}
       <input class="filter-search" name="q" value="{esc(query.get("q", ""))}" placeholder="{esc(placeholder)}">
-      <select name="group_by" class="student-group-select"><option value="">{esc(t(env, "student_group_mode"))}</option>{select_options(group_options, student_group_mode(query))}</select>
+      <select name="group_by" class="filter-select student-group-select" style="{group_style}"><option value="">{esc(t(env, "student_group_mode"))}</option>{select_options(group_options, student_group_mode(query))}</select>
       {filter_selects(query, filter_groups)}
       <button>{esc(t(env, "search"))}</button>
       <a class="button ghost filter-reset" href="{esc(reset_href)}">{esc(t(env, "reset"))}</a>
@@ -1413,6 +1417,17 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
         if not has_permission(repo, env, "auth_permissions", "can_view"):
             return html_response(admin_denied_html(repo, env, "权限管理", "当前账号没有查看权限管理的权限。"), 403)
         return html_response(admin_layout(repo, "权限管理", admin_permissions_home(repo, env), env, [("后台", "/admin"), ("权限管理", "/admin/permissions")]))
+    if path in {"/admin/i18n-dictionary", "/admin/i18n-dictionary/save"}:
+        if not has_permission(repo, env, "translation_cache", "can_view"):
+            return html_response(admin_denied_html(repo, env, "手动中英词典", "当前账号没有查看翻译工具的权限。"), 403)
+        breadcrumbs = [("后台", "/admin"), ("翻译缓存", "/admin/table/translation_cache"), ("手动中英词典", "/admin/i18n-dictionary")]
+        if method == "POST":
+            if not has_permission(repo, env, "translation_cache", "can_edit"):
+                return html_response(admin_layout(repo, "手动中英词典", admin_denied_panel("手动中英词典", "当前账号没有编辑词典文件的权限。"), env, breadcrumbs), 403)
+            result = i18n_dictionary_save_local_from_body(body, env)
+            audit_admin_action(repo, env, "dictionary_save", "translation_cache", "", "保存手动中英词典文件", result)
+            return redirect(f"/admin/i18n-dictionary?saved={quote(str(result.get('saved') or 'local'))}&entries={result.get('entries', 0)}")
+        return html_response(admin_layout(repo, "手动中英词典", admin_i18n_dictionary_page(query, env), env, breadcrumbs))
     if path == "/admin/export":
         if not has_permission(repo, env, "export", "can_export"):
             return html_response(admin_denied_html(repo, env, "导入与导出", "当前账号没有导出或恢复网站数据的权限。"), 403)
@@ -1455,13 +1470,13 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             audit_admin_action(repo, env, "export_media", table, "", "导出媒体文件", result, "warning" if result.get("skipped") else "success")
             return response
         if method == "POST" and table == "media_assets" and len(parts) >= 5 and parts[3] == "trash" and parts[4] == "clear":
-            deleted = media_clear_trash(repo)
-            audit_admin_action(repo, env, "delete", table, "trash", "清空媒体回收站", {"deleted": deleted})
-            return redirect(f"/admin/table/{table}/trash")
+            result = media_clear_trash(repo)
+            audit_admin_action(repo, env, "delete", table, "trash", "清空媒体回收站", result, "warning" if result.get("skipped") else "success")
+            return redirect(append_query_params(f"/admin/table/{table}/trash", {"batch_deleted": result.get("deleted", 0), "batch_skipped": result.get("skipped", 0)}))
         if method == "POST" and table == "media_assets" and len(parts) >= 6 and parts[3] == "trash":
-            media_apply_action(repo, parts[4], parts[5])
-            audit_admin_action(repo, env, parts[5], table, parts[4], f"媒体回收站操作：{parts[5]}")
-            return redirect(f"/admin/table/{table}/trash")
+            result = media_apply_action(repo, parts[4], parts[5])
+            audit_admin_action(repo, env, parts[5], table, parts[4], f"媒体回收站操作：{parts[5]}", result, "warning" if result.get("skipped") else "success")
+            return redirect(append_query_params(f"/admin/table/{table}/trash", {"batch_selected": result.get("selected", 0), "batch_deleted": result.get("deleted", 0), "batch_skipped": result.get("skipped", 0)}))
         if method == "POST" and table == "media_assets" and len(parts) >= 4 and parts[3] == "scan":
             result = media_scan_project_files(repo, env)
             audit_admin_action(repo, env, "scan", table, "", "扫描项目媒体目录", result, "warning" if result.get("unsupported") else "success")
@@ -1477,9 +1492,9 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
         if method == "POST" and table == "media_assets" and len(parts) >= 5:
             media_key = parts[3]
             action = parts[4]
-            media_apply_action(repo, media_key, action)
-            audit_admin_action(repo, env, action, table, media_key, f"媒体操作：{action}")
-            return redirect(f"/admin/table/{table}")
+            result = media_apply_action(repo, media_key, action)
+            audit_admin_action(repo, env, action, table, media_key, f"媒体操作：{action}", result, "warning" if result.get("skipped") else "success")
+            return redirect(append_query_params(f"/admin/table/{table}", {"batch_selected": result.get("selected", 0), "batch_deleted": result.get("deleted", 0), "batch_skipped": result.get("skipped", 0)}))
         if method == "POST" and table == "media_assets" and len(parts) >= 4 and parts[3] == "batch":
             location, result = media_batch_update(repo, body)
             audit_admin_action(repo, env, "batch_update", table, "", "批量修改媒体库", result, "warning" if result.get("skipped") else "success")
@@ -1515,7 +1530,7 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             audit_admin_action(repo, env, "batch_update", table, "", f"批量修改 {meta.label}", result, "warning" if result.get("skipped") else "success")
             return redirect(location)
         if method == "POST" and table == "translation_cache" and len(parts) >= 4 and parts[3] == "scan":
-            result = translation_scan_database(repo)
+            result = translation_scan_database(repo, env)
             audit_admin_action(repo, env, "scan", table, "", "扫描数据库提取翻译缓存", result)
             return redirect(f"/admin/table/translation_cache?scanned={result.get('created', 0)}&updated={result.get('updated', 0)}&dedicated={result.get('dedicated', 0)}&deleted={result.get('deleted', 0)}")
         if method == "POST" and table == "translation_cache" and len(parts) >= 4 and parts[3] == "auto-translate":
@@ -1727,6 +1742,7 @@ def layout(repo: Repository, title: str, content: str, env: dict[str, str], site
     site = site or active_site(repo)
     lang = current_lang(env)
     site_name = front_value(repo, env, "site_settings", site, "site_name", 200) or localized_site_name(site, lang)
+    brand_html = site_brand_html(site, site_name, env)
     nav_html = "".join(f'<a href="{esc(lang_url(str(item.get("path") or "/"), env))}">{esc(front_value(repo, env, "navigation_items", item, "title", 120) or localized_nav_title(item, lang))}</a>' for item in nav(repo, "header", env))
     lang_switch = language_switch(env)
     auth = current_auth(repo, env)
@@ -1740,17 +1756,79 @@ def layout(repo: Repository, title: str, content: str, env: dict[str, str], site
     menu_label = "Menu" if lang == "en" else "菜单"
     page_title = site_name if not title else f"{title} - {site_name}"
     seo_description = front_value(repo, env, "site_settings", site, "seo_description", 500)
-    footer_text = front_value(repo, env, "site_settings", site, "footer_text", 500) or site_name
+    footer_html = site_footer_html(repo, env, site, site_name)
     seo_links = seo_language_links(env)
+    media_links = site_media_head_links(site, site_name, page_title, seo_description, env)
     robots_meta = '<meta name="robots" content="noindex,nofollow,noarchive">' if is_admin_page or str(env.get("_PATH") or "") in {"/login", "/register"} else ""
     return f"""<!doctype html>
 <html lang="{"en" if lang == "en" else "zh-CN"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{esc(page_title)}</title><meta name="description" content="{esc(seo_description)}">
 {robots_meta}
 {seo_links}
+{media_links}
 <link rel="stylesheet" href="/assets/site.css?v={ASSET_VERSION}"><script defer src="/assets/site.js?v={ASSET_VERSION}"></script></head>
-<body{body_class}><header class="site-header"><a class="brand" href="{esc(lang_url("/", env))}">{esc(site_name)}</a><button class="front-nav-toggle" type="button" data-front-nav-toggle aria-controls="front-site-nav" aria-expanded="false">{esc(menu_label)}</button><nav id="front-site-nav" class="site-nav">{nav_html}</nav><div class="header-actions">{lang_switch}{user_badge}{auth_link}{admin_link}</div></header>
-<main>{content}</main><footer>{esc(footer_text)}</footer></body></html>"""
+<body{body_class}><header class="site-header"><a class="brand" href="{esc(lang_url("/", env))}">{brand_html}</a><button class="front-nav-toggle" type="button" data-front-nav-toggle aria-controls="front-site-nav" aria-expanded="false">{esc(menu_label)}</button><nav id="front-site-nav" class="site-nav">{nav_html}</nav><div class="header-actions">{lang_switch}{user_badge}{auth_link}{admin_link}</div></header>
+<main>{content}</main><footer class="site-footer">{footer_html}</footer><button class="back-to-top" type="button" data-back-to-top aria-label="{esc('Back to top' if lang == 'en' else '回到顶部')}" title="{esc('Back to top' if lang == 'en' else '回到顶部')}">↑</button></body></html>"""
+
+
+def site_media_key(site: dict[str, Any], field: str, fallback: str = "default/site-logo.png") -> str:
+    return text_only(site.get(field), 300).strip() or fallback
+
+
+def site_media_src(site: dict[str, Any], field: str, env: dict[str, str], fallback: str = "default/site-logo.png") -> str:
+    key = site_media_key(site, field, fallback)
+    return versioned_media_url(media_url(key, env.get("PUBLIC_MEDIA_BASE_URL", "")))
+
+
+def versioned_media_url(url: str) -> str:
+    if not url or url.startswith(("http://", "https://")):
+        return url
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}v={ASSET_VERSION}"
+
+
+def site_brand_html(site: dict[str, Any], site_name: str, env: dict[str, str]) -> str:
+    logo_src = site_media_src(site, "logo_key", env)
+    logo = f'<img class="brand-logo" src="{esc(logo_src)}" alt="" loading="eager" decoding="async">' if logo_src else ""
+    return f'{logo}<span class="brand-text">{esc(site_name)}</span>'
+
+
+def site_media_head_links(site: dict[str, Any], site_name: str, page_title: str, seo_description: str, env: dict[str, str]) -> str:
+    favicon = site_media_src(site, "favicon_key", env)
+    og_image = site_media_src(site, "og_image_key", env)
+    canonical = site_absolute_url(str(env.get("SITE_URL") or ""), str(env.get("_PATH") or "/"))
+    og_image_abs = site_absolute_url(str(env.get("SITE_URL") or ""), og_image) if og_image else ""
+    lines = [
+        f'<meta property="og:site_name" content="{esc(site_name)}">',
+        f'<meta property="og:title" content="{esc(page_title)}">',
+        f'<meta property="og:description" content="{esc(seo_description)}">',
+        f'<meta property="og:type" content="website">',
+        f'<meta property="og:url" content="{esc(canonical)}">',
+        '<meta name="twitter:card" content="summary_large_image">',
+    ]
+    if favicon:
+        lines.extend([
+            f'<link rel="icon" href="{esc(favicon)}">',
+            f'<link rel="apple-touch-icon" href="{esc(favicon)}">',
+        ])
+    if og_image_abs:
+        lines.extend([
+            f'<meta property="og:image" content="{esc(og_image_abs)}">',
+            f'<meta name="twitter:image" content="{esc(og_image_abs)}">',
+        ])
+    return "\n".join(lines)
+
+
+def site_footer_html(repo: Repository, env: dict[str, str], site: dict[str, Any], fallback: str) -> str:
+    raw = str(site.get("footer_text") or "").strip()
+    if current_lang(env) == "en":
+        translated = front_value(repo, env, "site_settings", site, "footer_text", 3000).strip()
+        if translated and translated != text_only(raw, 3000).strip():
+            raw = translated
+    raw = raw or fallback
+    if "<" in raw and ">" in raw:
+        return f'<div class="site-footer-html">{render_limited_html(raw)}</div>'
+    return f'<div class="site-footer-text">{paragraphs(raw)}</div>'
 
 
 def admin_layout(repo: Repository, title: str, content: str, env: dict[str, str], breadcrumbs: list[tuple[str, str]] | None = None) -> str:
@@ -1915,6 +1993,8 @@ def admin_login_route(repo: Repository, method: str, query: dict[str, str], body
 
 def front_login_route(repo: Repository, method: str, query: dict[str, str], body: bytes, env: dict[str, str]) -> ResponseTuple:
     if not auth_users_exist(repo):
+        if login_next_targets_admin(query.get("next")):
+            return redirect(lang_url("/admin/setup", env))
         return html_response(layout(repo, t(env, "login"), f'<section class="notice"><h1>{esc(t(env, "login_unavailable"))}</h1><p>{esc(t(env, "admin_not_initialized"))}</p></section>', env), 404)
     error = ""
     next_url = safe_local_next(query.get("next") or lang_url("/", env))
@@ -2027,6 +2107,12 @@ def safe_local_next(value: Any) -> str:
     return "/"
 
 
+def login_next_targets_admin(value: Any) -> bool:
+    target = safe_local_next(value)
+    parsed = urlparse(target)
+    return parsed.path == "/admin" or parsed.path.startswith("/admin/")
+
+
 def public_registration_allowed(repo: Repository) -> bool:
     return truthy(active_global(repo).get("allow_public_registration"), default=False)
 
@@ -2095,6 +2181,9 @@ def admin_new_row(repo: Repository, table: str) -> dict[str, Any]:
             "site_name_en": "Teacher and Research Group",
             "hero_title": "",
             "hero_subtitle": "",
+            "logo_key": "default/site-logo.png",
+            "favicon_key": "default/site-logo.png",
+            "og_image_key": "default/site-logo.png",
             "homepage_profile_uid": "profile-main-teacher",
             "homepage_publication_limit": 5,
             "homepage_news_limit": 4,
@@ -2236,6 +2325,7 @@ def admin_import_export_page(repo: Repository, query: dict[str, str], env: dict[
           <a class="export-action-card" href="/api/export/main.json"><strong>主要数据 JSON</strong><span>推荐迁移格式，不包含用户密码哈希和权限账号。</span></a>
           <a class="export-action-card" href="/api/export/site.json"><strong>整站 JSON</strong><span>包含所有表，适合高级备份；请妥善保管权限账号数据。</span></a>
           <a class="export-action-card{' is-disabled' if is_cloudflare else ''}" href="/api/export/main.xlsx" {'aria-disabled="true" tabindex="-1"' if is_cloudflare else ''}><strong>主要数据 Excel</strong><span>适合人工检查和小规模整理；Cloudflare 上禁用。</span></a>
+          <a class="export-action-card" href="/api/export/i18n-dictionary.json"><strong>手动词典 JSON</strong><span>只导出根目录/R2 中的中英互译词典，不包含翻译缓存。</span></a>
         </div>
       </section>
       <section class="export-section">
@@ -2317,6 +2407,9 @@ def import_restore_form(repo: Repository, is_cloudflare: bool) -> str:
 
 
 def export_api_route(repo: Repository, path: str, query: dict[str, str], env: dict[str, str]) -> ResponseTuple:
+    if path.endswith("/i18n-dictionary.json"):
+        payload = i18n_dictionary_current_payload(env)
+        return binary_response(payload["content"], "application/json; charset=utf-8", I18N_DICTIONARY_FILENAME)
     if path.endswith("/main.json"):
         tables = export_selected_tables(query.get("tables"), default=EXPORT_MAIN_TABLES)
         return download_json_response(export_payload(repo, tables), "teacher-site-main.json")
@@ -3125,7 +3218,7 @@ def is_email_like(value: Any) -> bool:
 
 
 def admin_translation_cache_table(meta: Table, repo: Repository, query: dict[str, str], env: dict[str, str]) -> str:
-    groups = translation_requirement_groups(repo)
+    groups = translation_requirement_groups(repo, env)
     filtered = filter_translation_requirements(groups, query)
     summary = translation_requirement_summary(groups)
     quality_summary = translation_quality_summary(groups)
@@ -3135,6 +3228,7 @@ def admin_translation_cache_table(meta: Table, repo: Repository, query: dict[str
     provider_options = translation_provider_options(settings, query.get("provider", ""))
     scope_options = navigation_pair_options(translation_scope_options(), query.get("scope", "priority"))
     provider_summary = translation_provider_summary(settings, env)
+    dictionary_source = text_only(env.get("_I18N_DICTIONARY_SOURCE") or ("local" if i18n_dictionary_entries(env) else "none"), 40).strip()
     rows = []
     for item in display_rows:
         cache = item.get("cache") or {}
@@ -3150,6 +3244,16 @@ def admin_translation_cache_table(meta: Table, repo: Repository, query: dict[str
         confirmed = status in {"cached", "dedicated"} or text_only(cache.get("status"), 40).strip() in {"success", "reviewed"}
         confirm_action = "unconfirm" if confirmed else "confirm"
         confirm_label = "取消确认" if confirmed else "确认"
+        dictionary_locked = status == "dictionary"
+        textarea_attrs = ' disabled title="该译文来自手动词典，请到词典编辑页修改。"' if dictionary_locked else f' title="{esc(english)}"'
+        action_html = (
+            f'<a class="button light" href="/admin/i18n-dictionary?q={quote(str(item.get("source_text") or ""))}" target="_blank" rel="noreferrer">改词典</a>'
+            if dictionary_locked
+            else f"""<button class="button secondary translation-confirm-toggle" type="submit" form="{esc(form_id)}" name="_translation_action" value="{esc(confirm_action)}">{esc(confirm_label)}</button>
+            <button class="button light" type="submit" form="{esc(form_id)}" name="_translation_action" value="save">保存</button>
+            <a class="button ghost" href="{esc(cache_edit)}" target="_blank" rel="noreferrer">详情</a>
+            <form method="post" action="/admin/table/translation_cache/delete/{esc(cache_key)}"><button class="button danger" type="submit" data-confirm="确定删除这条翻译缓存任务吗？原始内容不会被删除，之后可重新扫描生成。">删除</button></form>"""
+        )
         rows.append(f"""<article class="translation-admin-row status-{esc(status)}">
           <label class="translation-select-cell" title="选择后可只翻译勾选缓存"><input type="checkbox" name="selected" value="{esc(cache_key)}" form="translation-auto-form"></label>
           <div class="translation-source-cell">
@@ -3164,13 +3268,10 @@ def admin_translation_cache_table(meta: Table, repo: Repository, query: dict[str
             <input type="hidden" name="source_hash" value="{esc(item.get("source_hash"))}">
             <input type="hidden" name="source_text" value="{esc(item.get("source_text"))}">
             <input type="hidden" name="source_refs" value="{esc(item.get("source_refs"))}">
-            <textarea name="translated_text" rows="2" title="{esc(english)}" placeholder="填写或修正英文译文">{esc(english)}</textarea>
+            <textarea name="translated_text" rows="2"{textarea_attrs} placeholder="填写或修正英文译文">{esc(english)}</textarea>
           </form>
           <div class="translation-actions-cell">
-            <button class="button secondary translation-confirm-toggle" type="submit" form="{esc(form_id)}" name="_translation_action" value="{esc(confirm_action)}">{esc(confirm_label)}</button>
-            <button class="button light" type="submit" form="{esc(form_id)}" name="_translation_action" value="save">保存</button>
-            <a class="button ghost" href="{esc(cache_edit)}" target="_blank" rel="noreferrer">详情</a>
-            <form method="post" action="/admin/table/translation_cache/delete/{esc(cache_key)}"><button class="button danger" type="submit" data-confirm="确定删除这条翻译缓存任务吗？原始内容不会被删除，之后可重新扫描生成。">删除</button></form>
+            {action_html}
           </div>
         </article>""")
     return f"""<section class="admin-card compact-admin-card translation-admin-card">
@@ -3178,6 +3279,8 @@ def admin_translation_cache_table(meta: Table, repo: Repository, query: dict[str
       <div class="translation-toolbar-row">
         <strong class="translation-toolbar-title">{esc(meta.label)}</strong>
           <form method="post" action="/admin/table/translation_cache/scan"><button class="button secondary" type="submit">扫描数据库</button></form>
+          <a class="button light" href="/admin/i18n-dictionary">编辑词典</a>
+          <a class="button ghost" href="/api/export/i18n-dictionary.json">导出词典</a>
           <form id="translation-auto-form" class="translation-auto-form" method="post" action="/admin/table/translation_cache/auto-translate">
             <select name="provider">{provider_options}</select>
             <select name="scope">{scope_options}</select>
@@ -3186,9 +3289,11 @@ def admin_translation_cache_table(meta: Table, repo: Repository, query: dict[str
           </form>
         <div class="translation-summary">
           {provider_summary}
+          <span title="前台固定文案和手动译文优先读取该词典来源">词典 <strong>{esc(dictionary_source)}</strong></span>
           <span>全 <strong>{summary.get("total", 0)}</strong></span>
           <span>缺 <strong>{summary.get("missing", 0)}</strong></span>
           <span>缓存 <strong>{summary.get("cached", 0)}</strong></span>
+          <span>词典 <strong>{summary.get("dictionary", 0)}</strong></span>
           <span>待 <strong>{summary.get("pending", 0)}</strong></span>
           <span>未确 <strong>{summary.get("unconfirmed", 0)}</strong></span>
           <span>变 <strong>{summary.get("stale", 0)}</strong></span>
@@ -3230,7 +3335,96 @@ def translation_action_note(query: dict[str, str]) -> str:
         scope = translation_scope_label(query.get("scope", ""))
         if scope:
             parts.append(scope)
+    if query.get("dictionary_synced") is not None:
+        parts.append(f"词典条目 {text_only(query.get('dictionary_synced'), 20)}")
+        parts.append(f"新增 {text_only(query.get('dictionary_created'), 20)}")
+        parts.append(f"更新 {text_only(query.get('dictionary_updated'), 20)}")
+    if query.get("dictionary_saved") is not None:
+        parts.append(f"词典保存到 {text_only(query.get('dictionary_saved'), 80)}")
+        parts.append(f"条目 {text_only(query.get('dictionary_entries'), 20)}")
     return f'<span class="admin-muted">{"；".join(parts)}</span>' if parts else ""
+
+
+def admin_i18n_dictionary_page(query: dict[str, str], env: dict[str, str]) -> str:
+    entries = i18n_dictionary_entries(env)
+    rows = [
+        {
+            "key": key,
+            "zh": text_only(entry.get("zh"), 12000).strip(),
+            "en": text_only(entry.get("en"), 12000).strip(),
+            "context": text_only(entry.get("context"), 300).strip(),
+        }
+        for key, entry in entries.items()
+        if isinstance(entry, dict)
+    ]
+    q = text_only(query.get("q"), 300).strip().casefold()
+    if q:
+        rows = [row for row in rows if q in " ".join([row["key"], row["zh"], row["en"], row["context"]]).casefold()]
+    sort = text_only(query.get("sort"), 40).strip() or "key"
+    if sort == "zh":
+        rows.sort(key=lambda row: row["zh"])
+    elif sort == "en":
+        rows.sort(key=lambda row: row["en"])
+    elif sort == "context":
+        rows.sort(key=lambda row: (row["context"], row["key"]))
+    else:
+        rows.sort(key=lambda row: row["key"])
+    display_rows, page, per_page, total_rows = admin_paginate_rows(rows, query)
+    source = text_only(env.get("_I18N_DICTIONARY_SOURCE") or ("local" if entries else "none"), 40)
+    note = ""
+    if query.get("saved"):
+        note = f'<p class="auth-success">词典已保存到 {esc(query.get("saved"))}，共 {esc(query.get("entries", "0"))} 条。</p>'
+    rendered_rows = []
+    for index, row in enumerate(display_rows):
+        rendered_rows.append(f"""<article class="dictionary-admin-row">
+          <label class="dictionary-delete-cell" title="勾选后保存时删除此条"><input type="checkbox" name="delete__{index}" value="1"></label>
+          <input name="key__{index}" value="{esc(row["key"])}" placeholder="key">
+          <textarea name="zh__{index}" rows="2" placeholder="中文原文">{esc(row["zh"])}</textarea>
+          <textarea name="en__{index}" rows="2" placeholder="英文译文">{esc(row["en"])}</textarea>
+          <input name="context__{index}" value="{esc(row["context"])}" placeholder="用途/备注">
+          <input type="hidden" name="old_key__{index}" value="{esc(row["key"])}">
+        </article>""")
+    start_blank = len(display_rows)
+    for offset in range(5):
+        index = start_blank + offset
+        rendered_rows.append(f"""<article class="dictionary-admin-row dictionary-new-row">
+          <span class="dictionary-delete-cell admin-muted">新</span>
+          <input name="key__{index}" placeholder="new-key">
+          <textarea name="zh__{index}" rows="2" placeholder="中文原文"></textarea>
+          <textarea name="en__{index}" rows="2" placeholder="英文译文"></textarea>
+          <input name="context__{index}" placeholder="ui / common / 学科词汇">
+          <input type="hidden" name="old_key__{index}" value="">
+        </article>""")
+    entry_count = len(display_rows) + 5
+    return f"""<section class="admin-card compact-admin-card dictionary-admin-card">
+      <div class="translation-sticky-tools dictionary-sticky-tools">
+        <div class="translation-toolbar-row">
+          <strong class="translation-toolbar-title">手动中英词典</strong>
+          <a class="button ghost" href="/admin/table/translation_cache">返回翻译缓存</a>
+          <a class="button light" href="/api/export/i18n-dictionary.json">导出词典</a>
+          <span class="admin-muted">来源：{esc(source)} · 当前 {len(entries)} 条</span>
+        </div>
+        <form class="filters translation-admin-search dictionary-admin-search" method="get" action="/admin/i18n-dictionary">
+          <input name="q" value="{esc(query.get("q", ""))}" placeholder="搜索 key、中文、英文、用途">
+          <select class="translation-filter-sort" name="sort">{navigation_pair_options([("key", "按 key"), ("zh", "按中文"), ("en", "按英文"), ("context", "按用途")], sort)}</select>
+          <select class="translation-filter-page" name="per_page">{options(["40", "80", "120", "200"], str(query.get("per_page") or "80"))}</select>
+          <button>搜索</button><a class="button ghost" href="/admin/i18n-dictionary">重置</a>
+        </form>
+      </div>
+      {note}
+      <form class="dictionary-edit-form" method="post" action="/admin/i18n-dictionary/save">
+        <input type="hidden" name="entry_count" value="{entry_count}">
+        <div class="dictionary-admin-list">
+          <div class="dictionary-admin-head"><span>删</span><span>Key</span><span>中文原文</span><span>英文译文</span><span>用途</span></div>
+          {"".join(rendered_rows) or '<p class="empty">暂无词典条目。</p>'}
+        </div>
+        <div class="form-actions sticky-actions">
+          <button type="submit">保存词典文件</button>
+          <a class="button ghost" href="/admin/table/translation_cache">返回</a>
+        </div>
+      </form>
+      {admin_pager("i18n-dictionary", query, page, per_page, total_rows)}
+    </section>"""
 
 
 def translation_provider_options(settings: dict[str, Any], selected: str = "") -> str:
@@ -3396,9 +3590,9 @@ def translation_cache_groups(repo: Repository) -> list[dict[str, Any]]:
     return list(grouped.values())
 
 
-def translation_requirement_groups(repo: Repository) -> list[dict[str, Any]]:
+def translation_requirement_groups(repo: Repository, env: dict[str, str] | None = None) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
-    for item in frontend_translation_requirements(repo):
+    for item in frontend_translation_requirements(repo, env):
         source_hash = str(item.get("source_hash") or "")
         if not source_hash:
             continue
@@ -3439,8 +3633,8 @@ def translation_requirement_groups(repo: Repository) -> list[dict[str, Any]]:
 
 def translation_requirement_group_status(status: str, translated: str, cache: dict[str, Any]) -> str:
     cache_status = text_only(cache.get("status"), 40).strip()
-    if status == "dedicated":
-        return "dedicated"
+    if status in {"dedicated", "dictionary"}:
+        return status
     if cache_status in {"success", "reviewed", "cached"}:
         return "cached"
     if cache_status == "failed":
@@ -3458,7 +3652,8 @@ def translation_requirement_group_preferred(current: str, next_status: str) -> s
         "stale": 3,
         "unconfirmed": 4,
         "cached": 5,
-        "dedicated": 6,
+        "dictionary": 6,
+        "dedicated": 7,
     }
     return next_status if rank.get(next_status, 9) < rank.get(current, 9) else current
 
@@ -3539,7 +3734,8 @@ def translation_source_links(item: dict[str, Any]) -> str:
     return "".join(links) or '<span class="admin-muted">手动缓存</span>'
 
 
-def frontend_translation_requirements(repo: Repository) -> list[dict[str, Any]]:
+def frontend_translation_requirements(repo: Repository, env: dict[str, str] | None = None) -> list[dict[str, Any]]:
+    env = env or {}
     cache_rows = repo.list("translation_cache", Query(limit=1000))
     by_exact: dict[tuple[str, str], dict[str, Any]] = {}
     by_ref: dict[str, dict[str, Any]] = {}
@@ -3575,9 +3771,13 @@ def frontend_translation_requirements(repo: Repository) -> list[dict[str, Any]]:
                 cache = by_exact.get((ref_key, source_hash)) or by_hash.get(source_hash)
                 stale_cache = by_ref.get(ref_key) if not cache else None
                 cached_text = text_only((cache or {}).get("translated_text"), 12000).strip()
+                dictionary_text = i18n_dictionary_lookup_source(env, source, "en")
                 if direct:
                     status = "dedicated"
                     english_text = direct
+                elif dictionary_text:
+                    status = "dictionary"
+                    english_text = dictionary_text
                 elif cache and cached_text:
                     status = "cached"
                     english_text = cached_text
@@ -3657,13 +3857,13 @@ def filter_translation_requirements(rows: list[dict[str, Any]], query: dict[str,
     elif sort == "field":
         result.sort(key=lambda row: (str(row.get("field_label")), str(row.get("table")), str(row.get("row_title"))))
     else:
-        rank = {"missing": 0, "pending": 1, "failed": 2, "stale": 3, "cached": 4, "dedicated": 5}
+        rank = {"missing": 0, "pending": 1, "failed": 2, "stale": 3, "cached": 4, "dictionary": 5, "dedicated": 6}
         result.sort(key=lambda row: (rank.get(str(row.get("status")), 9), str(row.get("table")), str(row.get("row_title"))))
     return result
 
 
 def translation_requirement_summary(rows: list[dict[str, Any]]) -> dict[str, int]:
-    summary = {"total": len(rows), "dedicated": 0, "cached": 0, "pending": 0, "unconfirmed": 0, "stale": 0, "missing": 0, "failed": 0}
+    summary = {"total": len(rows), "dedicated": 0, "dictionary": 0, "cached": 0, "pending": 0, "unconfirmed": 0, "stale": 0, "missing": 0, "failed": 0}
     for row in rows:
         status = str(row.get("status") or "")
         if status in summary:
@@ -3680,6 +3880,8 @@ def translation_quality_flags(row: dict[str, Any]) -> list[tuple[str, str]]:
     english = text_only(row.get("english_text"), 12000).strip()
     status = text_only(row.get("status"), 40).strip()
     flags: list[tuple[str, str]] = []
+    if status in {"dictionary", "dedicated"}:
+        return flags
     if status == "failed":
         flags.append(("failed", "翻译失败"))
     if status != "dedicated" and not english:
@@ -3707,29 +3909,29 @@ def translation_quality_summary(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 def translation_filter_form(query: dict[str, str]) -> str:
     tables = [(name, TABLE_MAP[name].label) for name in FRONTEND_TRANSLATION_FIELDS if name in TABLE_MAP]
-    statuses = [("", "全部状态"), ("missing", "缺缓存"), ("pending", "待填写"), ("unconfirmed", "未确认/需复核"), ("failed", "失败"), ("stale", "原文已变"), ("cached", "已缓存"), ("dedicated", "专属英文")]
+    statuses = [("", "全部状态"), ("missing", "缺缓存"), ("pending", "待填写"), ("unconfirmed", "未确认/需复核"), ("failed", "失败"), ("stale", "原文已变"), ("cached", "已缓存"), ("dictionary", "词典命中"), ("dedicated", "专属英文")]
     quality = [("", "异常检查"), ("anomaly", "全部异常"), ("missing", "空译文"), ("failed", "翻译失败"), ("same", "原译相同"), ("cjk", "仍含中文"), ("caps", "疑似全大写")]
     sorts = [("status", "按状态优先"), ("table", "按来源模块"), ("field", "按字段")]
     table_options = '<option value="">全部模块</option>' + "".join(f'<option value="{esc(name)}"{" selected" if query.get("source_table") == name else ""}>{esc(label)}</option>' for name, label in tables)
     return f"""<form class="filters translation-admin-search" method="get" action="/admin/table/translation_cache">
       <input name="q" value="{esc(query.get("q", ""))}" placeholder="搜索来源、原文、英文、ref key">
-      <select name="source_table">{table_options}</select>
-      <select name="status">{navigation_pair_options(statuses, query.get("status", ""))}</select>
-      <select name="quality">{navigation_pair_options(quality, query.get("quality", ""))}</select>
-      <select name="sort">{navigation_pair_options(sorts, query.get("sort", "status"))}</select>
-      <select name="per_page">{options(["40", "80", "120", "200"], str(query.get("per_page") or "80"))}</select>
+      <select class="translation-filter-source" name="source_table">{table_options}</select>
+      <select class="translation-filter-status" name="status">{navigation_pair_options(statuses, query.get("status", ""))}</select>
+      <select class="translation-filter-quality" name="quality">{navigation_pair_options(quality, query.get("quality", ""))}</select>
+      <select class="translation-filter-sort" name="sort">{navigation_pair_options(sorts, query.get("sort", "status"))}</select>
+      <select class="translation-filter-page" name="per_page">{options(["40", "80", "120", "200"], str(query.get("per_page") or "80"))}</select>
       <button>搜索</button><a class="button ghost" href="/admin/table/translation_cache">重置</a>
     </form>"""
 
 
 def translation_status_badge(status: str) -> str:
-    labels = {"dedicated": "专属英文", "cached": "已缓存", "pending": "待填写", "unconfirmed": "未确认", "failed": "失败", "stale": "原文已变", "missing": "缺缓存"}
+    labels = {"dedicated": "专属英文", "dictionary": "词典命中", "cached": "已缓存", "pending": "待填写", "unconfirmed": "未确认", "failed": "失败", "stale": "原文已变", "missing": "缺缓存"}
     return f'<span class="translation-status-badge translation-status-{esc(status)}">{esc(labels.get(status, status or "未知"))}</span>'
 
 
-def translation_scan_database(repo: Repository) -> dict[str, int]:
+def translation_scan_database(repo: Repository, env: dict[str, str] | None = None) -> dict[str, int]:
     result = {"created": 0, "updated": 0, "dedicated": 0, "deleted": 0}
-    rows = translation_scan_cache_rows(repo, result)
+    rows = translation_scan_cache_rows(repo, result, env)
     current_hashes = {row["source_hash"] for row in rows if row.get("source_hash")}
     existing = {text_only(row.get("source_hash"), 80).strip(): row for row in repo.list("translation_cache", Query(limit=1000)) if text_only(row.get("source_hash"), 80).strip()}
     for row in rows:
@@ -3753,15 +3955,16 @@ def translation_scan_database(repo: Repository) -> dict[str, int]:
     return result
 
 
-def translation_scan_cache_rows(repo: Repository, result: dict[str, int] | None = None) -> list[dict[str, Any]]:
+def translation_scan_cache_rows(repo: Repository, result: dict[str, int] | None = None, env: dict[str, str] | None = None) -> list[dict[str, Any]]:
     result = result if result is not None else {"created": 0, "updated": 0, "dedicated": 0}
     grouped: dict[str, dict[str, Any]] = {}
-    for item in frontend_translation_requirements(repo):
-        if item.get("status") == "dedicated":
-            result["dedicated"] = result.get("dedicated", 0) + 1
+    for item in frontend_translation_requirements(repo, env):
+        if item.get("status") in {"dedicated", "dictionary"}:
+            result[str(item.get("status"))] = result.get(str(item.get("status")), 0) + 1
             continue
         source_hash = str(item.get("source_hash") or "")
         ref = translation_requirement_ref(item)
+        seed_english = text_only(item.get("english_text"), 12000).strip()
         group = grouped.setdefault(
             source_hash,
             {
@@ -3771,9 +3974,9 @@ def translation_scan_cache_rows(repo: Repository, result: dict[str, int] | None 
                 "source_text": item.get("source_text") or "",
                 "source_lang": "zh",
                 "target_lang": "en",
-                "translated_text": "",
-                "provider": "manual",
-                "status": "pending",
+                "translated_text": seed_english,
+                "provider": "dictionary" if seed_english and item.get("table") == "dictionary" else "manual",
+                "status": "success" if seed_english else "pending",
                 "is_manual": 1,
                 "is_current": 1,
                 "_refs": [],
@@ -3787,6 +3990,79 @@ def translation_scan_cache_rows(repo: Repository, result: dict[str, int] | None 
         group["source_refs"] = translation_refs_json(refs)
         rows.append(group)
     return rows
+
+
+def i18n_dictionary_document(entries: dict[str, dict[str, str]]) -> dict[str, Any]:
+    clean_entries: dict[str, dict[str, str]] = {}
+    for key, entry in entries.items():
+        clean_key = text_only(key, 180).strip()
+        if not clean_key:
+            continue
+        zh = text_only(entry.get("zh"), 12000).strip()
+        en = text_only(entry.get("en"), 12000).strip()
+        context = text_only(entry.get("context"), 300).strip()
+        if not zh and not en:
+            continue
+        clean_entries[clean_key] = {"zh": zh, "en": en, "context": context}
+    return {
+        "version": 1,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "description": "Manual Chinese-English dictionary for frontend fixed text and reusable content translations. Cloudflare reads R2 i18n/i18n_dictionary.json first, then falls back to this bundled file.",
+        "entries": dict(sorted(clean_entries.items(), key=lambda item: item[0])),
+    }
+
+
+def i18n_dictionary_payload_from_entries(entries: dict[str, dict[str, str]]) -> dict[str, Any]:
+    payload = i18n_dictionary_document(entries)
+    content = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8") + b"\n"
+    return {"content": content, "entries": len(payload.get("entries") or {}), "key": I18N_DICTIONARY_R2_KEY, "payload": payload}
+
+
+def i18n_dictionary_current_payload(env: dict[str, str] | None = None) -> dict[str, Any]:
+    return i18n_dictionary_payload_from_entries(i18n_dictionary_entries(env))
+
+
+def i18n_dictionary_update_payload(body: bytes, env: dict[str, str] | None = None) -> dict[str, Any]:
+    form = _form(body)
+    entries = {key: dict(value) for key, value in i18n_dictionary_entries(env).items() if isinstance(value, dict)}
+    total = int_value(form.get("entry_count"), 0)
+    for index in range(total):
+        old_key = text_only(form.get(f"old_key__{index}"), 180).strip()
+        key = text_only(form.get(f"key__{index}"), 180).strip()
+        zh = text_only(form.get(f"zh__{index}"), 12000).strip()
+        en = text_only(form.get(f"en__{index}"), 12000).strip()
+        context = text_only(form.get(f"context__{index}"), 300).strip()
+        delete = truthy(form.get(f"delete__{index}"), default=False)
+        if old_key:
+            entries.pop(old_key, None)
+        if delete or not key or (not zh and not en):
+            continue
+        entries[key] = {"zh": zh, "en": en, "context": context}
+    return i18n_dictionary_payload_from_entries(entries)
+
+
+def translation_dictionary_payload(repo: Repository, env: dict[str, str] | None = None) -> dict[str, Any]:
+    return i18n_dictionary_current_payload(env)
+
+
+def translation_dictionary_save_payload(repo: Repository, env: dict[str, str] | None = None) -> dict[str, Any]:
+    return i18n_dictionary_current_payload(env)
+
+
+def translation_dictionary_save_local(repo: Repository, env: dict[str, str] | None = None) -> dict[str, Any]:
+    payload = i18n_dictionary_current_payload(env)
+    root_path = Path(I18N_DICTIONARY_FILENAME)
+    root_path.write_bytes(payload["content"])
+    I18N_DICTIONARY_CACHE.update({"path": "", "mtime": -1.0, "data": None})
+    return {"saved": "local", "path": str(root_path), "entries": payload.get("entries", 0)}
+
+
+def i18n_dictionary_save_local_from_body(body: bytes, env: dict[str, str] | None = None) -> dict[str, Any]:
+    payload = i18n_dictionary_update_payload(body, env)
+    root_path = Path(I18N_DICTIONARY_FILENAME)
+    root_path.write_bytes(payload["content"])
+    I18N_DICTIONARY_CACHE.update({"path": "", "mtime": -1.0, "data": None})
+    return {"saved": "local", "path": str(root_path), "entries": payload.get("entries", 0)}
 
 
 def translation_sync_missing(repo: Repository) -> int:
@@ -3984,7 +4260,7 @@ def translation_job_start(repo: Repository, body: bytes, env: dict[str, str]) ->
         state = {"status": "idle", "message": "当前没有可用自动翻译源，请先在通用设置中配置。", "updated_at": int(time.time())}
         translation_save_job_state(repo, state)
         return {"ok": False, "done": True, "message": state["message"], "state": translation_job_public_state(repo, env, state)}
-    translation_scan_database(repo)
+    translation_scan_database(repo, env)
     selected = [text_only(item, 200).strip() for item in form_multi.get("selected", []) if text_only(item, 200).strip()][:500]
     candidate_count = len(translation_auto_candidates(repo, scope, set(selected)))
     now = int(time.time())
@@ -5949,6 +6225,8 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
         filters["category"] = query["category"]
     if query.get("mime_type"):
         filters["mime_type"] = query["mime_type"]
+    if query.get("storage_kind"):
+        filters["storage_kind"] = query["storage_kind"]
     page = max(1, int_value(query.get("page"), 1))
     per_page = max(20, min(int_value(query.get("per_page"), 80), 200))
     queried_rows = repo.list("media_assets", Query(q=query.get("q", ""), filters=filters, limit=1000, order_by=order_by, descending=descending))
@@ -5980,6 +6258,7 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
           </div>
           <dl class="media-facts media-meta">
             {admin_fact("分类", row.get("category"))}
+            {admin_fact("存储", media_storage_label(row))}
             {admin_fact("类型", row.get("mime_type"))}
             {admin_media_size_fact(key, row.get("size"))}
             {admin_fact("校验", text_only(row.get("checksum"), 18) if row.get("checksum") else "")}
@@ -5988,7 +6267,7 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
           <div class="media-actions">
             <a class="button ghost" href="/admin/table/media_assets/{esc(row.get("uid") or row.get("id"))}">编辑</a>
             {media_action_button(row, "restore", "恢复", trash_context=is_trash) if status == "trash" else media_action_button(row, "trash", "回收站")}
-            {media_action_button(row, "delete", "删除", danger=True, trash_context=is_trash, delete_files=env.get("PLATFORM") != "cloudflare")}
+            {media_action_button(row, "delete", "删除", danger=True, trash_context=is_trash)}
           </div>
         </article>""")
     title = "媒体回收站" if is_trash else "媒体库"
@@ -6000,11 +6279,10 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
     )
     scan_action = "" if is_trash else '<form method="post" action="/admin/table/media_assets/scan"><button class="button light" type="submit">扫描项目媒体</button></form>'
     export_used_action = f'<a class="button light" href="{esc(media_export_used_url(query, mode))}" title="快捷导出当前筛选范围内被使用的媒体文件">导出媒体</a>'
-    delete_scope_label = "媒体库记录" if env.get("PLATFORM") == "cloudflare" else "媒体文件和媒体库记录"
+    delete_scope_label = "媒体文件和媒体库记录"
     clear_trash = (
         f'<form method="post" action="/admin/table/media_assets/trash/clear" '
-        f'data-confirm="确定清空回收站中的{delete_scope_label}吗？" '
-        f'data-confirm-second="二次确认：请输入 CLEAR 后继续。此操作不可撤销。" data-confirm-token="CLEAR">'
+        f'data-confirm="确定清空回收站中的{delete_scope_label}吗？">'
         f'<button class="button danger" type="submit">一键清空回收站</button></form>'
     ) if is_trash and total_rows else ""
     return f"""<section class="admin-card media-admin-card">
@@ -6073,7 +6351,7 @@ def media_scan_result_notice(query: dict[str, str]) -> str:
 def media_export_used_url(query: dict[str, str], mode: str) -> str:
     params = {
         key: query.get(key, "")
-        for key in ("q", "category", "mime_type", "sort")
+        for key in ("q", "category", "mime_type", "storage_kind", "file_state", "sort")
         if query.get(key)
     }
     if mode == "trash":
@@ -6086,11 +6364,13 @@ def media_filter_form(query: dict[str, str], rows: list[dict[str, Any]], mode: s
     action = "/admin/table/media_assets/trash" if mode == "trash" else "/admin/table/media_assets"
     categories = sorted({text_only(row.get("category"), 80).strip() for row in rows if text_only(row.get("category"), 80).strip()})
     mime_types = sorted({text_only(row.get("mime_type"), 120).strip() for row in rows if text_only(row.get("mime_type"), 120).strip()})
+    storage_kinds = [("", "全部存储"), ("static", "静态包"), ("local", "本地"), ("r2", "R2"), ("external", "外链")]
     file_states = [("", "全部状态"), ("available", "可用"), ("missing", "文件缺失"), ("used", "有引用"), ("unused", "未引用")]
     return f"""<form class="filters admin-media-search" method="get" action="{action}">
       <input name="q" value="{esc(query.get("q", ""))}" placeholder="搜索标题、对象 key、分类、MIME、状态">
       <select name="category"><option value="">全部分类</option>{options(categories, query.get("category", ""))}</select>
       <select name="mime_type"><option value="">全部类型</option>{options(mime_types, query.get("mime_type", ""))}</select>
+      <select name="storage_kind">{navigation_pair_options(storage_kinds, query.get("storage_kind", ""))}</select>
       <select name="file_state">{navigation_pair_options(file_states, query.get("file_state", ""))}</select>
       <select name="sort">{media_sort_options(query.get("sort", "updated_desc"))}</select>
       <select name="per_page">{options(["40", "80", "120", "200"], str(query.get("per_page") or "80"))}</select>
@@ -6187,6 +6467,8 @@ def media_options_payload(repo: Repository, env: dict[str, str], query: dict[str
             "key": key,
             "title": text_only(row.get("title") or key, 160),
             "category": text_only(row.get("category"), 80),
+            "storage_kind": media_storage_kind(row),
+            "storage_label": media_storage_label(row),
             "mime_type": mime,
             "size": int_value(row.get("size")),
             "url": media_url(key, env.get("PUBLIC_MEDIA_BASE_URL", "")),
@@ -6302,9 +6584,7 @@ def validate_svg_upload(content: bytes) -> dict[str, Any]:
     return {"ok": True, "mime": "image/svg+xml", "extensions": {".svg"}}
 
 
-def media_upload_payload(repo: Repository, body: bytes, env: dict[str, str]) -> dict[str, Any]:
-    if env.get("PLATFORM") == "cloudflare":
-        return {"ok": False, "message": "Cloudflare Worker 环境暂不支持本地文件系统上传，请先使用媒体库/R2 或直接输入公开 URL。"}
+def prepare_media_upload(repo: Repository, body: bytes, env: dict[str, str], storage_kind: str = "local", key_prefix: str = "") -> dict[str, Any]:
     max_bytes = upload_max_bytes(repo)
     if len(body) > max_bytes + 1024 * 1024:
         return {"ok": False, "message": f"文件超过 {max_bytes // 1024 // 1024}MB，请压缩后再上传。"}
@@ -6322,20 +6602,38 @@ def media_upload_payload(repo: Repository, body: bytes, env: dict[str, str]) -> 
     inspected = inspect_upload_file(filename, content, upload_allowed_extensions(repo))
     if not inspected.get("ok"):
         return {"ok": False, "message": str(inspected.get("message") or "文件校验失败。")}
-    key, path = unique_media_path(folder, filename)
+    storage = normalize_media_storage_kind(storage_kind, "local")
+    if storage == "r2":
+        key = unique_media_object_key(folder, filename, key_prefix or "uploads")
+        path = None
+    else:
+        key, path = unique_media_path(folder, filename)
+        storage = "local"
+    mime = str(inspected.get("mime") or upload.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream")
+    row = media_record_data(key, text_only(form.get("title") or Path(filename).stem, 160), folder, mime, len(content), storage)
+    return {"ok": True, "key": key, "path": path, "content": content, "mime": mime, "row": row, "url": media_url(key, env.get("PUBLIC_MEDIA_BASE_URL", ""))}
+
+
+def media_upload_payload(repo: Repository, body: bytes, env: dict[str, str]) -> dict[str, Any]:
+    if env.get("PLATFORM") == "cloudflare":
+        return {"ok": False, "message": "Cloudflare Worker 环境请通过 R2 写入接口保存媒体；当前请求未进入 R2 适配器。"}
+    prepared = prepare_media_upload(repo, body, env, "local")
+    if not prepared.get("ok"):
+        return prepared
+    path = prepared.get("path")
+    content = prepared.get("content") or b""
+    if not isinstance(path, Path):
+        return {"ok": False, "message": "文件保存路径无效。"}
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
     except OSError:
         return {"ok": False, "message": "文件保存失败。"}
-    mime = str(inspected.get("mime") or upload.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream")
-    row = save_media_record(repo, key, text_only(form.get("title") or Path(filename).stem, 160), folder, mime, len(content))
-    return {"ok": True, "key": key, "url": media_url(key, env.get("PUBLIC_MEDIA_BASE_URL", "")), "item": row}
+    row = repo.save("media_assets", prepared["row"])
+    return {"ok": True, "key": prepared["key"], "url": prepared["url"], "item": row}
 
 
-def media_crop_payload(repo: Repository, body: bytes, env: dict[str, str]) -> dict[str, Any]:
-    if env.get("PLATFORM") == "cloudflare":
-        return {"ok": False, "message": "Cloudflare Worker 环境暂不支持文件系统写入裁剪结果，请在 Ubuntu/本地保存后迁移或接入 R2 上传。"}
+def prepare_media_crop(repo: Repository, body: bytes, env: dict[str, str], storage_kind: str = "local", key_prefix: str = "") -> dict[str, Any]:
     data = _form(body)
     image_data = data.get("image_data", "")
     if not image_data.startswith("data:image/") or ";base64," not in image_data:
@@ -6365,30 +6663,61 @@ def media_crop_payload(repo: Repository, body: bytes, env: dict[str, str]) -> di
             row = next((item for item in repo.list("media_assets", Query(limit=1000)) if normalize_media_key(str(item.get("object_key") or "")) == replace_key), None)
         if not row:
             return {"ok": False, "message": "未找到要替换的媒体记录。"}
-        target = media_target_path_for_key(replace_key)
-        if not target:
-            return {"ok": False, "message": "替换路径无效。"}
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(content)
-        except OSError:
-            return {"ok": False, "message": "替换源文件失败。"}
+        storage = media_storage_kind(row)
+        if normalize_media_storage_kind(storage_kind, "local") == "r2":
+            if storage != "r2" and not r2_preferred_key(replace_key):
+                return {"ok": False, "message": "Cloudflare 只能替换 R2/uploads 媒体；静态资源请随代码重新部署。"}
+            target = None
+            row["storage_kind"] = "r2"
+        else:
+            target = media_target_path_for_key(replace_key)
+            if not target:
+                return {"ok": False, "message": "替换路径无效。"}
+            row["storage_kind"] = storage if storage in {"local", "static"} else "local"
+        mime = "image/jpeg" if ext in {"jpg", "jpeg"} else f"image/{ext}"
         row["size"] = len(content)
-        row["mime_type"] = "image/jpeg" if ext in {"jpg", "jpeg"} else f"image/{ext}"
+        row["mime_type"] = mime
         row["checksum"] = hashlib.sha1(content).hexdigest()[:12]
         if data.get("title"):
             row["title"] = text_only(data.get("title"), 160)
-        saved = repo.save("media_assets", row)
-        return {"ok": True, "replaced": True, "key": replace_key, "url": media_url(replace_key, env.get("PUBLIC_MEDIA_BASE_URL", "")), "item": saved}
-    key, path = unique_media_path(folder, requested)
+        return {"ok": True, "replaced": True, "key": replace_key, "path": target, "content": content, "mime": mime, "row": row, "url": media_url(replace_key, env.get("PUBLIC_MEDIA_BASE_URL", ""))}
+    storage = normalize_media_storage_kind(storage_kind, "local")
+    if storage == "r2":
+        key = unique_media_object_key(folder, requested, key_prefix or "uploads")
+        path = None
+    else:
+        key, path = unique_media_path(folder, requested)
+        storage = "local"
+    mime = "image/jpeg" if ext in {"jpg", "jpeg"} else f"image/{ext}"
+    row = media_record_data(key, text_only(data.get("title") or Path(requested).stem, 160), folder, mime, len(content), storage)
+    return {"ok": True, "key": key, "path": path, "content": content, "mime": mime, "row": row, "url": media_url(key, env.get("PUBLIC_MEDIA_BASE_URL", ""))}
+
+
+def media_crop_payload(repo: Repository, body: bytes, env: dict[str, str]) -> dict[str, Any]:
+    if env.get("PLATFORM") == "cloudflare":
+        return {"ok": False, "message": "Cloudflare Worker 环境请通过 R2 写入接口保存裁剪结果；当前请求未进入 R2 适配器。"}
+    prepared = prepare_media_crop(repo, body, env, "local")
+    if not prepared.get("ok"):
+        return prepared
+    path = prepared.get("path")
+    content = prepared.get("content") or b""
+    if not isinstance(path, Path):
+        return {"ok": False, "message": "裁剪图片保存路径无效。"}
+    if prepared.get("replaced"):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        except OSError:
+            return {"ok": False, "message": "替换源文件失败。"}
+        saved = repo.save("media_assets", prepared["row"])
+        return {"ok": True, "replaced": True, "key": prepared["key"], "url": prepared["url"], "item": saved}
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
     except OSError:
         return {"ok": False, "message": "裁剪图片保存失败。"}
-    mime = "image/jpeg" if ext in {"jpg", "jpeg"} else f"image/{ext}"
-    row = save_media_record(repo, key, text_only(data.get("title") or Path(requested).stem, 160), folder, mime, len(content))
-    return {"ok": True, "key": key, "url": media_url(key, env.get("PUBLIC_MEDIA_BASE_URL", "")), "item": row}
+    row = repo.save("media_assets", prepared["row"])
+    return {"ok": True, "key": prepared["key"], "url": prepared["url"], "item": row}
 
 
 def publication_parse_payload(body: bytes) -> dict[str, Any]:
@@ -7250,11 +7579,16 @@ def compact_fields(fields: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in fields.items() if value not in (None, "")}
 
 
-def save_media_record(repo: Repository, key: str, title: str, category: str, mime: str, size: int) -> dict[str, Any]:
+def save_media_record(repo: Repository, key: str, title: str, category: str, mime: str, size: int, storage_kind: str = "local") -> dict[str, Any]:
+    return repo.save("media_assets", media_record_data(key, title, category, mime, size, storage_kind))
+
+
+def media_record_data(key: str, title: str, category: str, mime: str, size: int, storage_kind: str = "local") -> dict[str, Any]:
     digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
-    row = {
+    return {
         "uid": stable_uid("media", f"{key}-{digest}"),
         "object_key": key,
+        "storage_kind": normalize_media_storage_kind(storage_kind, "local"),
         "title": title or key,
         "category": category or "media",
         "mime_type": mime,
@@ -7262,7 +7596,11 @@ def save_media_record(repo: Repository, key: str, title: str, category: str, mim
         "status": "active",
         "checksum": digest,
     }
-    return repo.save("media_assets", row)
+
+
+def normalize_media_storage_kind(value: Any, default: str = "static") -> str:
+    text = text_only(value, 40).strip().lower()
+    return text if text in {"static", "local", "r2", "external"} else default
 
 
 def unique_media_path(folder: str, filename: str) -> tuple[str, Path]:
@@ -7277,6 +7615,16 @@ def unique_media_path(folder: str, filename: str) -> tuple[str, Path]:
         candidate = f"{folder}/{stem}-{index}{suffix}"
         index += 1
     return candidate, root / candidate
+
+
+def unique_media_object_key(folder: str, filename: str, prefix: str = "uploads") -> str:
+    folder = safe_media_folder(folder)
+    prefix = safe_media_folder(prefix or "uploads")
+    name = safe_media_filename(filename)
+    stem = Path(name).stem or "media"
+    suffix = Path(name).suffix or ".bin"
+    stamp = f"{int(time.time() * 1000)}-{hashlib.sha1(f'{folder}/{name}/{time.time_ns()}'.encode('utf-8')).hexdigest()[:8]}"
+    return normalize_media_key(f"{prefix}/{folder}/{stem}-{stamp}{suffix}")
 
 
 def safe_media_folder(value: str) -> str:
@@ -7359,8 +7707,8 @@ def media_auto_empty_trash(repo: Repository) -> None:
             continue
         changed_at = parse_timestamp(row.get("updated_at") or row.get("created_at"))
         if changed_at and changed_at < cutoff:
-            media_delete_physical_file_for_row(row)
-            repo.delete("media_assets", str(row.get("uid") or row.get("id")))
+            if media_delete_physical_file_for_row(row):
+                repo.delete("media_assets", str(row.get("uid") or row.get("id")))
 
 
 def parse_timestamp(value: Any) -> float | None:
@@ -7552,7 +7900,7 @@ def media_scan_project_files(repo: Repository, env: dict[str, str]) -> dict[str,
     updated = 0
     skipped = 0
     seen: set[str] = set()
-    for root in media_scan_roots():
+    for root, storage_kind in media_scan_roots():
         try:
             root_resolved = root.resolve()
         except OSError:
@@ -7592,13 +7940,14 @@ def media_scan_project_files(repo: Repository, env: dict[str, str]) -> dict[str,
                 row["category"] = row.get("category") or category
                 row["title"] = row.get("title") or title
                 row["checksum"] = row.get("checksum") or checksum
+                row["storage_kind"] = normalize_media_storage_kind(row.get("storage_kind"), storage_kind)
                 if row != before:
                     repo.save("media_assets", row)
                     updated += 1
                 else:
                     skipped += 1
                 continue
-            saved = save_media_record(repo, key, title, category, mime, stat.st_size)
+            saved = save_media_record(repo, key, title, category, mime, stat.st_size, storage_kind)
             saved["checksum"] = checksum
             repo.save("media_assets", saved)
             existing_by_key[key] = saved
@@ -7616,11 +7965,11 @@ def media_find_record_by_key(repo: Repository, key: str) -> dict[str, Any] | Non
     return None
 
 
-def media_scan_roots() -> list[Path]:
+def media_scan_roots() -> list[tuple[Path, str]]:
     roots = []
-    for root in (Path("media"), Path("public") / "media"):
+    for root, storage_kind in ((Path("media"), "local"), (Path("public") / "media", "static")):
         if root.exists() and root.is_dir():
-            roots.append(root)
+            roots.append((root, storage_kind))
     return roots
 
 
@@ -7642,9 +7991,11 @@ def media_delete_physical_file_for_row(row: dict[str, Any] | None) -> bool:
     if not row:
         return False
     key = normalize_media_key(str(row.get("object_key") or ""))
+    if not key or media_storage_kind(row) == "external":
+        return True
     path = media_local_path(key)
     if not path:
-        return False
+        return True
     if not media_path_inside_managed_root(path):
         return False
     try:
@@ -7810,30 +8161,35 @@ def media_manifest_csv_rows(files: list[dict[str, Any]], skipped: list[dict[str,
     return rows
 
 
-def media_apply_action(repo: Repository, media_key: str, action: str) -> None:
+def media_apply_action(repo: Repository, media_key: str, action: str) -> dict[str, int | str]:
     if action == "delete":
-        media_delete_physical_file_for_row(repo.get("media_assets", media_key))
-        repo.delete("media_assets", media_key)
-        return
+        row = repo.get("media_assets", media_key)
+        if media_delete_physical_file_for_row(row):
+            deleted = 1 if repo.delete("media_assets", media_key) else 0
+            return {"selected": 1, "updated": 0, "deleted": deleted, "skipped": 0 if deleted else 1, "action": action}
+        return {"selected": 1, "updated": 0, "deleted": 0, "skipped": 1, "action": action}
     row = repo.get("media_assets", media_key)
     if not row:
-        return
+        return {"selected": 1, "updated": 0, "deleted": 0, "skipped": 1, "action": action}
     if action == "trash":
         row["status"] = "trash"
     elif action == "restore":
         row["status"] = "active"
     else:
-        return
+        return {"selected": 1, "updated": 0, "deleted": 0, "skipped": 1, "action": action}
     repo.save("media_assets", row)
+    return {"selected": 1, "updated": 1, "deleted": 0, "skipped": 0, "action": action}
 
 
-def media_clear_trash(repo: Repository) -> int:
+def media_clear_trash(repo: Repository) -> dict[str, int | str]:
     deleted = 0
+    skipped = 0
     for row in repo.list("media_assets", Query(filters={"status": "trash"}, limit=1000)):
-        media_delete_physical_file_for_row(row)
-        if repo.delete("media_assets", str(row.get("uid") or row.get("id"))):
+        if media_delete_physical_file_for_row(row) and repo.delete("media_assets", str(row.get("uid") or row.get("id"))):
             deleted += 1
-    return deleted
+        else:
+            skipped += 1
+    return {"selected": deleted + skipped, "updated": 0, "deleted": deleted, "skipped": skipped, "action": "delete"}
 
 
 def media_batch_update(repo: Repository, body: bytes) -> tuple[str, dict[str, int | str]]:
@@ -7847,8 +8203,8 @@ def media_batch_update(repo: Repository, body: bytes) -> tuple[str, dict[str, in
     skipped = 0
     for key in selected[:500]:
         if action == "delete":
-            media_delete_physical_file_for_row(repo.get("media_assets", key))
-            if repo.delete("media_assets", key):
+            row = repo.get("media_assets", key)
+            if media_delete_physical_file_for_row(row) and repo.delete("media_assets", key):
                 deleted += 1
             else:
                 skipped += 1
@@ -7973,9 +8329,17 @@ def media_file_exists(row: dict[str, Any], env: dict[str, str]) -> bool:
         return False
     if key.startswith(("http://", "https://")):
         return True
-    if env.get("PLATFORM") == "cloudflare" or env.get("PUBLIC_MEDIA_BASE_URL"):
+    storage = media_storage_kind(row)
+    if storage == "external":
         return True
+    if env.get("PLATFORM") == "cloudflare" or env.get("PUBLIC_MEDIA_BASE_URL"):
+        return storage in {"static", "r2"}
     return media_local_path(key) is not None
+
+
+def media_storage_label(row: dict[str, Any] | str) -> str:
+    labels = {"static": "静态包", "local": "本地", "r2": "R2", "external": "外链"}
+    return labels.get(media_storage_kind(row), "静态包")
 
 
 def media_row_state(row: dict[str, Any], env: dict[str, str]) -> str:
@@ -8018,11 +8382,7 @@ def admin_status_badge(status: str) -> str:
 def media_action_button(row: dict[str, Any], action: str, label: str, danger: bool = False, trash_context: bool = False, delete_files: bool = True) -> str:
     key = esc(row.get("uid") or row.get("id"))
     confirm_text = "确定彻底删除该媒体文件和媒体库记录吗？此操作不会经过回收站。" if delete_files else "确定彻底删除该媒体库记录吗？Cloudflare 静态资源文件不会被运行时删除。"
-    confirm_attrs = (
-        f' data-confirm="{esc(confirm_text)}"'
-        f' data-confirm-second="二次确认：请输入 DELETE 后继续。此操作不可撤销。"'
-        f' data-confirm-token="DELETE"'
-    ) if danger else ""
+    confirm_attrs = f' data-confirm="{esc(confirm_text)}"' if danger else ""
     klass = "button danger" if danger else "button light"
     action_path = f"/admin/table/media_assets/trash/{key}/{action}" if trash_context else f"/admin/table/media_assets/{key}/{action}"
     return f'<form method="post" action="{action_path}"{confirm_attrs}><button class="{klass}" type="submit">{esc(label)}</button></form>'
@@ -8206,7 +8566,7 @@ def admin_site_settings_form(meta: Table, row: dict[str, Any]) -> str:
         "seo_title": "搜索引擎页面标题；留空时使用站点名称。",
         "seo_description": "搜索引擎摘要描述，也会写入前台 meta description。",
         "seo_keywords": "SEO 关键词，多个关键词用逗号分隔。",
-        "footer_text": "前台底部文字，可放版权、学院/实验室名称或备案提示。",
+        "footer_text": "前台底部内容，可填写纯文本或安全 HTML；脚本、事件属性和危险链接会被过滤。",
     }
     nav_items = []
     sections = []
@@ -8219,7 +8579,7 @@ def admin_site_settings_form(meta: Table, row: dict[str, Any]) -> str:
                 continue
             value = row.get(name, "")
             extra_class = "site-wide-field" if name in {"hero_subtitle", "seo_description", "seo_keywords", "footer_text"} else ""
-            rows = 3 if name in {"hero_subtitle", "seo_description", "footer_text"} else 2 if name == "seo_keywords" else None
+            rows = 5 if name == "footer_text" else 3 if name in {"hero_subtitle", "seo_description"} else 2 if name == "seo_keywords" else None
             if field.kind == "bool":
                 labels.append(admin_switch_field(field, value, help_map.get(name, "")))
             else:
@@ -8324,6 +8684,7 @@ def admin_media_asset_form(meta: Table, row: dict[str, Any]) -> str:
     url = media_url(key)
     file_info = [
         ("文件状态", "文件存在" if exists else "文件缺失"),
+        ("存储位置", media_storage_label(row)),
         ("访问路径", url or "无"),
         ("记录 ID", row.get("id") or ""),
         ("稳定标识", row.get("uid") or ""),
@@ -8348,6 +8709,7 @@ def admin_media_asset_form(meta: Table, row: dict[str, Any]) -> str:
         <input type="hidden" name="uid" value="{esc(row.get("uid") or "")}">
         <input type="hidden" name="id" value="{esc(row.get("id") or "")}">
         {admin_field_label(field_by_name(meta, "object_key"), key, "保存为新文件后会自动写入新的 object_key；替换源文件时该值保持不变。", "field-object_key", control_attrs='data-media-current-key')}
+        {admin_field_label(field_by_name(meta, "storage_kind"), row.get("storage_kind") or media_storage_kind(row), "static 表示随 public/media 静态资源部署；local 表示 Ubuntu/本地运行时 media 目录；r2 表示 Cloudflare R2；external 表示公开外链。")}
         {admin_field_label(field_by_name(meta, "title"), row.get("title") or "", "用于后台列表和媒体选择工具显示。")}
         {admin_field_label(field_by_name(meta, "category"), row.get("category") or "", "建议按用途填写，如 profile、icons、students、news-cover。")}
         {admin_field_label(field_by_name(meta, "mime_type"), row.get("mime_type") or "", "由上传或图片编辑工具自动维护；必要时可手动修正。")}
@@ -9180,6 +9542,12 @@ def normalize_admin_data(meta: Table, data: dict[str, str]) -> dict[str, Any]:
     if not normalized.get("uid"):
         seed = normalized.get(meta.title_field) or str(time.time_ns())
         normalized["uid"] = stable_uid(meta.name.rstrip("s"), seed)
+    if meta.name == "site_settings":
+        raw_footer = str(data.get("footer_text") or "").strip()
+        if "<" in raw_footer and ">" in raw_footer:
+            normalized["footer_text"] = render_limited_html(raw_footer)
+        else:
+            normalized["footer_text"] = text_only(raw_footer, 12000)
     if meta.name == "news":
         normalized["slug"] = safe_slug(normalized.get("slug") or normalized.get("title", "news"))
         normalized["published_at"] = normalize_datetime_input(normalized.get("published_at"))
@@ -9189,6 +9557,11 @@ def normalize_admin_data(meta: Table, data: dict[str, str]) -> dict[str, Any]:
             normalized["content"] = render_limited_html(data.get("content", ""))
     if meta.name == "media_assets" and not normalized.get("status"):
         normalized["status"] = "active"
+    if meta.name == "media_assets":
+        if not normalized.get("storage_kind"):
+            normalized["storage_kind"] = media_storage_kind(normalized.get("object_key"))
+        else:
+            normalized["storage_kind"] = normalize_media_storage_kind(normalized.get("storage_kind"), media_storage_kind(normalized.get("object_key")))
     if meta.name == "projects":
         normalized["start_date"] = normalize_date_input(normalized.get("start_date"))
         normalized["end_date"] = normalize_date_input(normalized.get("end_date"))
@@ -9313,7 +9686,7 @@ TRANSLATIONS = {
         "projects": "项目", "patents": "专利", "students": "学生", "team_members": "团队成员",
         "publications": "论文成果", "news": "动态", "courses": "课程", "contact": "联系",
         "role": "角色", "title": "头衔", "organization": "单位", "team": "团队", "team_search": "姓名、角色、职称、单位、简介",
-        "degree": "层次", "category": "分组", "grade": "年级", "status": "状态", "student_search": "姓名、方向、年级、状态、去向",
+        "degree": "层次", "category": "分组", "grade": "年级", "status": "状态", "direction": "方向", "student_search": "姓名、方向、年级、状态、去向",
         "student_group_mode": "显示方式", "group_by_category": "按分组显示", "group_by_degree": "按学历显示", "student_group_uncategorized": "未分组", "people_count_unit": "人",
         "patent_type": "类型", "legal_status": "状态", "country": "国家", "patent_search": "名称、申请号、授权号、发明人、权利人",
         "source": "来源", "fund_name": "基金", "project_search": "项目名称、来源、基金、项目号、负责人、成员",
@@ -9341,7 +9714,7 @@ TRANSLATIONS = {
         "projects": "Projects", "patents": "Patents", "students": "Students", "team_members": "Team",
         "publications": "Publications", "news": "News", "courses": "Courses", "contact": "Contact",
         "role": "Role", "title": "Title", "organization": "Organization", "team": "Group", "team_search": "Name, role, title, organization, bio",
-        "degree": "Degree", "category": "Group", "grade": "Year", "status": "Status", "student_search": "Name, direction, year, status",
+        "degree": "Degree", "category": "Group", "grade": "Year", "status": "Status", "direction": "Direction", "student_search": "Name, direction, year, status",
         "student_group_mode": "Display", "group_by_category": "By Group", "group_by_degree": "By Degree", "student_group_uncategorized": "Uncategorized", "people_count_unit": "people",
         "patent_type": "Type", "legal_status": "Status", "country": "Country", "patent_search": "Title, application no., grant no., inventors, owner",
         "source": "Source", "fund_name": "Fund", "project_search": "Project title, source, fund, project no., PI, members",
@@ -9367,8 +9740,124 @@ def current_lang(env: dict[str, str]) -> str:
     return "en" if env.get("_LANG") == "en" else "zh"
 
 
+def i18n_dictionary_paths() -> list[Path]:
+    paths: list[Path] = [Path(I18N_DICTIONARY_FILENAME)]
+    try:
+        current = Path(__file__).resolve()
+        for parent in current.parents:
+            paths.append(parent / I18N_DICTIONARY_FILENAME)
+    except Exception:
+        pass
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = str(path)
+        if key not in seen:
+            unique.append(path)
+            seen.add(key)
+    return unique
+
+
+def normalize_i18n_dictionary(data: Any) -> dict[str, Any]:
+    entries = data.get("entries", data) if isinstance(data, dict) else data
+    normalized: dict[str, dict[str, str]] = {}
+    if isinstance(entries, dict):
+        iterable = entries.items()
+    elif isinstance(entries, list):
+        iterable = []
+        for index, item in enumerate(entries):
+            if isinstance(item, dict):
+                key = text_only(item.get("key") or item.get("uid") or f"entry-{index + 1}", 160).strip()
+                iterable.append((key, item))
+    else:
+        iterable = []
+    for raw_key, raw_value in iterable:
+        key = text_only(raw_key, 180).strip()
+        if not key:
+            continue
+        if isinstance(raw_value, dict):
+            zh = text_only(raw_value.get("zh") or raw_value.get("cn") or raw_value.get("source") or raw_value.get("source_text"), 12000).strip()
+            en = text_only(raw_value.get("en") or raw_value.get("english") or raw_value.get("target") or raw_value.get("translated_text"), 12000).strip()
+            context = text_only(raw_value.get("context") or raw_value.get("source_ref_key") or raw_value.get("note"), 300).strip()
+        else:
+            value = text_only(raw_value, 12000).strip()
+            if has_cjk(key):
+                zh, en = key, value
+            else:
+                zh, en = value, ""
+            context = ""
+        if not zh and has_cjk(key):
+            zh = key
+        if not zh and not en:
+            continue
+        normalized[key] = {"zh": zh, "en": en, "context": context}
+    return {"version": int_value((data or {}).get("version") if isinstance(data, dict) else 1, 1), "entries": normalized}
+
+
+def load_i18n_dictionary(env: dict[str, str] | None = None) -> dict[str, Any]:
+    env = env or {}
+    raw = text_only(env.get("_I18N_DICTIONARY_JSON"), 2_000_000).strip()
+    if raw:
+        try:
+            return normalize_i18n_dictionary(json.loads(raw))
+        except Exception:
+            return {"version": 1, "entries": {}}
+    for path in i18n_dictionary_paths():
+        try:
+            if not path.is_file():
+                continue
+            stat = path.stat()
+            cache_path = str(path.resolve())
+            if I18N_DICTIONARY_CACHE.get("path") == cache_path and I18N_DICTIONARY_CACHE.get("mtime") == stat.st_mtime and isinstance(I18N_DICTIONARY_CACHE.get("data"), dict):
+                return I18N_DICTIONARY_CACHE["data"]
+            data = normalize_i18n_dictionary(json.loads(path.read_text(encoding="utf-8")))
+            I18N_DICTIONARY_CACHE.update({"path": cache_path, "mtime": stat.st_mtime, "data": data})
+            return data
+        except Exception:
+            continue
+    return {"version": 1, "entries": {}}
+
+
+def i18n_dictionary_entries(env: dict[str, str] | None = None) -> dict[str, dict[str, str]]:
+    data = load_i18n_dictionary(env)
+    entries = data.get("entries") if isinstance(data, dict) else {}
+    return entries if isinstance(entries, dict) else {}
+
+
+def i18n_dictionary_lookup_key(env: dict[str, str], key: str, lang: str) -> str:
+    entry = i18n_dictionary_entries(env).get(key)
+    if not isinstance(entry, dict):
+        return ""
+    value = text_only(entry.get(lang), 12000).strip()
+    if value:
+        return value
+    if lang == "zh":
+        return text_only(entry.get("source") or entry.get("zh"), 12000).strip()
+    return ""
+
+
+def i18n_dictionary_lookup_source(env: dict[str, str], source: str, lang: str = "en") -> str:
+    source = text_only(source, 12000).strip()
+    if not source:
+        return ""
+    source_casefold = source.casefold()
+    for entry in i18n_dictionary_entries(env).values():
+        if not isinstance(entry, dict):
+            continue
+        zh = text_only(entry.get("zh"), 12000).strip()
+        en = text_only(entry.get("en"), 12000).strip()
+        if zh and zh.casefold() == source_casefold:
+            return text_only(entry.get(lang), 12000).strip()
+        if en and en.casefold() == source_casefold and lang == "zh":
+            return zh
+    return ""
+
+
 def t(env: dict[str, str], key: str) -> str:
     lang = current_lang(env)
+    dictionary_value = i18n_dictionary_lookup_key(env, key, lang)
+    if dictionary_value:
+        return dictionary_value
     return TRANSLATIONS.get(lang, TRANSLATIONS["zh"]).get(key, TRANSLATIONS["zh"].get(key, key))
 
 
@@ -9454,6 +9943,9 @@ def front_value(repo: Repository, env: dict[str, str], table: str, row: dict[str
         return ""
     if should_preserve_english_source(table, field, source):
         return source
+    dictionary_value = i18n_dictionary_lookup_source(env, source, "en")
+    if dictionary_value:
+        return text_only(dictionary_value, limit).strip()
     ref_key = translation_ref_key(table, row, field)
     source_hash = translation_source_hash(source)
     cached = translation_cache_index(repo, env).get((ref_key, source_hash)) or translation_cache_index(repo, env).get(("", source_hash))
@@ -10012,6 +10504,94 @@ def publication_tags(row: dict[str, Any]) -> str:
     return '<div class="publication-tags">' + "".join(tags) + "</div>" if tags else ""
 
 
+def home_publication_list(rows: list[dict[str, Any]], display_style: str, repo: Repository, env: dict[str, str]) -> str:
+    items = []
+    total = len(rows)
+    for index, row in enumerate(rows, 1):
+        display_row = front_row(repo, env, "publications", row)
+        citations = publication_citations(display_row)
+        number = total - index + 1
+        citation = publication_display_citation(display_row, citations, display_style)
+        tags = publication_tags(display_row)
+        items.append(f"""<article class="home-pub-item">
+          <span class="home-item-number">{number}</span>
+          <div class="home-pub-body">
+            <p>{esc(citation)}</p>
+            {tags}
+          </div>
+        </article>""")
+    return f'<section class="home-pub-list">{"".join(items) or empty(env)}</section>'
+
+
+def home_project_items(rows: list[dict[str, Any]], repo: Repository, env: dict[str, str]) -> str:
+    parts = []
+    for row in rows:
+        display_row = front_row(repo, env, "projects", row)
+        source = text_only(display_row.get("source"), 120).strip()
+        fund = text_only(display_row.get("fund_name"), 140).strip()
+        funding = " - ".join(item for item in (source, fund) if item)
+        details = home_inline_facts([
+            (t(env, "project_period"), front_project_period(row.get("start_date"), row.get("end_date"), env)),
+            (t(env, "project_number"), row.get("project_number")),
+            (t(env, "project_amount"), front_project_amount(row.get("amount"), env)),
+            (t(env, "status"), display_row.get("status")),
+        ])
+        parts.append(f"""<article class="home-mini-card home-project-card">
+          {f'<div class="home-mini-kicker">{esc(funding)}</div>' if funding else ''}
+          <strong>{esc(display_row.get("name"))}</strong>
+          {details}
+        </article>""")
+    return f'<div class="home-mini-list">{"".join(parts) or empty(env)}</div>'
+
+
+def home_patent_items(rows: list[dict[str, Any]], repo: Repository, env: dict[str, str]) -> str:
+    parts = []
+    for row in rows:
+        display_row = front_row(repo, env, "patents", row)
+        tags = patent_tags(display_row)
+        details = home_inline_facts([
+            (t(env, "inventors"), display_row.get("inventors")),
+            (t(env, "owner"), display_row.get("owner")),
+            (t(env, "application_number"), row.get("application_number")),
+            (t(env, "grant_number"), row.get("grant_number")),
+        ])
+        parts.append(f"""<article class="home-mini-card home-patent-card">
+          <div class="home-mini-title-row"><strong>{esc(display_row.get("name"))}</strong>{tags}</div>
+          {details}
+        </article>""")
+    return f'<div class="home-mini-list">{"".join(parts) or empty(env)}</div>'
+
+
+def home_student_items(rows: list[dict[str, Any]], repo: Repository, env: dict[str, str]) -> str:
+    parts = []
+    lang = current_lang(env)
+    for row in rows:
+        display_row = front_row(repo, env, "students", row)
+        name = front_value(repo, env, "students", row, "name", 500) or localized_name(row, lang)
+        details = home_inline_facts([
+            (t(env, "degree"), display_row.get("degree")),
+            (t(env, "grade"), display_row.get("grade")),
+            (t(env, "status"), display_row.get("status")),
+            (t(env, "direction"), display_row.get("direction")),
+        ])
+        summary = text_only(display_row.get("bio") or display_row.get("destination"), 180).strip()
+        parts.append(f"""<article class="home-mini-card home-student-card">
+          <strong>{esc(name)}</strong>
+          {details}
+          {f'<p class="home-mini-summary">{esc(summary)}</p>' if summary else ''}
+        </article>""")
+    return f'<div class="home-mini-list">{"".join(parts) or empty(env)}</div>'
+
+
+def home_inline_facts(items: list[tuple[str, Any]]) -> str:
+    chips = []
+    for label, value in items:
+        text = text_only(value, 220).strip()
+        if text:
+            chips.append(f'<span><em>{esc(label)}</em>{esc(text)}</span>')
+    return f'<div class="home-mini-facts">{"".join(chips)}</div>' if chips else ""
+
+
 def simple_items(rows: list[dict[str, Any]], title_field: str, meta_field: str, repo: Repository | None = None, env: dict[str, str] | None = None, table: str = "") -> str:
     parts = []
     for row in rows:
@@ -10064,8 +10644,52 @@ def filter_selects(query: dict[str, str], filter_groups: list[tuple[str, str, li
             raw_values = [str(item[0]) if isinstance(item, (tuple, list)) and item else str(item) for item in option_values]
             if selected not in raw_values:
                 option_values.insert(0, (selected, selected))
-        controls.append(f'<select class="filter-select filter-select-{esc(name)}" name="{esc(name)}"><option value="">{esc(label)}</option>{select_options(option_values, selected)}</select>')
+        style = filter_select_style(label, option_values, selected)
+        title = filter_select_title(label, option_values)
+        controls.append(f'<select class="filter-select filter-select-{esc(name)}" name="{esc(name)}" style="{style}" title="{esc(title)}"><option value="">{esc(label)}</option>{select_options(option_values, selected)}</select>')
     return "".join(controls)
+
+
+def filter_select_style(label: str, values: list[Any], selected: str = "") -> str:
+    pairs = [option_pair(item) for item in values]
+    selected_label = next((item_label for item_value, item_label in pairs if str(item_value) == str(selected)), "")
+    closed_text = selected_label or label
+    max_label = max([label, closed_text] + [item_label for _item_value, item_label in pairs], key=visual_text_units, default=label)
+    closed_em = max(4.8, min(12.8, visual_text_units(closed_text) * 0.54 + 2.2))
+    option_em = max(closed_em + 1.0, min(26.0, visual_text_units(max_label) * 0.54 + 3.6))
+    return f"--filter-select-width:{closed_em:.1f}em;--filter-option-width:{option_em:.1f}em;"
+
+
+def filter_select_title(label: str, values: list[Any]) -> str:
+    labels = [option_pair(item)[1] for item in values]
+    longest = max(labels, key=visual_text_units, default="")
+    return f"{label}: {longest}" if longest else label
+
+
+def option_pair(item: Any) -> tuple[str, str]:
+    if isinstance(item, (tuple, list)) and item:
+        value = str(item[0])
+        label = str(item[1] if len(item) > 1 else item[0])
+        return value, label
+    value = str(item)
+    return value, value
+
+
+def visual_text_units(value: Any) -> float:
+    units = 0.0
+    for char in text_only(value, 300):
+        code = ord(char)
+        if char.isspace():
+            units += 0.45
+        elif code <= 0x007F:
+            units += 0.62
+        elif 0xFF00 <= code <= 0xFFEF:
+            units += 1.0
+        elif 0x4E00 <= code <= 0x9FFF or 0x3040 <= code <= 0x30FF or 0xAC00 <= code <= 0xD7AF:
+            units += 1.0
+        else:
+            units += 0.86
+    return max(units, 1.0)
 
 
 def filter_options(rows: list[dict[str, Any]], specs: list[tuple[str, str]], repo: Repository | None = None, env: dict[str, str] | None = None, table: str = "") -> list[tuple[str, str, list[Any]]]:

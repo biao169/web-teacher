@@ -12,11 +12,19 @@
 
 ```powershell
 D:\Python\Miniconda\envs\py312\python.exe -m pip install -r requirements.txt
-D:\Python\Miniconda\envs\py312\python.exe -m tools.init_db --seed
+D:\Python\Miniconda\envs\py312\python.exe -m tools.init_db
 D:\Python\Miniconda\envs\py312\python.exe -m tools.serve_ubuntu
 ```
 
 访问 `http://127.0.0.1:8000`。
+
+首次部署默认只初始化空数据库，不自动填充示例数据。
+
+如需本地演示基础示例内容：
+
+```powershell
+D:\Python\Miniconda\envs\py312\python.exe -m tools.init_db --seed
+```
 
 填充更完整的示例内容：
 

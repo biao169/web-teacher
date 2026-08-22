@@ -12,3 +12,4 @@ exports/
 /media/
 node_modules/
 /src/app/
+/src/i18n_dictionary.json

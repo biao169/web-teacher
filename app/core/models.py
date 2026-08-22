@@ -363,6 +363,7 @@ TABLES: tuple[Table, ...] = (
         (
             Field("uid", "稳定标识", required=True, list=True, search=True),
             Field("object_key", "对象 key", required=True, list=True, search=True),
+            Field("storage_kind", "存储位置", "select", list=True, choices=("static", "local", "r2", "external")),
             Field("title", "标题", list=True, search=True),
             Field("category", "分类", list=True, search=True),
             Field("mime_type", "MIME 类型", list=True, search=True),

@@ -12,6 +12,9 @@ DEMO_ROWS = {
             "site_name": "教师个人与团队网站",
             "hero_title": "面向可靠智能系统的教学与科研",
             "hero_subtitle": "这里展示教师简介、团队成员、论文、项目、专利、课程和新闻动态。后台可维护导航、首页按钮、团队照片和成果内容。",
+            "logo_key": "default/site-logo.png",
+            "favicon_key": "default/site-logo.png",
+            "og_image_key": "default/site-logo.png",
             "seo_title": "教师个人主页",
             "seo_description": "教师个人与团队网站，展示科研项目、论文、专利、学生、课程与动态。",
             "seo_keywords": "教师主页,科研团队,论文,项目,专利,学生",
@@ -85,7 +88,7 @@ DEMO_ROWS = {
             "title": "教授 / 博士生导师",
             "organization": "某某大学",
             "lab": "智能系统实验室",
-            "avatar_key": "profile/main-teacher.svg",
+            "avatar_key": "default/teacher-default-avatar.png",
             "email": "teacher@example.edu.cn",
             "office": "理工楼 A-501",
             "bio": "长期从事智能系统、可靠机器学习与教育数字化方向研究，欢迎对科研和工程实现都有兴趣的同学加入团队。",
@@ -108,7 +111,7 @@ DEMO_ROWS = {
             "role": "博士生",
             "title": "2024 级博士研究生",
             "organization": "某某大学",
-            "avatar_key": "profile/member-li.svg",
+            "avatar_key": "default/teacher-default-avatar.png",
             "email": "student@example.edu.cn",
             "bio": "研究方向为可信机器学习与学术知识图谱。",
             "visibility": "public",
@@ -156,7 +159,7 @@ DEMO_ROWS = {
         {"id": 1, "uid": "patent-ai-platform", "name": "一种教学资源智能组织方法及系统", "country": "中国", "patent_type": "发明专利", "application_number": "CN000000000", "application_date": "2026-03-18", "inventors": "张三; 李四", "owner": "某某大学", "legal_status": "申请中", "visibility": "public", "is_featured": 1, "sort_order": 1}
     ],
     "students": [
-        {"id": 1, "uid": "student-li-si", "name": "李四", "avatar_key": "students/li-si.svg", "degree": "博士", "category": "在读博士", "grade": "2024", "direction": "可信机器学习", "status": "在读", "email": "student@example.edu.cn", "bio": "关注可靠机器学习与知识图谱。", "visibility": "public", "contact_visibility": "public", "is_featured": 1, "sort_order": 1}
+        {"id": 1, "uid": "student-li-si", "name": "李四", "avatar_key": "default/student-default-avatar.png", "degree": "博士", "category": "在读博士", "grade": "2024", "direction": "可信机器学习", "status": "在读", "email": "student@example.edu.cn", "bio": "关注可靠机器学习与知识图谱。", "visibility": "public", "contact_visibility": "public", "is_featured": 1, "sort_order": 1}
     ],
     "student_category_displays": [
         {"id": 1, "uid": "cat-phd", "key": "phd", "label": "在读博士", "keywords": "博士,phd", "enabled": 1, "display_order": 1},
@@ -171,9 +174,9 @@ DEMO_ROWS = {
     ],
     "messages": [],
     "media_assets": [
-        {"id": 1, "uid": "media-profile-main", "object_key": "profile/main-teacher.svg", "title": "教师照片", "category": "profile", "mime_type": "image/svg+xml", "size": 0, "status": "active"},
-        {"id": 2, "uid": "media-member-li", "object_key": "profile/member-li.svg", "title": "团队成员照片", "category": "profile", "mime_type": "image/svg+xml", "size": 0, "status": "active"},
-        {"id": 3, "uid": "media-student-li", "object_key": "students/li-si.svg", "title": "学生照片", "category": "students", "mime_type": "image/svg+xml", "size": 0, "status": "active"},
+        {"id": 1, "uid": "media-site-logo", "object_key": "default/site-logo.png", "title": "网站默认图标", "category": "default", "mime_type": "image/png", "size": 340684, "storage_kind": "static", "status": "active"},
+        {"id": 2, "uid": "media-teacher-default-avatar", "object_key": "default/teacher-default-avatar.png", "title": "教师默认头像", "category": "default", "mime_type": "image/png", "size": 11819, "storage_kind": "static", "status": "active"},
+        {"id": 3, "uid": "media-student-default-avatar", "object_key": "default/student-default-avatar.png", "title": "学生默认头像", "category": "default", "mime_type": "image/png", "size": 10567, "storage_kind": "static", "status": "active"},
     ],
     "translation_cache": [],
     "autofetch_logs": [],

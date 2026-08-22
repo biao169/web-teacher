@@ -1,8 +1,43 @@
 # 教师个人/团队网站功能设计与文件职责
 
-更新时间：2026-08-21
+更新时间：2026-08-22
 
 本文档是 `web03` 的长期设计台账。后续 AI 或人工继续开发本网站时，应先阅读本文档，再阅读 `docs/TEACHER_SITE_SKILL_AND_ARCHITECTURE_PLAN.md`、`README.md` 和相关源码。
+
+## 最近更新：2026-08-22 AI 智能制造 Logo 256 图标
+
+- 新增 `public/media/default/site-logo-ai-256.png`，尺寸为 256x256 PNG，透明背景，约 84KB。
+- 该图标用于更明确表达“机械工程 + 智能制造 + AI”：画面包含齿轮外轮廓、简化制造机械臂、制造火花、少量智能网络节点和清晰 `AI` 字样。
+- 当前本地站点设置已将 `logo_key` 和 `favicon_key` 指向 `default/site-logo-ai-256.png`；`og_image_key` 暂不改动，因为分享图更适合横向大图。
+
+## 2026-08-22 默认 Logo 简化重设计
+
+- 默认网站 Logo `public/media/default/site-logo.png` 已重新设计为更简洁的机械工程 + 人工智能图标：减少细碎电路、密集节点和复杂机械结构，只保留半圈齿轮、少量神经节点、简化机械臂与轻量环形动线。
+- 新 Logo 保留透明背景，压缩为约 512px 方形 PNG，适合前台左上角品牌位、Favicon 候选图和首次部署默认品牌图。
+- 原较复杂版本已备份为 `public/media/default/site-logo-dense-legacy.png`，方便后续对比或回退。
+
+## 2026-08-22 站点品牌媒体前台接入
+
+- “站点设置 -> 品牌与分享媒体”中的 `logo_key`、`favicon_key`、`og_image_key` 已接入前台布局。
+- `logo_key` 用于前台左上角品牌位，和站点名称并排显示；图片采用 `object-fit: contain`，支持横向 Logo、方形 Logo 和透明 PNG/SVG。
+- `favicon_key` 用于 `<link rel="icon">` 和 `<link rel="apple-touch-icon">`，影响浏览器标签页图标、收藏图标和部分移动端添加到主屏幕图标。
+- `og_image_key` 用于 Open Graph 与 Twitter 分享图元信息，影响微信、社交平台、聊天软件或搜索工具抓取链接时展示的预览大图。
+- 如果三个字段为空，前台会回退到 `default/site-logo.png`；Cloudflare 与 Ubuntu 都通过统一的 `/media/...` 或公开媒体 URL 读取。
+
+## 2026-08-22 前台筛选条精细化
+
+- 前台各功能页搜索/筛选条继续统一使用 `compact_filter_form()`、`student_filter_form()` 和 `filter_selects()`，避免各页面单独维护筛选样式。
+- `filter_selects()` 会根据默认标签、当前选中项和最长选项自动生成 `--filter-select-width` 与 `--filter-option-width`，闭合状态更紧凑，聚焦或打开时临时扩宽，便于单行查看较长下拉选项。
+- 中文、英文、年份、学位、期刊会议等内容宽度使用 `visual_text_units()` 估算，不再依赖固定的 112px、128px 等通用宽度。
+- CSS 中 `.compact-page .compact-filterbar select` 读取上述变量控制默认宽度；`:focus` / `:focus-visible` 读取展开宽度，并给下拉项保留基础内边距。移动端仍保持筛选输入与下拉框全宽展示。
+
+## 2026-08-22 首页与页脚体验优化
+
+- 首页右侧“学术档案 / 招生方向”采用紧凑信息块：标题贴近下方内容，模块之间用较小间距和虚线分隔，避免标题与上一段内容粘连。
+- 首页“代表论文”使用专用紧凑列表 `home_publication_list()`，引用文本按后台当前引用格式生成；底部不再重复显示年份、期刊、论文类型和 DOI 元信息，降低单条高度。
+- 首页底部“项目 / 专利 / 学生”使用专用卡片 `home_project_items()`、`home_patent_items()`、`home_student_items()`：项目突出“来源 - 基金/计划、项目名称、周期、编号、金额、状态”；专利展示名称、类型/状态标签、发明人、权利人、申请号和授权号；学生展示姓名、学历、年级、状态、方向及两行摘要。
+- 站点设置的“页脚”字段支持纯文本或安全 HTML 保存。保存时统一经过 `render_limited_html()` / `text_only()` 清洗，前台由 `site_footer_html()` 渲染，便于后续自定义版权、备案、联系方式和实验室链接。
+- 前台和后台全局布局都包含 `data-back-to-top` 回到顶部按钮：滚动到页面下方后出现，点击平滑回到顶部；移动端缩小尺寸，后台页面避开左侧导航悬浮按钮。
 
 ## 0. 项目目录总览
 
@@ -12,16 +47,24 @@
 
 - `README.md`：项目快速说明，适合首次打开项目时查看运行方式和基本能力。
 - `CLOUDFLARE_DEPLOYMENT.md`：Cloudflare Workers、D1、R2、Static Assets 部署说明；D1 初始化优先查看这里。
-- `UBUNTU_DEPLOYMENT.md`：普通 Ubuntu 云服务器部署说明。
+- `UBUNTU_DEPLOYMENT.md`：普通 Ubuntu 云服务器部署说明，包含生产密钥生成、环境变量、systemd、Nginx、HTTPS 和备份步骤。
 - `wrangler.toml`：Cloudflare Worker 配置，包括入口 `src/worker.py`、静态资源目录 `public`、D1、R2 和环境变量。
 - `pyproject.toml`、`requirements.txt`：Python 项目依赖与运行配置。
 - `start_windows.bat`、`start_ubuntu.sh`：Windows 和 Ubuntu 的一键启动脚本。
 - `robots.txt`、`sitemap.xml`、`sitemap-index.xml`、`sitemap.txt`、`llms.txt`、`security.txt`、`.well-known/security.txt`：搜索引擎、AI 摘要工具和安全披露工具可识别的根目录入口文件；正式上线时需要将其中的占位域名 `https://example.com` 改为真实域名。动态路由版本会优先读取运行环境中的 `SITE_URL`。
+- `i18n_dictionary.json`：根目录唯一的手动中英互译词典源文件，预置前台固定 UI 文案和可复用内容译文；本地/Ubuntu 直接读取该文件，Cloudflare 部署时由构建脚本复制为随包默认词典，运行时优先读取 R2 中的 `i18n/i18n_dictionary.json`。该文件不放入 `public/media/`，避免被当成公开媒体资产、被媒体库删除流程误处理或被爬虫直接索引。
 - `db.sqlite3`：历史或临时 SQLite 数据库文件，不作为当前推荐运行数据源；当前默认本地数据在 `data/site.sqlite3`。
 - `devserver*.log`、`runserver*.log`：本地开发服务日志，可用于排查启动错误，不应提交敏感信息。
 - `.gitignore`：版本控制忽略规则。
 
-### 0.2 `app/`
+### 0.2 `deploy/`
+
+部署模板目录，只存放可提交的示例配置，不包含真实密钥。
+
+- `deploy/ubuntu/web-teacher.env.example`：Ubuntu 生产环境变量模板，部署时复制到 `/etc/web-teacher/web-teacher.env` 并填入真实域名、数据库路径、媒体目录和 `TEACHER_SITE_AUTH_SECRET`。
+- `deploy/ubuntu/web-teacher.service.example`：Ubuntu systemd 服务模板，默认以 `www-data` 运行 Uvicorn，并限制可写目录到 `data/`、`media/`、`exports/`、`.cache/` 和词典文件。
+
+### 0.3 `app/`
 
 网站共享业务代码目录，Cloudflare Worker 和普通 Python 服务都会复用这里的核心逻辑。
 
@@ -29,20 +72,22 @@
 - `app/core/models.py`：数据模型和字段定义，决定后台表、字段类型、搜索字段、列表字段和可见范围。
 - `app/core/repository.py`：仓储接口和内存仓储实现，供 Worker 无数据库或测试场景使用。
 - `app/core/security.py`：密码、会话签名、安全 HTML 清洗、富文本安全渲染、CSRF 同源检查、文本清洗等安全相关逻辑。
-- `app/core/media.py`：媒体 URL、图片标签和媒体显示辅助函数。
+- `app/core/media.py`：媒体 URL、图片标签、姓名占位头像、媒体存储位置识别和 R2 优先 key 判断辅助函数。
 - `app/core/exporting.py`、`app/core/importing.py`：数据导出和恢复导入逻辑。
-- `app/core/seed_data.py`：基础演示/初始化数据。
-- `app/core/example_data.py`：更丰富的示例数据，用于本地演示填充。
+- `app/core/seed_data.py`：基础演示数据，仅在显式运行 `tools.init_db --seed` 时使用；Cloudflare、Ubuntu 和本地开发服务器首次启动不默认写入。
+- `app/core/example_data.py`：更丰富的示例数据，仅在显式运行 `tools.seed_examples` 时用于本地演示填充。
 - `app/adapters/ubuntu/db.py`：普通 Windows/Ubuntu 环境下的 SQLite 仓储实现，会按 `models.py` 自动补齐表结构。
 - `app/adapters/cloudflare_repository.py`：Cloudflare D1 与内存仓储之间的数据加载和保存桥接。
 
-### 0.3 `src/`
+### 0.4 `src/`
 
 Cloudflare Worker 入口目录。
 
 - `src/worker.py`：Worker 请求入口，负责接收 Cloudflare 请求、读取 D1/R2/Static Assets 绑定、组装运行环境变量，并把请求交给 `app/core/rendering.py`。Cloudflare 部署问题优先检查这里和 `wrangler.toml`。
+- `src/app/`：Cloudflare 构建时由 `tools/prepare_cloudflare_build.py` 从根目录 `app/` 自动复制生成的临时 Python 包，已被 `.gitignore` 排除；不要手动维护，若本地存在可删除，部署时会重新生成。
+- `src/i18n_dictionary.json`：Cloudflare 构建时从根目录 `i18n_dictionary.json` 自动复制生成的临时默认词典，已被 `.gitignore` 排除；R2 词典不存在时 Worker 才会回退使用它。
 
-### 0.4 `public/`
+### 0.5 `public/`
 
 前后台公开静态资源目录，会被本地服务器和 Cloudflare Static Assets 直接服务。
 
@@ -50,16 +95,17 @@ Cloudflare Worker 入口目录。
 - `public/assets/site.js`：全站前后台交互脚本，包括媒体选择工具、后台快速操作、筛选/批量工具、移动端导航、媒体裁剪等。
 - `public/assets/news-rich-editor.css`：富文本独立编辑器样式。
 - `public/assets/news-rich-editor.js`：富文本独立编辑器交互逻辑，包括插入媒体、上传媒体、图片尺寸、对齐、吸顶等。
-- `public/media/`：公开媒体文件目录，保存本地上传或示例图片、SVG、新闻媒体等；Cloudflare 生产环境可迁移到 R2，并通过 `PUBLIC_MEDIA_BASE_URL` 或 `/media/` 路由访问。
+- `public/media/`：随代码部署的公开静态媒体目录；首次部署只保留 `public/media/default/` 下三张默认 PNG：网站默认图标、教师默认头像和学生默认头像。其他后台上传媒体不放在这里，Cloudflare 进入 R2，Ubuntu/本地进入 `media/`。
+- `media/`：本地/Ubuntu 运行时媒体目录，适合普通云服务器后台上传后保存；该目录不随 Git 发布。
 
-### 0.5 `migrations/`
+### 0.6 `migrations/`
 
 数据库初始化脚本目录。
 
-- `migrations/0001_initial.sql`：当前已合并为单个完整初始化脚本，适合 Cloudflare D1 空数据库首次建表时直接复制粘贴执行，或通过 `wrangler d1 migrations apply` 执行。
-- 注意：该脚本不是已有正式数据库的升级脚本。已有数据迁移应先备份，再使用后台“导入与导出”恢复。
+- `migrations/0001_initial.sql`：首次部署唯一数据库初始化脚本，包含当前所有表、字段和索引，包括媒体 `storage_kind` 字段；只建表，不插入示例数据。
+- 注意：已有正式数据库升级前应先备份；首次部署可直接执行该文件，已有数据迁移优先使用后台“导入与导出”恢复。
 
-### 0.6 `tools/`
+### 0.7 `tools/`
 
 本地和 Ubuntu 运维工具目录，不直接暴露给前台访客。
 
@@ -69,8 +115,9 @@ Cloudflare Worker 入口目录。
 - `tools/seed_examples.py`：向本地数据库添加示例内容。
 - `tools/export_bundle.py`：本地导出完整网站数据包。
 - `tools/import_bundle.py`：本地恢复导入数据包。
+- `tools/prepare_cloudflare_build.py`：Cloudflare 部署前构建脚本，复制 `app/` 到 `src/app/`，同时复制根目录 `i18n_dictionary.json` 到 `src/i18n_dictionary.json`。
 
-### 0.7 `data/`、`exports/`、`.cache/`
+### 0.8 `data/`、`exports/`、`.cache/`
 
 运行时数据目录。
 
@@ -78,18 +125,18 @@ Cloudflare Worker 入口目录。
 - `exports/`：本地或 Ubuntu 生成的导出文件目录，例如 JSON、CSV、Excel、ZIP 备份包。
 - `.cache/`：运行缓存目录，例如登录限流、媒体统计缓存等；不应手动依赖其中内容作为正式数据源。
 
-### 0.8 `docs/`
+### 0.9 `docs/`
 
 项目文档目录。
 
 - `docs/WEBSITE_FUNCTION_DESIGN.md`：当前长期设计台账，记录功能规划、文件职责、数据模型、部署策略和每次重要变更。后续修改网站时必须同步更新。
 - `docs/TEACHER_SITE_SKILL_AND_ARCHITECTURE_PLAN.md`：早期技能加载、信息架构、技术选型与总体规划文档。
 
-### 0.9 `seed/`、`content/`
+### 0.10 `seed/`、`content/`
 
 辅助与预留目录。
 
-- `seed/demo.sql`：SQL 形式的演示数据或初始化辅助数据。
+- `seed/demo.sql`：SQL 形式的演示数据，仅供本地手动测试或演示，不参与 Cloudflare/Ubuntu 默认部署初始化。
 - `content/`：预留内容目录，目前未承载核心运行逻辑；后续如果引入 Markdown/JSON 内容源，可优先放在这里并同步更新本文档。
 
 ### 0.10 生成目录
@@ -246,6 +293,10 @@ Cloudflare Worker 入口目录。
 - 富文本“插入媒体”窗口的本地上传复用媒体库上传接口，前端在发送前限制 10MB 并给出明确提示；本地开发服务器对过大上传和接口异常返回 JSON 错误，避免浏览器只显示 `Failed to fetch`。媒体弹窗缩略图使用更高的正方形 contain 预览，瘦高图片也必须完整显示。
 - “动态”正文保存采用安全 HTML 链路：`content_format = html` 时不再使用 `text_only()` 去除标签，而是在保存阶段通过有限 HTML 白名单清理后入库；前台详情页加载 HTML 正文时直接读取原始正文并在输出阶段再次白名单渲染，避免样式、图片或视频标签被提前清除。
 - 媒体库使用位置扫描会识别动态正文 HTML 中的 `/media/...` 引用，并在媒体库中标记为“动态 · 正文内容”，便于统一管理富文本内媒体。
+- 媒体库新增 `storage_kind` 字段区分 `static`、`local`、`r2`、`external`：`static` 表示随 `public/media` 和 Cloudflare Static Assets 发布，`local` 表示 Ubuntu/本地运行时 `media` 目录，`r2` 表示 Cloudflare R2，`external` 表示公开 URL。老数据未填写时按 key 自动推断，`uploads/` 和 `r2/` 前缀默认视为 R2。
+- Cloudflare Worker 中后台上传和裁剪媒体会写入 R2 `MEDIA` 绑定，并把媒体记录写入 D1；新 R2 对象默认使用 `uploads/<category>/<filename>-<timestamp>` key，前台仍通过 `/media/uploads/...` 访问。
+- Cloudflare `/media/...` 读取策略按 key 优化：`uploads/` 或 `r2/` 先查 R2，再回退 Static Assets；普通 `/media/profile/...`、`/media/icons/...` 等先查 Static Assets，再按需回退 R2，减少静态媒体的 R2 空读。
+- Ubuntu/本地环境没有 R2，后台上传写入 `public/media` 并登记为 `local`；从 Cloudflare 迁移时，应先导出 D1 数据和 R2 媒体包，再把 R2 对象恢复到 Ubuntu 的 `media/uploads/...`，数据库 key 不需要变化。
 - “课程”后台列表使用专用紧凑界面，按课程/简介、学期/对象、资料、状态、快速修改和操作分列展示。
 - “课程”后台列表顶部提供课程名称/简介/资料搜索，学期、授课对象、资料可见性、可见范围、首页展示和排序筛选；快速修改仅支持首页展示、可见范围和排序。
 - “课程”编辑页按课程基本信息、课程简介、资料附件、展示与排序分组；学期和授课对象输入框支持历史填法提示，大纲和课件 key 接入通用媒体选择工具。
@@ -272,7 +323,7 @@ Cloudflare Worker 入口目录。
 - 通用媒体选择工具用于后台媒体 key/图标类字段，可从可用媒体库选择、上传本地文件，或通过浏览器 canvas 裁剪图片后保存为新媒体；所有接入“选择媒体”的字段都显示当前媒体预览区，图片/视频直接预览，其他文件显示文件类型占位和 key。
 - `/admin/table/media_assets` 使用媒体库专用概览：缩略图、标题、对象 key、分类、MIME、大小、状态、使用位置和操作按钮在同一列表中展示。
 - 媒体库概览使用紧凑单行多列布局：每个媒体文件占一行，行内列展示选择框、预览、媒体文件、文件信息、使用位置和操作。
-- 媒体库支持多选与统一修改，可批量改状态、改分类、移入回收站、恢复可用或彻底删除记录。
+- 媒体库支持多选与统一修改，可批量改状态、改分类、移入回收站、恢复可用或彻底删除媒体文件和记录。
 - 媒体库顶部显示容量概览，页面先快速渲染，再由 `/api/admin/media/summary` 与 `/api/admin/media/file-size` 异步读取容量数据；磁盘容量和文件大小默认使用短期缓存，手动刷新才强制重新检测。
 - 媒体库列表的“可用”是计算状态：记录必须是 active 且本地媒体文件存在，才显示“可用”；active 但文件不存在时显示“文件缺失”，预览区不再输出失效图片标签，而显示缺失占位。
 - 媒体库筛选增加“文件状态”，支持可用、文件缺失、有引用、未引用；可用于批量筛出失效媒体记录后移入回收站或彻底删除。
@@ -285,7 +336,7 @@ Cloudflare Worker 入口目录。
 - 回收站界面与媒体库使用相同的单行多列列表，支持查看媒体、恢复原位置、删除指定文件和一键清空；超过 `global_settings.media_trash_retention_days` 的回收站记录会在打开媒体库/回收站时自动清空。
 - 媒体库使用位置通过扫描各数据表中 `kind = file` 的字段计算，优先跳转到后台编辑页，并在可识别前台页面时提供前台入口。
 - 媒体库/回收站列表的列宽优先保障“使用位置”：媒体文件列和文件信息列较窄，文件信息最多约两行，使用位置可换行显示但尽量不超过三行；使用位置 chip 的 `title` 保留完整引用信息，鼠标悬停可查看完整内容。
-- 媒体文件列中的对象 key 支持换行断词显示，例如 `students/li-si.svg` 可以显示为两行，不强制单行省略。
+- 媒体文件列中的对象 key 支持换行断词显示，例如 `default/student-default-avatar.png` 可以显示为两行，不强制单行省略。
 - 后台主业务概览页统一使用吸顶工具区：搜索/筛选/排序行与批量操作行在列表滚动时保持可见；筛选下拉框默认收窄，排序下拉略宽，优先把横向空间留给列表内容。
 - 导航与按钮、教师与团队、研究方向、论文、项目、专利与软著、学生、学生分组、动态、课程和留言概览页均支持多选。每行最左侧显示选择框，顶部批量行提供全选、已选数量、统一属性修改和按当前列表顺序重排。
 - 通用批量修改采用白名单字段，避免误改标题、姓名、编号、正文、附件等高风险内容。常见批量字段包括首页展示、启用状态、可见范围、联系方式可见性、论文类型/收录、项目状态/来源、专利类型/法律状态、学生层次/分组/年级、动态分类/评论、课程学期/对象、留言状态/类型等。
@@ -316,7 +367,7 @@ Cloudflare Worker 入口目录。
 - 前台图片由 `app/core/media.py` 生成 URL 或占位头像。
 - Cloudflare 侧媒体目标是 R2。
 - Ubuntu 侧媒体目标是本地 `media/` 或对象存储。
-- 示例占位图位于 `public/media/`。
+- 首次部署随包默认媒体只位于 `public/media/default/`，包含网站默认图标、教师默认头像和学生默认头像。
 
 待扩展方向：
 
@@ -467,9 +518,9 @@ Ubuntu 设计约束：
 | `public/assets/site.js` | 前后台轻量交互，目前包含论文引用批量复制、头像缺图回退、媒体库多选计数、批量删除确认，以及从动态编辑页打开独立富文本工具页的入口逻辑。 |
 | `public/assets/news-rich-editor.css` | 动态富文本独立新窗口工具页样式，负责编辑区、预览区、工具栏和内置媒体插入面板布局。 |
 | `public/assets/news-rich-editor.js` | 动态富文本独立新窗口工具页脚本，负责连接原编辑页、读取/回写正文、执行浏览器原生富文本命令、插入/上传/粘贴媒体和实时预览。 |
-| `public/media/profile/main-teacher.svg` | 教师头像示例占位图。 |
-| `public/media/profile/member-li.svg` | 团队成员头像示例占位图。 |
-| `public/media/students/li-si.svg` | 学生头像示例占位图。 |
+| `public/media/default/site-logo.png` | 首次部署默认网站 Logo/Favicon/分享图。 |
+| `public/media/default/teacher-default-avatar.png` | 首次部署默认教师头像。 |
+| `public/media/default/student-default-avatar.png` | 首次部署默认学生头像。 |
 
 ### 5.5 数据、迁移和配置
 
@@ -1459,7 +1510,7 @@ Ubuntu 设计约束：
 设计注意：
 
 - “移到回收站”只改变媒体记录状态为 `trash`；“恢复原位置”把状态改回 `active`。
-- “彻底删除”和“一键清空回收站”只删除媒体库元数据记录，不直接删除物理文件或对象存储文件。
+- 历史行为：当时“彻底删除”和“一键清空回收站”只删除媒体库元数据记录；该行为已被 2026-08-22 的“先删真实媒体对象，再删媒体库记录”规则取代。
 - Cloudflare Worker 的媒体批量操作、单条恢复/删除和一键清空回收站都需要通过 D1 loader 持久化。
 
 ### 2026-08-19
@@ -1492,7 +1543,7 @@ Ubuntu 设计约束：
 设计注意：
 
 - 动态容量检测只在后台媒体库/回收站页面执行，不影响前台页面请求。
-- 自动清空回收站当前只删除媒体库元数据记录，不直接删除 `public/media` 或对象存储中的物理文件；如果后续接入物理删除，需要增加审计和二次确认。
+- 历史行为：当时自动清空回收站只删除媒体库元数据记录；该行为已被 2026-08-22 的跨平台真实对象删除规则取代。
 - Cloudflare D1 下，单条媒体操作、批量媒体操作和过期回收站清理会通过 `CloudflareD1Loader` 写回数据库。
 
 ### 2026-08-19
@@ -1749,7 +1800,7 @@ Ubuntu 设计约束：
 
 设计注意：
 
-- 批量“彻底删除记录”仍只删除媒体库元数据记录，不直接删除 `public/media` 或对象存储中的物理文件。
+- 历史行为：当时批量“彻底删除记录”只删除媒体库元数据记录；该行为已被 2026-08-22 的跨平台真实对象删除规则取代。
 
 ### 2026-08-19
 
@@ -1762,7 +1813,7 @@ Ubuntu 设计约束：
 - `/admin/table/media_assets` 从通用表格改为媒体库专用列表：左侧显示图片/视频/PDF/文件预览，中部显示标题、对象 key、分类、MIME、大小、校验值、状态，右侧显示使用位置和多行操作按钮。
 - 媒体库概览会扫描各数据表中 `kind = file` 的字段，显示该媒体被教师照片、学生照片、论文 PDF、专利证书、课程资料、留言附件等位置引用的情况。
 - 媒体使用位置支持新标签页跳转到后台编辑页；对教师、动态、学生、论文、项目、专利、课程和站点设置等可识别内容，同时提供前台入口。
-- 媒体操作按钮支持“编辑”“移到回收站”“恢复”“彻底删除”。回收站通过 `media_assets.status = trash` 表示；彻底删除删除媒体库记录，不直接删除 `public/media` 中的物理文件，保证 Cloudflare Worker 与 Ubuntu 行为一致。
+- 媒体操作按钮支持“编辑”“移到回收站”“恢复”“彻底删除”。回收站通过 `media_assets.status = trash` 表示；历史版本中彻底删除只删媒体库记录，当前已升级为先删除真实媒体对象再删除记录。
 - 新增 `media_assets.status` 字段，默认 `active`；新增迁移文件 `migrations/0004_media_asset_status.sql`。
 
 涉及文件：
@@ -1780,7 +1831,7 @@ Ubuntu 设计约束：
 
 - 媒体使用位置扫描只在后台媒体库页面执行，前台请求不受影响。
 - 本地 SQLite 会通过 `ensure_schema()` 自动补列并把空状态回填为 `active`；Cloudflare D1 应执行 `0004_media_asset_status.sql` 后再使用回收站状态。
-- 当前“彻底删除”不物理删除对象存储或静态目录文件，后续如接入 R2/本地上传删除，应增加二次确认和权限审计。
+- 历史行为：当时“彻底删除”不物理删除对象存储或静态目录文件；当前已接入本地/Ubuntu 物理删除和 Cloudflare R2 删除，并保留权限审计。
 
 ### 2026-08-19
 
@@ -2184,6 +2235,7 @@ Ubuntu 设计约束：
 - 新增 `auth_roles`、`auth_users`、`auth_permissions` 三张模型表，并在后台新增“权限管理”入口，可跳转维护用户账号、权限角色和角色权限。
 - 默认内置高级管理员、普通管理员、员工、访客用户四类系统角色。高级管理员默认拥有全部权限；普通管理员默认维护主要内容和媒体；员工默认维护动态、留言、学生和媒体；访客用户默认不能进入后台。
 - 首次访问后台时，如果没有有效账号，会进入 `/admin/setup` 创建第一个高级管理员；系统不预置默认弱口令。
+- 当前没有有效账号时，只有后台上下文会自动进入 `/admin/setup`：直接访问 `/admin`、`/admin/login`，或 `/login?next=/admin...` 会跳转初始化页；普通前台 `/login` 仍只显示登录暂不可用，不在普通界面暴露后台初始化入口。
 - 新增 `/admin/login`、`/admin/logout` 后台登录退出，以及 `/login`、`/logout` 前台普通登录退出。访客账号登录后只能按角色授权查看前台受限内容，不能进入后台。
 - `/admin/login` 不再维护独立表单，会跳转到统一 `/login`；登录页只有一个主登录按钮，登录成功后按账号角色自动获得后台模块权限或仅获得前台访问权限。
 - 新增 `/register` 普通注册入口，受 `global_settings.allow_public_registration` 控制。关闭注册时显示中英文提示页；开放注册时创建默认 `role-visitor` 访客账号。
@@ -2458,14 +2510,14 @@ Ubuntu 设计约束：
 
 ### 2026-08-21
 
-为媒体库危险删除操作增加二次确认。
+为媒体库危险删除操作增加弹窗确认。
 
 变更内容：
 
-- 媒体库和媒体回收站中的单条“删除”按钮改为两步确认：先弹窗确认删除意图，再要求输入 `DELETE` 后才提交。
-- 媒体回收站“一键清空回收站”改为两步确认：先确认清空范围，再要求输入 `CLEAR` 后才提交。
-- 媒体批量操作中选择“彻底删除”时，也会按当前选中数量和运行环境显示删除范围，并要求输入 `DELETE`。
-- 前端新增通用 `data-confirm`、`data-confirm-second`、`data-confirm-token` 表单确认机制，后续高风险后台操作可复用。
+- 媒体库和媒体回收站中的单条“删除”按钮使用浏览器弹窗确认；确认后直接提交，取消则不执行。
+- 媒体回收站“一键清空回收站”使用浏览器弹窗确认；不再要求手动输入 `CLEAR`。
+- 媒体批量操作中选择“彻底删除”时，会按当前选中数量和运行环境显示删除范围；不再要求手动输入 `DELETE`。
+- 前端保留通用 `data-confirm`、`data-confirm-second`、`data-confirm-token` 表单确认机制，后续更高风险后台操作仍可复用；媒体删除操作只设置 `data-confirm`。
 - 更新静态资源版本号，确保浏览器加载新的确认逻辑。
 
 涉及文件：
@@ -2476,8 +2528,30 @@ Ubuntu 设计约束：
 
 兼容性与部署注意：
 
-- 二次确认只改变后台交互，不改变权限、审计和删除后端逻辑。
-- Cloudflare Worker 环境仍只删除 D1 媒体记录；本地/Ubuntu 环境会删除受管理媒体目录中的实际文件和记录。
+- 弹窗确认只改变后台交互，不改变权限、审计和删除后端逻辑。
+- Cloudflare Worker 环境会先删除 R2 `MEDIA` 中的真实对象，再删除 D1 媒体记录；如果对象属于 Static Assets、R2 未绑定或删除失败，则跳过该记录，避免只删除数据库索引。本地/Ubuntu 环境会删除受管理媒体目录中的实际文件和记录。
+
+### 2026-08-22
+
+收紧跨平台媒体彻底删除语义。
+
+变更内容：
+
+- “彻底删除”、批量彻底删除、手动清空回收站和过期自动清空回收站统一遵循“先删除真实媒体对象，再删除媒体库记录”的规则。
+- 本地/Ubuntu 环境中，存在于 `media/` 或 `public/media/` 的媒体文件必须先物理删除成功；如果文件本来已经缺失，允许清理失效媒体记录。
+- Cloudflare Worker 环境中，上传媒体必须先删除 R2 `MEDIA` 对象，再删除 D1 记录；R2 未绑定、R2 删除失败或目标属于不可运行时删除的 Static Assets 时，操作会跳过记录并在批量结果中显示跳过数量。
+- 媒体删除确认文案统一为“媒体文件和媒体库记录”，不再出现 Cloudflare 只删除记录的提示。
+
+涉及文件：
+
+- `app/core/rendering.py`
+- `src/worker.py`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与部署注意：
+
+- Cloudflare Static Assets 是随部署包发布的不可变静态资源，Worker 运行时不能从部署包中删除它；要删除这类默认媒体，需要从项目文件中移除并重新部署。
+- R2 上传媒体、Ubuntu 本地媒体和 `public/media` 中的可管理媒体都按真实文件/对象优先删除。
 
 ### 2026-08-21
 
@@ -2552,3 +2626,119 @@ Ubuntu 设计约束：
 
 - 该改动只影响 Cloudflare Worker 路由；本地 `tools/dev_server.py` 原本就是 `/assets`、`/media` 静态优先，其余动态渲染。
 - 部署后如仍 404，应确认 Cloudflare 使用的是包含本记录的最新 GitHub 提交，并检查 Worker 的 Domains & Routes 中 workers.dev 是否启用。
+
+### 2026-08-22
+
+新增根目录手动中英互译词典，并接入 Cloudflare R2 优先读取。
+
+变更内容：
+
+- 根目录新增唯一正式词典文件 `i18n_dictionary.json`，初始内容由现有前台固定 UI 文案 `TRANSLATIONS` 生成，后续可人工维护常用中英译文。
+- 前台固定文案 `t(env, key)` 先查词典 key，再回退内置 `TRANSLATIONS`；模型字段英文展示先读专属英文列，再按原文匹配词典，最后回退 `translation_cache`。
+- 后台“翻译缓存”页只管理模型字段翻译缓存；当模型字段原文命中手动词典时，列表显示“词典命中”，英文内容只读，并提供跳转到词典编辑页的入口。
+- 新增后台 `/admin/i18n-dictionary` 手动词典编辑页，采用类似翻译缓存概览的紧凑列表，只显示词典文件内容，支持搜索、排序、修改、删除和新增词条。
+- 本地/Ubuntu 环境在词典编辑页点击“保存词典文件”会写回根目录 `i18n_dictionary.json`；Cloudflare Worker 环境会写入 R2 对象 `i18n/i18n_dictionary.json`。
+- “导入与导出”页面新增“手动词典 JSON”导出卡片，接口为 `/api/export/i18n-dictionary.json`，只导出词典文件，不包含翻译缓存。
+- Cloudflare Worker 动态渲染时优先读取 R2 中的 `i18n/i18n_dictionary.json`，没有 R2 版本时回退随部署包生成的 `src/i18n_dictionary.json`。
+- `tools/prepare_cloudflare_build.py` 在复制 `app/` 到 `src/app/` 时同步复制根目录词典到 `src/i18n_dictionary.json`；该生成文件加入 `.gitignore`。
+
+涉及文件：
+
+- `i18n_dictionary.json`
+- `app/core/rendering.py`
+- `src/worker.py`
+- `tools/prepare_cloudflare_build.py`
+- `.gitignore`
+- `public/assets/site.css`
+- `CLOUDFLARE_DEPLOYMENT.md`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与部署注意：
+
+- 词典文件很小，读取时使用本地 mtime 缓存；Cloudflare 只在动态请求中尝试读取 R2 词典，避免扫描数据库或媒体目录。
+- R2 词典是运行时覆盖层，不影响 Git 中的根目录词典；需要把线上词典带回本地时，可从 R2 下载 `i18n/i18n_dictionary.json` 覆盖根目录文件。
+- 词典命中的模型字段不会写入翻译缓存，也不会被自动翻译任务覆盖；如需修改这类英文，只能修改词典文件。
+- 同一原文仍按 `source_hash` 合并为一个翻译缓存任务，避免多个来源重复翻译和重复人工确认；手动词典作为更高优先级覆盖层独立存在。
+
+### 2026-08-22
+
+按首次部署场景重新整理初始化数据和默认媒体。
+
+变更内容：
+
+- `migrations/` 重新整理为单文件初始化：只保留 `migrations/0001_initial.sql`，并把媒体 `storage_kind` 字段合并进该文件；首次部署执行一次即可完成建表。
+- 初始化 SQL 只建表，不插入演示数据。Cloudflare D1、Ubuntu SQLite 和本地开发服务器首次启动均不再默认加载 `DEMO_ROWS`。
+- `tools.init_db` 仍保留 `--seed` 和 `--examples` 显式参数，`tools.seed_examples` 仍可手动写入更完整演示内容；这些命令仅供本地演示，不作为生产默认部署步骤。
+- `public/media/` 清理为仅包含 `public/media/default/` 下三张默认 PNG：`site-logo.png`、`teacher-default-avatar.png`、`student-default-avatar.png`。
+- 生成新的机械工程与人工智能方向网站 Logo PNG，视觉元素包含齿轮、机械臂、神经网络和电路纹理，适合作为网站默认 Logo/Favicon/分享图。
+- 生成教师默认头像和学生默认头像 PNG，并把显式 seed/example 数据中的旧 SVG 图片路径替换为这些默认头像，避免手动加载示例时出现失效媒体。
+- 新建站点设置默认 `logo_key`、`favicon_key`、`og_image_key` 指向 `default/site-logo.png`。
+
+涉及文件：
+
+- `migrations/0001_initial.sql`
+- `public/media/default/site-logo.png`
+- `public/media/default/teacher-default-avatar.png`
+- `public/media/default/student-default-avatar.png`
+- `tools/dev_server.py`
+- `app/adapters/ubuntu/main.py`
+- `src/worker.py`
+- `app/core/rendering.py`
+- `app/core/seed_data.py`
+- `app/core/example_data.py`
+- `seed/demo.sql`
+- `README.md`
+- `UBUNTU_DEPLOYMENT.md`
+- `CLOUDFLARE_DEPLOYMENT.md`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与部署注意：
+
+- 新 Cloudflare D1 空库只需执行 `migrations/0001_initial.sql`。已有数据库不能直接把初始化 SQL 当作升级脚本重复执行。
+- 因首次启动不再显示 DEMO_ROWS，空库访问前台会显示空内容或默认站点名称；管理员应先进入后台创建站点设置、教师资料、导航和内容。
+- 默认媒体三张由 Static Assets 随代码发布；Cloudflare 后台新上传媒体仍进入 R2，Ubuntu/本地后台新上传媒体仍进入 `media/`。
+
+## 2026-08-22 Ubuntu 生产部署教程与密钥配置
+
+补充 Ubuntu 生产部署教程，重点明确强随机密钥生成和配置方式。
+
+变更内容：
+
+- `UBUNTU_DEPLOYMENT.md` 扩展为完整部署步骤：系统依赖、项目拉取、虚拟环境、生产密钥生成、环境变量文件、空库初始化、试运行、systemd、Nginx、HTTPS、备份和常见问题。
+- 新增 `deploy/ubuntu/web-teacher.env.example`，作为可提交的环境变量模板；真实 `TEACHER_SITE_AUTH_SECRET` 应部署时复制到 `/etc/web-teacher/web-teacher.env` 后填写，不进入 Git。
+- 新增 `deploy/ubuntu/web-teacher.service.example`，作为 systemd 服务模板，默认以 `www-data` 运行 Uvicorn，并用 `ReadWritePaths` 限制生产服务可写目录。
+- 文档明确 `TEACHER_SITE_REQUIRE_AUTH_SECRET=1` 用于强制 Ubuntu 生产环境检查强密钥；`TEACHER_SITE_AUTH_SECRET` 至少 32 字符，推荐通过 `openssl rand -base64 48` 或 Python `secrets.token_urlsafe(64)` 生成。
+
+涉及文件：
+
+- `UBUNTU_DEPLOYMENT.md`
+- `deploy/ubuntu/web-teacher.env.example`
+- `deploy/ubuntu/web-teacher.service.example`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与部署注意：
+
+- 本次只新增文档和部署模板，不改变运行代码。
+- `.env` 仍由 `.gitignore` 忽略；模板文件不包含真实密钥，可以提交。
+- 如果生产密钥变更，已登录用户的签名 cookie 会失效，需要重新登录。
+
+## 2026-08-22 后台未初始化账号的安全跳转
+
+优化首次部署后的管理员初始化入口。
+
+变更内容：
+
+- 当数据库没有任何启用账号时，后台上下文自动进入 `/admin/setup`。
+- 支持 `/login?next=/admin...` 自动跳转到 `/admin/setup`，解决用户从后台登录链路进入统一登录页时看到 `Login Unavailable` 的问题。
+- 普通前台 `/login` 仍显示“登录暂不可用 / 管理员尚未初始化账号”，不提供 `/admin/setup` 链接，避免在普通访客界面暴露后台初始化入口。
+- 新增 `login_next_targets_admin()`，通过解析 `next` 的 path 判断是否为 `/admin` 或 `/admin/...`，避免把相似路径误识别为后台。
+
+涉及文件：
+
+- `app/core/rendering.py`
+- `docs/WEBSITE_FUNCTION_DESIGN.md`
+
+兼容性与安全注意：
+
+- 不改变已有管理员账号场景的登录流程。
+- 不改变 `/admin/setup` 的创建逻辑；一旦存在启用账号，访问 `/admin/setup` 会回到后台登录链路。

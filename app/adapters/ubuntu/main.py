@@ -6,7 +6,6 @@ from urllib.parse import unquote, urlsplit
 
 from app.adapters.ubuntu.db import SQLiteRepository
 from app.core.rendering import route_request, security_headers
-from app.core.seed_data import DEMO_ROWS
 
 
 DB_PATH = os.environ.get("TEACHER_SITE_DB", "data/site.sqlite3")
@@ -14,11 +13,6 @@ PUBLIC_DIR = Path(os.environ.get("TEACHER_SITE_PUBLIC", "public"))
 MEDIA_DIR = Path(os.environ.get("TEACHER_SITE_MEDIA", "media"))
 
 repo = SQLiteRepository(DB_PATH)
-if not repo.list("site_settings"):
-    for table, rows in DEMO_ROWS.items():
-        for row in rows:
-            if row.get("uid"):
-                repo.save(table, row)
 
 
 async def app(scope, receive, send):

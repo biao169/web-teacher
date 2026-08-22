@@ -1,0 +1,21 @@
+[Unit]
+Description=Teacher Research Website
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/web-teacher
+EnvironmentFile=/etc/web-teacher/web-teacher.env
+ExecStart=/srv/web-teacher/.venv/bin/uvicorn app.adapters.ubuntu.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/srv/web-teacher/data /srv/web-teacher/media /srv/web-teacher/exports /srv/web-teacher/.cache /srv/web-teacher/i18n_dictionary.json
+
+[Install]
+WantedBy=multi-user.target

@@ -6,6 +6,9 @@ from .security import allowed_object_key, esc
 
 
 def media_url(key: object, public_base_url: str = "") -> str:
+    raw_key = str(key or "").strip()
+    if raw_key.startswith(("http://", "https://")):
+        return raw_key
     object_key = allowed_object_key(key)
     if not object_key:
         return ""
@@ -13,6 +16,30 @@ def media_url(key: object, public_base_url: str = "") -> str:
     if base:
         return f"{base}/{object_key}"
     return f"/media/{object_key}"
+
+
+def media_storage_kind(row_or_key: object) -> str:
+    if isinstance(row_or_key, dict):
+        explicit = str(row_or_key.get("storage_kind") or "").strip().lower()
+        key = str(row_or_key.get("object_key") or "").strip()
+        if explicit in {"static", "local", "r2", "external"}:
+            if explicit == "static" and allowed_object_key(key).startswith(("uploads/", "r2/")):
+                return "r2"
+            return explicit
+    else:
+        key = str(row_or_key or "").strip()
+    if key.startswith(("http://", "https://")):
+        return "external"
+    object_key = allowed_object_key(key)
+    if not object_key:
+        return "static"
+    if object_key.startswith(("uploads/", "r2/")):
+        return "r2"
+    return "static"
+
+
+def r2_preferred_key(key: object) -> bool:
+    return media_storage_kind(key) == "r2"
 
 
 def image_tag(key: object, alt: str, css_class: str, public_base_url: str = "", lang: str = "zh") -> str:

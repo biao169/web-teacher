@@ -9,7 +9,6 @@ from urllib.parse import unquote
 
 from app.adapters.ubuntu.db import SQLiteRepository
 from app.core.rendering import route_request, security_headers
-from app.core.seed_data import DEMO_ROWS
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -121,11 +120,6 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
     repo = SQLiteRepository(args.db)
-    if not repo.list("site_settings"):
-        for table, rows in DEMO_ROWS.items():
-            for row in rows:
-                if row.get("uid"):
-                    repo.save(table, row)
     Handler.repo = repo
     Handler.site_url = f"http://{args.host}:{args.port}"
     server = ThreadingHTTPServer((args.host, args.port), Handler)

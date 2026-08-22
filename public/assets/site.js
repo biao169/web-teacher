@@ -120,19 +120,13 @@
       const isExportSubmit = submitterAction.includes("/export-used");
       if (isExportSubmit) {
         delete mediaBatchForm.dataset.confirm;
-        delete mediaBatchForm.dataset.confirmSecond;
-        delete mediaBatchForm.dataset.confirmToken;
         return;
       }
       if (action === "delete") {
         const scope = mediaBatchForm.dataset.deleteScope || "媒体文件和媒体库记录";
         mediaBatchForm.dataset.confirm = `确定彻底删除选中的 ${selected} 个${scope}吗？`;
-        mediaBatchForm.dataset.confirmSecond = "二次确认：请输入 DELETE 后继续。此操作不可撤销。";
-        mediaBatchForm.dataset.confirmToken = "DELETE";
       } else {
         delete mediaBatchForm.dataset.confirm;
-        delete mediaBatchForm.dataset.confirmSecond;
-        delete mediaBatchForm.dataset.confirmToken;
       }
     });
   }
@@ -2123,6 +2117,17 @@
       event.stopPropagation();
     }
   });
+  const backToTop = document.querySelector("[data-back-to-top]");
+  if (backToTop) {
+    const refreshBackToTop = () => {
+      backToTop.classList.toggle("is-visible", window.scrollY > 420);
+    };
+    backToTop.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    window.addEventListener("scroll", refreshBackToTop, { passive: true });
+    refreshBackToTop();
+  }
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     closeFrontNav?.(false);

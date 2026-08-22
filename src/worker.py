@@ -3,9 +3,9 @@ from __future__ import annotations
 from workers import Response, WorkerEntrypoint
 
 from app.adapters.cloudflare_repository import CloudflareD1Loader
+from app.core.media import media_storage_kind, r2_preferred_key
 from app.core.models import TABLE_MAP
-from app.core.rendering import _form, admin_batch_update, audit_admin_action, current_auth, ensure_auth_defaults, has_permission, normalize_admin_data, redirect, route_request, same_origin_post_allowed, security_headers, translation_auto_translate, translation_auto_translate_step, translation_delete_cache, translation_inline_payload, translation_inline_update, translation_job_start, translation_job_status_payload, translation_job_stop, translation_scan_database
-from app.core.seed_data import DEMO_ROWS
+from app.core.rendering import I18N_DICTIONARY_R2_KEY, _form, admin_batch_update, audit_admin_action, current_auth, ensure_auth_defaults, has_permission, i18n_dictionary_update_payload, normalize_admin_data, prepare_media_crop, prepare_media_upload, redirect, route_request, same_origin_post_allowed, security_headers, translation_auto_translate, translation_auto_translate_step, translation_delete_cache, translation_inline_payload, translation_inline_update, translation_job_start, translation_job_status_payload, translation_job_stop, translation_scan_database
 from app.core.repository import MemoryRepository
 from app.core.security import hash_password, stable_uid
 
@@ -24,10 +24,8 @@ class Default(WorkerEntrypoint):
         if path.startswith("/assets/"):
             return await self._asset_response(request)
 
-        if path in {"/admin/table/media_assets", "/admin/table/media_assets/trash"} and getattr(self.env, "DB", None) is not None:
-            await CloudflareD1Loader(self.env.DB).clear_expired_media_trash()
-
         repo = await self._repo()
+        dictionary_env = await self._i18n_dictionary_env()
         env = {
             "SITE_URL": getattr(self.env, "SITE_URL", ""),
             "PUBLIC_MEDIA_BASE_URL": getattr(self.env, "PUBLIC_MEDIA_BASE_URL", ""),
@@ -41,21 +39,23 @@ class Default(WorkerEntrypoint):
             "_HOST": self._host(request.url),
             "_SCHEME": "https",
             "_REMOTE_ADDR": request.headers.get("cf-connecting-ip") or "",
+            **dictionary_env,
         }
+        if path in {"/admin/table/media_assets", "/admin/table/media_assets/trash"} and getattr(self.env, "DB", None) is not None:
+            await self._clear_expired_media_trash(repo)
+            repo = await self._repo()
         if path.startswith(("/admin", "/api/admin")):
             ensure_auth_defaults(repo)
         if request.method == "POST" and path in {"/api/admin/media/upload", "/api/admin/media/crop"}:
-            import json
-
             action = "can_create" if path.endswith("/upload") else "can_edit"
             if not same_origin_post_allowed("POST", env) or not current_auth(repo, env) or not has_permission(repo, env, "media_assets", action):
-                return Response(json.dumps({"ok": False, "message": "当前账号没有媒体写入权限。"}, ensure_ascii=False), status=403, headers={"content-type": "application/json; charset=utf-8"})
-            payload = {"ok": False, "message": "Cloudflare Worker 环境暂未接入媒体写入；可从已有媒体库选择，或直接输入公开图片/Iconify 路径。"}
-            return Response(json.dumps(payload, ensure_ascii=False), status=200, headers={"content-type": "application/json; charset=utf-8"})
+                return self._json_response({"ok": False, "message": "当前账号没有媒体写入权限。"}, status=403)
+            body = await self._request_bytes(request)
+            payload = await self._handle_media_write(repo, path, body, env)
+            return self._json_response(payload, status=200 if payload.get("ok") else 400)
         body = b""
         if request.method == "POST":
-            text = await request.text()
-            body = text.encode("utf-8")
+            body = await self._request_bytes(request)
             saved = await self._handle_admin_save(repo, path, body, env)
             if saved:
                 status, headers, payload = saved
@@ -77,17 +77,54 @@ class Default(WorkerEntrypoint):
         from urllib.parse import unquote
 
         key = unquote(path.removeprefix("/media/").strip("/"))
+        if not key:
+            return await self._asset_response(request)
+        if r2_preferred_key(key):
+            r2_response = await self._r2_response(key)
+            if r2_response is not None:
+                return r2_response
+            return await self._asset_response(request)
+        asset = await self._asset_response(request)
+        if int(getattr(asset, "status", 200) or 200) < 400:
+            return asset
+        r2_response = await self._r2_response(key)
+        return r2_response or asset
+
+    async def _r2_response(self, key: str):
         bucket = getattr(self.env, "MEDIA", None)
-        if bucket is not None and key:
-            obj = await bucket.get(key)
-            if obj is not None:
-                headers = {key: value for key, value in security_headers()}
-                headers["cache-control"] = "public, max-age=3600"
-                content_type = getattr(getattr(obj, "httpMetadata", None), "contentType", None)
-                if content_type:
-                    headers["content-type"] = content_type
-                return Response(obj.body, headers=headers)
-        return await self._asset_response(request)
+        if bucket is None or not key:
+            return None
+        obj = await bucket.get(key)
+        if obj is None:
+            return None
+        headers = {key: value for key, value in security_headers()}
+        headers["cache-control"] = "public, max-age=3600"
+        content_type = getattr(getattr(obj, "httpMetadata", None), "contentType", None)
+        if content_type:
+            headers["content-type"] = content_type
+        return Response(obj.body, headers=headers)
+
+    async def _i18n_dictionary_env(self) -> dict:
+        bucket = getattr(self.env, "MEDIA", None)
+        if bucket is None:
+            return {"_I18N_DICTIONARY_SOURCE": "bundled"}
+        try:
+            obj = await bucket.get(I18N_DICTIONARY_R2_KEY)
+        except Exception:
+            return {"_I18N_DICTIONARY_SOURCE": "bundled"}
+        if obj is None:
+            return {"_I18N_DICTIONARY_SOURCE": "bundled"}
+        try:
+            text = await obj.text()
+        except Exception:
+            try:
+                buffer = await obj.arrayBuffer()
+                from js import Uint8Array
+
+                text = bytes(Uint8Array.new(buffer).to_py()).decode("utf-8", "ignore")
+            except Exception:
+                text = ""
+        return {"_I18N_DICTIONARY_JSON": text, "_I18N_DICTIONARY_SOURCE": "r2"} if text else {"_I18N_DICTIONARY_SOURCE": "bundled"}
 
     async def _asset_response(self, request):
         response = await self.env.ASSETS.fetch(request)
@@ -99,12 +136,111 @@ class Default(WorkerEntrypoint):
     async def _repo(self):
         db = getattr(self.env, "DB", None)
         if db is None:
-            return MemoryRepository(DEMO_ROWS)
+            return MemoryRepository({})
         loader = CloudflareD1Loader(db)
-        repo = await loader.load_repository()
-        if not repo.list("site_settings"):
-            repo = MemoryRepository(DEMO_ROWS)
-        return repo
+        return await loader.load_repository()
+
+    async def _request_bytes(self, request) -> bytes:
+        try:
+            buffer = await request.arrayBuffer()
+            try:
+                from js import Uint8Array
+
+                return bytes(Uint8Array.new(buffer).to_py())
+            except Exception:
+                return bytes(buffer)
+        except Exception:
+            text = await request.text()
+            return text.encode("utf-8")
+
+    def _json_response(self, payload: dict, status: int = 200):
+        import json
+
+        return Response(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), status=status, headers={"content-type": "application/json; charset=utf-8"})
+
+    async def _handle_media_write(self, repo, path: str, body: bytes, env: dict[str, str]) -> dict:
+        bucket = getattr(self.env, "MEDIA", None)
+        if bucket is None:
+            return {"ok": False, "message": "Cloudflare 未绑定 R2 MEDIA 存储桶，无法保存上传媒体。"}
+        prepared = prepare_media_upload(repo, body, env, "r2", "uploads") if path.endswith("/upload") else prepare_media_crop(repo, body, env, "r2", "uploads")
+        if not prepared.get("ok"):
+            return prepared
+        key = str(prepared.get("key") or "")
+        content = prepared.get("content") or b""
+        mime = str(prepared.get("mime") or "application/octet-stream")
+        if not key or not isinstance(content, (bytes, bytearray)):
+            return {"ok": False, "message": "媒体写入数据无效。"}
+        try:
+            await self._r2_put(key, bytes(content), mime)
+        except Exception as error:
+            return {"ok": False, "message": f"写入 R2 失败：{error}"}
+        row = repo.save("media_assets", prepared["row"])
+        if getattr(self.env, "DB", None) is not None:
+            await CloudflareD1Loader(self.env.DB).save("media_assets", row)
+        await self._audit(repo, env, "upload" if path.endswith("/upload") else "crop", "media_assets", str(row.get("uid") or key), "写入 Cloudflare R2 媒体", {"key": key, "storage_kind": "r2"})
+        return {"ok": True, "key": key, "url": prepared.get("url"), "item": row, "replaced": bool(prepared.get("replaced"))}
+
+    async def _r2_put(self, key: str, content: bytes, mime: str) -> None:
+        bucket = getattr(self.env, "MEDIA", None)
+        if bucket is None:
+            raise RuntimeError("MEDIA bucket is not bound")
+        try:
+            await bucket.put(key, content, httpMetadata={"contentType": mime})
+        except TypeError:
+            await bucket.put(key, content)
+
+    async def _delete_r2_for_row(self, row: dict | None) -> bool:
+        if not row:
+            return False
+        key = str(row.get("object_key") or "").strip().strip("/")
+        if not key:
+            return True
+        storage = media_storage_kind(row)
+        if storage == "external":
+            return True
+        if storage != "r2" and not r2_preferred_key(key):
+            return False
+        bucket = getattr(self.env, "MEDIA", None)
+        if bucket is None:
+            return False
+        try:
+            await bucket.delete(key)
+            return True
+        except Exception:
+            return False
+
+    async def _clear_expired_media_trash(self, repo) -> None:
+        import time
+
+        days = 30
+        try:
+            settings = repo.list("global_settings")
+            if settings:
+                days = max(1, int(settings[0].get("media_trash_retention_days") or 30))
+        except Exception:
+            days = 30
+        cutoff = time.time() - days * 86400
+        loader = CloudflareD1Loader(self.env.DB)
+        for row in repo.list("media_assets"):
+            if str(row.get("status") or "active") != "trash":
+                continue
+            changed = self._parse_timestamp(row.get("updated_at") or row.get("created_at"))
+            if changed and changed < cutoff:
+                if await self._delete_r2_for_row(row):
+                    await loader.delete("media_assets", str(row.get("uid") or row.get("id")))
+
+    def _parse_timestamp(self, value) -> float | None:
+        import time
+
+        text = str(value or "").strip()
+        if not text:
+            return None
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+            try:
+                return time.mktime(time.strptime(text[:19], fmt))
+            except ValueError:
+                continue
+        return None
 
     async def _audit(self, repo, env: dict[str, str], action: str, module: str, target_uid: str = "", summary: str = "", detail: dict | None = None, status: str = "success") -> None:
         if getattr(self.env, "DB", None) is None:
@@ -132,17 +268,43 @@ class Default(WorkerEntrypoint):
                 action = "can_delete"
             if not same_origin_post_allowed("POST", env) or not current_auth(repo, env) or not has_permission(repo, env, table, action):
                 return 403, [("content-type", "text/plain; charset=utf-8")], b"Forbidden"
+        if path == "/admin/i18n-dictionary/save":
+            if not same_origin_post_allowed("POST", env) or not current_auth(repo, env) or not has_permission(repo, env, "translation_cache", "can_edit"):
+                return 403, [("content-type", "text/plain; charset=utf-8")], b"Forbidden"
+            payload = i18n_dictionary_update_payload(body, env)
+            try:
+                await self._r2_put(I18N_DICTIONARY_R2_KEY, payload["content"], "application/json; charset=utf-8")
+                await self._audit(repo, env, "dictionary_save", "translation_cache", "", "保存手动中英词典到 R2", {"entries": payload.get("entries", 0), "key": I18N_DICTIONARY_R2_KEY})
+                return redirect(f"/admin/i18n-dictionary?saved=r2&entries={payload.get('entries', 0)}")
+            except Exception as error:
+                await self._audit(repo, env, "dictionary_save_failed", "translation_cache", "", "保存手动中英词典到 R2 失败", {"error": str(error)}, "warning")
+                return redirect(f"/admin/i18n-dictionary?saved=failed&entries={payload.get('entries', 0)}")
         if len(parts) >= 4 and parts[0] == "admin" and parts[1] == "table" and parts[2] == "media_assets" and getattr(self.env, "DB", None) is not None:
             loader = CloudflareD1Loader(self.env.DB)
             if len(parts) >= 5 and parts[3] == "trash" and parts[4] == "clear":
-                await loader.clear_media_trash()
-                await self._audit(repo, env, "delete", "media_assets", "trash", "清空媒体回收站")
-                return redirect("/admin/table/media_assets/trash")
+                deleted = 0
+                skipped = 0
+                for row in repo.list("media_assets"):
+                    if str(row.get("status") or "active") == "trash":
+                        key = str(row.get("uid") or row.get("id"))
+                        if await self._delete_r2_for_row(row):
+                            await loader.delete("media_assets", key)
+                            deleted += 1
+                        else:
+                            skipped += 1
+                result = {"deleted": deleted, "skipped": skipped}
+                await self._audit(repo, env, "delete", "media_assets", "trash", "清空媒体回收站", result, "warning" if skipped else "success")
+                return redirect(f"/admin/table/media_assets/trash?batch_deleted={deleted}&batch_skipped={skipped}")
             if len(parts) >= 6 and parts[3] == "trash":
                 media_key = parts[4]
                 action = parts[5]
                 if action == "delete":
-                    await loader.delete("media_assets", media_key)
+                    row = repo.get("media_assets", media_key)
+                    deleted = await self._delete_r2_for_row(row)
+                    if deleted:
+                        await loader.delete("media_assets", media_key)
+                    await self._audit(repo, env, action, "media_assets", media_key, f"媒体回收站操作：{action}", {"deleted": int(deleted), "skipped": 0 if deleted else 1}, "success" if deleted else "warning")
+                    return redirect(f"/admin/table/media_assets/trash?batch_selected=1&batch_deleted={1 if deleted else 0}&batch_skipped={0 if deleted else 1}")
                 elif action == "restore":
                     await loader.update("media_assets", media_key, {"status": "active"})
                 await self._audit(repo, env, action, "media_assets", media_key, f"媒体回收站操作：{action}")
@@ -160,8 +322,12 @@ class Default(WorkerEntrypoint):
                 skipped = 0
                 for key in selected:
                     if action == "delete":
-                        await loader.delete("media_assets", key)
-                        deleted += 1
+                        row = repo.get("media_assets", key)
+                        if await self._delete_r2_for_row(row):
+                            await loader.delete("media_assets", key)
+                            deleted += 1
+                        else:
+                            skipped += 1
                     else:
                         changes = {}
                         if action == "trash":
@@ -188,7 +354,12 @@ class Default(WorkerEntrypoint):
                 media_key = parts[3]
                 action = parts[4]
                 if action == "delete":
-                    await loader.delete("media_assets", media_key)
+                    row = repo.get("media_assets", media_key)
+                    deleted = await self._delete_r2_for_row(row)
+                    if deleted:
+                        await loader.delete("media_assets", media_key)
+                    await self._audit(repo, env, action, "media_assets", media_key, f"媒体操作：{action}", {"deleted": int(deleted), "skipped": 0 if deleted else 1}, "success" if deleted else "warning")
+                    return redirect(f"/admin/table/media_assets?batch_selected=1&batch_deleted={1 if deleted else 0}&batch_skipped={0 if deleted else 1}")
                 elif action in {"trash", "restore"}:
                     await loader.update("media_assets", media_key, {"status": "trash" if action == "trash" else "active"})
                 await self._audit(repo, env, action, "media_assets", media_key, f"媒体操作：{action}")
@@ -412,7 +583,7 @@ class Default(WorkerEntrypoint):
             loader = CloudflareD1Loader(self.env.DB)
             if parts[3] == "scan":
                 before_keys = {str(row.get("uid") or row.get("id")) for row in repo.list("translation_cache") if row.get("uid") or row.get("id")}
-                result = translation_scan_database(repo)
+                result = translation_scan_database(repo, env)
                 after_keys = {str(row.get("uid") or row.get("id")) for row in repo.list("translation_cache") if row.get("uid") or row.get("id")}
                 for key in sorted(before_keys - after_keys):
                     await loader.delete("translation_cache", key)
@@ -421,7 +592,7 @@ class Default(WorkerEntrypoint):
                 await self._audit(repo, env, "scan", "translation_cache", "", "扫描数据库提取翻译缓存", result)
                 return redirect(f"/admin/table/translation_cache?scanned={result.get('created', 0)}&updated={result.get('updated', 0)}&dedicated={result.get('dedicated', 0)}&deleted={result.get('deleted', 0)}")
             if parts[3] == "auto-translate":
-                result = translation_auto_translate(repo, body, {"PLATFORM": "cloudflare"})
+                result = translation_auto_translate(repo, body, {**env, "PLATFORM": "cloudflare"})
                 for row in repo.list("translation_cache"):
                     await loader.save("translation_cache", row)
                 await self._audit(repo, env, "auto_translate", "translation_cache", "", "自动翻译缓存", result, "warning" if result.get("failed") else "success")

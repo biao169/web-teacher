@@ -1,5 +1,5 @@
-INSERT OR IGNORE INTO site_settings (uid, is_active, site_name, hero_title, hero_subtitle, seo_title, seo_description, seo_keywords, footer_text, homepage_profile_uid, homepage_publication_limit, homepage_news_limit)
-VALUES ('site-default', 1, '教师个人与团队网站', '面向可靠智能系统的教学与科研', '这里展示教师简介、团队成员、论文、项目、专利、课程和新闻动态。后台可维护导航、首页按钮、团队照片和成果内容。', '教师个人主页', '教师个人与团队网站，展示科研项目、论文、专利、学生、课程与动态。', '教师主页,科研团队,论文,项目,专利,学生', '© 2026 教师个人与团队网站', 'profile-main-teacher', 5, 4);
+INSERT OR IGNORE INTO site_settings (uid, is_active, site_name, hero_title, hero_subtitle, logo_key, favicon_key, og_image_key, seo_title, seo_description, seo_keywords, footer_text, homepage_profile_uid, homepage_publication_limit, homepage_news_limit)
+VALUES ('site-default', 1, '教师个人与团队网站', '面向可靠智能系统的教学与科研', '这里展示教师简介、团队成员、论文、项目、专利、课程和新闻动态。后台可维护导航、首页按钮、团队照片和成果内容。', 'default/site-logo.png', 'default/site-logo.png', 'default/site-logo.png', '教师个人主页', '教师个人与团队网站，展示科研项目、论文、专利、学生、课程与动态。', '教师主页,科研团队,论文,项目,专利,学生', '© 2026 教师个人与团队网站', 'profile-main-teacher', 5, 4);
 
 INSERT OR IGNORE INTO global_settings (uid, allow_public_registration, allow_anonymous_messages, upload_max_size_mb, upload_allowed_extensions, news_pdf_engine, news_pdf_allow_download, translation_provider, translation_providers, libretranslate_url, libretranslate_api_key, deepl_api_key, google_translate_api_key, microsoft_translator_key, microsoft_translator_region, microsoft_translator_endpoint, mymemory_email, translation_batch_size, translation_worker_count, translation_timeout_seconds, publication_metadata_provider, publication_display_style, profile_suggestion_cache_seconds)
 VALUES ('global-default', 0, 1, 20, '.jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.csv', 'native', 1, 'auto', 'auto,libretranslate,deepl_free,google_translate,microsoft_translator,mymemory,argos_local', '', '', '', '', '', '', '', '', 10, 4, 12, 'manual', 'gbt', 30);
@@ -20,8 +20,8 @@ INSERT OR IGNORE INTO navigation_items (uid, title, kind, path, location, style,
 
 INSERT OR IGNORE INTO profiles (uid, name, role, title, organization, lab, avatar_key, email, office, bio, education, experience, recruiting, orcid, google_scholar, github, contact_visibility, visibility, is_active, is_featured, sort_order)
 VALUES
-('profile-main-teacher', '张三', '教师', '教授 / 博士生导师', '某某大学', '智能系统实验室', 'profile/main-teacher.svg', 'teacher@example.edu.cn', '理工楼 A-501', '长期从事智能系统、可靠机器学习与教育数字化方向研究，欢迎对科研和工程实现都有兴趣的同学加入团队。', '博士，某某大学计算机科学与技术。', '主持多项国家级和省部级科研项目。', '招收机器学习、软件工程、教育技术方向博士和硕士研究生。', '0000-0000-0000-0000', 'https://scholar.google.com/', 'https://github.com/', 'public', 'public', 1, 1, 1),
-('profile-member-li', '李四', '博士生', '2024 级博士研究生', '某某大学', '', 'profile/member-li.svg', 'student@example.edu.cn', '', '研究方向为可信机器学习与学术知识图谱。', '', '', '', '', '', '', 'public', 'public', 1, 1, 20);
+('profile-main-teacher', '张三', '教师', '教授 / 博士生导师', '某某大学', '智能系统实验室', 'default/teacher-default-avatar.png', 'teacher@example.edu.cn', '理工楼 A-501', '长期从事智能系统、可靠机器学习与教育数字化方向研究，欢迎对科研和工程实现都有兴趣的同学加入团队。', '博士，某某大学计算机科学与技术。', '主持多项国家级和省部级科研项目。', '招收机器学习、软件工程、教育技术方向博士和硕士研究生。', '0000-0000-0000-0000', 'https://scholar.google.com/', 'https://github.com/', 'public', 'public', 1, 1, 1),
+('profile-member-li', '李四', '博士生', '2024 级博士研究生', '某某大学', '', 'default/teacher-default-avatar.png', 'student@example.edu.cn', '', '研究方向为可信机器学习与学术知识图谱。', '', '', '', '', '', '', 'public', 'public', 1, 1, 20);
 
 INSERT OR IGNORE INTO research_interests (uid, name, description, sort_order, visibility) VALUES
 ('interest-ai', '可靠人工智能', '模型可靠性、可解释性与鲁棒性。', 1, 'public'),
@@ -38,7 +38,7 @@ INSERT OR IGNORE INTO patents (uid, name, country, patent_type, application_numb
 VALUES ('patent-ai-platform', '一种教学资源智能组织方法及系统', '中国', '发明专利', 'CN000000000', '2026-03-18', '张三; 李四', '某某大学', '申请中', 'public', 1, 1);
 
 INSERT OR IGNORE INTO students (uid, name, avatar_key, degree, category, grade, direction, status, email, bio, visibility, contact_visibility, is_featured, sort_order)
-VALUES ('student-li-si', '李四', 'students/li-si.svg', '博士', '在读博士', '2024', '可信机器学习', '在读', 'student@example.edu.cn', '关注可靠机器学习与知识图谱。', 'public', 'public', 1, 1);
+VALUES ('student-li-si', '李四', 'default/student-default-avatar.png', '博士', '在读博士', '2024', '可信机器学习', '在读', 'student@example.edu.cn', '关注可靠机器学习与知识图谱。', 'public', 'public', 1, 1);
 
 INSERT OR IGNORE INTO student_category_displays (uid, key, label, keywords, enabled, display_order) VALUES
 ('cat-phd', 'phd', '在读博士', '博士,phd', 1, 1),
@@ -52,6 +52,6 @@ INSERT OR IGNORE INTO courses (uid, name, semester, audience, summary, visibilit
 VALUES ('course-ai-system', '人工智能系统实践', '2026 春', '研究生', '面向科研训练的 AI 系统工程课程。', 'public', 1, 1);
 
 INSERT OR IGNORE INTO media_assets (uid, object_key, title, category, mime_type, size) VALUES
-('media-profile-main', 'profile/main-teacher.svg', '教师照片', 'profile', 'image/svg+xml', 0),
-('media-member-li', 'profile/member-li.svg', '团队成员照片', 'profile', 'image/svg+xml', 0),
-('media-student-li', 'students/li-si.svg', '学生照片', 'students', 'image/svg+xml', 0);
+('media-site-logo', 'default/site-logo.png', '网站默认图标', 'default', 'image/png', 340684),
+('media-teacher-default-avatar', 'default/teacher-default-avatar.png', '教师默认头像', 'default', 'image/png', 11819),
+('media-student-default-avatar', 'default/student-default-avatar.png', '学生默认头像', 'default', 'image/png', 10567);

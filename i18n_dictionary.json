@@ -1,0 +1,597 @@
+{
+  "version": 1,
+  "updated_at": "2026-08-22",
+  "description": "Manual Chinese-English dictionary for frontend fixed text and reusable content translations. Cloudflare reads R2 i18n/i18n_dictionary.json first, then falls back to this bundled file.",
+  "entries": {
+    "admin": {
+      "zh": "后台",
+      "en": "Admin",
+      "context": "ui"
+    },
+    "login": {
+      "zh": "登录",
+      "en": "Log In",
+      "context": "ui"
+    },
+    "logout": {
+      "zh": "退出",
+      "en": "Log Out",
+      "context": "ui"
+    },
+    "register": {
+      "zh": "注册",
+      "en": "Register",
+      "context": "ui"
+    },
+    "username": {
+      "zh": "账号",
+      "en": "Username",
+      "context": "ui"
+    },
+    "password": {
+      "zh": "密码",
+      "en": "Password",
+      "context": "ui"
+    },
+    "password_confirm": {
+      "zh": "确认密码",
+      "en": "Confirm Password",
+      "context": "ui"
+    },
+    "display_name": {
+      "zh": "显示名称",
+      "en": "Display Name",
+      "context": "ui"
+    },
+    "login_scope_hint": {
+      "zh": "登录后可查看授权范围内的前台内容；后台编辑需要管理员或员工权限。",
+      "en": "After logging in, you can view authorized frontend content. Admin editing requires a staff or administrator role.",
+      "context": "ui"
+    },
+    "academic_profile": {
+      "zh": "学术档案",
+      "en": "Profile",
+      "context": "ui"
+    },
+    "email": {
+      "zh": "邮箱",
+      "en": "Email",
+      "context": "ui"
+    },
+    "office": {
+      "zh": "办公室",
+      "en": "Office",
+      "context": "ui"
+    },
+    "recruiting": {
+      "zh": "招生方向",
+      "en": "Recruiting",
+      "context": "ui"
+    },
+    "username_placeholder": {
+      "zh": "请输入账号或邮箱",
+      "en": "Enter your username or email",
+      "context": "ui"
+    },
+    "password_placeholder": {
+      "zh": "请输入密码",
+      "en": "Enter your password",
+      "context": "ui"
+    },
+    "register_username_placeholder": {
+      "zh": "请输入注册账号",
+      "en": "Choose a username",
+      "context": "ui"
+    },
+    "display_name_placeholder": {
+      "zh": "请输入显示名称，可填写真实姓名",
+      "en": "Enter a display name or real name",
+      "context": "ui"
+    },
+    "email_placeholder": {
+      "zh": "请输入邮箱，可选",
+      "en": "Enter an email address, optional",
+      "context": "ui"
+    },
+    "new_password_placeholder": {
+      "zh": "请输入不少于 10 位的新密码",
+      "en": "Enter a new password, at least 10 characters",
+      "context": "ui"
+    },
+    "password_confirm_placeholder": {
+      "zh": "请再次输入密码",
+      "en": "Enter the password again",
+      "context": "ui"
+    },
+    "login_failed": {
+      "zh": "账号或密码错误。",
+      "en": "Incorrect username or password.",
+      "context": "ui"
+    },
+    "login_rate_limited": {
+      "zh": "登录失败次数过多，请约 {minutes} 分钟后再试。",
+      "en": "Too many failed login attempts. Please try again in about {minutes} minute(s).",
+      "context": "ui"
+    },
+    "login_unavailable": {
+      "zh": "登录暂不可用",
+      "en": "Login Unavailable",
+      "context": "ui"
+    },
+    "admin_not_initialized": {
+      "zh": "管理员尚未初始化账号。",
+      "en": "The administrator account has not been initialized.",
+      "context": "ui"
+    },
+    "no_account": {
+      "zh": "还没有账号？",
+      "en": "No account yet? ",
+      "context": "ui"
+    },
+    "registration_closed_hint": {
+      "zh": "当前网站未开放公开注册，请联系管理员创建账号。",
+      "en": "Public registration is closed. Please contact the administrator for an account.",
+      "context": "ui"
+    },
+    "registration_unavailable": {
+      "zh": "注册暂不可用",
+      "en": "Registration Unavailable",
+      "context": "ui"
+    },
+    "registration_closed": {
+      "zh": "注册已关闭",
+      "en": "Registration Closed",
+      "context": "ui"
+    },
+    "registration_closed_message": {
+      "zh": "管理员已关闭公开注册。你仍可使用已有账号登录，或联系管理员开通访问权限。",
+      "en": "Public registration has been disabled by the administrator. You can still log in with an existing account or contact the administrator for access.",
+      "context": "ui"
+    },
+    "back_login": {
+      "zh": "返回登录",
+      "en": "Back to Login",
+      "context": "ui"
+    },
+    "register_scope_hint": {
+      "zh": "公开注册账号默认是访客用户，只能查看管理员授权的前台内容，不能进入后台。",
+      "en": "Publicly registered accounts are visitor users by default. They can only view authorized frontend content and cannot enter the admin area.",
+      "context": "ui"
+    },
+    "username_required": {
+      "zh": "请填写账号。",
+      "en": "Please enter a username.",
+      "context": "ui"
+    },
+    "username_taken": {
+      "zh": "该账号已被使用。",
+      "en": "This username is already in use.",
+      "context": "ui"
+    },
+    "password_too_short": {
+      "zh": "密码至少需要 10 位。",
+      "en": "Password must be at least 10 characters.",
+      "context": "ui"
+    },
+    "password_mismatch": {
+      "zh": "两次输入的密码不一致。",
+      "en": "The two passwords do not match.",
+      "context": "ui"
+    },
+    "research_interests": {
+      "zh": "研究方向",
+      "en": "Research",
+      "context": "ui"
+    },
+    "featured_publications": {
+      "zh": "代表论文",
+      "en": "Selected Papers",
+      "context": "ui"
+    },
+    "latest_news": {
+      "zh": "最新动态",
+      "en": "News",
+      "context": "ui"
+    },
+    "projects": {
+      "zh": "项目",
+      "en": "Projects",
+      "context": "ui"
+    },
+    "patents": {
+      "zh": "专利",
+      "en": "Patents",
+      "context": "ui"
+    },
+    "students": {
+      "zh": "学生",
+      "en": "Students",
+      "context": "ui"
+    },
+    "team_members": {
+      "zh": "团队成员",
+      "en": "Team",
+      "context": "ui"
+    },
+    "publications": {
+      "zh": "论文成果",
+      "en": "Publications",
+      "context": "ui"
+    },
+    "news": {
+      "zh": "动态",
+      "en": "News",
+      "context": "ui"
+    },
+    "courses": {
+      "zh": "课程",
+      "en": "Courses",
+      "context": "ui"
+    },
+    "contact": {
+      "zh": "联系",
+      "en": "Contact",
+      "context": "ui"
+    },
+    "role": {
+      "zh": "角色",
+      "en": "Role",
+      "context": "ui"
+    },
+    "title": {
+      "zh": "头衔",
+      "en": "Title",
+      "context": "ui"
+    },
+    "organization": {
+      "zh": "单位",
+      "en": "Organization",
+      "context": "ui"
+    },
+    "team": {
+      "zh": "团队",
+      "en": "Group",
+      "context": "ui"
+    },
+    "team_search": {
+      "zh": "姓名、角色、职称、单位、简介",
+      "en": "Name, role, title, organization, bio",
+      "context": "ui"
+    },
+    "degree": {
+      "zh": "层次",
+      "en": "Degree",
+      "context": "ui"
+    },
+    "category": {
+      "zh": "分组",
+      "en": "Group",
+      "context": "ui"
+    },
+    "grade": {
+      "zh": "年级",
+      "en": "Year",
+      "context": "ui"
+    },
+    "status": {
+      "zh": "状态",
+      "en": "Status",
+      "context": "ui"
+    },
+    "student_search": {
+      "zh": "姓名、方向、年级、状态、去向",
+      "en": "Name, direction, year, status",
+      "context": "ui"
+    },
+    "student_group_mode": {
+      "zh": "显示方式",
+      "en": "Display",
+      "context": "ui"
+    },
+    "group_by_category": {
+      "zh": "按分组显示",
+      "en": "By Group",
+      "context": "ui"
+    },
+    "group_by_degree": {
+      "zh": "按学历显示",
+      "en": "By Degree",
+      "context": "ui"
+    },
+    "student_group_uncategorized": {
+      "zh": "未分组",
+      "en": "Uncategorized",
+      "context": "ui"
+    },
+    "people_count_unit": {
+      "zh": "人",
+      "en": "people",
+      "context": "ui"
+    },
+    "patent_type": {
+      "zh": "类型",
+      "en": "Type",
+      "context": "ui"
+    },
+    "legal_status": {
+      "zh": "状态",
+      "en": "Status",
+      "context": "ui"
+    },
+    "country": {
+      "zh": "国家",
+      "en": "Country",
+      "context": "ui"
+    },
+    "patent_search": {
+      "zh": "名称、申请号、授权号、发明人、权利人",
+      "en": "Title, application no., grant no., inventors, owner",
+      "context": "ui"
+    },
+    "source": {
+      "zh": "来源",
+      "en": "Source",
+      "context": "ui"
+    },
+    "fund_name": {
+      "zh": "基金",
+      "en": "Fund",
+      "context": "ui"
+    },
+    "project_search": {
+      "zh": "项目名称、来源、基金、项目号、负责人、成员",
+      "en": "Project title, source, fund, project no., PI, members",
+      "context": "ui"
+    },
+    "project_number": {
+      "zh": "项目号",
+      "en": "Project No.",
+      "context": "ui"
+    },
+    "project_period": {
+      "zh": "周期",
+      "en": "Period",
+      "context": "ui"
+    },
+    "project_amount": {
+      "zh": "金额",
+      "en": "Amount",
+      "context": "ui"
+    },
+    "project_amount_unit": {
+      "zh": "万元",
+      "en": "CNY",
+      "context": "ui"
+    },
+    "semester": {
+      "zh": "学期",
+      "en": "Semester",
+      "context": "ui"
+    },
+    "audience": {
+      "zh": "对象",
+      "en": "Audience",
+      "context": "ui"
+    },
+    "course_search": {
+      "zh": "课程名称、学期、对象、简介",
+      "en": "Course name, semester, audience, summary",
+      "context": "ui"
+    },
+    "year": {
+      "zh": "年份",
+      "en": "Year",
+      "context": "ui"
+    },
+    "venue": {
+      "zh": "期刊会议",
+      "en": "Journal / Conference",
+      "context": "ui"
+    },
+    "publication_type": {
+      "zh": "类型",
+      "en": "Type",
+      "context": "ui"
+    },
+    "author_role": {
+      "zh": "作者角色",
+      "en": "Author Role",
+      "context": "ui"
+    },
+    "index_type": {
+      "zh": "收录",
+      "en": "Indexing",
+      "context": "ui"
+    },
+    "publication_search": {
+      "zh": "题名、作者、期刊、DOI、关键词",
+      "en": "Title, authors, venue, DOI, keywords",
+      "context": "ui"
+    },
+    "news_search": {
+      "zh": "标题、分类、内容、关联信息",
+      "en": "Title, category, content, related information",
+      "context": "ui"
+    },
+    "inventors": {
+      "zh": "发明人/作者",
+      "en": "Inventors",
+      "context": "ui"
+    },
+    "owner": {
+      "zh": "权利人",
+      "en": "Owner",
+      "context": "ui"
+    },
+    "application_number": {
+      "zh": "申请号",
+      "en": "Application No.",
+      "context": "ui"
+    },
+    "grant_number": {
+      "zh": "授权号",
+      "en": "Grant No.",
+      "context": "ui"
+    },
+    "application_info": {
+      "zh": "申请",
+      "en": "Application",
+      "context": "ui"
+    },
+    "grant_info": {
+      "zh": "授权",
+      "en": "Grant",
+      "context": "ui"
+    },
+    "application_date": {
+      "zh": "申请日期",
+      "en": "Application Date",
+      "context": "ui"
+    },
+    "grant_date": {
+      "zh": "授权日期",
+      "en": "Grant Date",
+      "context": "ui"
+    },
+    "bio": {
+      "zh": "个人简介",
+      "en": "Biography",
+      "context": "ui"
+    },
+    "back_team": {
+      "zh": "返回团队",
+      "en": "Back to Team",
+      "context": "ui"
+    },
+    "not_found": {
+      "zh": "未找到",
+      "en": "Not Found",
+      "context": "ui"
+    },
+    "page_missing": {
+      "zh": "页面不存在。",
+      "en": "Page not found.",
+      "context": "ui"
+    },
+    "member_missing": {
+      "zh": "成员不存在",
+      "en": "Member not found",
+      "context": "ui"
+    },
+    "news_missing": {
+      "zh": "动态不存在",
+      "en": "News item not found",
+      "context": "ui"
+    },
+    "message_submitted": {
+      "zh": "留言已提交",
+      "en": "Message Submitted",
+      "context": "ui"
+    },
+    "message_thanks": {
+      "zh": "感谢你的信息，管理员会在后台查看。",
+      "en": "Thanks. The administrator will review your message.",
+      "context": "ui"
+    },
+    "back_home": {
+      "zh": "返回首页",
+      "en": "Back Home",
+      "context": "ui"
+    },
+    "search": {
+      "zh": "筛选",
+      "en": "Search",
+      "context": "ui"
+    },
+    "reset": {
+      "zh": "重置",
+      "en": "Reset",
+      "context": "ui"
+    },
+    "all": {
+      "zh": "全部",
+      "en": "All",
+      "context": "ui"
+    },
+    "select_all": {
+      "zh": "全选",
+      "en": "Select All",
+      "context": "ui"
+    },
+    "copy": {
+      "zh": "复制",
+      "en": "Copy",
+      "context": "ui"
+    },
+    "select_publication": {
+      "zh": "选择此论文",
+      "en": "Select this publication",
+      "context": "ui"
+    },
+    "copy_current_citation": {
+      "zh": "复制当前论文引用",
+      "en": "Copy citation",
+      "context": "ui"
+    },
+    "empty": {
+      "zh": "暂无内容。",
+      "en": "No content yet.",
+      "context": "ui"
+    },
+    "name": {
+      "zh": "姓名",
+      "en": "Name",
+      "context": "ui"
+    },
+    "message_type": {
+      "zh": "类型",
+      "en": "Type",
+      "context": "ui"
+    },
+    "subject": {
+      "zh": "主题",
+      "en": "Subject",
+      "context": "ui"
+    },
+    "content": {
+      "zh": "内容",
+      "en": "Message",
+      "context": "ui"
+    },
+    "submit": {
+      "zh": "提交",
+      "en": "Submit",
+      "context": "ui"
+    },
+    "message_type_recruiting": {
+      "zh": "招生",
+      "en": "Recruiting",
+      "context": "ui"
+    },
+    "message_type_cooperation": {
+      "zh": "合作",
+      "en": "Collaboration",
+      "context": "ui"
+    },
+    "message_type_paper": {
+      "zh": "论文",
+      "en": "Paper",
+      "context": "ui"
+    },
+    "message_type_course": {
+      "zh": "课程",
+      "en": "Course",
+      "context": "ui"
+    },
+    "message_type_other": {
+      "zh": "其他",
+      "en": "Other",
+      "context": "ui"
+    },
+    "citation_source": {
+      "zh": "原始引用",
+      "en": "Source Citation",
+      "context": "ui"
+    }
+  }
+}
