@@ -1,7 +1,7 @@
 name = "teacher-site-dual"
 main = "src/worker.py"
 compatibility_date = "2026-08-14"
-compatibility_flags = ["python_workers"]
+compatibility_flags = ["python_workers", "disable_python_external_sdk"]
 
 [assets]
 directory = "./public"
