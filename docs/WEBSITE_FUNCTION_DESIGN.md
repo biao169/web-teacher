@@ -2784,3 +2784,9 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 兼容性与部署注意：
 
 - 该修复不改变 D1 表结构，不需要重新执行迁移；部署新 Worker 后可直接再次访问 `/api/admin/system-check` 验证 `repository_view.auth_users_count` 是否变为 1。
+
+## 2026-08-22 首次部署最小导航与 R2 上传修复
+
+- `migrations/0001_initial.sql` 在建表后写入最小可用数据：站点设置、通用设置和前台导航项。该初始化只提供首页、团队、项目、代表论文、论文、专利与软著、学生、动态、课程、联系等基础入口，不写入教师、论文、项目等示例业务数据。
+- `src/worker.py` 的 Cloudflare R2 媒体上传在调用 `MEDIA.put()` 前，将 Python `bytes` 转换为 JavaScript `Uint8Array`，避免 Pyodide/Workers 环境把二进制上传体识别为非法类型。
+- 新部署策略：Cloudflare D1/SQLite 首次执行 `migrations/0001_initial.sql` 后即可看到前台基础导航；示例数据仍由 `seed` 相关脚本手动触发，避免生产站点自动混入测试内容。

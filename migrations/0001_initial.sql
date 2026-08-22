@@ -425,3 +425,63 @@ CREATE INDEX IF NOT EXISTS idx_auth_permissions_role_module ON auth_permissions(
 CREATE INDEX IF NOT EXISTS idx_operation_logs_actor ON operation_logs(actor_uid);
 CREATE INDEX IF NOT EXISTS idx_operation_logs_module_action ON operation_logs(module, action);
 CREATE INDEX IF NOT EXISTS idx_operation_logs_target ON operation_logs(target_uid);
+
+-- Minimal bootstrap data for fresh deployments.
+-- This keeps a brand-new site navigable without importing demo/seed content.
+INSERT OR IGNORE INTO site_settings (
+  uid, is_active, site_name, site_name_en, hero_title, hero_subtitle,
+  logo_key, favicon_key, og_image_key, seo_title, seo_description, seo_keywords,
+  footer_text, homepage_profile_uid, homepage_publication_limit, homepage_news_limit
+) VALUES (
+  'site-default', 1, '教师个人主页', 'Academic Research Website', '', '',
+  'default/site-logo.png', 'default/site-logo.png', 'default/site-logo.png',
+  '教师个人主页', '机械工程、智能制造与可靠人工智能方向教师个人主页。', '机械工程,智能制造,人工智能,学术主页',
+  '', '', 5, 4
+);
+
+INSERT OR IGNORE INTO global_settings (
+  uid, allow_public_registration, allow_anonymous_messages, upload_max_size_mb,
+  upload_allowed_extensions, media_trash_retention_days, news_pdf_engine,
+  news_pdf_allow_download, news_pdf_watermark, translation_provider,
+  translation_providers, libretranslate_url, libretranslate_api_key,
+  deepl_api_key, google_translate_api_key, microsoft_translator_key,
+  microsoft_translator_region, microsoft_translator_endpoint, mymemory_email,
+  translation_batch_size, translation_worker_count, translation_timeout_seconds,
+  translation_job_state, publication_metadata_provider, publication_metadata_providers,
+  publication_display_style, publication_suggestion_cache_seconds,
+  profile_suggestion_cache_seconds, project_suggestion_cache_seconds,
+  patent_suggestion_cache_seconds, student_suggestion_cache_seconds,
+  news_suggestion_cache_seconds, course_suggestion_cache_seconds,
+  patent_metadata_providers, patentsview_api_key, epo_ops_client_id,
+  epo_ops_client_secret, notify_email
+) VALUES (
+  'global-default', 0, 1, 10,
+  '.jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt', 30, 'native',
+  1, '', 'auto',
+  'mymemory,argos_local', '', '',
+  '', '', '',
+  '', 'https://api.cognitive.microsofttranslator.com', '',
+  10, 4, 12,
+  '', 'crossref', 'crossref,openalex,semantic_scholar',
+  'gbt', 30,
+  30, 30,
+  30, 30,
+  30, 30,
+  'patentsview,epo_ops', '', '',
+  '', ''
+);
+
+INSERT OR IGNORE INTO navigation_items (
+  uid, title, title_en, kind, url_name, path, fragment, icon, style,
+  location, visibility, enabled, sort_order
+) VALUES
+  ('nav-home', '首页', 'Home', 'route', 'home', '/', '', '', 'link', 'header', 'public', 1, 10),
+  ('nav-team', '团队', 'Team', 'route', 'team', '/team', '', '', 'link', 'header', 'public', 1, 20),
+  ('nav-projects', '项目', 'Projects', 'route', 'projects', '/projects', '', '', 'link', 'header', 'public', 1, 30),
+  ('nav-featured-publications', '代表论文', 'Featured Papers', 'route', 'featured_publications', '/featured-publications', '', '', 'link', 'header', 'public', 1, 40),
+  ('nav-publications', '论文', 'Publications', 'route', 'publications', '/publications', '', '', 'link', 'header', 'public', 1, 50),
+  ('nav-patents', '专利与软著', 'Patents', 'route', 'patents', '/patents', '', '', 'link', 'header', 'public', 1, 60),
+  ('nav-students', '学生', 'Students', 'route', 'students', '/students', '', '', 'link', 'header', 'public', 1, 70),
+  ('nav-news', '动态', 'News', 'route', 'news', '/news', '', '', 'link', 'header', 'public', 1, 80),
+  ('nav-courses', '课程', 'Courses', 'route', 'courses', '/courses', '', '', 'link', 'header', 'public', 1, 90),
+  ('nav-contact', '联系', 'Contact', 'route', 'contact', '/contact', '', '', 'link', 'header', 'public', 1, 100);

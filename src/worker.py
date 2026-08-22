@@ -321,10 +321,21 @@ class Default(WorkerEntrypoint):
         bucket = getattr(self.env, "MEDIA", None)
         if bucket is None:
             raise RuntimeError("MEDIA bucket is not bound")
+        body = self._bytes_to_r2_body(content)
         try:
-            await bucket.put(key, content, httpMetadata={"contentType": mime})
+            await bucket.put(key, body, httpMetadata={"contentType": mime})
         except TypeError:
-            await bucket.put(key, content)
+            await bucket.put(key, body, {"httpMetadata": {"contentType": mime}})
+
+    def _bytes_to_r2_body(self, content: bytes):
+        try:
+            from js import Uint8Array
+
+            view = Uint8Array.new(len(content))
+            view.assign(content)
+            return view
+        except Exception as error:
+            raise TypeError(f"Could not convert Python bytes to a JavaScript Uint8Array for R2 upload: {error}") from error
 
     async def _delete_r2_for_row(self, row: dict | None) -> bool:
         if not row:
