@@ -156,6 +156,16 @@ journalctl -u web-teacher -f
 
 如果项目目录不是 `/srv/web-teacher`，需要同步修改 `/etc/systemd/system/web-teacher.service` 中的 `WorkingDirectory`、`ExecStart` 和 `EnvironmentFile`。
 
+
+### Caddy 或其他服务占用 80/443
+
+如果 VPS 已经用 Caddy、v2ray/xray 面板或其他服务占用公网 `80/443`，不要让多个服务同时监听这两个端口。推荐让 Caddy 继续负责 HTTPS，教师网站只监听内部端口，例如 `127.0.0.1:8000`。一键脚本会在安装 Nginx 前先检测端口；检测到 Caddy 时，会询问是否自动创建 `/etc/caddy/sites/web-teacher.caddy` 并 reload Caddy。部署后也可以运行：
+
+```bash
+web-teacher caddy-example
+web-teacher nginx-test
+```
+
 ## 8. 配置 Nginx
 
 新建 `/etc/nginx/sites-available/web-teacher`：

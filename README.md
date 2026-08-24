@@ -36,7 +36,7 @@ web-teacher uninstall
 
 该一行命令可以在任意当前目录运行；脚本内部会自动进入安装目录执行初始化与更新命令。
 
-如果 Nginx 启动失败但 `nginx -t` 通过，通常是 80 端口被 Apache/Caddy/旧 Nginx 或云面板占用，可运行 `sudo ss -ltnp | grep ':80 '` 和 `web-teacher nginx-test` 检查。
+脚本会在安装系统包之前检测公网 `80/443` 端口：端口空闲时安装并配置 Nginx；检测到 Caddy 时不再安装 Nginx，而是询问是否写入 `/etc/caddy/sites/web-teacher.caddy` 并让 Caddy 继续负责 HTTPS；检测到其他程序占用时会输出 Caddy/Nginx 示例，不会擅自停止已有服务。可用 `web-teacher nginx-test` 查看公网端口监听，用 `web-teacher caddy-example` 查看 Caddy 配置示例。
 
 ## 本地 Ubuntu 风格开发
 

@@ -2,7 +2,7 @@
 # One-click Ubuntu/Debian deployment script for the teacher research website.
 # It installs system dependencies, clones/updates the public GitHub repo,
 # creates a Python virtual environment, initializes the SQLite database,
-# configures systemd autostart, configures Nginx reverse proxy, and installs
+# configures systemd autostart, configures Caddy or Nginx reverse proxy, and installs
 # a small `web-teacher` management command for daily maintenance.
 
 set -Eeuo pipefail
@@ -243,20 +243,21 @@ show_nginx_failure_help() {
   echo "Useful diagnostics:"
   echo "  sudo systemctl status nginx --no-pager"
   echo "  sudo journalctl -xeu nginx.service --no-pager | tail -n 80"
-  echo "  sudo ss -ltnp | grep ':80 '"
+  echo "  sudo ss -ltnp | grep -E ':(80|443) '"
   echo
-  warn "Most common cause: port 80 is already used by apache2, caddy, another nginx process, or a cloud panel. Stop the conflicting service or change its port, then run: web-teacher reload"
+  warn "Most common cause: public port 80 or 443 is already used by apache2, caddy, another nginx process, or a cloud panel. Keep one public reverse proxy and point it to the private website port."
   echo
   $SUDO systemctl status nginx --no-pager 2>/dev/null || true
   echo
   if command -v ss >/dev/null 2>&1; then
-    echo "Port 80 listeners:"
-    $SUDO ss -ltnp 2>/dev/null | grep ':80 ' || true
+    echo "Public port listeners:"
+    $SUDO ss -ltnp 2>/dev/null | grep -E ':(80|443) ' || true
   fi
 }
 
 start_or_reload_nginx() {
-  # Nginx syntax can be valid while the service still fails to start, often due to port conflicts.
+  ensure_nginx_installed
+  # Nginx syntax can be valid while the service still fails to start, often due to public port conflicts.
   $SUDO nginx -t
   $SUDO systemctl enable nginx >/dev/null 2>&1 || true
   if $SUDO systemctl is-active --quiet nginx; then
@@ -264,6 +265,168 @@ start_or_reload_nginx() {
   else
     $SUDO systemctl start nginx || { show_nginx_failure_help; return 1; }
   fi
+}
+
+public_port_listeners() {
+  if command -v ss >/dev/null 2>&1; then
+    $SUDO ss -ltnp 2>/dev/null | grep -E ':(80|443) ' || true
+  fi
+}
+
+public_port_listener_summary() {
+  public_port_listeners | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | sed 's/^ //; s/ $//'
+}
+
+public_proxy_mode() {
+  local listeners
+  listeners="$(public_port_listener_summary)"
+  if [ -z "$listeners" ]; then
+    printf 'nginx'
+  elif printf '%s' "$listeners" | grep -qi 'caddy'; then
+    printf 'caddy'
+  else
+    printf 'manual'
+  fi
+}
+
+install_system_packages() {
+  local proxy_mode="$1"
+  $SUDO apt-get update
+  if [ "$proxy_mode" = "nginx" ]; then
+    $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx curl ca-certificates openssl python3 python3-venv python3-pip
+  else
+    $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y git curl ca-certificates openssl python3 python3-venv python3-pip
+  fi
+}
+
+ensure_nginx_installed() {
+  if ! command -v nginx >/dev/null 2>&1; then
+    warn "Nginx was not installed earlier because public ports were occupied. Installing it now for the requested fallback."
+    $SUDO apt-get update
+    $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+  fi
+}
+
+caddy_site_address() {
+  local server_name="$1"
+  if [[ "$server_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'http://%s' "$server_name"
+  else
+    printf '%s' "$server_name"
+  fi
+}
+
+ensure_caddy_sites_import() {
+  local caddyfile="/etc/caddy/Caddyfile"
+  $SUDO mkdir -p /etc/caddy/sites
+  if ! $SUDO test -f "$caddyfile"; then
+    echo 'import /etc/caddy/sites/*.caddy' | $SUDO tee "$caddyfile" >/dev/null
+    return 0
+  fi
+  if ! $SUDO grep -Eq '^[[:space:]]*import[[:space:]]+/etc/caddy/sites/\*\.caddy[[:space:]]*$' "$caddyfile"; then
+    echo | $SUDO tee -a "$caddyfile" >/dev/null
+    echo 'import /etc/caddy/sites/*.caddy' | $SUDO tee -a "$caddyfile" >/dev/null
+  fi
+}
+
+write_caddy_site() {
+  local server_name="$1" port="$2" address
+  address="$(caddy_site_address "$server_name")"
+  ensure_caddy_sites_import
+  $SUDO tee /etc/caddy/sites/web-teacher.caddy >/dev/null <<EOF
+# Managed by web-teacher deploy script.
+# Caddy owns public 80/443; the Python app listens privately on 127.0.0.1:${port}.
+${address} {
+    encode gzip
+    reverse_proxy 127.0.0.1:${port}
+}
+EOF
+}
+
+show_proxy_examples() {
+  local server_name="$1" port="$2" address
+  address="$(caddy_site_address "$server_name")"
+  cat <<EOF
+
+Caddy example (/etc/caddy/sites/web-teacher.caddy):
+${address} {
+    encode gzip
+    reverse_proxy 127.0.0.1:${port}
+}
+
+If /etc/caddy/Caddyfile does not import site snippets, add this line:
+import /etc/caddy/sites/*.caddy
+
+Nginx example if public ports are released:
+server {
+    listen 80;
+    server_name ${server_name};
+    location / {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+EOF
+}
+
+configure_caddy_proxy() {
+  local server_name="$1" port="$2" answer
+  warn "Caddy is already using public port 80 or 443. It is usually best to let Caddy remain the HTTPS reverse proxy."
+  read -r -p "Create /etc/caddy/sites/web-teacher.caddy and reload Caddy now? [Y/n]: " answer || true
+  answer="${answer:-Y}"
+  case "$answer" in
+    Y|y|yes|YES)
+      write_caddy_site "$server_name" "$port"
+      if $SUDO caddy validate --config /etc/caddy/Caddyfile; then
+        $SUDO systemctl reload caddy || $SUDO systemctl restart caddy
+        log "Caddy proxy configured at /etc/caddy/sites/web-teacher.caddy"
+        return 0
+      fi
+      warn "Caddy validation failed. Please inspect /etc/caddy/Caddyfile and /etc/caddy/sites/web-teacher.caddy."
+      return 1
+      ;;
+    *)
+      show_proxy_examples "$server_name" "$port"
+      warn "Skipped public reverse proxy configuration. The private app should still be reachable at http://127.0.0.1:${port} on the server."
+      return 0
+      ;;
+  esac
+}
+
+configure_public_proxy() {
+  local server_name="$1" port="$2" proxy_mode="$3" listeners answer
+  listeners="$(public_port_listener_summary)"
+  if [ -n "$listeners" ]; then
+    echo "Public ports 80/443 are currently used by: $listeners"
+  fi
+  case "$proxy_mode" in
+    caddy)
+      configure_caddy_proxy "$server_name" "$port"
+      ;;
+    manual)
+      warn "Public port 80 or 443 is already used by another application. Nginx cannot bind to it safely."
+      read -r -p "Skip Nginx setup and show reverse-proxy examples? [Y/n]: " answer || true
+      answer="${answer:-Y}"
+      case "$answer" in
+        Y|y|yes|YES)
+          show_proxy_examples "$server_name" "$port"
+          return 0
+          ;;
+        *)
+          warn "Trying Nginx anyway. It will fail unless the other service releases public ports 80/443."
+          write_nginx_site "$server_name" "$port"
+          start_or_reload_nginx
+          ;;
+      esac
+      ;;
+    *)
+      write_nginx_site "$server_name" "$port"
+      start_or_reload_nginx
+      ;;
+  esac
 }
 
 write_manager_command() {
@@ -283,13 +446,36 @@ case "${1:-help}" in
   start) sudo systemctl start "$SERVICE" ;;
   stop) sudo systemctl stop "$SERVICE" ;;
   restart) sudo systemctl restart "$SERVICE" ;;
-  reload) sudo systemctl daemon-reload; sudo systemctl reload nginx; sudo systemctl restart "$SERVICE" ;;
+  reload) sudo systemctl daemon-reload; sudo systemctl reload nginx 2>/dev/null || true; sudo systemctl reload caddy 2>/dev/null || true; sudo systemctl restart "$SERVICE" ;;
   status) systemctl status "$SERVICE" --no-pager ;;
   logs) journalctl -u "$SERVICE" -f ;;
   nginx-test)
-    sudo nginx -t
+    sudo nginx -t || true
     sudo systemctl status nginx --no-pager || true
-    sudo ss -ltnp | grep ':80 ' || true
+    sudo ss -ltnp | grep -E ':(80|443) ' || true
+    ;;
+  caddy-example)
+    port="${WEB_TEACHER_PORT:-8000}"
+    host="${SITE_URL:-http://example.com}"
+    host="${host#http://}"
+    host="${host#https://}"
+    host="${host%%/*}"
+    if [[ "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      address="http://${host}"
+    else
+      address="$host"
+    fi
+    cat <<CADDY
+/etc/caddy/sites/web-teacher.caddy example:
+
+${address} {
+    encode gzip
+    reverse_proxy 127.0.0.1:${port}
+}
+
+If /etc/caddy/Caddyfile does not import site snippets, add:
+import /etc/caddy/sites/*.caddy
+CADDY
     ;;
   paths)
     echo "Install dir:  $INSTALL_DIR"
@@ -298,6 +484,7 @@ case "${1:-help}" in
     echo "Media dir:    ${TEACHER_SITE_MEDIA:-$INSTALL_DIR/media}"
     echo "Exports dir:  $INSTALL_DIR/exports"
     echo "Nginx site:   /etc/nginx/sites-available/web-teacher"
+    echo "Caddy site:   /etc/caddy/sites/web-teacher.caddy"
     echo "Service:      /etc/systemd/system/web-teacher.service"
     ;;
   update)
@@ -331,14 +518,15 @@ case "${1:-help}" in
     echo "Runtime data reset. Visit /admin/setup to initialize the administrator again."
     ;;
   uninstall)
-    echo "This will remove service, nginx config, environment file and install directory: $INSTALL_DIR"
+    echo "This will remove service, proxy config, environment file and install directory: $INSTALL_DIR"
     read -r -p "Type 'UNINSTALL WEB-TEACHER' to continue: " answer
     [ "$answer" = "UNINSTALL WEB-TEACHER" ] || { echo "Cancelled."; exit 1; }
     sudo systemctl stop "$SERVICE" 2>/dev/null || true
     sudo systemctl disable "$SERVICE" 2>/dev/null || true
-    sudo rm -rf "$INSTALL_DIR" "$ENV_FILE" /etc/web-teacher /etc/systemd/system/web-teacher.service /etc/nginx/sites-available/web-teacher /etc/nginx/sites-enabled/web-teacher
+    sudo rm -rf "$INSTALL_DIR" "$ENV_FILE" /etc/web-teacher /etc/systemd/system/web-teacher.service /etc/nginx/sites-available/web-teacher /etc/nginx/sites-enabled/web-teacher /etc/caddy/sites/web-teacher.caddy
     sudo systemctl daemon-reload
     sudo systemctl reload nginx 2>/dev/null || true
+    sudo systemctl reload caddy 2>/dev/null || true
     echo "web-teacher was uninstalled. Remove /usr/local/bin/web-teacher manually if you no longer need this command."
     ;;
   shell)
@@ -353,15 +541,16 @@ Commands:
   start       Start the website service
   stop        Stop the website service
   restart     Restart the website service
-  reload      Reload systemd/nginx and restart website
+  reload      Reload systemd/proxy and restart website
   status      Show service status
   logs        Follow service logs
-  nginx-test  Test Nginx configuration
+  nginx-test  Test Nginx configuration and public port listeners
+  caddy-example  Show a Caddy reverse-proxy example for this site
   paths       Show important file paths
   update      Pull latest code, install deps, apply DB defaults, restart
   backup      Create a local tar.gz backup under exports/
   reset-data  Delete runtime data and reinitialize an empty database
-  uninstall   Remove service, nginx config, env file and install directory
+  uninstall   Remove service, proxy config, env file and install directory
   shell       Open a shell in the install directory
 HELP
     ;;
@@ -373,7 +562,7 @@ EOF
 main() {
   log "Teacher website Ubuntu/Debian one-click deployment"
 
-  local detected_ip domain_or_ip app_port install_dir repo_url site_url server_name secret python_bin
+  local detected_ip domain_or_ip app_port install_dir repo_url site_url server_name secret python_bin proxy_mode
   detected_ip="$(server_ip)"
   domain_or_ip="$(ask 'Enter domain name. Leave empty to use detected server IP' "$detected_ip")"
   app_port="$(ask 'Enter internal application listen port' "$DEFAULT_PORT")"
@@ -391,9 +580,15 @@ main() {
     server_name="$domain_or_ip"
   fi
 
-  log "Installing system packages"
-  $SUDO apt-get update
-  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx curl ca-certificates openssl python3 python3-venv python3-pip
+  proxy_mode="$(public_proxy_mode)"
+  if [ "$proxy_mode" = "nginx" ]; then
+    log "Public ports 80/443 are free; installing Nginx reverse proxy"
+  elif [ "$proxy_mode" = "caddy" ]; then
+    log "Detected Caddy on public ports; Nginx will not be installed"
+  else
+    log "Detected another public reverse proxy; Nginx will not be installed by default"
+  fi
+  install_system_packages "$proxy_mode"
   python_bin="$(select_python)"
 
   log "Downloading/updating code in ${install_dir}"
@@ -435,9 +630,8 @@ main() {
   $SUDO systemctl daemon-reload
   $SUDO systemctl enable --now "$SERVICE_NAME"
 
-  log "Configuring Nginx"
-  write_nginx_site "$server_name" "$app_port"
-  start_or_reload_nginx
+  log "Configuring public reverse proxy"
+  configure_public_proxy "$server_name" "$app_port" "$proxy_mode"
 
   log "Installing management command: ${MANAGER_BIN}"
   write_manager_command

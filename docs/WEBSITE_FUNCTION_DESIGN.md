@@ -2818,3 +2818,10 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 - `deploy/ubuntu/install.sh` 新增 `start_or_reload_nginx()`：先执行 `nginx -t`，再根据 Nginx 当前状态选择 `reload` 或 `start`，避免 `systemctl enable --now nginx` 失败时只显示模糊 systemd 错误。
 - Nginx 启动或重载失败时，脚本会自动输出 `systemctl status nginx` 和 80 端口监听进程提示，帮助定位 Apache、Caddy、旧 Nginx 或云面板占用端口的问题。
 - `web-teacher nginx-test` 增强为同时执行 Nginx 语法检查、服务状态查看和 80 端口监听检查，方便后期终端维护。
+
+## 2026-08-24 Ubuntu/Debian 公网端口与 Caddy 适配
+
+- `deploy/ubuntu/install.sh` 在安装系统包前先检测公网 `80/443` 端口，避免 VPS 已有 Caddy 或其他服务时仍下载和启用 Nginx。
+- 检测结果分三类：端口空闲则安装并配置 Nginx；检测到 Caddy 则不安装 Nginx，并询问是否写入 `/etc/caddy/sites/web-teacher.caddy` 让 Caddy 反代到内部应用端口；检测到其他服务则输出 Caddy/Nginx 示例，由用户决定如何协调。
+- 教师网站服务始终建议监听内部端口，例如 `127.0.0.1:8000`；公网 HTTPS 的 `443` 和 HTTP 跳转的 `80` 应由唯一的反向代理统一管理，避免和 v2ray/xray、面板服务冲突。
+- 管理命令新增 `web-teacher caddy-example`，`web-teacher nginx-test` 同时显示 `80/443` 监听情况；`reload` 会尽量 reload Nginx 和 Caddy 后重启网站服务。
