@@ -1,5 +1,31 @@
 # Ubuntu 部署说明
 
+## 一键部署脚本
+
+公开仓库部署到全新的 Ubuntu/Debian 服务器时，可以直接运行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/biao169/web-teacher/main/deploy/ubuntu/install.sh -o install-web-teacher.sh
+chmod +x install-web-teacher.sh
+./install-web-teacher.sh
+```
+
+脚本会提示输入域名、内部监听端口、安装目录和仓库地址；域名未填写时默认使用服务器 IP。域名解析检查只给出提示，不会阻止继续部署。
+
+部署后可使用 `web-teacher` 关键字管理网站：
+
+```bash
+web-teacher status
+web-teacher logs
+web-teacher restart
+web-teacher paths
+web-teacher update
+web-teacher backup
+```
+
+脚本会自动配置：系统依赖、代码下载、Python 虚拟环境、数据库初始化、systemd 自启、Nginx 反向代理和 `/usr/local/bin/web-teacher` 管理命令。高级管理员账号仍需要首次访问 `/admin/setup` 初始化。
+
+
 本文按“首次部署空站点”编写。默认只初始化数据库结构，不自动写入示例数据。
 
 ## 1. 准备系统

@@ -2796,3 +2796,9 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 - `migrations/0001_initial.sql` 的最小初始化从“基础导航”扩展为“系统配置预置”：首次建库会写入站点设置、通用设置、前台导航、默认公共媒体索引、系统权限角色和角色权限矩阵。
 - 初始化仍然不会创建高级管理员账号，也不会写入教师、论文、项目、专利、学生、动态、课程、留言等私有或示例业务内容；管理员账号继续通过 `/admin/setup` 安全初始化。
 - 通用设置默认启用自动翻译配置列表、论文/专利联网查验平台、上传限制、媒体回收站保留时间、缓存时间和 PDF 相关开关；API Key、通知邮箱等私有信息保持空值，由管理员上线后填写。
+
+## 2026-08-24 Ubuntu/Debian 一键部署脚本
+
+- 新增 `deploy/ubuntu/install.sh`，用于公开 GitHub 仓库的一键部署：交互输入域名、内部监听端口、安装目录和仓库地址，自动完成 apt 依赖、代码下载/更新、Python 虚拟环境、数据库初始化、systemd 自启服务、Nginx 反向代理配置。
+- 脚本安装 `/usr/local/bin/web-teacher` 管理命令，支持 `status`、`logs`、`restart`、`paths`、`update`、`backup` 等常用维护动作，便于后期在终端用固定关键字管理网站。
+- `tools/init_db.py` 在 Ubuntu 初始化时会先执行 `migrations/0001_initial.sql`，确保站点设置、通用设置、导航、默认媒体索引和权限默认值与 Cloudflare D1 首次部署保持一致；高级管理员账号仍通过 `/admin/setup` 单独初始化。

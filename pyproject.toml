@@ -2,7 +2,7 @@
 name = "teacher-site-dual"
 version = "0.1.0"
 description = "A lightweight teacher personal/team website for Cloudflare Workers and Ubuntu."
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
   "uvicorn>=0.30",
   "openpyxl>=3.1",

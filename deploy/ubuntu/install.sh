@@ -1,0 +1,335 @@
+#!/usr/bin/env bash
+# One-click Ubuntu/Debian deployment script for the teacher research website.
+# It installs system dependencies, clones/updates the public GitHub repo,
+# creates a Python virtual environment, initializes the SQLite database,
+# configures systemd autostart, configures Nginx reverse proxy, and installs
+# a small `web-teacher` management command for daily maintenance.
+
+set -Eeuo pipefail
+
+APP_NAME="web-teacher"
+SERVICE_NAME="web-teacher"
+REPO_URL_DEFAULT="https://github.com/biao169/web-teacher.git"
+INSTALL_DIR_DEFAULT="/srv/web-teacher"
+ENV_DIR="/etc/web-teacher"
+ENV_FILE="${ENV_DIR}/web-teacher.env"
+NGINX_SITE="/etc/nginx/sites-available/web-teacher"
+NGINX_ENABLED="/etc/nginx/sites-enabled/web-teacher"
+MANAGER_BIN="/usr/local/bin/web-teacher"
+APP_USER="www-data"
+APP_GROUP="www-data"
+DEFAULT_PORT="8000"
+
+# Print consistent status messages.
+log() { printf '\033[1;32m[web-teacher]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[warning]\033[0m %s\n' "$*"; }
+fail() { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Run commands as root. The script can be launched by root or by a sudo user.
+SUDO=""
+if [ "${EUID}" -ne 0 ]; then
+  command -v sudo >/dev/null 2>&1 || fail "Please run as root or install sudo."
+  SUDO="sudo"
+fi
+
+ask() {
+  # ask "Prompt" "default" -> prints chosen value.
+  local prompt="$1" default_value="$2" answer
+  read -r -p "${prompt} [${default_value}]: " answer || true
+  printf '%s' "${answer:-$default_value}"
+}
+
+server_ip() {
+  # Prefer public IP; fall back to first local address if outbound lookup fails.
+  local ip=""
+  if command -v curl >/dev/null 2>&1; then
+    ip="$(curl -fsS --max-time 3 https://api.ipify.org 2>/dev/null || true)"
+  fi
+  if [ -z "$ip" ]; then
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  printf '%s' "${ip:-127.0.0.1}"
+}
+
+validate_port() {
+  local port="$1"
+  [[ "$port" =~ ^[0-9]+$ ]] || fail "Port must be a number."
+  [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || fail "Port must be between 1 and 65535."
+}
+
+validate_domain_hint() {
+  # Domain/IP validation is advisory only. It warns but never blocks deployment.
+  local host="$1" ip="$2"
+  [ -n "$host" ] || return 0
+  if [[ "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    return 0
+  fi
+  if command -v getent >/dev/null 2>&1; then
+    local resolved
+    resolved="$(getent ahostsv4 "$host" | awk '{print $1}' | sort -u | paste -sd, - || true)"
+    if [ -z "$resolved" ]; then
+      warn "Domain ${host} does not resolve yet. Nginx will still be configured."
+    elif ! printf '%s' "$resolved" | grep -q "${ip}"; then
+      warn "Domain ${host} resolves to ${resolved}, not detected server IP ${ip}. Continuing anyway."
+    else
+      log "Domain ${host} resolves to this server IP (${ip})."
+    fi
+  else
+    warn "Cannot validate domain because getent is unavailable. Continuing."
+  fi
+}
+
+select_python() {
+  # Prefer Python 3.12+. Debian 12 commonly ships Python 3.11, which is accepted with a warning.
+  if command -v python3.12 >/dev/null 2>&1; then
+    printf 'python3.12'
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    local version
+    version="$(python3 - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+    case "$version" in
+      3.12|3.13|3.14|3.15) printf 'python3'; return 0 ;;
+      3.11) warn "Python 3.11 detected. Continuing for Debian compatibility; Python 3.12+ is still preferred."; printf 'python3'; return 0 ;;
+    esac
+    fail "Python ${version} detected. Please install Python 3.11+ (Python 3.12+ preferred) and rerun."
+  fi
+  fail "Python 3 was not found."
+}
+
+write_env_file() {
+  local site_url="$1" port="$2" install_dir="$3" secret="$4"
+  $SUDO mkdir -p "$ENV_DIR"
+  $SUDO tee "$ENV_FILE" >/dev/null <<EOF
+# Managed by ${MANAGER_BIN} / deploy/ubuntu/install.sh
+# Private values live here. Do not commit this file.
+
+SITE_URL=${site_url}
+PUBLIC_MEDIA_BASE_URL=
+
+TEACHER_SITE_REQUIRE_AUTH_SECRET=1
+TEACHER_SITE_AUTH_SECRET=${secret}
+
+TEACHER_SITE_DB=${install_dir}/data/site.sqlite3
+TEACHER_SITE_MEDIA=${install_dir}/media
+TEACHER_SITE_PUBLIC=${install_dir}/public
+WEB_TEACHER_HOST=127.0.0.1
+WEB_TEACHER_PORT=${port}
+WEB_TEACHER_INSTALL_DIR=${install_dir}
+EOF
+  $SUDO chmod 600 "$ENV_FILE"
+}
+
+write_systemd_service() {
+  local install_dir="$1" port="$2"
+  $SUDO tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<EOF
+[Unit]
+Description=Teacher Research Website
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${APP_USER}
+Group=${APP_GROUP}
+WorkingDirectory=${install_dir}
+EnvironmentFile=${ENV_FILE}
+ExecStart=${install_dir}/.venv/bin/uvicorn app.adapters.ubuntu.main:app --host 127.0.0.1 --port ${port}
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+
+# Basic hardening. Writable paths are explicitly listed below.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=${install_dir}/data ${install_dir}/media ${install_dir}/exports ${install_dir}/.cache ${install_dir}/i18n_dictionary.json
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
+write_nginx_site() {
+  local server_name="$1" port="$2"
+  $SUDO tee "$NGINX_SITE" >/dev/null <<EOF
+server {
+    listen 80;
+    server_name ${server_name};
+
+    client_max_body_size 50m;
+
+    # Static and media responses are served by the Python app so Ubuntu behavior
+    # matches the Cloudflare Worker routing model.
+    location / {
+        proxy_pass http://127.0.0.1:${port};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 120s;
+    }
+}
+EOF
+  $SUDO ln -sfn "$NGINX_SITE" "$NGINX_ENABLED"
+}
+
+write_manager_command() {
+  # The management command gives the user memorable keywords after deployment.
+  $SUDO tee "$MANAGER_BIN" >/dev/null <<'EOF'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+SERVICE="web-teacher"
+ENV_FILE="/etc/web-teacher/web-teacher.env"
+INSTALL_DIR="/srv/web-teacher"
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  set -a; . "$ENV_FILE"; set +a
+  INSTALL_DIR="${WEB_TEACHER_INSTALL_DIR:-$INSTALL_DIR}"
+fi
+case "${1:-help}" in
+  start) sudo systemctl start "$SERVICE" ;;
+  stop) sudo systemctl stop "$SERVICE" ;;
+  restart) sudo systemctl restart "$SERVICE" ;;
+  reload) sudo systemctl daemon-reload; sudo systemctl reload nginx; sudo systemctl restart "$SERVICE" ;;
+  status) systemctl status "$SERVICE" --no-pager ;;
+  logs) journalctl -u "$SERVICE" -f ;;
+  nginx-test) sudo nginx -t ;;
+  paths)
+    echo "Install dir:  $INSTALL_DIR"
+    echo "Env file:     $ENV_FILE"
+    echo "Database:     ${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}"
+    echo "Media dir:    ${TEACHER_SITE_MEDIA:-$INSTALL_DIR/media}"
+    echo "Exports dir:  $INSTALL_DIR/exports"
+    echo "Nginx site:   /etc/nginx/sites-available/web-teacher"
+    echo "Service:      /etc/systemd/system/web-teacher.service"
+    ;;
+  update)
+    cd "$INSTALL_DIR"
+    sudo git -C "$INSTALL_DIR" pull --ff-only
+    sudo "$INSTALL_DIR/.venv/bin/python" -m pip install -r "$INSTALL_DIR/requirements.txt"
+    sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}"
+    sudo mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
+    sudo touch "$INSTALL_DIR/i18n_dictionary.json"
+    sudo chown -R www-data:www-data "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
+    sudo systemctl restart "$SERVICE"
+    ;;
+  backup)
+    cd "$INSTALL_DIR"
+    sudo mkdir -p exports
+    ts="$(date +%Y%m%d-%H%M%S)"
+    sudo tar -czf "exports/web-teacher-backup-${ts}.tar.gz" data media i18n_dictionary.json 2>/dev/null || sudo tar -czf "exports/web-teacher-backup-${ts}.tar.gz" data media
+    echo "Backup written to $INSTALL_DIR/exports/web-teacher-backup-${ts}.tar.gz"
+    ;;
+  shell)
+    cd "$INSTALL_DIR"
+    exec bash
+    ;;
+  help|*)
+    cat <<HELP
+Usage: web-teacher <command>
+
+Commands:
+  start       Start the website service
+  stop        Stop the website service
+  restart     Restart the website service
+  reload      Reload systemd/nginx and restart website
+  status      Show service status
+  logs        Follow service logs
+  nginx-test  Test Nginx configuration
+  paths       Show important file paths
+  update      Pull latest code, install deps, apply DB defaults, restart
+  backup      Create a local tar.gz backup under exports/
+  shell       Open a shell in the install directory
+HELP
+    ;;
+esac
+EOF
+  $SUDO chmod +x "$MANAGER_BIN"
+}
+
+main() {
+  log "Teacher website Ubuntu/Debian one-click deployment"
+
+  local detected_ip domain_or_ip app_port install_dir repo_url site_url server_name secret python_bin
+  detected_ip="$(server_ip)"
+  domain_or_ip="$(ask 'Enter domain name. Leave empty to use detected server IP' "$detected_ip")"
+  app_port="$(ask 'Enter internal application listen port' "$DEFAULT_PORT")"
+  install_dir="$(ask 'Enter installation directory' "$INSTALL_DIR_DEFAULT")"
+  repo_url="$(ask 'Enter Git repository URL' "$REPO_URL_DEFAULT")"
+  validate_port "$app_port"
+  validate_domain_hint "$domain_or_ip" "$detected_ip"
+
+  if [[ "$domain_or_ip" =~ ^https?:// ]]; then
+    site_url="$domain_or_ip"
+    server_name="$(printf '%s' "$domain_or_ip" | sed -E 's#^https?://##; s#/.*$##')"
+  else
+    site_url="http://${domain_or_ip}"
+    server_name="$domain_or_ip"
+  fi
+
+  log "Installing system packages"
+  $SUDO apt-get update
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx curl ca-certificates openssl python3 python3-venv python3-pip
+  python_bin="$(select_python)"
+
+  log "Downloading/updating code in ${install_dir}"
+  if [ -d "${install_dir}/.git" ]; then
+    $SUDO git -C "$install_dir" fetch --all --prune
+    $SUDO git -C "$install_dir" pull --ff-only
+  else
+    $SUDO mkdir -p "$(dirname "$install_dir")"
+    $SUDO git clone "$repo_url" "$install_dir"
+  fi
+
+  log "Creating Python virtual environment"
+  $SUDO "$python_bin" -m venv "${install_dir}/.venv"
+  $SUDO "${install_dir}/.venv/bin/python" -m pip install --upgrade pip
+  $SUDO "${install_dir}/.venv/bin/python" -m pip install -r "${install_dir}/requirements.txt"
+
+  log "Preparing runtime directories and secret"
+  secret="$($SUDO openssl rand -base64 48 | tr -d '\n')"
+  write_env_file "$site_url" "$app_port" "$install_dir" "$secret"
+  $SUDO mkdir -p "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache"
+  $SUDO touch "${install_dir}/i18n_dictionary.json"
+
+  log "Initializing database with baseline system settings"
+  $SUDO env "TEACHER_SITE_DB=${install_dir}/data/site.sqlite3" "${install_dir}/.venv/bin/python" -m tools.init_db --db "${install_dir}/data/site.sqlite3"
+
+  log "Configuring runtime file ownership"
+  # Keep source code root-owned/read-only; only runtime data paths are writable by the service user.
+  $SUDO chown -R "${APP_USER}:${APP_GROUP}" "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache" "${install_dir}/i18n_dictionary.json"
+  $SUDO chmod 755 "$install_dir"
+
+  log "Installing systemd service"
+  write_systemd_service "$install_dir" "$app_port"
+  $SUDO systemctl daemon-reload
+  $SUDO systemctl enable --now "$SERVICE_NAME"
+
+  log "Configuring Nginx"
+  write_nginx_site "$server_name" "$app_port"
+  $SUDO nginx -t
+  $SUDO systemctl enable --now nginx
+  $SUDO systemctl reload nginx
+
+  log "Installing management command: ${MANAGER_BIN}"
+  write_manager_command
+
+  log "Deployment completed"
+  echo
+  echo "Website URL:      ${site_url}"
+  echo "Admin setup URL:  ${site_url}/admin/setup"
+  echo "Install dir:      ${install_dir}"
+  echo "Env file:         ${ENV_FILE}"
+  echo "Manager command:  web-teacher status | logs | restart | paths | update | backup"
+  echo
+  warn "If you later enable HTTPS with certbot, update SITE_URL in ${ENV_FILE} to https://... and run: web-teacher restart"
+}
+
+main "$@"
+
