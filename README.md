@@ -34,6 +34,8 @@ web-teacher uninstall
 
 重复运行部署脚本时会检测历史残留，默认 `keep` 会保留数据库、媒体文件和密钥；需要清空数据时可选择 `reset` 或运行 `web-teacher reset-data`，删除类操作都会要求输入确认文本。
 
+该一行命令可以在任意当前目录运行；脚本内部会自动进入安装目录执行初始化与更新命令。
+
 ## 本地 Ubuntu 风格开发
 
 ```powershell

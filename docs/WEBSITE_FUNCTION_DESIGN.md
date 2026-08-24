@@ -2808,3 +2808,8 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 - `deploy/ubuntu/install.sh` 增加旧安装检测：发现安装目录、环境文件、systemd 服务或 Nginx 配置时，提示选择 `keep`、`reset`、`replace`。默认 `keep` 保留数据库、媒体和密钥，仅更新代码与服务；`reset` 和 `replace` 都需要输入确认短语。
 - `/usr/local/bin/web-teacher` 管理命令新增 `reset-data` 和 `uninstall`。`reset-data` 删除运行数据并重新初始化空数据库；`uninstall` 删除服务、Nginx 配置、环境文件和安装目录。两个命令均需要明确文本确认，避免误删。
 - Ubuntu 文档的一键部署命令改为单行 `mktemp + curl + chmod + 执行`，避免 `curl | bash` 占用标准输入导致交互式域名/端口输入失效。
+
+## 2026-08-24 Ubuntu 部署脚本工作目录修复
+
+- 修复 `deploy/ubuntu/install.sh` 中 `python -m tools.init_db` 依赖当前目录的问题：首次初始化、`web-teacher update` 和 `web-teacher reset-data` 均会先进入安装目录再执行模块命令，因此用户可以从 `/root`、`/`、`/tmp` 等任意目录运行一键部署命令。
+- 新增 `tools/__init__.py`，显式声明 `tools` 为 Python 包，降低不同 Linux/Python 环境下模块发现差异带来的部署风险。

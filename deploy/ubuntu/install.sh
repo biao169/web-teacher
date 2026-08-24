@@ -271,7 +271,7 @@ case "${1:-help}" in
     cd "$INSTALL_DIR"
     sudo git -C "$INSTALL_DIR" pull --ff-only
     sudo "$INSTALL_DIR/.venv/bin/python" -m pip install -r "$INSTALL_DIR/requirements.txt"
-    sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}"
+    (cd "$INSTALL_DIR" && sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}")
     sudo mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
     sudo touch "$INSTALL_DIR/i18n_dictionary.json"
     sudo chown -R www-data:www-data "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
@@ -292,7 +292,7 @@ case "${1:-help}" in
     sudo rm -rf "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
     sudo mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
     sudo touch "$INSTALL_DIR/i18n_dictionary.json"
-    sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}"
+    (cd "$INSTALL_DIR" && sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}")
     sudo chown -R www-data:www-data "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
     sudo systemctl start "$SERVICE"
     echo "Runtime data reset. Visit /admin/setup to initialize the administrator again."
@@ -390,7 +390,7 @@ main() {
   $SUDO touch "${install_dir}/i18n_dictionary.json"
 
   log "Initializing database with baseline system settings"
-  $SUDO env "TEACHER_SITE_DB=${install_dir}/data/site.sqlite3" "${install_dir}/.venv/bin/python" -m tools.init_db --db "${install_dir}/data/site.sqlite3"
+  (cd "$install_dir" && $SUDO env "TEACHER_SITE_DB=${install_dir}/data/site.sqlite3" "${install_dir}/.venv/bin/python" -m tools.init_db --db "${install_dir}/data/site.sqlite3")
 
   log "Configuring runtime file ownership"
   # Keep source code root-owned/read-only; only runtime data paths are writable by the service user.
