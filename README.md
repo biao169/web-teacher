@@ -8,6 +8,32 @@
 - 前台展示教师照片、团队成员照片、论文、项目、专利、学生、课程和动态。
 - 后台可配置导航栏、首页按钮、栏目内容和排序。
 
+
+## Ubuntu/Debian 一键部署
+
+公开仓库可在 Ubuntu/Debian 服务器上用一行命令部署：
+
+```bash
+tmp=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/biao169/web-teacher/main/deploy/ubuntu/install.sh -o "$tmp" && chmod +x "$tmp" && "$tmp"
+```
+
+脚本会提示输入域名、内部监听端口、安装目录和仓库地址；域名留空时默认使用服务器 IP。部署完成后，首次访问 `/admin/setup` 初始化高级管理员账号。
+
+常用维护命令：
+
+```bash
+web-teacher status
+web-teacher logs
+web-teacher restart
+web-teacher paths
+web-teacher update
+web-teacher backup
+web-teacher reset-data
+web-teacher uninstall
+```
+
+重复运行部署脚本时会检测历史残留，默认 `keep` 会保留数据库、媒体文件和密钥；需要清空数据时可选择 `reset` 或运行 `web-teacher reset-data`，删除类操作都会要求输入确认文本。
+
 ## 本地 Ubuntu 风格开发
 
 ```powershell
