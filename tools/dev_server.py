@@ -68,6 +68,8 @@ class Handler(BaseHTTPRequestHandler):
     def request_env(self) -> dict[str, str]:
         return {
             "SITE_URL": self.site_url,
+            "TEACHER_SITE_MEDIA": os.environ.get("TEACHER_SITE_MEDIA", str(self.media_dir)),
+            "TEACHER_SITE_PUBLIC": os.environ.get("TEACHER_SITE_PUBLIC", str(self.public_dir)),
             "TEACHER_SITE_AUTH_SECRET": os.environ.get("TEACHER_SITE_AUTH_SECRET", ""),
             "TEACHER_SITE_REQUIRE_AUTH_SECRET": os.environ.get("TEACHER_SITE_REQUIRE_AUTH_SECRET", ""),
             "_CONTENT_TYPE": self.headers.get("content-type", ""),

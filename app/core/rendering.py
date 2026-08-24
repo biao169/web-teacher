@@ -6,6 +6,7 @@ import json
 import base64
 import hashlib
 import mimetypes
+import os
 import re
 import shutil
 import time
@@ -6607,7 +6608,7 @@ def prepare_media_upload(repo: Repository, body: bytes, env: dict[str, str], sto
         key = unique_media_object_key(folder, filename, key_prefix or "uploads")
         path = None
     else:
-        key, path = unique_media_path(folder, filename)
+        key, path = unique_media_path(folder, filename, env)
         storage = "local"
     mime = str(inspected.get("mime") or upload.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream")
     row = media_record_data(key, text_only(form.get("title") or Path(filename).stem, 160), folder, mime, len(content), storage)
@@ -6670,10 +6671,12 @@ def prepare_media_crop(repo: Repository, body: bytes, env: dict[str, str], stora
             target = None
             row["storage_kind"] = "r2"
         else:
-            target = media_target_path_for_key(replace_key)
+            if storage == "static":
+                return {"ok": False, "message": "静态包媒体不允许在线覆盖，请上传为新媒体或随代码重新部署。"}
+            target = media_target_path_for_key(replace_key, env)
             if not target:
                 return {"ok": False, "message": "替换路径无效。"}
-            row["storage_kind"] = storage if storage in {"local", "static"} else "local"
+            row["storage_kind"] = "local"
         mime = "image/jpeg" if ext in {"jpg", "jpeg"} else f"image/{ext}"
         row["size"] = len(content)
         row["mime_type"] = mime
@@ -6686,7 +6689,7 @@ def prepare_media_crop(repo: Repository, body: bytes, env: dict[str, str], stora
         key = unique_media_object_key(folder, requested, key_prefix or "uploads")
         path = None
     else:
-        key, path = unique_media_path(folder, requested)
+        key, path = unique_media_path(folder, requested, env)
         storage = "local"
     mime = "image/jpeg" if ext in {"jpg", "jpeg"} else f"image/{ext}"
     row = media_record_data(key, text_only(data.get("title") or Path(requested).stem, 160), folder, mime, len(content), storage)
@@ -7603,10 +7606,10 @@ def normalize_media_storage_kind(value: Any, default: str = "static") -> str:
     return text if text in {"static", "local", "r2", "external"} else default
 
 
-def unique_media_path(folder: str, filename: str) -> tuple[str, Path]:
+def unique_media_path(folder: str, filename: str, env: dict[str, str] | None = None) -> tuple[str, Path]:
     folder = safe_media_folder(folder)
     name = safe_media_filename(filename)
-    root = Path("public") / "media"
+    root = runtime_media_root(env)
     stem = Path(name).stem or "media"
     suffix = Path(name).suffix or ".bin"
     candidate = f"{folder}/{stem}{suffix}"
@@ -7615,6 +7618,22 @@ def unique_media_path(folder: str, filename: str) -> tuple[str, Path]:
         candidate = f"{folder}/{stem}-{index}{suffix}"
         index += 1
     return candidate, root / candidate
+
+
+def runtime_media_root(env: dict[str, str] | None = None) -> Path:
+    configured = (env or {}).get("TEACHER_SITE_MEDIA") or os.environ.get("TEACHER_SITE_MEDIA") or "media"
+    return Path(configured).expanduser()
+
+
+def static_media_root(env: dict[str, str] | None = None) -> Path:
+    configured = (env or {}).get("TEACHER_SITE_PUBLIC") or os.environ.get("TEACHER_SITE_PUBLIC") or "public"
+    return Path(configured).expanduser() / "media"
+
+
+def media_candidate_roots(env: dict[str, str] | None = None) -> tuple[Path, Path]:
+    runtime = runtime_media_root(env)
+    static = static_media_root(env)
+    return (runtime, static) if runtime != static else (runtime, runtime)
 
 
 def unique_media_object_key(folder: str, filename: str, prefix: str = "uploads") -> str:
@@ -7815,7 +7834,7 @@ def media_file_size_payload(key: str, env: dict[str, str], refresh: bool = False
     cached_payload, age = (None, 0) if refresh else media_cached_entry(cache, "files", clean)
     if cached_payload is not None:
         return with_media_cache_meta(cached_payload, True, age)
-    path = media_local_path(clean)
+    path = media_local_path(clean, env)
     if not path:
         payload = {"key": clean, "exists": False, "size": 0, "label": "未找到"}
     else:
@@ -7831,7 +7850,7 @@ def media_file_size_payload(key: str, env: dict[str, str], refresh: bool = False
 def disk_usage_payload(env: dict[str, str] | None = None) -> dict[str, Any]:
     if (env or {}).get("PLATFORM") == "cloudflare":
         return {"available": False, "path": "cloudflare", "total": 0, "used": 0, "free": 0, "total_label": "不支持", "used_label": "不支持", "free_label": "不支持"}
-    target = first_existing_media_root() or Path.cwd()
+    target = first_existing_media_root(env) or Path.cwd()
     try:
         usage = shutil.disk_usage(target)
         return {
@@ -7848,18 +7867,18 @@ def disk_usage_payload(env: dict[str, str] | None = None) -> dict[str, Any]:
         return {"available": False, "path": str(target), "total": 0, "used": 0, "free": 0, "total_label": "未知", "used_label": "未知", "free_label": "未知"}
 
 
-def first_existing_media_root() -> Path | None:
-    for root in (Path("media"), Path("public") / "media"):
+def first_existing_media_root(env: dict[str, str] | None = None) -> Path | None:
+    for root in media_candidate_roots(env):
         if root.exists():
             return root
     return None
 
 
-def media_local_path(key: str) -> Path | None:
+def media_local_path(key: str, env: dict[str, str] | None = None) -> Path | None:
     clean = normalize_media_key(key)
     if not clean or clean.startswith("/") or ".." in Path(clean).parts:
         return None
-    for root in (Path("media"), Path("public") / "media"):
+    for root in media_candidate_roots(env):
         try:
             root_resolved = root.resolve()
             target = (root / clean).resolve()
@@ -7870,15 +7889,15 @@ def media_local_path(key: str) -> Path | None:
     return None
 
 
-def media_target_path_for_key(key: str) -> Path | None:
+def media_target_path_for_key(key: str, env: dict[str, str] | None = None) -> Path | None:
     clean = normalize_media_key(key)
     if not clean or clean.startswith("/") or ".." in Path(clean).parts:
         return None
-    existing = media_local_path(clean)
+    existing = media_local_path(clean, env)
     if existing:
         return existing
     try:
-        root = (Path("public") / "media").resolve()
+        root = runtime_media_root(env).resolve()
         target = (root / clean).resolve()
         if str(target).startswith(str(root)):
             return target
@@ -8011,7 +8030,7 @@ def media_path_inside_managed_root(path: Path) -> bool:
         resolved = path.resolve()
     except OSError:
         return False
-    for root in (Path("media"), Path("public") / "media"):
+    for root in media_candidate_roots(env):
         try:
             resolved.relative_to(root.resolve())
             return True
@@ -8334,7 +8353,7 @@ def media_file_exists(row: dict[str, Any], env: dict[str, str]) -> bool:
         return True
     if env.get("PLATFORM") == "cloudflare" or env.get("PUBLIC_MEDIA_BASE_URL"):
         return storage in {"static", "r2"}
-    return media_local_path(key) is not None
+    return media_local_path(key, env) is not None
 
 
 def media_storage_label(row: dict[str, Any] | str) -> str:

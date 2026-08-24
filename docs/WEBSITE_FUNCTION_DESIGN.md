@@ -2825,3 +2825,11 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 - 检测结果分三类：端口空闲则安装并配置 Nginx；检测到 Caddy 则不安装 Nginx，并询问是否写入 `/etc/caddy/sites/web-teacher.caddy` 让 Caddy 反代到内部应用端口；检测到其他服务则输出 Caddy/Nginx 示例，由用户决定如何协调。
 - 教师网站服务始终建议监听内部端口，例如 `127.0.0.1:8000`；公网 HTTPS 的 `443` 和 HTTP 跳转的 `80` 应由唯一的反向代理统一管理，避免和 v2ray/xray、面板服务冲突。
 - 管理命令新增 `web-teacher caddy-example`，`web-teacher nginx-test` 同时显示 `80/443` 监听情况；`reload` 会尽量 reload Nginx 和 Caddy 后重启网站服务。
+
+## 2026-08-24 Ubuntu/Cloudflare 媒体上传目录修正
+
+- 后台媒体选择工具、本地上传和富文本上传在 Ubuntu/本地环境下统一写入 `TEACHER_SITE_MEDIA` 指向的运行时媒体目录，默认 `/srv/web-teacher/media` 或本地 `media/`。
+- `TEACHER_SITE_PUBLIC` 仅表示随代码发布的只读静态资源目录，默认 `/srv/web-teacher/public`，用于 `/assets` 和默认 `public/media` 文件回退，不再作为后台上传写入目录。
+- Cloudflare Worker 分支保持使用 R2 `MEDIA` 绑定写入，`prepare_media_upload(..., storage_kind="r2")` 不落本地文件系统。
+- 媒体预览、文件大小检测和媒体库可用性判断会同时识别运行时媒体目录和静态 `public/media` 回退目录；在线替换禁止覆盖静态包媒体，避免破坏代码发布内容。
+- 环境文件示例和 Ubuntu 一键部署生成的 `/etc/web-teacher/web-teacher.env` 已为 `SITE_URL`、`PUBLIC_MEDIA_BASE_URL`、`TEACHER_SITE_DB`、`TEACHER_SITE_MEDIA`、`TEACHER_SITE_PUBLIC` 等变量添加用途注释。

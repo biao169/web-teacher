@@ -166,14 +166,25 @@ write_env_file() {
 # Managed by ${MANAGER_BIN} / deploy/ubuntu/install.sh
 # Private values live here. Do not commit this file.
 
+# Public canonical URL of the website. Used for redirects, sitemap links and security checks.
 SITE_URL=${site_url}
+
+# Optional external media/CDN base URL. Leave empty when /media/... is served by this same website.
 PUBLIC_MEDIA_BASE_URL=
 
+# Require a strong production auth secret. Keep enabled on public servers.
 TEACHER_SITE_REQUIRE_AUTH_SECRET=1
+
+# Session signing secret. Generated automatically by the installer.
 TEACHER_SITE_AUTH_SECRET=${secret}
 
+# SQLite database path for Ubuntu/Debian deployment.
 TEACHER_SITE_DB=${install_dir}/data/site.sqlite3
+
+# Writable runtime media directory. Admin uploads and rich-text media are saved here.
 TEACHER_SITE_MEDIA=${install_dir}/media
+
+# Read-only packaged static directory. /assets and default public/media files are served from here.
 TEACHER_SITE_PUBLIC=${install_dir}/public
 WEB_TEACHER_HOST=127.0.0.1
 WEB_TEACHER_PORT=${port}

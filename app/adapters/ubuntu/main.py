@@ -33,6 +33,8 @@ async def app(scope, receive, send):
     env = {
         "SITE_URL": os.environ.get("SITE_URL", "http://127.0.0.1:8000"),
         "PUBLIC_MEDIA_BASE_URL": os.environ.get("PUBLIC_MEDIA_BASE_URL", ""),
+        "TEACHER_SITE_MEDIA": os.environ.get("TEACHER_SITE_MEDIA", str(MEDIA_DIR)),
+        "TEACHER_SITE_PUBLIC": os.environ.get("TEACHER_SITE_PUBLIC", str(PUBLIC_DIR)),
         "TEACHER_SITE_AUTH_SECRET": os.environ.get("TEACHER_SITE_AUTH_SECRET", ""),
         "TEACHER_SITE_REQUIRE_AUTH_SECRET": os.environ.get("TEACHER_SITE_REQUIRE_AUTH_SECRET", ""),
         "_CONTENT_TYPE": headers_map.get("content-type", ""),
