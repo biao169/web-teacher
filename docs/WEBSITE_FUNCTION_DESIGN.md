@@ -2802,3 +2802,9 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 - 新增 `deploy/ubuntu/install.sh`，用于公开 GitHub 仓库的一键部署：交互输入域名、内部监听端口、安装目录和仓库地址，自动完成 apt 依赖、代码下载/更新、Python 虚拟环境、数据库初始化、systemd 自启服务、Nginx 反向代理配置。
 - 脚本安装 `/usr/local/bin/web-teacher` 管理命令，支持 `status`、`logs`、`restart`、`paths`、`update`、`backup` 等常用维护动作，便于后期在终端用固定关键字管理网站。
 - `tools/init_db.py` 在 Ubuntu 初始化时会先执行 `migrations/0001_initial.sql`，确保站点设置、通用设置、导航、默认媒体索引和权限默认值与 Cloudflare D1 首次部署保持一致；高级管理员账号仍通过 `/admin/setup` 单独初始化。
+
+## 2026-08-24 Ubuntu 一键部署历史残留与删除命令
+
+- `deploy/ubuntu/install.sh` 增加旧安装检测：发现安装目录、环境文件、systemd 服务或 Nginx 配置时，提示选择 `keep`、`reset`、`replace`。默认 `keep` 保留数据库、媒体和密钥，仅更新代码与服务；`reset` 和 `replace` 都需要输入确认短语。
+- `/usr/local/bin/web-teacher` 管理命令新增 `reset-data` 和 `uninstall`。`reset-data` 删除运行数据并重新初始化空数据库；`uninstall` 删除服务、Nginx 配置、环境文件和安装目录。两个命令均需要明确文本确认，避免误删。
+- Ubuntu 文档的一键部署命令改为单行 `mktemp + curl + chmod + 执行`，避免 `curl | bash` 占用标准输入导致交互式域名/端口输入失效。

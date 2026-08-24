@@ -79,6 +79,64 @@ validate_domain_hint() {
   fi
 }
 
+confirm_phrase() {
+  # confirm_phrase "Prompt" "PHRASE" returns success only when PHRASE is typed exactly.
+  local prompt="$1" phrase="$2" answer
+  warn "$prompt"
+  read -r -p "Type '${phrase}' to continue: " answer || true
+  [ "$answer" = "$phrase" ]
+}
+
+path_exists_root() {
+  $SUDO test -e "$1"
+}
+
+handle_existing_install() {
+  # Existing services, config files, or runtime data are preserved by default.
+  # Destructive modes require explicit confirmation.
+  local install_dir="$1" mode="keep"
+  local found=0
+  if path_exists_root "$install_dir" || path_exists_root "$ENV_FILE" || path_exists_root "/etc/systemd/system/${SERVICE_NAME}.service" || path_exists_root "$NGINX_SITE"; then
+    found=1
+  fi
+  [ "$found" -eq 1 ] || return 0
+
+  warn "Existing web-teacher files or service configuration were detected."
+  echo "  1) keep    - keep database/media/env, update code and service config (recommended)"
+  echo "  2) reset   - keep code/env, delete website database/media/cache/export data"
+  echo "  3) replace - remove old install dir, env, service and nginx config, then reinstall"
+  read -r -p "Choose install mode [keep/reset/replace] (default: keep): " mode || true
+  mode="${mode:-keep}"
+  case "$mode" in
+    keep)
+      log "Keeping existing runtime data and configuration."
+      ;;
+    reset)
+      if confirm_phrase "This will delete database, uploaded media, exports, cache and i18n dictionary under ${install_dir}." "RESET WEB-TEACHER DATA"; then
+        $SUDO systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+        $SUDO rm -rf "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache" "${install_dir}/i18n_dictionary.json"
+        log "Runtime data removed. It will be recreated during installation."
+      else
+        fail "Reset cancelled."
+      fi
+      ;;
+    replace)
+      if confirm_phrase "This will delete ${install_dir}, ${ENV_FILE}, systemd service and Nginx site config." "REPLACE WEB-TEACHER"; then
+        $SUDO systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+        $SUDO systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+        $SUDO rm -rf "$install_dir" "$ENV_FILE" "$ENV_DIR" "/etc/systemd/system/${SERVICE_NAME}.service" "$NGINX_SITE" "$NGINX_ENABLED"
+        $SUDO systemctl daemon-reload
+        log "Old installation removed. A fresh installation will continue."
+      else
+        fail "Replace cancelled."
+      fi
+      ;;
+    *)
+      fail "Unknown install mode: ${mode}"
+      ;;
+  esac
+}
+
 select_python() {
   # Prefer Python 3.12+. Debian 12 commonly ships Python 3.11, which is accepted with a warning.
   if command -v python3.12 >/dev/null 2>&1; then
@@ -226,6 +284,30 @@ case "${1:-help}" in
     sudo tar -czf "exports/web-teacher-backup-${ts}.tar.gz" data media i18n_dictionary.json 2>/dev/null || sudo tar -czf "exports/web-teacher-backup-${ts}.tar.gz" data media
     echo "Backup written to $INSTALL_DIR/exports/web-teacher-backup-${ts}.tar.gz"
     ;;
+  reset-data)
+    echo "This will delete database, uploaded media, exports, cache and i18n dictionary under: $INSTALL_DIR"
+    read -r -p "Type 'RESET WEB-TEACHER DATA' to continue: " answer
+    [ "$answer" = "RESET WEB-TEACHER DATA" ] || { echo "Cancelled."; exit 1; }
+    sudo systemctl stop "$SERVICE" 2>/dev/null || true
+    sudo rm -rf "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
+    sudo mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
+    sudo touch "$INSTALL_DIR/i18n_dictionary.json"
+    sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}"
+    sudo chown -R www-data:www-data "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
+    sudo systemctl start "$SERVICE"
+    echo "Runtime data reset. Visit /admin/setup to initialize the administrator again."
+    ;;
+  uninstall)
+    echo "This will remove service, nginx config, environment file and install directory: $INSTALL_DIR"
+    read -r -p "Type 'UNINSTALL WEB-TEACHER' to continue: " answer
+    [ "$answer" = "UNINSTALL WEB-TEACHER" ] || { echo "Cancelled."; exit 1; }
+    sudo systemctl stop "$SERVICE" 2>/dev/null || true
+    sudo systemctl disable "$SERVICE" 2>/dev/null || true
+    sudo rm -rf "$INSTALL_DIR" "$ENV_FILE" /etc/web-teacher /etc/systemd/system/web-teacher.service /etc/nginx/sites-available/web-teacher /etc/nginx/sites-enabled/web-teacher
+    sudo systemctl daemon-reload
+    sudo systemctl reload nginx 2>/dev/null || true
+    echo "web-teacher was uninstalled. Remove /usr/local/bin/web-teacher manually if you no longer need this command."
+    ;;
   shell)
     cd "$INSTALL_DIR"
     exec bash
@@ -245,6 +327,8 @@ Commands:
   paths       Show important file paths
   update      Pull latest code, install deps, apply DB defaults, restart
   backup      Create a local tar.gz backup under exports/
+  reset-data  Delete runtime data and reinitialize an empty database
+  uninstall   Remove service, nginx config, env file and install directory
   shell       Open a shell in the install directory
 HELP
     ;;
@@ -264,6 +348,7 @@ main() {
   repo_url="$(ask 'Enter Git repository URL' "$REPO_URL_DEFAULT")"
   validate_port "$app_port"
   validate_domain_hint "$domain_or_ip" "$detected_ip"
+  handle_existing_install "$install_dir"
 
   if [[ "$domain_or_ip" =~ ^https?:// ]]; then
     site_url="$domain_or_ip"
@@ -293,7 +378,13 @@ main() {
   $SUDO "${install_dir}/.venv/bin/python" -m pip install -r "${install_dir}/requirements.txt"
 
   log "Preparing runtime directories and secret"
-  secret="$($SUDO openssl rand -base64 48 | tr -d '\n')"
+  secret=""
+  if $SUDO test -f "$ENV_FILE"; then
+    secret="$($SUDO sed -n 's/^TEACHER_SITE_AUTH_SECRET=//p' "$ENV_FILE" | head -n 1)"
+  fi
+  if [ -z "$secret" ]; then
+    secret="$($SUDO openssl rand -base64 48 | tr -d '\n')"
+  fi
   write_env_file "$site_url" "$app_port" "$install_dir" "$secret"
   $SUDO mkdir -p "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache"
   $SUDO touch "${install_dir}/i18n_dictionary.json"
@@ -326,7 +417,7 @@ main() {
   echo "Admin setup URL:  ${site_url}/admin/setup"
   echo "Install dir:      ${install_dir}"
   echo "Env file:         ${ENV_FILE}"
-  echo "Manager command:  web-teacher status | logs | restart | paths | update | backup"
+  echo "Manager command:  web-teacher status | logs | restart | paths | update | backup | reset-data"
   echo
   warn "If you later enable HTTPS with certbot, update SITE_URL in ${ENV_FILE} to https://... and run: web-teacher restart"
 }

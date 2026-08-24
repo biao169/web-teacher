@@ -5,9 +5,7 @@
 公开仓库部署到全新的 Ubuntu/Debian 服务器时，可以直接运行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/biao169/web-teacher/main/deploy/ubuntu/install.sh -o install-web-teacher.sh
-chmod +x install-web-teacher.sh
-./install-web-teacher.sh
+tmp=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/biao169/web-teacher/main/deploy/ubuntu/install.sh -o "$tmp" && chmod +x "$tmp" && "$tmp"
 ```
 
 脚本会提示输入域名、内部监听端口、安装目录和仓库地址；域名未填写时默认使用服务器 IP。域名解析检查只给出提示，不会阻止继续部署。
@@ -21,6 +19,8 @@ web-teacher restart
 web-teacher paths
 web-teacher update
 web-teacher backup
+web-teacher reset-data
+web-teacher uninstall
 ```
 
 脚本会自动配置：系统依赖、代码下载、Python 虚拟环境、数据库初始化、systemd 自启、Nginx 反向代理和 `/usr/local/bin/web-teacher` 管理命令。高级管理员账号仍需要首次访问 `/admin/setup` 初始化。
@@ -244,3 +244,18 @@ sudo chown -R www-data:www-data /srv/web-teacher/media
 ```bash
 sudo chown -R www-data:www-data /srv/web-teacher/data /srv/web-teacher/media /srv/web-teacher/exports /srv/web-teacher/.cache
 ```
+历史残留处理：重复运行一键部署脚本时，如果发现旧的安装目录、环境文件、systemd 服务或 Nginx 配置，脚本会提示选择 `keep`、`reset` 或 `replace`。默认 `keep` 会保留数据库、媒体文件和密钥，仅更新代码与服务配置；`reset` 会清空运行数据；`replace` 会移除旧安装后重新部署。涉及删除的模式都需要输入确认短语。
+
+删除数据快捷命令：
+
+```bash
+web-teacher reset-data
+```
+
+该命令会删除数据库、上传媒体、导出文件、缓存和词典文件，然后重新初始化空数据库。整站卸载使用：
+
+```bash
+web-teacher uninstall
+```
+
+这两个命令都会要求输入确认文本，防止误删。
