@@ -237,6 +237,35 @@ EOF
   $SUDO ln -sfn "$NGINX_SITE" "$NGINX_ENABLED"
 }
 
+show_nginx_failure_help() {
+  warn "Nginx failed to start or reload. The Python website service may still be running behind 127.0.0.1."
+  echo
+  echo "Useful diagnostics:"
+  echo "  sudo systemctl status nginx --no-pager"
+  echo "  sudo journalctl -xeu nginx.service --no-pager | tail -n 80"
+  echo "  sudo ss -ltnp | grep ':80 '"
+  echo
+  warn "Most common cause: port 80 is already used by apache2, caddy, another nginx process, or a cloud panel. Stop the conflicting service or change its port, then run: web-teacher reload"
+  echo
+  $SUDO systemctl status nginx --no-pager 2>/dev/null || true
+  echo
+  if command -v ss >/dev/null 2>&1; then
+    echo "Port 80 listeners:"
+    $SUDO ss -ltnp 2>/dev/null | grep ':80 ' || true
+  fi
+}
+
+start_or_reload_nginx() {
+  # Nginx syntax can be valid while the service still fails to start, often due to port conflicts.
+  $SUDO nginx -t
+  $SUDO systemctl enable nginx >/dev/null 2>&1 || true
+  if $SUDO systemctl is-active --quiet nginx; then
+    $SUDO systemctl reload nginx || { show_nginx_failure_help; return 1; }
+  else
+    $SUDO systemctl start nginx || { show_nginx_failure_help; return 1; }
+  fi
+}
+
 write_manager_command() {
   # The management command gives the user memorable keywords after deployment.
   $SUDO tee "$MANAGER_BIN" >/dev/null <<'EOF'
@@ -257,7 +286,11 @@ case "${1:-help}" in
   reload) sudo systemctl daemon-reload; sudo systemctl reload nginx; sudo systemctl restart "$SERVICE" ;;
   status) systemctl status "$SERVICE" --no-pager ;;
   logs) journalctl -u "$SERVICE" -f ;;
-  nginx-test) sudo nginx -t ;;
+  nginx-test)
+    sudo nginx -t
+    sudo systemctl status nginx --no-pager || true
+    sudo ss -ltnp | grep ':80 ' || true
+    ;;
   paths)
     echo "Install dir:  $INSTALL_DIR"
     echo "Env file:     $ENV_FILE"
@@ -404,9 +437,7 @@ main() {
 
   log "Configuring Nginx"
   write_nginx_site "$server_name" "$app_port"
-  $SUDO nginx -t
-  $SUDO systemctl enable --now nginx
-  $SUDO systemctl reload nginx
+  start_or_reload_nginx
 
   log "Installing management command: ${MANAGER_BIN}"
   write_manager_command

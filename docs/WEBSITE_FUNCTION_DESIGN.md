@@ -2813,3 +2813,8 @@ epository_view.auth_users_exist 与 d1_direct.tables.auth_users.count 是否一�
 
 - 修复 `deploy/ubuntu/install.sh` 中 `python -m tools.init_db` 依赖当前目录的问题：首次初始化、`web-teacher update` 和 `web-teacher reset-data` 均会先进入安装目录再执行模块命令，因此用户可以从 `/root`、`/`、`/tmp` 等任意目录运行一键部署命令。
 - 新增 `tools/__init__.py`，显式声明 `tools` 为 Python 包，降低不同 Linux/Python 环境下模块发现差异带来的部署风险。
+## 2026-08-24 Ubuntu Nginx 启动失败诊断增强
+
+- `deploy/ubuntu/install.sh` 新增 `start_or_reload_nginx()`：先执行 `nginx -t`，再根据 Nginx 当前状态选择 `reload` 或 `start`，避免 `systemctl enable --now nginx` 失败时只显示模糊 systemd 错误。
+- Nginx 启动或重载失败时，脚本会自动输出 `systemctl status nginx` 和 80 端口监听进程提示，帮助定位 Apache、Caddy、旧 Nginx 或云面板占用端口的问题。
+- `web-teacher nginx-test` 增强为同时执行 Nginx 语法检查、服务状态查看和 80 端口监听检查，方便后期终端维护。

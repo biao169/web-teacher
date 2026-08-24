@@ -36,6 +36,8 @@ web-teacher uninstall
 
 该一行命令可以在任意当前目录运行；脚本内部会自动进入安装目录执行初始化与更新命令。
 
+如果 Nginx 启动失败但 `nginx -t` 通过，通常是 80 端口被 Apache/Caddy/旧 Nginx 或云面板占用，可运行 `sudo ss -ltnp | grep ':80 '` 和 `web-teacher nginx-test` 检查。
+
 ## 本地 Ubuntu 风格开发
 
 ```powershell
