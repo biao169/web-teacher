@@ -47,7 +47,7 @@ DEMO_ROWS = {
             "course_suggestion_cache_seconds": 30,
             "translation_provider": "auto",
             "translation_providers": "auto,libretranslate,deepl_free,google_translate,microsoft_translator,mymemory,argos_local",
-            "libretranslate_url": "",
+            "libretranslate_url": "https://translate.terraprint.co",
             "libretranslate_api_key": "",
             "deepl_api_key": "",
             "google_translate_api_key": "",

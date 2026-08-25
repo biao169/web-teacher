@@ -154,8 +154,13 @@ CREATE TABLE IF NOT EXISTS publications (
   citation_elsevier TEXT,
   citation_apa TEXT,
   citation_ieee TEXT,
+  highlight_gbt TEXT,
+  highlight_elsevier TEXT,
+  highlight_apa TEXT,
+  highlight_ieee TEXT,
   publication_type TEXT,
   author_role TEXT,
+  corresponding_authors TEXT,
   index_type TEXT,
   display_tags TEXT,
   abstract TEXT,
@@ -439,8 +444,15 @@ INSERT OR IGNORE INTO site_settings (
 INSERT OR IGNORE INTO global_settings (
   uid, allow_public_registration, allow_anonymous_messages, upload_max_size_mb, upload_allowed_extensions, media_trash_retention_days, news_pdf_engine, news_pdf_allow_download, news_pdf_watermark, translation_provider, translation_providers, libretranslate_url, libretranslate_api_key, deepl_api_key, google_translate_api_key, microsoft_translator_key, microsoft_translator_region, microsoft_translator_endpoint, mymemory_email, translation_batch_size, translation_worker_count, translation_timeout_seconds, translation_job_state, publication_metadata_provider, publication_metadata_providers, publication_display_style, publication_suggestion_cache_seconds, profile_suggestion_cache_seconds, project_suggestion_cache_seconds, patent_suggestion_cache_seconds, student_suggestion_cache_seconds, news_suggestion_cache_seconds, course_suggestion_cache_seconds, patent_metadata_providers, patentsview_api_key, epo_ops_client_id, epo_ops_client_secret, notify_email
 ) VALUES (
-  'global-default', 0, 1, 10, '.jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.mp4,.webm,.mp3,.wav', 30, 'native', 1, '', 'auto', 'auto,libretranslate,deepl_free,google_translate,microsoft_translator,mymemory,argos_local', '', '', '', '', '', '', 'https://api.cognitive.microsofttranslator.com', '', 10, 4, 12, '{}', 'crossref', 'crossref,openalex,semantic_scholar', 'gbt', 30, 30, 30, 30, 30, 30, 30, 'patentsview,epo_ops', '', '', '', ''
+  'global-default', 0, 1, 10, '.jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.mp4,.webm,.mp3,.wav', 30, 'native', 1, '', 'auto', 'auto,libretranslate,deepl_free,google_translate,microsoft_translator,mymemory,argos_local', 'https://translate.terraprint.co', '', '', '', '', '', 'https://api.cognitive.microsofttranslator.com', '', 10, 4, 12, '{}', 'crossref', 'crossref,openalex,semantic_scholar', 'gbt', 30, 30, 30, 30, 30, 30, 30, 'patentsview,epo_ops', '', '', '', ''
 );
+
+
+
+UPDATE global_settings
+SET libretranslate_url = 'https://translate.terraprint.co'
+WHERE uid = 'global-default'
+  AND (libretranslate_url IS NULL OR TRIM(libretranslate_url) = '');
 
 INSERT OR IGNORE INTO navigation_items (
   uid, title, title_en, kind, url_name, path, fragment, icon, style, location, visibility, enabled, sort_order

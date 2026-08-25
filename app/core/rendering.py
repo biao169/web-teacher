@@ -14,7 +14,7 @@ import zipfile
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
@@ -48,7 +48,7 @@ MEDIA_SCAN_EXTENSIONS = {
     ".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav",
     ".csv", ".doc", ".docx", ".json", ".md", ".pdf", ".ppt", ".pptx", ".txt", ".xls", ".xlsx", ".yaml", ".yml",
 }
-ASSET_VERSION = "20260822-media-confirm"
+ASSET_VERSION = "20260825-publication-highlight-sync-force"
 I18N_DICTIONARY_FILENAME = "i18n_dictionary.json"
 I18N_DICTIONARY_R2_KEY = "i18n/i18n_dictionary.json"
 I18N_DICTIONARY_CACHE: dict[str, Any] = {"path": "", "mtime": -1.0, "data": None}
@@ -607,6 +607,11 @@ def route_request(repo: Repository, method: str, path: str, query_string: str = 
         if denied:
             return denied
         return json_response(publication_citations_payload(body))
+    if path == "/api/admin/publications/highlights" and method == "POST":
+        denied = api_auth_response(repo, env, "publications", "can_edit")
+        if denied:
+            return denied
+        return json_response(publication_highlights_payload(repo, body))
     if path == "/api/admin/publications/suggestions":
         denied = api_auth_response(repo, env, "publications", "can_view")
         if denied:
@@ -1769,7 +1774,7 @@ def layout(repo: Repository, title: str, content: str, env: dict[str, str], site
 {media_links}
 <link rel="stylesheet" href="/assets/site.css?v={ASSET_VERSION}"><script defer src="/assets/site.js?v={ASSET_VERSION}"></script></head>
 <body{body_class}><header class="site-header"><a class="brand" href="{esc(lang_url("/", env))}">{brand_html}</a><button class="front-nav-toggle" type="button" data-front-nav-toggle aria-controls="front-site-nav" aria-expanded="false">{esc(menu_label)}</button><nav id="front-site-nav" class="site-nav">{nav_html}</nav><div class="header-actions">{lang_switch}{user_badge}{auth_link}{admin_link}</div></header>
-<main>{content}</main><footer class="site-footer">{footer_html}</footer><button class="back-to-top" type="button" data-back-to-top aria-label="{esc('Back to top' if lang == 'en' else '回到顶部')}" title="{esc('Back to top' if lang == 'en' else '回到顶部')}">↑</button></body></html>"""
+<main>{content}</main><footer class="site-footer">{footer_html}</footer><button class="back-to-top" type="button" data-back-to-top aria-label="{esc('Back to top' if lang == 'en' else '回到顶部')}" title="{esc('Back to top' if lang == 'en' else '回到顶部')}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 19V6m0 0-5 5m5-5 5 5M5 4h14"/></svg></button></body></html>"""
 
 
 def site_media_key(site: dict[str, Any], field: str, fallback: str = "default/site-logo.png") -> str:
@@ -6628,8 +6633,8 @@ def media_upload_payload(repo: Repository, body: bytes, env: dict[str, str]) -> 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
-    except OSError:
-        return {"ok": False, "message": "文件保存失败。"}
+    except OSError as error:
+        return {"ok": False, "message": f"文件保存失败，请检查媒体目录权限：{path.parent}（{error}）。"}
     row = repo.save("media_assets", prepared["row"])
     return {"ok": True, "key": prepared["key"], "url": prepared["url"], "item": row}
 
@@ -6710,15 +6715,15 @@ def media_crop_payload(repo: Repository, body: bytes, env: dict[str, str]) -> di
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
-        except OSError:
-            return {"ok": False, "message": "替换源文件失败。"}
+        except OSError as error:
+            return {"ok": False, "message": f"替换源文件失败，请检查媒体目录权限：{path.parent}（{error}）。"}
         saved = repo.save("media_assets", prepared["row"])
         return {"ok": True, "replaced": True, "key": prepared["key"], "url": prepared["url"], "item": saved}
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
-    except OSError:
-        return {"ok": False, "message": "裁剪图片保存失败。"}
+    except OSError as error:
+        return {"ok": False, "message": f"裁剪图片保存失败，请检查媒体目录权限：{path.parent}（{error}）。"}
     row = repo.save("media_assets", prepared["row"])
     return {"ok": True, "key": prepared["key"], "url": prepared["url"], "item": row}
 
@@ -6764,10 +6769,13 @@ def publication_duplicates_payload(repo: Repository, query: dict[str, str]) -> d
 
 def publication_lookup_payload(repo: Repository, body: bytes) -> dict[str, Any]:
     data = _form(body)
+    lookup_field = text_only(data.get("lookup_field"), 40).strip().lower()
     lookup_text = text_only(data.get("lookup_text"), 800).strip()
     lookup_doi = find_doi(lookup_text) if lookup_text else ""
-    doi = normalize_doi(lookup_doi or data.get("doi"))
-    title = text_only("" if lookup_doi else lookup_text, 600).strip() or text_only(data.get("title"), 600).strip()
+    title_from_lookup = text_only("" if lookup_doi else lookup_text, 600).strip()
+    title = title_from_lookup or text_only(data.get("title"), 600).strip()
+    form_doi = normalize_doi(data.get("doi"))
+    doi = normalize_doi(lookup_doi or (form_doi if lookup_field in {"doi", "url"} or not title_from_lookup else ""))
     settings = active_global(repo)
     selected = parse_platforms(data.get("platforms") or settings.get("publication_metadata_providers") or settings.get("publication_metadata_provider"))
     if not title and not doi:
@@ -6785,6 +6793,23 @@ def publication_lookup_payload(repo: Repository, body: bytes) -> dict[str, Any]:
             for key, value in result["fields"].items():
                 if value not in (None, "") and not fields.get(key):
                     fields[key] = value
+    base_names = publication_highlight_base_names(repo)
+    current_role = text_only(data.get("author_role"), 80).strip()
+    corresponding_authors = fields.get("corresponding_authors")
+    if corresponding_authors:
+        if fields.get("authors"):
+            fields["authors"] = authors_with_corresponding_markers(fields.get("authors"), corresponding_authors)
+        if author_names_match_any(corresponding_authors, base_names):
+            fields["author_role"] = "corresponding"
+        elif current_role == "corresponding":
+            fields["author_role"] = "other"
+        fields.pop("corresponding_authors", None)
+    if fields:
+        merged_row = {field.name: data.get(field.name, "") for field in TABLE_MAP["publications"].fields}
+        merged_row.update(fields)
+        fields.update(publication_highlight_field_values(merged_row, base_names, only_missing=True))
+        citations = generated_publication_citations(merged_row)
+        fields.update({"citation_gbt": citations["gbt"], "citation_elsevier": citations["elsevier"], "citation_apa": citations["apa"], "citation_ieee": citations["ieee"], "bibtex": citations["bibtex"]})
     return {"ok": bool(fields), "fields": fields, "results": results, "platforms": selected}
 
 
@@ -6792,7 +6817,21 @@ def publication_citations_payload(body: bytes) -> dict[str, Any]:
     data = _form(body)
     row = {field.name: data.get(field.name, "") for field in TABLE_MAP["publications"].fields}
     citations = generated_publication_citations(row)
-    return {"ok": True, "fields": {"citation_gbt": citations["gbt"], "citation_elsevier": citations["elsevier"], "citation_apa": citations["apa"], "citation_ieee": citations["ieee"], "bibtex": citations["bibtex"]}}
+    base_names = split_highlight_base_names(data.get("_highlight_base_names"))
+    fields = {"citation_gbt": citations["gbt"], "citation_elsevier": citations["elsevier"], "citation_apa": citations["apa"], "citation_ieee": citations["ieee"], "bibtex": citations["bibtex"]}
+    fields.update(publication_highlight_field_values(row, base_names, only_missing=True))
+    return {"ok": True, "fields": fields}
+
+
+def publication_highlights_payload(repo: Repository, body: bytes) -> dict[str, Any]:
+    data = _form(body)
+    row = {field.name: data.get(field.name, "") for field in TABLE_MAP["publications"].fields}
+    base_names = publication_highlight_base_names(repo)
+    fields = {
+        f"highlight_{style}": "; ".join(publication_highlight_auto_terms(row, style, base_names))
+        for style in ("gbt", "elsevier", "apa", "ieee")
+    }
+    return {"ok": bool(base_names), "fields": fields, "base_names": base_names}
 
 
 def project_duplicates_payload(repo: Repository, query: dict[str, str]) -> dict[str, Any]:
@@ -7309,13 +7348,31 @@ def lookup_patent_platform(platform: str, title: str, identifier: str, settings:
     return {"platform": platform, "ok": False, "message": "未知平台"}
 
 
+def http_json_error(exc: HTTPError | URLError) -> str:
+    if isinstance(exc, HTTPError):
+        detail = f"HTTP {exc.code}"
+        reason = text_only(getattr(exc, "reason", ""), 120).strip()
+        if reason:
+            detail = f"{detail} {reason}"
+        try:
+            body = exc.read(500).decode("utf-8", "ignore").strip()
+        except Exception:
+            body = ""
+        if body:
+            detail = f"{detail}: {body[:240]}"
+        return detail
+    return text_only(getattr(exc, "reason", "") or exc, 240).strip() or "network error"
+
+
 def http_json(url: str) -> dict[str, Any]:
     request = Request(url, headers={"User-Agent": "teacher-site/0.1 (mailto:admin@example.edu)", "Accept": "application/json"})
     try:
         with urlopen(request, timeout=7) as response:
             return json.loads(response.read(2_000_000).decode("utf-8", "ignore"))
+    except HTTPError as exc:
+        raise RuntimeError(http_json_error(exc)) from exc
     except URLError as exc:
-        raise RuntimeError(str(exc.reason)) from exc
+        raise RuntimeError(http_json_error(exc)) from exc
 
 
 def http_json_with_headers(url: str, headers: dict[str, str]) -> dict[str, Any]:
@@ -7325,8 +7382,10 @@ def http_json_with_headers(url: str, headers: dict[str, str]) -> dict[str, Any]:
     try:
         with urlopen(request, timeout=8) as response:
             return json.loads(response.read(2_000_000).decode("utf-8", "ignore"))
+    except HTTPError as exc:
+        raise RuntimeError(http_json_error(exc)) from exc
     except URLError as exc:
-        raise RuntimeError(str(exc.reason)) from exc
+        raise RuntimeError(http_json_error(exc)) from exc
 
 
 def http_text(request: Request, limit: int = 2_000_000) -> str:
@@ -7480,36 +7539,65 @@ def patent_type_from_kind(value: Any) -> str:
     return "发明专利" if text else ""
 
 
+def publication_title_score(query: str, candidate: Any) -> float:
+    import difflib
+
+    source = normalize_lookup_text(query)
+    target = normalize_lookup_text(candidate)
+    if not source or not target:
+        return 0.0
+    if source == target:
+        return 1.0
+    sequence = difflib.SequenceMatcher(None, source, target).ratio()
+    source_tokens = {token for token in re.split(r"[^0-9a-zA-Z一-鿿]+", source) if len(token) > 1}
+    target_tokens = {token for token in re.split(r"[^0-9a-zA-Z一-鿿]+", target) if len(token) > 1}
+    overlap = len(source_tokens & target_tokens) / max(len(source_tokens), 1) if source_tokens else 0.0
+    substring = 0.92 if source in target or target in source else 0.0
+    return max(sequence, overlap, substring)
+
+
+def best_publication_title_item(items: Any, title: str, title_getter) -> dict[str, Any]:
+    candidates = [item for item in (items or []) if isinstance(item, dict)]
+    if not candidates:
+        return {}
+    if not text_only(title, 600).strip():
+        return candidates[0]
+    scored = [(publication_title_score(title, title_getter(item)), item) for item in candidates]
+    score, item = max(scored, key=lambda pair: pair[0])
+    return item if score >= 0.58 else {}
+
+
 def lookup_crossref(title: str, doi: str) -> dict[str, Any]:
-    url = f"https://api.crossref.org/works/{quote(doi)}" if doi else "https://api.crossref.org/works?" + urlencode({"query.title": title, "rows": "1"})
-    data = http_json(url)
-    item = data.get("message", {})
-    if "items" in item:
-        item = (item.get("items") or [{}])[0]
-    return {"platform": "crossref", "ok": bool(item), "fields": fields_from_crossref(item), "message": "Crossref 已返回结果" if item else "Crossref 无结果"}
+    if doi:
+        data = http_json(f"https://api.crossref.org/works/{quote(doi, safe='')}")
+        item = data.get("message", {})
+    else:
+        data = http_json("https://api.crossref.org/works?" + urlencode({"query.title": title, "rows": "5", "sort": "relevance"}))
+        item = best_publication_title_item((data.get("message", {}) or {}).get("items"), title, lambda entry: first_text(entry.get("title")))
+    return {"platform": "crossref", "ok": bool(item), "fields": fields_from_crossref(item), "message": "Crossref returned a matching result" if item else "Crossref found no matching title"}
 
 
 def lookup_openalex(title: str, doi: str) -> dict[str, Any]:
     if doi:
-        item = http_json(f"https://api.openalex.org/works/https://doi.org/{quote(doi)}")
+        item = http_json(f"https://api.openalex.org/works/https://doi.org/{quote(doi, safe='')}")
         if not item.get("id"):
             item = {}
     else:
-        data = http_json("https://api.openalex.org/works?" + urlencode({"search": title, "per-page": "1"}))
-        item = (data.get("results") or [{}])[0]
-    return {"platform": "openalex", "ok": bool(item), "fields": fields_from_openalex(item), "message": "OpenAlex 已返回结果" if item else "OpenAlex 无结果"}
+        data = http_json("https://api.openalex.org/works?" + urlencode({"search": title, "per-page": "5"}))
+        item = best_publication_title_item(data.get("results"), title, lambda entry: entry.get("title") or entry.get("display_name"))
+    return {"platform": "openalex", "ok": bool(item), "fields": fields_from_openalex(item), "message": "OpenAlex returned a matching result" if item else "OpenAlex found no matching title"}
 
 
 def lookup_semantic_scholar(title: str, doi: str) -> dict[str, Any]:
     fields = "title,authors,venue,year,externalIds,publicationTypes,abstract,url,journal"
     if doi:
-        item = http_json(f"https://api.semanticscholar.org/graph/v1/paper/DOI:{quote(doi)}?" + urlencode({"fields": fields}))
+        item = http_json(f"https://api.semanticscholar.org/graph/v1/paper/DOI:{quote(doi, safe='')}?" + urlencode({"fields": fields}))
         if not item.get("paperId"):
             item = {}
     else:
-        data = http_json("https://api.semanticscholar.org/graph/v1/paper/search?" + urlencode({"query": title, "limit": "1", "fields": fields}))
-        item = (data.get("data") or [{}])[0]
-    return {"platform": "semanticscholar", "ok": bool(item), "fields": fields_from_semantic(item), "message": "Semantic Scholar 已返回结果" if item else "Semantic Scholar 无结果"}
+        data = http_json("https://api.semanticscholar.org/graph/v1/paper/search?" + urlencode({"query": title, "limit": "5", "fields": fields}))
+        item = best_publication_title_item(data.get("data"), title, lambda entry: entry.get("title"))
+    return {"platform": "semanticscholar", "ok": bool(item), "fields": fields_from_semantic(item), "message": "Semantic Scholar returned a matching result" if item else "Semantic Scholar found no matching title"}
 
 
 def fields_from_crossref(item: dict[str, Any]) -> dict[str, Any]:
@@ -7530,18 +7618,35 @@ def fields_from_crossref(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def fields_from_openalex(item: dict[str, Any]) -> dict[str, Any]:
-    authors = "; ".join(text_only(authorship.get("author", {}).get("display_name"), 120) for authorship in (item.get("authorships") or [])[:20] if authorship.get("author"))
+    authorships = [authorship for authorship in (item.get("authorships") or []) if isinstance(authorship, dict)]
+    authors = "; ".join(text_only(authorship.get("author", {}).get("display_name"), 120) for authorship in authorships[:20] if authorship.get("author"))
+    corresponding_ids = {normalize_openalex_id(value) for value in (item.get("corresponding_author_ids") or []) if normalize_openalex_id(value)}
+    corresponding = []
+    for authorship in authorships:
+        author = authorship.get("author") or {}
+        name = text_only(author.get("display_name"), 120).strip()
+        author_id = normalize_openalex_id(author.get("id"))
+        if name and (truthy(authorship.get("is_corresponding"), default=False) or (author_id and author_id in corresponding_ids)):
+            corresponding.append(name)
     primary = item.get("primary_location") or {}
     source = primary.get("source") or {}
     return compact_fields({
         "title": item.get("title") or item.get("display_name"),
         "authors": authors,
+        "corresponding_authors": "; ".join(unique_texts(corresponding, limit=20)),
         "venue": source.get("display_name"),
         "year": item.get("publication_year"),
         "doi": normalize_doi(item.get("doi")),
         "url": item.get("doi") or item.get("id"),
         "publication_type": publication_type_from_source(item.get("type")),
     })
+
+
+def normalize_openalex_id(value: Any) -> str:
+    text = text_only(value, 200).strip().rstrip("/")
+    if not text:
+        return ""
+    return text.rsplit("/", 1)[-1].upper()
 
 
 def fields_from_semantic(item: dict[str, Any]) -> dict[str, Any]:
@@ -9443,7 +9548,9 @@ def admin_publication_form(meta: Table, row: dict[str, Any], repo: Repository | 
                 elif name in {"authors", "display_tags"}:
                     attrs = publication_suggestion_attrs(name) if name == "display_tags" else ""
                     labels.append(admin_field_label(field, row.get(name, ""), help_map.get(name, ""), textarea_rows=2, control_attrs=attrs))
-                elif name in {"source_citation", "citation_gbt", "citation_elsevier", "citation_apa", "citation_ieee", "bibtex"}:
+                elif name in {"citation_gbt", "citation_elsevier", "citation_apa", "citation_ieee"}:
+                    labels.append(publication_citation_field(field, row, help_map.get(name, ""), name.removeprefix("citation_"), repo))
+                elif name in {"source_citation", "bibtex"}:
                     labels.append(admin_field_label(field, row.get(name, ""), help_map.get(name, ""), textarea_rows=2))
                 elif name in {"venue", "publication_type", "index_type"}:
                     labels.append(admin_field_label(field, row.get(name, ""), help_map.get(name, ""), control_attrs=publication_suggestion_attrs(name)))
@@ -9455,12 +9562,45 @@ def admin_publication_form(meta: Table, row: dict[str, Any], repo: Repository | 
         legend_action = '<button class="button light publication-section-generate" type="button" data-publication-generate-citations>生成引用</button>' if section_id == "pub-citation" else ""
         sections.append(f'<fieldset class="form-section publication-form-section" id="{esc(section_id)}"><legend>{esc(title)}{legend_action}</legend>{"".join(labels)}</fieldset>')
     settings = active_global(repo) if repo else {}
+    highlight_base_names = "; ".join(publication_highlight_base_names(repo)) if repo else ""
+    highlight_base_input = '<input type="hidden" name="_highlight_base_names" value="' + esc(highlight_base_names) + '">' if highlight_base_names else ""
     tools = publication_edit_tools(row, "".join(nav_items), settings)
-    return f'<form class="edit-form publication-edit-form" method="post" action="/admin/table/{esc(meta.name)}/save">{tools}{"".join(sections)}{admin_form_actions(meta.name)}</form>'
+    return f'<form class="edit-form publication-edit-form" method="post" action="/admin/table/{esc(meta.name)}/save">{highlight_base_input}{tools}{"".join(sections)}{admin_form_actions(meta.name)}</form>'
 
 
 def publication_suggestion_attrs(name: str) -> str:
     return f'data-publication-suggest="{esc(name)}" autocomplete="off"'
+
+
+def publication_citation_field(field: Any, row: dict[str, Any], help_text: str, style: str, repo: Repository | None = None) -> str:
+    highlight_name = f"highlight_{style}"
+    base_names = publication_highlight_base_names(repo) if repo else []
+    citation_value = text_only(row.get(field.name), 5000)
+    auto_highlight = publication_highlight_field_value(row, style, base_names)
+    highlight_value = text_only(row.get(highlight_name), 600).strip() or auto_highlight
+    label_text = field.label
+    preview_row = dict(row)
+    preview_row[highlight_name] = highlight_value
+    preview_html = (
+        publication_highlight_citation_html(citation_value, preview_row, style, base_names)
+        if citation_value.strip()
+        else '<span class="admin-muted">生成或填写引用文本后可预览高亮效果</span>'
+    )
+    auto_hint = f'自动匹配：{auto_highlight}' if auto_highlight else '自动匹配：暂无，可手动填写'
+    return (
+        f'<div class="publication-citation-editor field-{esc(field.name)}" data-publication-citation-editor="{esc(style)}">'
+        f'<div class="publication-citation-topline">'
+        f'<span class="field-label publication-citation-title">{esc(label_text)}</span>'
+        f'<span class="publication-highlight-auto">{esc(auto_hint)}</span>'
+        f'<label class="publication-highlight-input"><span>突出作者</span>'
+        f'<input name="{esc(highlight_name)}" value="{esc(highlight_value)}" placeholder="可手动修正；多个名称用分号分隔" data-publication-highlight-input="{esc(style)}"></label>'
+        f'<button class="button light publication-highlight-preview-button" type="button" data-publication-highlight-preview="{esc(style)}" title="按当前突出作者预览前台显示效果">预览</button>'
+        f'</div>'
+        f'<textarea class="publication-citation-textarea" name="{esc(field.name)}" rows="3" data-publication-citation-text="{esc(style)}">{esc(citation_value)}</textarea>'
+        f'<div class="publication-highlight-preview-row"><span>效果预览</span>'
+        f'<span class="publication-highlight-preview is-visible" data-publication-highlight-preview-target="{esc(style)}">{preview_html}</span></div>'
+        f'<small class="field-help publication-citation-help">{esc(help_text)}；突出作者为空时会根据首页教师姓名和作者全名自动派生。</small></div>'
+    )
 
 
 def publication_lookup_field(field: Any, value: Any, help_text: str, name: str) -> str:
@@ -9485,6 +9625,7 @@ def publication_edit_tools(row: dict[str, Any], nav_html: str, settings: dict[st
         <div class="publication-tool-line">
           <div class="publication-tool-buttons">
             <button type="button" class="button light" data-publication-parse>解析填充</button>
+            <button type="button" class="button light" data-publication-sync-highlights>同步首页教师</button>
             <button type="button" class="button secondary" data-publication-generate-citations>生成引用</button>
           </div>
           <div class="publication-platforms" aria-label="联网查验平台">{provider_options}</div>
@@ -10215,6 +10356,7 @@ def latest_publications(rows: list[dict[str, Any]], limit: int) -> list[dict[str
 def publication_list(rows: list[dict[str, Any]], selectable: bool = False, compact: bool = False, display_style: str = "gbt", repo: Repository | None = None, env: dict[str, str] | None = None) -> str:
     items = []
     total = len(rows)
+    base_names = publication_highlight_base_names(repo) if repo else []
     for index, row in enumerate(rows, 1):
         display_row = front_row(repo, env or {}, "publications", row) if repo and env else row
         number = total - index + 1 if compact else index
@@ -10225,6 +10367,8 @@ def publication_list(rows: list[dict[str, Any]], selectable: bool = False, compa
         select_label = t(env or {}, "select_publication")
         checkbox = f'<label class="citation-check-wrap" title="{esc(select_label)}"><input type="checkbox" class="copy-check" {citation_attrs}><span class="sr-only">{esc(select_label)}</span></label>' if selectable else ""
         display_citation = publication_display_citation(display_row, citations, display_style)
+        highlight_attrs = publication_highlight_data_attrs(display_row, base_names)
+        display_citation_html = publication_highlight_citation_html(display_citation, display_row, display_style, base_names)
         if compact:
             tags = publication_tags(display_row)
             copy_title = t(env or {}, "copy_current_citation")
@@ -10233,7 +10377,7 @@ def publication_list(rows: list[dict[str, Any]], selectable: bool = False, compa
               <div class="citation-index"><span class="item-number">{number}</span>{checkbox}</div>
               <div class="citation-body">
                 <div class="publication-copy-zone">
-                  <p class="pub-citation" {citation_attrs}>{esc(display_citation)}</p>
+                  <p class="pub-citation" {citation_attrs} {highlight_attrs}>{display_citation_html}</p>
                 </div>
                 <div class="citation-tools publication-tools no-copy"><div class="publication-links">{doi}{pdf}</div><div class="publication-tool-right">{tags}{copy_button}</div></div>
               </div>
@@ -10259,6 +10403,7 @@ def publication_citations(row: dict[str, Any]) -> dict[str, str]:
 
 def generated_publication_citations(row: dict[str, Any]) -> dict[str, str]:
     authors = split_authors(row.get("authors"))
+    corresponding_keys = corresponding_author_keys(row)
     title = text_only(row.get("title"), 500).strip()
     venue = text_only(row.get("venue"), 300).strip()
     year = text_only(row.get("year"), 40).strip()
@@ -10274,27 +10419,27 @@ def generated_publication_citations(row: dict[str, Any]) -> dict[str, str]:
     pages_en_dash = pages_display.replace("-", "–")
     year_part = year or "n.d."
 
-    gbt_authors = format_gbt_authors(authors)
+    gbt_authors = format_gbt_authors(authors, corresponding_keys)
     gbt_source = ", ".join(part for part in [venue, year] if part)
     gbt_vol_issue = volume + (f"({issue})" if issue else "") if volume else (f"({issue})" if issue else "")
     if gbt_vol_issue or pages_display:
         gbt_source = f"{gbt_source}, {gbt_vol_issue}: {pages_display}" if gbt_source and gbt_vol_issue and pages_display else f"{gbt_source}, {gbt_vol_issue}" if gbt_source and gbt_vol_issue else f"{gbt_source}: {pages_display}" if gbt_source and pages_display else gbt_vol_issue or pages_display
     gbt = sentence_join(f"{gbt_authors}. {citation_title}{marker}. {gbt_source}.", f"DOI:{doi}." if doi else "")
 
-    ieee_authors = format_ieee_authors(authors)
+    ieee_authors = format_ieee_authors(authors, corresponding_keys)
     ieee_parts = [venue, f"vol. {volume}" if volume else "", f"no. {issue}" if issue else ""]
     ieee_parts.append(f"Art. no. {pages_display}" if is_article and pages_display else f"pp. {pages_display}" if pages_display else "")
     ieee_parts.append(year_part)
     ieee_middle = ", ".join(part for part in ieee_parts if part)
     ieee = sentence_join(f'{ieee_authors}, "{citation_title}," {ieee_middle},' if ieee_middle else f'{ieee_authors}, "{citation_title},"', f"doi: {doi}." if doi else "")
 
-    elsevier_authors = format_elsevier_authors(authors)
+    elsevier_authors = format_elsevier_authors(authors, corresponding_keys)
     elsevier_volume = volume + (f" ({issue})" if issue else "") if volume else (f"({issue})" if issue else "")
     elsevier_source_parts = [venue, elsevier_volume, f"({year_part})", pages_en_dash]
     elsevier_source = " ".join(part for part in elsevier_source_parts if part)
     elsevier = sentence_join(f"{elsevier_authors}, {citation_title}, {elsevier_source}.", doi_url(doi) + "." if doi else "")
 
-    apa_authors = format_apa_authors(authors)
+    apa_authors = format_apa_authors(authors, corresponding_keys)
     apa_volume = f"*{volume}*" + (f"({issue})" if issue else "") if volume else (f"({issue})" if issue else "")
     apa_tail = f"Article {pages_display}." if is_article and pages_display else f"{pages_en_dash}." if pages_display else ""
     apa_source = ", ".join(part for part in [f"*{venue}*" if venue else "", apa_volume, apa_tail] if part)
@@ -10346,35 +10491,37 @@ def initials(parts: list[str], dotted: bool = True) -> str:
     return " ".join(f"{letter}." for letter in letters) if dotted else "".join(letters)
 
 
-def format_ieee_author(author: str) -> str:
-    if has_cjk(author) or author == "Unknown":
-        return author
-    surname, given = name_parts(author)
+def format_ieee_author(author: str, corresponding_keys: set[str] | None = None) -> str:
+    clean_author = author_without_corresponding_marker(author)
+    if has_cjk(clean_author) or clean_author == "Unknown":
+        return mark_corresponding_author(clean_author, author, corresponding_keys or set())
+    surname, given = name_parts(clean_author)
     prefix = initials(given)
-    return f"{prefix} {surname}".strip()
+    return mark_corresponding_author(f"{prefix} {surname}".strip(), author, corresponding_keys or set())
 
 
-def format_ieee_authors(authors: list[str]) -> str:
-    formatted = [format_ieee_author(author) for author in authors]
+def format_ieee_authors(authors: list[str], corresponding_keys: set[str] | None = None) -> str:
+    formatted = [format_ieee_author(author, corresponding_keys) for author in authors]
     if len(formatted) <= 1:
         return formatted[0] if formatted else "Unknown"
     return ", ".join(formatted[:-1]) + f" and {formatted[-1]}"
 
 
-def format_elsevier_authors(authors: list[str]) -> str:
-    return ", ".join(format_ieee_author(author) for author in authors)
+def format_elsevier_authors(authors: list[str], corresponding_keys: set[str] | None = None) -> str:
+    return ", ".join(format_ieee_author(author, corresponding_keys) for author in authors)
 
 
-def format_apa_author(author: str) -> str:
-    if has_cjk(author) or author == "Unknown":
-        return author
-    surname, given = name_parts(author)
+def format_apa_author(author: str, corresponding_keys: set[str] | None = None) -> str:
+    clean_author = author_without_corresponding_marker(author)
+    if has_cjk(clean_author) or clean_author == "Unknown":
+        return mark_corresponding_author(clean_author, author, corresponding_keys or set())
+    surname, given = name_parts(clean_author)
     prefix = initials(given)
-    return f"{surname}, {prefix}".strip(" ,")
+    return mark_corresponding_author(f"{surname}, {prefix}".strip(" ,"), author, corresponding_keys or set())
 
 
-def format_apa_authors(authors: list[str]) -> str:
-    formatted = [format_apa_author(author) for author in authors]
+def format_apa_authors(authors: list[str], corresponding_keys: set[str] | None = None) -> str:
+    formatted = [format_apa_author(author, corresponding_keys) for author in authors]
     if len(formatted) <= 1:
         return formatted[0] if formatted else "Unknown"
     if len(formatted) == 2:
@@ -10382,17 +10529,18 @@ def format_apa_authors(authors: list[str]) -> str:
     return ", ".join(formatted[:-1]) + f", & {formatted[-1]}"
 
 
-def format_gbt_author(author: str) -> str:
-    if has_cjk(author) or author == "Unknown":
-        return author
-    surname, given = name_parts(author)
-    return f"{surname} {initials(given, dotted=False)}".strip()
+def format_gbt_author(author: str, corresponding_keys: set[str] | None = None) -> str:
+    clean_author = author_without_corresponding_marker(author)
+    if has_cjk(clean_author) or clean_author == "Unknown":
+        return mark_corresponding_author(clean_author, author, corresponding_keys or set())
+    surname, given = name_parts(clean_author)
+    return mark_corresponding_author(f"{surname} {initials(given, dotted=False)}".strip(), author, corresponding_keys or set())
 
 
-def format_gbt_authors(authors: list[str]) -> str:
+def format_gbt_authors(authors: list[str], corresponding_keys: set[str] | None = None) -> str:
     shown = authors[:3]
     suffix = "等" if len(authors) > 3 and any(has_cjk(author) for author in authors) else "et al." if len(authors) > 3 else ""
-    text = ", ".join(format_gbt_author(author) for author in shown)
+    text = ", ".join(format_gbt_author(author, corresponding_keys) for author in shown)
     return f"{text}, {suffix}" if suffix else text
 
 
@@ -10491,6 +10639,160 @@ def publication_display_citation(row: dict[str, Any], citations: dict[str, str],
     return citations.get(style) or citations.get("gbt") or ""
 
 
+def publication_highlight_base_names(repo: Repository | None) -> list[str]:
+    if not repo:
+        return []
+    site = active_site(repo)
+    uid = text_only(site.get("homepage_profile_uid"), 120).strip()
+    profile = repo.get("profiles", uid) if uid else {}
+    if not profile:
+        featured = repo.list("profiles", Query(filters={"is_featured": 1}, limit=1, order_by="sort_order", descending=False))
+        profile = featured[0] if featured else {}
+    values = [profile.get("name_en"), profile.get("name")]
+    return unique_texts(values, limit=8)
+
+
+def unique_texts(values: list[Any], limit: int = 20) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = text_only(value, 240).strip()
+        key = normalize_author_match_key(text)
+        if text and key and key not in seen:
+            seen.add(key)
+            result.append(text)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def normalize_author_match_key(value: Any) -> str:
+    text = text_only(value, 240).lower()
+    return re.sub(r"[^a-z0-9一-鿿]+", "", text)
+
+
+def split_highlight_base_names(value: Any) -> list[str]:
+    raw = text_only(value, 1000).replace("；", ";").replace(chr(10), ";")
+    return unique_texts([part.strip() for part in raw.split(";") if part.strip()], limit=20)
+
+
+def author_names_match_any(value: Any, candidates: list[str]) -> bool:
+    keys = {normalize_author_match_key(name) for name in candidates if normalize_author_match_key(name)}
+    return any(normalize_author_match_key(name) in keys for name in split_authors(value))
+
+
+def author_has_corresponding_marker(author: Any) -> bool:
+    return text_only(author, 240).strip().rstrip().endswith("*")
+
+
+def author_without_corresponding_marker(author: Any) -> str:
+    return text_only(author, 240).strip().rstrip(" *﹡＊")
+
+
+def corresponding_author_keys(row: dict[str, Any]) -> set[str]:
+    keys = {normalize_author_match_key(name) for name in split_authors(row.get("corresponding_authors")) if normalize_author_match_key(name) and name != "Unknown"}
+    keys.update(normalize_author_match_key(author_without_corresponding_marker(name)) for name in split_authors(row.get("authors")) if author_has_corresponding_marker(name) and normalize_author_match_key(name))
+    return {key for key in keys if key}
+
+
+def mark_corresponding_author(text: str, author: str, corresponding_keys: set[str]) -> str:
+    clean_author = author_without_corresponding_marker(author)
+    should_mark = author_has_corresponding_marker(author) or (corresponding_keys and normalize_author_match_key(clean_author) in corresponding_keys)
+    if should_mark and text and not text.endswith("*"):
+        return text + "*"
+    return text
+
+
+def authors_with_corresponding_markers(authors_value: Any, corresponding_value: Any) -> str:
+    authors = split_authors(authors_value)
+    corresponding_keys = {normalize_author_match_key(author_without_corresponding_marker(name)) for name in split_authors(corresponding_value) if normalize_author_match_key(name)}
+    if not authors or not corresponding_keys:
+        return normalize_authors(authors_value)
+    marked = []
+    for author in authors:
+        clean = author_without_corresponding_marker(author)
+        if clean != "Unknown" and normalize_author_match_key(clean) in corresponding_keys:
+            marked.append(clean + "*")
+        else:
+            marked.append(author)
+    return "; ".join(marked)
+
+
+def split_highlight_terms(value: Any) -> list[str]:
+    raw = text_only(value, 1000).replace("；", ";").replace(chr(10), ";")
+    return [term for term in unique_texts([part.strip() for part in raw.split(";") if part.strip()], limit=20) if len(term) >= 2]
+
+
+def publication_highlight_auto_terms(row: dict[str, Any], style: str, base_names: list[str]) -> list[str]:
+    authors = split_authors(row.get("authors"))
+    base_keys = {normalize_author_match_key(name) for name in base_names if normalize_author_match_key(name)}
+    matched = [author for author in authors if normalize_author_match_key(author_without_corresponding_marker(author)) in base_keys]
+    candidates = unique_texts(matched + base_names, limit=12)
+    terms: list[Any] = []
+    for author in candidates:
+        author = author_without_corresponding_marker(author)
+        if not author or author == "Unknown":
+            continue
+        if style == "apa":
+            terms.append(format_apa_author(author))
+        elif style == "gbt":
+            terms.append(format_gbt_author(author))
+        elif style in {"ieee", "elsevier"}:
+            terms.append(format_ieee_author(author))
+        terms.append(author)
+    return [term for term in unique_texts(terms, limit=12) if len(term) >= 2]
+
+
+def publication_highlight_terms(row: dict[str, Any], style: str, base_names: list[str]) -> list[str]:
+    manual = split_highlight_terms(row.get(f"highlight_{style}"))
+    return manual or publication_highlight_auto_terms(row, style, base_names)
+
+
+def publication_highlight_field_value(row: dict[str, Any], style: str, base_names: list[str]) -> str:
+    return "; ".join(publication_highlight_terms(row, style, base_names))
+
+
+def publication_highlight_field_values(row: dict[str, Any], base_names: list[str], only_missing: bool = False) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for style in ("gbt", "elsevier", "apa", "ieee"):
+        name = f"highlight_{style}"
+        if only_missing and text_only(row.get(name), 600).strip():
+            continue
+        fields[name] = publication_highlight_field_value(row, style, base_names)
+    return fields
+
+
+def publication_highlight_data_attrs(row: dict[str, Any], base_names: list[str]) -> str:
+    parts = []
+    for style in ("gbt", "elsevier", "apa", "ieee"):
+        value = "; ".join(publication_highlight_terms(row, style, base_names))
+        if value:
+            parts.append(f'data-highlight-{style}="{esc(value)}"')
+    return " ".join(parts)
+
+
+def publication_highlight_citation_html(text: str, row: dict[str, Any], style: str, base_names: list[str]) -> str:
+    terms = publication_highlight_terms(row, style, base_names)
+    html = highlight_author_terms_html(text, terms)
+    return html.replace("</strong>*", "</strong><sup class=\"pub-corresponding-marker\" title=\"通讯作者\">*</sup>")
+
+
+def highlight_author_terms_html(text: Any, terms: list[str]) -> str:
+    source = text_only(text, 8000)
+    clean_terms = [term for term in unique_texts(terms, limit=20) if len(term) >= 2]
+    if not source or not clean_terms:
+        return esc(source)
+    pattern = re.compile("|".join(re.escape(term) for term in sorted(clean_terms, key=len, reverse=True)), re.IGNORECASE)
+    pieces: list[str] = []
+    last = 0
+    for match in pattern.finditer(source):
+        pieces.append(esc(source[last:match.start()]))
+        pieces.append(f'<strong class="pub-author-highlight">{esc(match.group(0))}</strong>')
+        last = match.end()
+    pieces.append(esc(source[last:]))
+    return "".join(pieces)
+
+
 def publication_source(row: dict[str, Any]) -> str:
     parts = []
     if row.get("venue"):
@@ -10526,16 +10828,18 @@ def publication_tags(row: dict[str, Any]) -> str:
 def home_publication_list(rows: list[dict[str, Any]], display_style: str, repo: Repository, env: dict[str, str]) -> str:
     items = []
     total = len(rows)
+    base_names = publication_highlight_base_names(repo)
     for index, row in enumerate(rows, 1):
         display_row = front_row(repo, env, "publications", row)
         citations = publication_citations(display_row)
         number = total - index + 1
         citation = publication_display_citation(display_row, citations, display_style)
+        citation_html = publication_highlight_citation_html(citation, display_row, display_style, base_names)
         tags = publication_tags(display_row)
         items.append(f"""<article class="home-pub-item">
           <span class="home-item-number">{number}</span>
           <div class="home-pub-body">
-            <p>{esc(citation)}</p>
+            <p>{citation_html}</p>
             {tags}
           </div>
         </article>""")

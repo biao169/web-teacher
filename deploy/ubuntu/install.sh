@@ -193,6 +193,16 @@ EOF
   $SUDO chmod 600 "$ENV_FILE"
 }
 
+ensure_runtime_permissions() {
+  local install_dir="$1"
+  $SUDO mkdir -p "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache"
+  $SUDO touch "${install_dir}/i18n_dictionary.json"
+  $SUDO chown -R "${APP_USER}:${APP_GROUP}" "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache" "${install_dir}/i18n_dictionary.json"
+  $SUDO chmod 755 "$install_dir"
+  $SUDO chmod -R u+rwX,g+rwX "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache"
+  $SUDO chmod ug+rw "${install_dir}/i18n_dictionary.json"
+}
+
 write_systemd_service() {
   local install_dir="$1" port="$2"
   $SUDO tee "/etc/systemd/system/${SERVICE_NAME}.service" >/dev/null <<EOF
@@ -453,6 +463,15 @@ if [ -f "$ENV_FILE" ]; then
   set -a; . "$ENV_FILE"; set +a
   INSTALL_DIR="${WEB_TEACHER_INSTALL_DIR:-$INSTALL_DIR}"
 fi
+
+ensure_runtime_permissions() {
+  sudo mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
+  sudo touch "$INSTALL_DIR/i18n_dictionary.json"
+  sudo chown -R www-data:www-data "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
+  sudo chmod 755 "$INSTALL_DIR"
+  sudo chmod -R u+rwX,g+rwX "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
+  sudo chmod ug+rw "$INSTALL_DIR/i18n_dictionary.json"
+}
 case "${1:-help}" in
   start) sudo systemctl start "$SERVICE" ;;
   stop) sudo systemctl stop "$SERVICE" ;;
@@ -503,9 +522,7 @@ CADDY
     sudo git -C "$INSTALL_DIR" pull --ff-only
     sudo "$INSTALL_DIR/.venv/bin/python" -m pip install -r "$INSTALL_DIR/requirements.txt"
     (cd "$INSTALL_DIR" && sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}")
-    sudo mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
-    sudo touch "$INSTALL_DIR/i18n_dictionary.json"
-    sudo chown -R www-data:www-data "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
+    ensure_runtime_permissions
     sudo systemctl restart "$SERVICE"
     ;;
   backup)
@@ -521,12 +538,16 @@ CADDY
     [ "$answer" = "RESET WEB-TEACHER DATA" ] || { echo "Cancelled."; exit 1; }
     sudo systemctl stop "$SERVICE" 2>/dev/null || true
     sudo rm -rf "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
-    sudo mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache"
-    sudo touch "$INSTALL_DIR/i18n_dictionary.json"
+    ensure_runtime_permissions
     (cd "$INSTALL_DIR" && sudo "$INSTALL_DIR/.venv/bin/python" -m tools.init_db --db "${TEACHER_SITE_DB:-$INSTALL_DIR/data/site.sqlite3}")
-    sudo chown -R www-data:www-data "$INSTALL_DIR/data" "$INSTALL_DIR/media" "$INSTALL_DIR/exports" "$INSTALL_DIR/.cache" "$INSTALL_DIR/i18n_dictionary.json"
+    ensure_runtime_permissions
     sudo systemctl start "$SERVICE"
     echo "Runtime data reset. Visit /admin/setup to initialize the administrator again."
+    ;;
+  repair-permissions)
+    ensure_runtime_permissions
+    sudo systemctl restart "$SERVICE"
+    echo "Runtime permissions repaired for $INSTALL_DIR/data, media, exports and cache."
     ;;
   uninstall)
     echo "This will remove service, proxy config, environment file and install directory: $INSTALL_DIR"
@@ -561,6 +582,7 @@ Commands:
   update      Pull latest code, install deps, apply DB defaults, restart
   backup      Create a local tar.gz backup under exports/
   reset-data  Delete runtime data and reinitialize an empty database
+  repair-permissions  Recreate/chown/chmod writable runtime directories
   uninstall   Remove service, proxy config, env file and install directory
   shell       Open a shell in the install directory
 HELP
@@ -625,16 +647,13 @@ main() {
     secret="$($SUDO openssl rand -base64 48 | tr -d '\n')"
   fi
   write_env_file "$site_url" "$app_port" "$install_dir" "$secret"
-  $SUDO mkdir -p "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache"
-  $SUDO touch "${install_dir}/i18n_dictionary.json"
+  log "Preparing writable runtime directories"
+  # Keep source code root-owned/read-only; only runtime data paths are writable by the service user.
+  ensure_runtime_permissions "$install_dir"
 
   log "Initializing database with baseline system settings"
   (cd "$install_dir" && $SUDO env "TEACHER_SITE_DB=${install_dir}/data/site.sqlite3" "${install_dir}/.venv/bin/python" -m tools.init_db --db "${install_dir}/data/site.sqlite3")
-
-  log "Configuring runtime file ownership"
-  # Keep source code root-owned/read-only; only runtime data paths are writable by the service user.
-  $SUDO chown -R "${APP_USER}:${APP_GROUP}" "${install_dir}/data" "${install_dir}/media" "${install_dir}/exports" "${install_dir}/.cache" "${install_dir}/i18n_dictionary.json"
-  $SUDO chmod 755 "$install_dir"
+  ensure_runtime_permissions "$install_dir"
 
   log "Installing systemd service"
   write_systemd_service "$install_dir" "$app_port"
@@ -653,7 +672,7 @@ main() {
   echo "Admin setup URL:  ${site_url}/admin/setup"
   echo "Install dir:      ${install_dir}"
   echo "Env file:         ${ENV_FILE}"
-  echo "Manager command:  web-teacher status | logs | restart | paths | update | backup | reset-data"
+  echo "Manager command:  web-teacher status | logs | restart | paths | update | backup | reset-data | repair-permissions"
   echo
   warn "If you later enable HTTPS with certbot, update SITE_URL in ${ENV_FILE} to https://... and run: web-teacher restart"
 }

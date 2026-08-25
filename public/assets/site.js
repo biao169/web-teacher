@@ -4,9 +4,28 @@
   const citationStyleControl = document.getElementById("citation-style");
   const citationStyle = () => citationStyleControl?.value || "gbt";
   const citationText = (item) => item.dataset[citationStyle()] || item.dataset.gbt || "";
+  const citationEscapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+  const citationEscapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const renderHighlightedText = (text, termsRaw) => {
+    const source = String(text || "");
+    const terms = String(termsRaw || "").split(/[;；\n]+/).map((item) => item.trim()).filter((item, index, array) => item.length >= 2 && array.findIndex((candidate) => candidate.toLowerCase() === item.toLowerCase()) === index).sort((a, b) => b.length - a.length);
+    if (!source || !terms.length) return citationEscapeHtml(source);
+    const pattern = new RegExp(terms.map(citationEscapeRegex).join("|"), "gi");
+    let last = 0;
+    let html = "";
+    source.replace(pattern, (match, offset) => {
+      html += citationEscapeHtml(source.slice(last, offset));
+      html += `<strong class="pub-author-highlight">${citationEscapeHtml(match)}</strong>`;
+      last = offset + match.length;
+      return match;
+    });
+    return (html + citationEscapeHtml(source.slice(last))).replace(/<\/strong>\*/g, "</strong><sup class=\"pub-corresponding-marker\" title=\"通讯作者\">*</sup>");
+  };
+  const citationHighlightTerms = (item, style) => item.dataset[`highlight${style.charAt(0).toUpperCase()}${style.slice(1)}`] || "";
+  const citationHtml = (item) => renderHighlightedText(citationText(item), citationHighlightTerms(item, citationStyle()));
   const refreshVisibleCitations = () => {
     document.querySelectorAll(".pub-citation").forEach((item) => {
-      item.textContent = citationText(item);
+      item.innerHTML = citationHtml(item);
     });
   };
   if (citationStyleControl) {
@@ -1125,6 +1144,19 @@
     });
     return changed;
   };
+  const syncPublicationHighlightWidgets = (fields = {}, baseNames = []) => {
+    const hiddenBase = publicationField("_highlight_base_names");
+    if (hiddenBase && baseNames.length) hiddenBase.value = baseNames.join("; ");
+    ["gbt", "elsevier", "apa", "ieee"].forEach((style) => {
+      const value = fields[`highlight_${style}`];
+      if (value === undefined || value === null) return;
+      const input = publicationForm?.querySelector(`[data-publication-highlight-input="${style}"]`);
+      if (input) input.value = String(value);
+      const editor = publicationForm?.querySelector(`[data-publication-citation-editor="${style}"]`);
+      const auto = editor?.querySelector(".publication-highlight-auto");
+      if (auto) auto.textContent = value ? `自动匹配：${value}` : "自动匹配：暂无，可手动填写";
+    });
+  };
   let publicationSuggestionsPromise = null;
   let publicationSuggestions = {};
   let publicationSuggestMenu = null;
@@ -1245,18 +1277,37 @@
       const targetName = button.dataset.publicationResultTarget || fieldName;
       const params = publicationFormParams();
       params.set("platforms", publicationPlatforms());
+      params.set("lookup_field", fieldName);
       params.set("lookup_text", publicationField(fieldName)?.value || "");
       setPublicationStatus("正在联网查验");
       setPublicationFieldResult(targetName, "正在联网查验并准备修正", "info");
       try {
         const data = await fetch("/api/admin/publications/lookup", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: params }).then((item) => item.json());
-        const changed = applyPublicationFields(data.fields || {}, true);
-        const messages = (data.results || []).map((item) => `${item.platform}: ${item.message || (item.ok ? "ok" : "无结果")}`).join("；");
-        setPublicationFieldResult(targetName, changed ? `已修正 ${changed} 个字段` : `未发现可修正字段`, changed ? "ok" : "warn");
-        setPublicationStatus(changed ? `已修正 ${changed} 个字段。${messages}` : `未发现可修正字段。${messages}`);
+        const fields = data.fields || {};
+        const changed = applyPublicationFields(fields, true);
+        if (changed) publicationForm.querySelectorAll("[data-publication-highlight-preview]").forEach((item) => item.click());
+        const found = Object.keys(fields).length > 0;
+        const messages = (data.results || []).map((item) => `${item.platform}: ${item.message || (item.ok ? "ok" : "no result")}`).join("; ");
+        const resultText = changed ? `已修正 ${changed} 个字段` : found ? "已找到论文数据，当前字段已是最新" : "未发现可填充字段";
+        setPublicationFieldResult(targetName, resultText, changed || found ? "ok" : "warn");
+        setPublicationStatus(`${resultText}${messages ? `。${messages}` : ""}`);
       } catch {
         setPublicationFieldResult(targetName, "联网查验失败", "warn");
         setPublicationStatus("联网查验失败");
+      }
+    }));
+    publicationForm.querySelectorAll("[data-publication-sync-highlights]").forEach((button) => button.addEventListener("click", async () => {
+      setPublicationStatus("正在同步首页教师本人标识");
+      try {
+        const data = await fetch("/api/admin/publications/highlights", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: publicationFormParams() }).then((item) => item.json());
+        const fields = data.fields || {};
+        const changed = applyPublicationFields(fields, true);
+        syncPublicationHighlightWidgets(fields, data.base_names || []);
+        publicationForm.querySelectorAll("[data-publication-highlight-preview]").forEach((item) => item.click());
+        const names = (data.base_names || []).join("; ");
+        setPublicationStatus(data.ok ? `已按首页教师${names ? `（${names}）` : ""}同步本人标识，更新 ${changed} 个字段` : "未找到首页教师英文名，无法同步本人标识");
+      } catch {
+        setPublicationStatus("同步首页教师失败");
       }
     }));
     publicationForm.querySelectorAll("[data-publication-generate-citations]").forEach((button) => button.addEventListener("click", async () => {
@@ -1264,10 +1315,21 @@
       try {
         const data = await fetch("/api/admin/publications/citations", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: publicationFormParams() }).then((item) => item.json());
         const changed = applyPublicationFields(data.fields || {}, true);
+        if (changed) publicationForm.querySelectorAll("[data-publication-highlight-preview]").forEach((item) => item.click());
         setPublicationStatus(`已生成 ${changed} 个引用字段`);
       } catch {
         setPublicationStatus("生成引用失败");
       }
+    }));
+    publicationForm.querySelectorAll("[data-publication-highlight-preview]").forEach((button) => button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const style = button.dataset.publicationHighlightPreview || "gbt";
+      const text = publicationForm.querySelector(`[data-publication-citation-text="${style}"]`)?.value || "";
+      const terms = publicationForm.querySelector(`[data-publication-highlight-input="${style}"]`)?.value || "";
+      const target = publicationForm.querySelector(`[data-publication-highlight-preview-target="${style}"]`);
+      if (target) { target.innerHTML = renderHighlightedText(text, terms) || '<span class="admin-muted">没有可预览内容</span>'; target.hidden = false; target.classList.add("is-visible"); }
+      setPublicationStatus(`已预览 ${style.toUpperCase()} 高亮效果`);
     }));
     publicationForm.addEventListener("click", (event) => {
       const button = event.target.closest?.("[data-publication-undo]");
