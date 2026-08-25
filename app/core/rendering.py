@@ -48,7 +48,7 @@ MEDIA_SCAN_EXTENSIONS = {
     ".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav",
     ".csv", ".doc", ".docx", ".json", ".md", ".pdf", ".ppt", ".pptx", ".txt", ".xls", ".xlsx", ".yaml", ".yml",
 }
-ASSET_VERSION = "20260825-publication-highlight-sync-force"
+ASSET_VERSION = "20260825-bandwidth-optimization"
 I18N_DICTIONARY_FILENAME = "i18n_dictionary.json"
 I18N_DICTIONARY_R2_KEY = "i18n/i18n_dictionary.json"
 I18N_DICTIONARY_CACHE: dict[str, Any] = {"path": "", "mtime": -1.0, "data": None}
@@ -761,7 +761,7 @@ def home_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> s
     <section class="hero">
       <div class="hero-main">
         <div class="identity">
-          <figure class="home-teacher-photo-cell">{image_tag(profile.get("avatar_key"), profile_name, "teacher-photo", env.get("PUBLIC_MEDIA_BASE_URL", ""), lang)}</figure>
+          <figure class="home-teacher-photo-cell">{image_tag(profile.get("avatar_key"), profile_name, "teacher-photo", env.get("PUBLIC_MEDIA_BASE_URL", ""), lang, loading="eager")}</figure>
           <div>
             <p class="eyebrow">{esc(profile_display.get("organization") or site_name)}</p>
             <h1>{esc(profile_name or site_display.get("hero_title") or site_name)}</h1>

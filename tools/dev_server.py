@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import email.utils
+import gzip
+import hashlib
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,6 +19,7 @@ class Handler(BaseHTTPRequestHandler):
     public_dir = Path("public")
     media_dir = Path("media")
     site_url = "http://127.0.0.1:8000"
+    static_cache: dict[str, tuple[int, int, bytes, bytes | None]] = {}
 
     def do_GET(self) -> None:
         static = self.static_response()
@@ -45,7 +49,7 @@ class Handler(BaseHTTPRequestHandler):
         self.respond(status, headers, payload)
 
     def static_response(self):
-        path, _query = split_target(self.path)
+        path, query = split_target(self.path)
         clean = path.lstrip("/")
         if clean.startswith("assets/"):
             target = safe_join(self.public_dir, clean)
@@ -56,7 +60,21 @@ class Handler(BaseHTTPRequestHandler):
             return None
         if not target or not target.is_file():
             return None
-        return 200, security_headers() + [("content-type", content_type(target)), ("cache-control", "public, max-age=3600")], target.read_bytes()
+        stat = target.stat()
+        etag = static_etag(target, stat.st_mtime_ns, stat.st_size)
+        cache_control = "public, max-age=31536000, immutable" if query or clean.startswith(("assets/", "media/")) else "public, max-age=86400"
+        headers = security_headers() + [
+            ("content-type", content_type(target)),
+            ("cache-control", cache_control),
+            ("etag", etag),
+            ("last-modified", http_date(stat.st_mtime)),
+        ]
+        if self.headers.get("if-none-match") == etag:
+            return 304, headers, b""
+        body, gzipped = static_body(target, stat.st_mtime_ns, stat.st_size, "gzip" in self.headers.get("accept-encoding", "").lower())
+        if gzipped:
+            headers.extend([("content-encoding", "gzip"), ("vary", "Accept-Encoding")])
+        return 200, headers, body
 
     def respond(self, status: int, headers: list[tuple[str, str]], body: bytes) -> None:
         self.send_response(status)
@@ -113,6 +131,32 @@ def content_type(path: Path) -> str:
         ".webp": "image/webp",
         ".pdf": "application/pdf",
     }.get(suffix, "application/octet-stream")
+
+
+
+GZIP_SUFFIXES = {".css", ".js", ".svg", ".json", ".txt", ".xml", ".html"}
+
+
+def static_etag(path: Path, mtime_ns: int, size: int) -> str:
+    seed = f"{path.as_posix()}:{mtime_ns}:{size}".encode("utf-8")
+    return chr(34) + hashlib.sha256(seed).hexdigest()[:24] + chr(34)
+
+
+def http_date(timestamp: float) -> str:
+    return email.utils.formatdate(timestamp, usegmt=True)
+
+
+def static_body(path: Path, mtime_ns: int, size: int, accepts_gzip: bool) -> tuple[bytes, bool]:
+    key = str(path.resolve())
+    cached = Handler.static_cache.get(key)
+    if not cached or cached[0] != mtime_ns or cached[1] != size:
+        raw = path.read_bytes()
+        gzipped = gzip.compress(raw, compresslevel=6) if path.suffix.lower() in GZIP_SUFFIXES else None
+        cached = (mtime_ns, size, raw, gzipped)
+        Handler.static_cache[key] = cached
+    if accepts_gzip and cached[3]:
+        return cached[3], True
+    return cached[2], False
 
 
 def main() -> None:

@@ -2195,4 +2195,23 @@
     closeFrontNav?.(false);
     closeAdminNav?.(false);
   });
+  const prefetchCommonPages = () => {
+    if (document.body?.classList.contains("admin-page")) return;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection?.saveData || /(^|-)2g$/.test(String(connection?.effectiveType || ""))) return;
+    const current = window.location.pathname.replace(/\/$/, "") || "/";
+    ["/publications", "/projects", "/patents", "/team"].filter((path) => path !== current).forEach((path) => {
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.href = path;
+      link.as = "document";
+      document.head.appendChild(link);
+    });
+  };
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(prefetchCommonPages, { timeout: 2500 });
+  } else {
+    window.setTimeout(prefetchCommonPages, 1800);
+  }
+
 })();

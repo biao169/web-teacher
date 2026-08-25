@@ -241,6 +241,10 @@ server {
     server_name ${server_name};
 
     client_max_body_size 50m;
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json application/xml image/svg+xml;
 
     # Static and media responses are served by the Python app so Ubuntu behavior
     # matches the Cloudflare Worker routing model.

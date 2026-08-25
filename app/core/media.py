@@ -42,7 +42,7 @@ def r2_preferred_key(key: object) -> bool:
     return media_storage_kind(key) == "r2"
 
 
-def image_tag(key: object, alt: str, css_class: str, public_base_url: str = "", lang: str = "zh") -> str:
+def image_tag(key: object, alt: str, css_class: str, public_base_url: str = "", lang: str = "zh", loading: str = "lazy") -> str:
     object_key = allowed_object_key(key)
     if not object_key:
         return avatar_fallback_tag(alt, css_class, lang)
@@ -52,7 +52,8 @@ def image_tag(key: object, alt: str, css_class: str, public_base_url: str = "", 
     label = name_avatar_label(alt, lang)
     cjk = "1" if is_cjk_label(label) else "0"
     long_label = "1" if len(label) > 1 else "0"
-    return f'<img class="{esc(css_class)}" src="{esc(url)}" alt="{esc(alt)}" data-avatar-label="{esc(label)}" data-avatar-cjk="{cjk}" data-avatar-long="{long_label}" loading="lazy" decoding="async">'
+    safe_loading = "eager" if loading == "eager" else "lazy"
+    return f'<img class="{esc(css_class)}" src="{esc(url)}" alt="{esc(alt)}" data-avatar-label="{esc(label)}" data-avatar-cjk="{cjk}" data-avatar-long="{long_label}" loading="{safe_loading}" decoding="async">'
 
 
 def avatar_fallback_tag(name: str, css_class: str, lang: str = "zh") -> str:
