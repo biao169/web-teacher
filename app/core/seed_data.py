@@ -74,6 +74,8 @@ DEMO_ROWS = {
         {"id": 5, "uid": "nav-patents", "title": "专利", "kind": "route", "path": "/patents", "location": "header", "style": "link", "enabled": 1, "sort_order": 50, "visibility": "public"},
         {"id": 6, "uid": "nav-students", "title": "学生", "kind": "route", "path": "/students", "location": "header", "style": "link", "enabled": 1, "sort_order": 60, "visibility": "public"},
         {"id": 7, "uid": "nav-news", "title": "动态", "kind": "route", "path": "/news", "location": "header", "style": "link", "enabled": 1, "sort_order": 70, "visibility": "public"},
+        {"id": 13, "uid": "nav-transfer-site", "title": "文件传输", "title_en": "File Transfer", "kind": "route", "url_name": "transfer", "path": "/transfer", "icon": "send", "location": "header", "style": "link", "enabled": 1, "sort_order": 95, "visibility": "authenticated"},
+        {"id": 14, "uid": "nav-admin-transfer-site", "title": "文件传输控制", "title_en": "Transfer Control", "kind": "route", "url_name": "admin-transfer", "path": "/admin/transfer", "icon": "upload-cloud", "location": "admin_sidebar", "style": "link", "enabled": 1, "sort_order": 95, "visibility": "staff"},
         {"id": 8, "uid": "nav-contact", "title": "联系", "kind": "route", "path": "/contact", "location": "header", "style": "link", "enabled": 1, "sort_order": 80, "visibility": "public"},
         {"id": 9, "uid": "hero-publications", "title": "查看论文", "kind": "button", "path": "/publications", "location": "home_hero", "style": "primary", "enabled": 1, "sort_order": 10, "visibility": "public"},
         {"id": 10, "uid": "hero-team", "title": "团队成员", "kind": "button", "path": "/team", "location": "home_hero", "style": "secondary", "enabled": 1, "sort_order": 20, "visibility": "public"},

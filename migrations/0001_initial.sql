@@ -483,7 +483,9 @@ INSERT OR IGNORE INTO navigation_items (
   ('nav-students', '学生', 'Students', 'route', 'students', '/students', '', '', 'link', 'header', 'public', 1, 70),
   ('nav-news', '动态', 'News', 'route', 'news', '/news', '', '', 'link', 'header', 'public', 1, 80),
   ('nav-courses', '课程', 'Courses', 'route', 'courses', '/courses', '', '', 'link', 'header', 'public', 1, 90),
-  ('nav-contact', '联系', 'Contact', 'route', 'contact', '/contact', '', '', 'link', 'header', 'public', 1, 100);
+  ('nav-transfer-site', '文件传输', 'File Transfer', 'route', 'transfer', '/transfer', '', 'send', 'link', 'header', 'authenticated', 1, 95),
+  ('nav-contact', '联系', 'Contact', 'route', 'contact', '/contact', '', '', 'link', 'header', 'public', 1, 100),
+  ('nav-admin-transfer-site', '文件传输控制', 'Transfer Control', 'route', 'admin-transfer', '/admin/transfer', '', 'upload-cloud', 'link', 'admin_sidebar', 'staff', 1, 95);
 
 INSERT OR IGNORE INTO media_assets (
   uid, object_key, title, category, mime_type, size, storage_kind, status, checksum

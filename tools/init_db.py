@@ -7,6 +7,7 @@ from pathlib import Path
 from app.adapters.ubuntu.db import SQLiteRepository
 from app.core.example_data import EXAMPLE_ROWS
 from app.core.seed_data import DEMO_ROWS
+from transfer_site.db import ensure_schema as ensure_transfer_schema
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,7 @@ def main() -> None:
     args = parser.parse_args()
     apply_bootstrap_sql(args.db)
     repo = SQLiteRepository(args.db)
+    ensure_transfer_schema(repo)
     if args.seed:
         for table, rows in DEMO_ROWS.items():
             for row in rows:
