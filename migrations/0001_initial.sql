@@ -344,18 +344,6 @@ CREATE TABLE IF NOT EXISTS translation_cache (
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS autofetch_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  uid TEXT UNIQUE,
-  source TEXT,
-  query TEXT,
-  success INTEGER,
-  message TEXT,
-  changes_json TEXT,
-  publication_uid TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE IF NOT EXISTS operation_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -430,6 +418,35 @@ CREATE INDEX IF NOT EXISTS idx_auth_permissions_role_module ON auth_permissions(
 CREATE INDEX IF NOT EXISTS idx_operation_logs_actor ON operation_logs(actor_uid);
 CREATE INDEX IF NOT EXISTS idx_operation_logs_module_action ON operation_logs(module, action);
 CREATE INDEX IF NOT EXISTS idx_operation_logs_target ON operation_logs(target_uid);
+
+CREATE INDEX IF NOT EXISTS idx_navigation_enabled_location_sort ON navigation_items(enabled, location, sort_order);
+CREATE INDEX IF NOT EXISTS idx_navigation_kind_location ON navigation_items(kind, location);
+CREATE INDEX IF NOT EXISTS idx_profiles_admin_sort ON profiles(is_active, is_featured, sort_order);
+CREATE INDEX IF NOT EXISTS idx_profiles_role_title ON profiles(role, title, organization, lab);
+CREATE INDEX IF NOT EXISTS idx_research_visibility_sort ON research_interests(visibility, sort_order);
+CREATE INDEX IF NOT EXISTS idx_publications_admin_filters ON publications(visibility, year, publication_type, author_role, index_type);
+CREATE INDEX IF NOT EXISTS idx_publications_venue_year ON publications(venue, year);
+CREATE INDEX IF NOT EXISTS idx_publications_featured_year ON publications(is_featured, year);
+CREATE INDEX IF NOT EXISTS idx_projects_admin_filters ON projects(visibility, status, source, is_featured, sort_order);
+CREATE INDEX IF NOT EXISTS idx_projects_fund_sort ON projects(fund_name, sort_order);
+CREATE INDEX IF NOT EXISTS idx_patents_admin_filters ON patents(visibility, patent_type, legal_status, is_featured, sort_order);
+CREATE INDEX IF NOT EXISTS idx_patents_country_sort ON patents(country, sort_order);
+CREATE INDEX IF NOT EXISTS idx_students_admin_filters ON students(visibility, degree, category, grade, status, sort_order);
+CREATE INDEX IF NOT EXISTS idx_students_featured_sort ON students(is_featured, sort_order);
+CREATE INDEX IF NOT EXISTS idx_student_category_enabled_order ON student_category_displays(enabled, display_order);
+CREATE INDEX IF NOT EXISTS idx_news_admin_filters ON news(visibility, category, content_format, is_featured, published_at);
+CREATE INDEX IF NOT EXISTS idx_news_slug ON news(slug);
+CREATE INDEX IF NOT EXISTS idx_courses_admin_filters ON courses(visibility, semester, audience, is_featured, sort_order);
+CREATE INDEX IF NOT EXISTS idx_courses_material_visibility ON courses(material_visibility, sort_order);
+CREATE INDEX IF NOT EXISTS idx_messages_admin_filters ON messages(visibility, message_type, status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_media_assets_storage_status ON media_assets(storage_kind, status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_media_assets_status_updated ON media_assets(status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_media_assets_status_mime ON media_assets(status, mime_type);
+CREATE INDEX IF NOT EXISTS idx_media_assets_mime_status ON media_assets(mime_type, status);
+CREATE INDEX IF NOT EXISTS idx_translation_cache_lookup ON translation_cache(source_ref_key, target_lang, is_current);
+CREATE INDEX IF NOT EXISTS idx_translation_cache_status_updated ON translation_cache(status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_auth_roles_level ON auth_roles(is_active, level);
+CREATE INDEX IF NOT EXISTS idx_auth_permissions_module ON auth_permissions(module, sort_order);
 
 -- Minimal bootstrap data for fresh deployments.
 
@@ -510,7 +527,6 @@ INSERT OR IGNORE INTO auth_permissions (
   ('perm-f4d8cc993c46', 'role-super-admin', 'messages', 1, 1, 1, 1, 1, 16),
   ('perm-323a66d24ea9', 'role-super-admin', 'media_assets', 1, 1, 1, 1, 1, 17),
   ('perm-83e528ae11b3', 'role-super-admin', 'translation_cache', 1, 1, 1, 1, 1, 18),
-  ('perm-9bf905cdb9fa', 'role-super-admin', 'autofetch_logs', 1, 1, 1, 1, 1, 19),
   ('perm-06c2a4fba9e9', 'role-super-admin', 'operation_logs', 1, 1, 1, 1, 1, 20),
   ('perm-13b3eb0243c3', 'role-super-admin', 'auth_roles', 1, 1, 1, 1, 1, 21),
   ('perm-d7b19f9a430c', 'role-super-admin', 'auth_users', 1, 1, 1, 1, 1, 22),
@@ -533,7 +549,6 @@ INSERT OR IGNORE INTO auth_permissions (
   ('perm-bdc6577bbf0b', 'role-admin', 'messages', 1, 1, 1, 1, 0, 16),
   ('perm-dbce9f72cea0', 'role-admin', 'media_assets', 1, 1, 1, 1, 0, 17),
   ('perm-2f39fd579906', 'role-admin', 'translation_cache', 1, 1, 1, 0, 0, 18),
-  ('perm-9b09f2278005', 'role-admin', 'autofetch_logs', 1, 1, 1, 0, 0, 19),
   ('perm-01a5443430a9', 'role-admin', 'operation_logs', 0, 0, 0, 0, 0, 20),
   ('perm-b85787ab6348', 'role-admin', 'auth_roles', 0, 0, 0, 0, 0, 21),
   ('perm-c8b94ea461d6', 'role-admin', 'auth_users', 0, 0, 0, 0, 0, 22),
@@ -556,7 +571,6 @@ INSERT OR IGNORE INTO auth_permissions (
   ('perm-442dc313873c', 'role-staff', 'messages', 1, 0, 1, 0, 0, 16),
   ('perm-9d0fa3dc8306', 'role-staff', 'media_assets', 1, 1, 1, 0, 0, 17),
   ('perm-239e936cdd30', 'role-staff', 'translation_cache', 0, 0, 0, 0, 0, 18),
-  ('perm-1278fcf20a57', 'role-staff', 'autofetch_logs', 0, 0, 0, 0, 0, 19),
   ('perm-a4f3b90d7eb1', 'role-staff', 'operation_logs', 0, 0, 0, 0, 0, 20),
   ('perm-083e7510ac9c', 'role-staff', 'auth_roles', 0, 0, 0, 0, 0, 21),
   ('perm-60034c156055', 'role-staff', 'auth_users', 0, 0, 0, 0, 0, 22),
@@ -579,7 +593,6 @@ INSERT OR IGNORE INTO auth_permissions (
   ('perm-f9c42c693471', 'role-visitor', 'messages', 0, 0, 0, 0, 0, 16),
   ('perm-4134da1e3805', 'role-visitor', 'media_assets', 0, 0, 0, 0, 0, 17),
   ('perm-d2673ef02283', 'role-visitor', 'translation_cache', 0, 0, 0, 0, 0, 18),
-  ('perm-0f02c5fa0d7b', 'role-visitor', 'autofetch_logs', 0, 0, 0, 0, 0, 19),
   ('perm-4f4ef8f0c700', 'role-visitor', 'operation_logs', 0, 0, 0, 0, 0, 20),
   ('perm-08ec45ca190c', 'role-visitor', 'auth_roles', 0, 0, 0, 0, 0, 21),
   ('perm-243ce2e26db3', 'role-visitor', 'auth_users', 0, 0, 0, 0, 0, 22),

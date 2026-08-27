@@ -1,0 +1,83 @@
+[
+  {
+    "table": "news",
+    "label": "动态",
+    "path": "/news",
+    "fields": [
+      "title",
+      "category"
+    ]
+  },
+  {
+    "table": "projects",
+    "label": "项目",
+    "path": "/projects",
+    "fields": [
+      "name",
+      "source",
+      "fund_name",
+      "status",
+      "principal"
+    ]
+  },
+  {
+    "table": "publications",
+    "label": "论文",
+    "path": "/publications",
+    "fields": [
+      "title",
+      "year",
+      "venue",
+      "publication_type",
+      "author_role",
+      "index_type"
+    ]
+  },
+  {
+    "table": "patents",
+    "label": "专利",
+    "path": "/patents",
+    "fields": [
+      "name",
+      "patent_type",
+      "legal_status",
+      "country",
+      "owner"
+    ]
+  },
+  {
+    "table": "students",
+    "label": "学生",
+    "path": "/students",
+    "fields": [
+      "name",
+      "degree",
+      "category",
+      "grade",
+      "status",
+      "direction"
+    ]
+  },
+  {
+    "table": "profiles",
+    "label": "团队",
+    "path": "/team",
+    "fields": [
+      "name",
+      "role",
+      "title",
+      "organization",
+      "lab"
+    ]
+  },
+  {
+    "table": "courses",
+    "label": "课程",
+    "path": "/courses",
+    "fields": [
+      "name",
+      "semester",
+      "audience"
+    ]
+  }
+]

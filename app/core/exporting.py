@@ -13,14 +13,22 @@ from .models import SCHEMA_VERSION, TABLES
 from .repository import Query, Repository
 
 
+EXPORT_ROW_LIMIT = 100000
+EXPORT_EXCLUDED_TABLES: set[str] = set()
+
+
+def exportable_tables():
+    return tuple(table for table in TABLES if table.name not in EXPORT_EXCLUDED_TABLES)
+
+
 def export_bundle(repo: Repository, output: str | Path, source_platform: str = "ubuntu", site_url: str = "") -> Path:
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     files: dict[str, bytes] = {}
     table_counts: dict[str, int] = {}
 
-    for table in TABLES:
-        rows = repo.list(table.name, Query(limit=1000))
+    for table in exportable_tables():
+        rows = repo.list(table.name, Query(limit=EXPORT_ROW_LIMIT))
         table_counts[table.name] = len(rows)
         files[f"content/{table.name}.json"] = json.dumps(rows, ensure_ascii=False, indent=2).encode("utf-8")
         files[f"tabular/{table.name}.csv"] = csv_bytes(rows, table.field_names)
@@ -60,7 +68,7 @@ def export_bundle(repo: Repository, output: str | Path, source_platform: str = "
 def export_json(repo: Repository) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
-        "tables": {table.name: repo.list(table.name, Query(limit=1000)) for table in TABLES},
+        "tables": {table.name: repo.list(table.name, Query(limit=EXPORT_ROW_LIMIT)) for table in exportable_tables()},
     }
 
 
@@ -92,11 +100,11 @@ def excel_bytes(repo: Repository) -> bytes:
     from openpyxl import Workbook
 
     workbook = Workbook(write_only=True)
-    for table in TABLES:
+    for table in exportable_tables():
         sheet = workbook.create_sheet(title=table.name[:31])
         fields = table.field_names
         sheet.append(fields)
-        for row in repo.list(table.name, Query(limit=1000)):
+        for row in repo.list(table.name, Query(limit=EXPORT_ROW_LIMIT)):
             sheet.append([row.get(field, "") for field in fields])
     default = workbook["Sheet"] if "Sheet" in workbook.sheetnames else None
     if default:

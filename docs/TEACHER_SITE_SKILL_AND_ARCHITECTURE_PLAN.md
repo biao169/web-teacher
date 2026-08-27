@@ -167,7 +167,7 @@ bucket_name = "teacher-site-media"
 `web01` 是一个完整的 Django 教师个人/团队网站，不是简单静态主页。需要继承的核心能力：
 
 - 公开页面：首页、论文、代表论文、项目、专利、学生、团队、新闻、课程、联系、sitemap、robots。
-- 后台数据：站点设置、全局设置、导航、教师、研究方向、论文、项目、专利、学生、新闻、课程、留言、媒体、翻译缓存、论文补全日志。
+- 后台数据：站点设置、全局设置、导航、教师、研究方向、论文、项目、专利、学生、新闻、课程、留言、媒体、翻译缓存。
 - 后台辅助：字段历史提示、查重、媒体复用、图片裁剪、富文本新闻编辑、PDF 在线阅读、媒体引用检测、媒体回收站、上传限制、速率限制。
 - 服务层：论文元数据补全、引用解析、翻译缓存、新闻安全渲染、媒体库管理、图片压缩、备份。
 
@@ -294,7 +294,6 @@ teacher-site-export-YYYYMMDD-HHMMSS.zip
     messages.json
     media_assets.json
     translation_cache.json
-    autofetch_logs.json
   tabular/
     publications.xlsx
     projects.xlsx

@@ -63,7 +63,7 @@ class Handler(BaseHTTPRequestHandler):
         stat = target.stat()
         etag = static_etag(target, stat.st_mtime_ns, stat.st_size)
         cache_control = "public, max-age=31536000, immutable" if query or clean.startswith(("assets/", "media/")) else "public, max-age=86400"
-        headers = security_headers() + [
+        headers = static_security_headers(clean, target) + [
             ("content-type", content_type(target)),
             ("cache-control", cache_control),
             ("etag", etag),
@@ -119,11 +119,20 @@ def safe_join(root: Path, relative: str) -> Path | None:
         return None
 
 
+def static_security_headers(clean: str, target: Path) -> list[tuple[str, str]]:
+    headers = security_headers()
+    if clean.startswith("media/") and target.suffix.lower() == ".pdf":
+        blocked = {"x-frame-options", "content-security-policy"}
+        return [(key, value) for key, value in headers if key.lower() not in blocked]
+    return headers
+
+
 def content_type(path: Path) -> str:
     suffix = path.suffix.lower()
     return {
         ".css": "text/css; charset=utf-8",
         ".js": "application/javascript; charset=utf-8",
+        ".mjs": "application/javascript; charset=utf-8",
         ".svg": "image/svg+xml",
         ".png": "image/png",
         ".jpg": "image/jpeg",
@@ -134,7 +143,7 @@ def content_type(path: Path) -> str:
 
 
 
-GZIP_SUFFIXES = {".css", ".js", ".svg", ".json", ".txt", ".xml", ".html"}
+GZIP_SUFFIXES = {".css", ".js", ".mjs", ".svg", ".json", ".txt", ".xml", ".html"}
 
 
 def static_etag(path: Path, mtime_ns: int, size: int) -> str:

@@ -76,7 +76,22 @@ def static_response(path: str):
         return None
     if not target or not target.is_file():
         return None
-    return 200, security_headers() + [("content-type", content_type(target)), ("cache-control", "public, max-age=3600")], target.read_bytes()
+    headers = static_security_headers(clean, target)
+    return 200, headers + [("content-type", content_type(target)), ("cache-control", static_cache_control(clean))], target.read_bytes()
+
+
+def static_cache_control(clean: str) -> str:
+    if clean.startswith(("assets/", "media/")):
+        return "public, max-age=31536000, immutable"
+    return "public, max-age=86400"
+
+
+def static_security_headers(clean: str, target: Path) -> list[tuple[str, str]]:
+    headers = security_headers()
+    if clean.startswith("media/") and target.suffix.lower() == ".pdf":
+        blocked = {"x-frame-options", "content-security-policy"}
+        return [(key, value) for key, value in headers if key.lower() not in blocked]
+    return headers
 
 
 def safe_join(root: Path, relative: str) -> Path | None:
@@ -95,6 +110,7 @@ def content_type(path: Path) -> str:
     return {
         ".css": "text/css; charset=utf-8",
         ".js": "application/javascript; charset=utf-8",
+        ".mjs": "application/javascript; charset=utf-8",
         ".svg": "image/svg+xml",
         ".png": "image/png",
         ".jpg": "image/jpeg",

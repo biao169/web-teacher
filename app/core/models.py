@@ -398,20 +398,6 @@ TABLES: tuple[Table, ...] = (
         ),
     ),
     Table(
-        "autofetch_logs",
-        "论文补全日志",
-        "query",
-        (
-            Field("uid", "稳定标识", required=True, list=True),
-            Field("source", "来源", list=True, search=True),
-            Field("query", "查询", list=True, search=True),
-            Field("success", "成功", "bool", list=True),
-            Field("message", "消息", "textarea", list=True, search=True),
-            Field("changes_json", "变更 JSON", "textarea"),
-            Field("publication_uid", "论文 uid", search=True),
-        ),
-    ),
-    Table(
         "operation_logs",
         "后台操作审计",
         "summary",

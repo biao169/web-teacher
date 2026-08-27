@@ -20,8 +20,11 @@ from app.core.rendering import (
     normalize_admin_data,
     prepare_media_crop,
     prepare_media_upload,
+    public_html_cache_response,
     redirect,
     route_request,
+    store_public_html_cache,
+    invalidate_public_html_cache,
     same_origin_post_allowed,
     security_headers,
     translation_auto_translate,
@@ -51,6 +54,16 @@ class Default(WorkerEntrypoint):
 
         if path.startswith("/assets/"):
             return await self._asset_response(request)
+
+        pre_env = {
+            "SITE_URL": getattr(self.env, "SITE_URL", ""),
+            "PLATFORM": "cloudflare",
+            "_COOKIE": request.headers.get("cookie") or "",
+        }
+        cached_html = public_html_cache_response(request.method, path, parsed["query"], pre_env)
+        if cached_html:
+            status, headers, payload = cached_html
+            return Response(payload.decode("utf-8"), status=status, headers=dict(headers))
 
         repo = await self._repo()
         dictionary_env = await self._i18n_dictionary_env()
@@ -82,16 +95,21 @@ class Default(WorkerEntrypoint):
                 return self._json_response({"ok": False, "message": "当前账号没有媒体写入权限。"}, status=403)
             body = await self._request_bytes(request)
             payload = await self._handle_media_write(repo, path, body, env)
+            if payload.get("ok"):
+                invalidate_public_html_cache()
             return self._json_response(payload, status=200 if payload.get("ok") else 400)
         body = b""
         if request.method == "POST":
             body = await self._request_bytes(request)
             saved = await self._handle_admin_save(repo, path, body, env)
             if saved:
+                invalidate_public_html_cache()
                 status, headers, payload = saved
                 return Response(payload.decode("utf-8"), status=status, headers=dict(headers))
 
         status, headers, payload = route_request(repo, request.method, path, parsed["query"], body, env)
+        if request.method == "GET":
+            status, headers, payload = store_public_html_cache(request.method, path, parsed["query"], env, (status, headers, payload))
         if request.method == "POST" and path in {"/admin/setup", "/admin/login", "/login", "/register"} and getattr(self.env, "DB", None) is not None:
             loader = CloudflareD1Loader(self.env.DB)
             for table in ("auth_roles", "auth_permissions", "auth_users"):

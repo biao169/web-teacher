@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from .exporting import csv_bytes, excel_bytes, export_json
-from .media import image_tag, media_storage_kind, media_url, r2_preferred_key
+from .media import image_tag, local_media_missing, media_storage_kind, media_url, r2_preferred_key
 from .models import TABLES, TABLE_MAP, Table, int_value
 from .repository import Query, Repository
 from .security import (
@@ -42,13 +42,26 @@ from .security import (
 ResponseTuple = tuple[int, list[tuple[str, str]], bytes]
 MEDIA_STATS_CACHE_TTL_SECONDS = 300
 MEDIA_STATS_CACHE_PATH = Path(".cache") / "media_stats.json"
+FILTER_DISTINCT_CACHE_TTL_SECONDS = 300
+FILTER_DISTINCT_CACHE_PATH = Path(".cache") / "filter_distinct.json"
+TRANSLATION_REQUIREMENTS_CACHE_TTL_SECONDS = 300
+TRANSLATION_REQUIREMENTS_CACHE_PATH = Path(".cache") / "translation_requirements.json"
+PUBLIC_HTML_CACHE_PATH = Path(".cache") / "html_pages"
+PUBLIC_HTML_CACHE_MAX_ITEMS = 256
+PUBLIC_HTML_CACHE_TTL_SECONDS = 24 * 3600
+PUBLIC_HTML_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300"
+PUBLIC_HTML_MEMORY_CACHE: dict[str, tuple[float, list[tuple[str, str]], bytes]] = {}
+MULTI_VALUE_FILTER_FIELDS = {("news", "category")}
+NEWS_CATEGORY_HELP_TEXT = "动态分类，支持填写一个或多个分类；多个分类请用分号分隔，例如：项目;比赛;课程。前台筛选任一分类时都能命中该动态。"
+ALLOWED_ADMIN_DELETE_TABLES = {"navigation_items", "profiles", "students", "student_category_displays", "messages", "research_interests", "publications", "projects", "patents", "news", "courses"}
 MEDIA_SCAN_EXTENSIONS = {
     ".apng", ".avif", ".bmp", ".gif", ".ico", ".jpeg", ".jpg", ".png", ".svg", ".tif", ".tiff", ".webp",
     ".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".ogv", ".webm",
     ".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav",
     ".csv", ".doc", ".docx", ".json", ".md", ".pdf", ".ppt", ".pptx", ".txt", ".xls", ".xlsx", ".yaml", ".yml",
 }
-ASSET_VERSION = "20260825-bandwidth-optimization"
+ASSET_VERSION = "20260827-html-cache-admin-scroll"
+NAVIGATION_SCOPE_FIELDS_PATH = Path(__file__).with_name("navigation_scope_fields.json")
 I18N_DICTIONARY_FILENAME = "i18n_dictionary.json"
 I18N_DICTIONARY_R2_KEY = "i18n/i18n_dictionary.json"
 I18N_DICTIONARY_CACHE: dict[str, Any] = {"path": "", "mtime": -1.0, "data": None}
@@ -135,8 +148,10 @@ CONTENT_ADMIN_TABLES = {
     "messages",
     "media_assets",
     "translation_cache",
-    "autofetch_logs",
 }
+EXPORT_ROW_LIMIT = 100000
+EXPORT_EXCLUDED_TABLES: set[str] = set()
+
 EXPORT_MAIN_TABLES = (
     "site_settings",
     "global_settings",
@@ -154,6 +169,8 @@ EXPORT_MAIN_TABLES = (
     "media_assets",
     "translation_cache",
 )
+EXPORT_SITE_TABLES = tuple(table.name for table in TABLES if table.name not in EXPORT_EXCLUDED_TABLES)
+
 EXPORT_TABLE_GROUPS = (
     ("site", "站点与导航", ("site_settings", "global_settings", "navigation_items")),
     ("people", "教师与学生", ("profiles", "students", "student_category_displays")),
@@ -185,6 +202,7 @@ FRONTEND_TRANSLATION_FIELDS = {
     "news": ("title", "category"),
     "courses": ("name", "semester", "audience", "summary"),
 }
+TRANSLATION_REQUIREMENT_SOURCE_TABLES = set(FRONTEND_TRANSLATION_FIELDS) | {"translation_cache"}
 
 FRONTEND_TABLE_URLS = {
     "site_settings": "/",
@@ -201,6 +219,114 @@ FRONTEND_TABLE_URLS = {
     "media_assets": "/",
     "messages": "/contact",
 }
+
+
+def public_html_cache_eligible(method: str, path: str, query_string: str, env: dict[str, str]) -> bool:
+    if method.upper() != "GET":
+        return False
+    if parse_cookie_header(env.get("_COOKIE", "")).get(AUTH_COOKIE_NAME):
+        return False
+    blocked_prefixes = ("/admin", "/api/", "/assets/", "/media/", "/login", "/register", "/logout", "/sitemap", "/robots", "/llms", "/.well-known")
+    if path.startswith(blocked_prefixes):
+        return False
+    return True
+
+
+def public_html_cache_key(method: str, path: str, query_string: str, env: dict[str, str]) -> str:
+    if not public_html_cache_eligible(method, path, query_string, env):
+        return ""
+    parsed = parse_qs(query_string, keep_blank_values=True)
+    normalized_query = [(key, tuple(parsed.get(key) or [])) for key in sorted(parsed)]
+    payload = {
+        "version": ASSET_VERSION,
+        "path": path or "/",
+        "query": normalized_query,
+        "site_url": str(env.get("SITE_URL") or ""),
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def public_html_cache_headers(hit: bool = False) -> list[tuple[str, str]]:
+    headers = security_headers() + [
+        ("content-type", "text/html; charset=utf-8"),
+        ("cache-control", PUBLIC_HTML_CACHE_CONTROL),
+    ]
+    headers.append(("x-html-cache", "HIT" if hit else "MISS"))
+    return headers
+
+
+def public_html_cache_response(method: str, path: str, query_string: str, env: dict[str, str]) -> ResponseTuple | None:
+    key = public_html_cache_key(method, path, query_string, env)
+    if not key:
+        return None
+    now = time.time()
+    cached = PUBLIC_HTML_MEMORY_CACHE.get(key)
+    if cached and now - cached[0] <= PUBLIC_HTML_CACHE_TTL_SECONDS:
+        return 200, public_html_cache_headers(hit=True), cached[2]
+    PUBLIC_HTML_MEMORY_CACHE.pop(key, None)
+    if env.get("PLATFORM") == "cloudflare":
+        return None
+    meta_path = PUBLIC_HTML_CACHE_PATH / f"{key}.json"
+    body_path = PUBLIC_HTML_CACHE_PATH / f"{key}.html"
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        created_at = float(meta.get("created_at") or 0)
+        if now - created_at > PUBLIC_HTML_CACHE_TTL_SECONDS:
+            meta_path.unlink(missing_ok=True)
+            body_path.unlink(missing_ok=True)
+            return None
+        body = body_path.read_bytes()
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+    public_html_memory_put(key, now, public_html_cache_headers(hit=True), body)
+    return 200, public_html_cache_headers(hit=True), body
+
+
+def public_html_memory_put(key: str, created_at: float, headers: list[tuple[str, str]], body: bytes) -> None:
+    if len(PUBLIC_HTML_MEMORY_CACHE) >= PUBLIC_HTML_CACHE_MAX_ITEMS:
+        oldest = min(PUBLIC_HTML_MEMORY_CACHE.items(), key=lambda item: item[1][0])[0]
+        PUBLIC_HTML_MEMORY_CACHE.pop(oldest, None)
+    PUBLIC_HTML_MEMORY_CACHE[key] = (created_at, headers, body)
+
+
+def store_public_html_cache(method: str, path: str, query_string: str, env: dict[str, str], response: ResponseTuple) -> ResponseTuple:
+    key = public_html_cache_key(method, path, query_string, env)
+    status, headers, body = response
+    if not key or status != 200 or not any(name.lower() == "content-type" and "text/html" in value.lower() for name, value in headers):
+        return response
+    cache_headers = public_html_cache_headers(hit=False)
+    now = time.time()
+    public_html_memory_put(key, now, cache_headers, body)
+    if env.get("PLATFORM") != "cloudflare":
+        try:
+            PUBLIC_HTML_CACHE_PATH.mkdir(parents=True, exist_ok=True)
+            (PUBLIC_HTML_CACHE_PATH / f"{key}.json").write_text(json.dumps({"created_at": now}, separators=(",", ":")), encoding="utf-8")
+            (PUBLIC_HTML_CACHE_PATH / f"{key}.html").write_bytes(body)
+        except OSError:
+            pass
+    return status, cache_headers, body
+
+
+def invalidate_public_html_cache() -> int:
+    removed = len(PUBLIC_HTML_MEMORY_CACHE)
+    PUBLIC_HTML_MEMORY_CACHE.clear()
+    if PUBLIC_HTML_CACHE_PATH.exists():
+        for path in PUBLIC_HTML_CACHE_PATH.glob("*"):
+            if path.is_file():
+                try:
+                    path.unlink()
+                    removed += 1
+                except OSError:
+                    pass
+    return removed
+
+
+def html_cache_admin_notice(query: dict[str, str]) -> str:
+    if query.get("html_cache_cleared") is None:
+        return ""
+    count = text_only(query.get("html_cache_cleared"), 20) or "0"
+    return f'<p class="admin-operation-notice">HTML 缓存已清理：移除 {esc(count)} 个缓存项。</p>'
 
 
 def admin_modules() -> list[str]:
@@ -252,7 +378,7 @@ def auth_config_response(env: dict[str, str], api: bool = False) -> ResponseTupl
     if api:
         return json_response({"ok": False, "message": issue}, 503)
     body = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>生产密钥未配置</title><link rel="stylesheet" href="/assets/site.css?v={ASSET_VERSION}"></head>
+<title>生产密钥未配置</title><link rel="stylesheet" href="/assets/public.css?v={ASSET_VERSION}"></head>
 <body><main class="compact-page"><section class="notice"><h1>生产密钥未配置</h1><p>{esc(issue)}</p><p>请在运行环境中配置强随机 <code>TEACHER_SITE_AUTH_SECRET</code> 后重启网站。</p></section></main></body></html>"""
     return html_response(body, 503)
 
@@ -280,7 +406,7 @@ def ensure_auth_defaults(repo: Repository) -> None:
                     "can_view": 1 if can_manage else 0,
                     "can_create": 1 if module in CONTENT_ADMIN_TABLES else 0,
                     "can_edit": 1 if module in CONTENT_ADMIN_TABLES else 0,
-                    "can_delete": 1 if module in CONTENT_ADMIN_TABLES - {"translation_cache", "autofetch_logs"} else 0,
+                    "can_delete": 1 if module in CONTENT_ADMIN_TABLES - {"translation_cache"} else 0,
                     "can_export": 1 if module == "export" else 0,
                 }
             elif level >= 40:
@@ -506,16 +632,35 @@ def row_visible_to_current_user(repo: Repository, env: dict[str, str], row: dict
     return bool(current_auth(repo, env)) and visibility in auth_visibility_scopes(repo, env)
 
 
-def visible_list(repo: Repository, env: dict[str, str], table: str, query: Query) -> list[dict[str, Any]]:
-    unrestricted = Query(
+def visible_scopes_for_current_user(repo: Repository, env: dict[str, str]) -> tuple[str, ...]:
+    return tuple(sorted(auth_visibility_scopes(repo, env) or {"public"}))
+
+
+def visible_query(repo: Repository, env: dict[str, str], query: Query) -> Query:
+    return Query(
         q=query.q,
         filters=query.filters,
+        token_filters=query.token_filters,
+        prefix_filters=query.prefix_filters,
         public_only=False,
+        visibility_scopes=visible_scopes_for_current_user(repo, env),
         limit=query.limit,
+        offset=query.offset,
         order_by=query.order_by,
         descending=query.descending,
     )
-    return [row for row in repo.list(table, unrestricted) if row_visible_to_current_user(repo, env, row)]
+
+
+def visible_list(repo: Repository, env: dict[str, str], table: str, query: Query) -> list[dict[str, Any]]:
+    return repo.list(table, visible_query(repo, env, query))
+
+
+def visible_count(repo: Repository, env: dict[str, str], table: str, query: Query) -> int:
+    counter = getattr(repo, "count", None)
+    if callable(counter):
+        return int(counter(table, visible_query(repo, env, query)))
+    fallback = repo.list(table, visible_query(repo, env, Query(q=query.q, filters=query.filters, prefix_filters=query.prefix_filters, limit=1000, order_by=query.order_by, descending=query.descending)))
+    return len(fallback)
 
 
 def visible_get(repo: Repository, env: dict[str, str], table: str, key: str) -> dict[str, Any]:
@@ -528,8 +673,9 @@ def route_request(repo: Repository, method: str, path: str, query_string: str = 
     query = _query(query_string)
     if path != "/" and path.endswith("/"):
         path = path.rstrip("/")
-    env = {**env, "_LANG": "en" if query.get("lang") == "en" else "zh", "_PATH": path, "_METHOD": method.upper()}
-    if path.startswith(("/admin", "/api/admin", "/api/export")) or path in {"/login", "/register", "/logout"}:
+    requested_lang = text_only(query.get("lang"), 20).strip().lower()
+    env = {**env, "_LANG": "zh" if requested_lang in {"zh", "zh-cn", "cn"} else "en", "_PATH": path, "_QUERY": query, "_METHOD": method.upper()}
+    if path.startswith(("/admin", "/api/admin", "/api/export", "/api/transfer")) or path in {"/login", "/register", "/logout"}:
         config_guard = auth_config_response(env, api=path.startswith("/api"))
         if config_guard:
             return config_guard
@@ -552,6 +698,12 @@ def route_request(repo: Repository, method: str, path: str, query_string: str = 
         return text_response(security_txt(env.get("SITE_URL", "")))
     if path == "/llms.txt":
         return text_response(llms_txt(repo, env.get("SITE_URL", "")))
+    if path == "/media/pdf-download":
+        return media_pdf_download_response(repo, query, env)
+    if path.startswith(("/transfer", "/api/transfer", "/api/admin/transfer")) or path == "/admin/transfer":
+        from transfer_site.routes import route_transfer_request
+
+        return route_transfer_request(repo, method.upper(), path, query, body, env)
     if path == "/login":
         ensure_auth_defaults(repo)
         return front_login_route(repo, method, query, body, env)
@@ -581,17 +733,31 @@ def route_request(repo: Repository, method: str, path: str, query_string: str = 
         denied = api_auth_response(repo, env, "media_assets", "can_create")
         if denied:
             return denied
-        return json_response(media_upload_payload(repo, body, env))
+        payload = media_upload_payload(repo, body, env)
+        if payload.get("ok"):
+            invalidate_public_html_cache()
+        return json_response(payload)
     if path == "/api/admin/media/crop" and method == "POST":
         denied = api_auth_response(repo, env, "media_assets", "can_edit")
         if denied:
             return denied
-        return json_response(media_crop_payload(repo, body, env))
+        payload = media_crop_payload(repo, body, env)
+        if payload.get("ok"):
+            invalidate_public_html_cache()
+        return json_response(payload)
     if path == "/api/admin/publications/parse" and method == "POST":
         denied = api_auth_response(repo, env, "publications", "can_edit")
         if denied:
             return denied
         return json_response(publication_parse_payload(body))
+    if path == "/api/admin/identifiers/duplicates":
+        table = text_only(query.get("table"), 80).strip()
+        if table not in TABLE_MAP:
+            return json_response({"ok": False, "message": "未知数据表。"}, 400)
+        denied = api_auth_response(repo, env, table, "can_view")
+        if denied:
+            return denied
+        return json_response(identifier_duplicates_payload(repo, query))
     if path == "/api/admin/publications/duplicates":
         denied = api_auth_response(repo, env, "publications", "can_view")
         if denied:
@@ -686,7 +852,10 @@ def route_request(repo: Repository, method: str, path: str, query_string: str = 
         denied = api_auth_response(repo, env, "translation_cache", "can_edit")
         if denied:
             return denied
-        return json_response(translation_inline_payload(translation_inline_update(repo, body)))
+        payload = translation_inline_payload(translation_inline_update(repo, body))
+        invalidate_translation_requirements_cache()
+        invalidate_public_html_cache()
+        return json_response(payload)
     if path.startswith("/api/export/"):
         denied = api_auth_response(repo, env, "export", "can_export")
         if denied:
@@ -695,6 +864,11 @@ def route_request(repo: Repository, method: str, path: str, query_string: str = 
 
     if path.startswith("/admin"):
         return admin_route(repo, method, path, query, body, env)
+
+    if method.upper() == "GET":
+        cached_html = public_html_cache_response(method, path, query_string, env)
+        if cached_html:
+            return cached_html
 
     if method == "POST" and path == "/contact":
         data = _form(body)
@@ -728,11 +902,14 @@ def route_request(repo: Repository, method: str, path: str, query_string: str = 
         "/contact": contact_page,
     }
     if path in routes:
-        return html_response(routes[path](repo, query, env))
+        canonical_url = localized_request_redirect_url(repo, method, path, query, env)
+        if canonical_url:
+            return redirect(canonical_url)
+        return store_public_html_cache(method, path, query_string, env, html_response(routes[path](repo, query, env)))
     if path.startswith("/team/"):
-        return html_response(team_detail_page(repo, path.removeprefix("/team/"), env))
+        return store_public_html_cache(method, path, query_string, env, html_response(team_detail_page(repo, path.removeprefix("/team/"), env)))
     if path.startswith("/news/"):
-        return html_response(news_detail_page(repo, path.removeprefix("/news/"), env))
+        return store_public_html_cache(method, path, query_string, env, html_response(news_detail_page(repo, path.removeprefix("/news/"), env)))
     return html_response(layout(repo, t(env, "not_found"), f'<section class="notice"><h1>404</h1><p>{esc(t(env, "page_missing"))}</p></section>', env), 404)
 
 
@@ -794,10 +971,17 @@ def home_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> s
 
 def team_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> str:
     lang = current_lang(env)
-    all_rows = visible_list(repo, env, "profiles", Query(limit=200))
     filter_specs = [("role", t(env, "role")), ("title", t(env, "title")), ("organization", t(env, "organization")), ("lab", t(env, "team"))]
-    filters = query_filters(query, [name for name, _label in filter_specs])
-    rows = visible_list(repo, env, "profiles", Query(q=query.get("q", ""), filters=filters, limit=200))
+    scope_values = front_filter_values(repo, env, "profiles", filter_specs)
+    fixed_filters = localized_scope_filters(query, navigation_scope_field_names("profiles", filter_specs), scope_values, repo, env, "profiles")
+    visible_specs = scoped_filter_specs(filter_specs, fixed_filters)
+    option_values = front_filter_values(repo, env, "profiles", filter_specs, fixed_filters)
+    filters = localized_query_filters(query, visible_specs, option_values, repo, env, "profiles")
+    filters.update(fixed_filters)
+    page, per_page, offset = front_page_args(query)
+    list_query = Query(q=query.get("q", ""), filters=filters, limit=per_page, offset=offset)
+    total_rows = visible_count(repo, env, "profiles", Query(q=query.get("q", ""), filters=filters))
+    rows = visible_list(repo, env, "profiles", list_query)
     cards = []
     for row in rows:
         display_row = front_row(repo, env, "profiles", row)
@@ -807,18 +991,18 @@ def team_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> s
         summary = front_value(repo, env, "profiles", row, "bio", 520).strip()
         summary_html = f'<p class="team-row team-row-summary team-summary">{esc(summary)}</p>' if summary else '<p class="team-row team-row-summary team-summary is-empty"></p>'
         cards.append(
-            f"""<article class="person-card team-card">
+            f'''<article class="person-card team-card">
             {image_tag(row.get("avatar_key"), display, "person-avatar", env.get("PUBLIC_MEDIA_BASE_URL", ""), lang)}
             <div class="person-body">
               <div class="team-row team-row-title"><h2>{esc(display)}</h2>{identity}</div>
               {summary_html}
-              <div class="team-row team-row-links"><div class="person-links team-links">{profile_links(row)}</div><a class="profile-open-button" href="{detail_href}" target="_blank" rel="noreferrer" title="打开完整信息">详情</a></div>
+              <div class="team-row team-row-links"><div class="person-links team-links">{profile_links(row)}</div><a class="profile-open-button" href="{detail_href}" target="_blank" rel="noreferrer" title="查看详细信息">→</a></div>
             </div>
-          </article>"""
+          </article>'''
         )
-    toolbar = compact_filter_form(query, t(env, "team_search"), filter_options(all_rows, filter_specs, repo, env, "profiles"), env)
-    return layout(repo, t(env, "team_members"), '<div class="compact-page">' + toolbar + '<section class="people-list team-list">' + ("".join(cards) or empty(env)) + "</section></div>", env)
-
+    toolbar = compact_filter_form(query, t(env, "team_search"), filter_options(option_values, visible_specs, repo, env, "profiles"), env, fixed_params=localized_scope_params(fixed_filters, option_values, repo, env, "profiles"))
+    pager = front_pager(query, total_rows, page, per_page, env)
+    return layout(repo, scoped_page_title(t(env, "team_members"), fixed_filters), '<div class="compact-page">' + toolbar + '<section class="people-list team-list">' + ("".join(cards) or empty(env)) + "</section>" + pager + "</div>", env)
 
 def team_detail_page(repo: Repository, uid: str, env: dict[str, str]) -> str:
     lang = current_lang(env)
@@ -849,63 +1033,72 @@ def team_detail_page(repo: Repository, uid: str, env: dict[str, str]) -> str:
 def publications_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> str:
     q = query.get("q", "")
     publication_display_style = str(active_global(repo).get("publication_display_style") or "gbt")
-    all_rows = visible_list(repo, env, "publications", Query(limit=500, order_by="year", descending=True))
-    filters = {}
-    if query.get("year"):
-        filters["year"] = query["year"]
-    if query.get("author_role"):
-        filters["author_role"] = query["author_role"]
-    if query.get("publication_type"):
-        filters["publication_type"] = query["publication_type"]
-    if query.get("venue"):
-        filters["venue"] = query["venue"]
-    if query.get("index_type"):
-        filters["index_type"] = query["index_type"]
+    filter_specs = [("year", t(env, "year")), ("venue", t(env, "venue")), ("publication_type", t(env, "publication_type")), ("author_role", t(env, "author_role")), ("index_type", t(env, "index_type"))]
+    scope_values = front_filter_values(repo, env, "publications", filter_specs)
+    fixed_filters = localized_scope_filters(query, navigation_scope_field_names("publications", filter_specs), scope_values, repo, env, "publications")
+    visible_specs = scoped_filter_specs(filter_specs, fixed_filters)
+    option_values = front_filter_values(repo, env, "publications", filter_specs, fixed_filters)
+    filters = localized_query_filters(query, visible_specs, option_values, repo, env, "publications")
+    filters.update(fixed_filters)
     if query.get("featured"):
         filters["is_featured"] = 1
-    rows = visible_list(repo, env, "publications", Query(q=q, filters=filters, limit=500, order_by="year", descending=True))
-    filter_specs = [("year", t(env, "year")), ("venue", t(env, "venue")), ("publication_type", t(env, "publication_type")), ("author_role", t(env, "author_role")), ("index_type", t(env, "index_type"))]
-    reset_href = "?lang=en" if current_lang(env) == "en" else "?"
-    toolbar = f"""
-    <form class="filters filters-wide publication-filters compact-filterbar" method="get">
-      {lang_hidden(env)}
-      <input class="filter-search" name="q" value="{esc(q)}" placeholder="{esc(t(env, "publication_search"))}">
-      {filter_selects(query, filter_options(all_rows, filter_specs, repo, env, "publications"))}
-      <button>{esc(t(env, "search"))}</button>
-      <a class="button ghost filter-reset" href="{esc(reset_href)}">{esc(t(env, "reset"))}</a>
-    </form>
+    page, per_page, offset = front_page_args(query)
+    rows = visible_list(repo, env, "publications", Query(q=q, filters=filters, limit=per_page, offset=offset, order_by="year", descending=True))
+    total_rows = visible_count(repo, env, "publications", Query(q=q, filters=filters, order_by="year", descending=True))
+    toolbar = compact_filter_form(query, t(env, "publication_search"), filter_options(option_values, visible_specs, repo, env, "publications"), env, fixed_params=localized_scope_params(fixed_filters, option_values, repo, env, "publications"), form_class="filters filters-wide publication-filters compact-filterbar")
+    toolbar += f'''
     <div class="copy-toolbar citation-copy-toolbar"><label class="copy-select-all"><input type="checkbox" id="select-all-citations">{esc(t(env, "select_all"))}</label><select id="citation-style">{citation_style_options(publication_display_style, env)}</select><button type="button" id="copy-selected">{esc(t(env, "copy"))}</button><span id="copy-status"></span></div>
-    """
-    return layout(repo, t(env, "publications"), '<div class="compact-page">' + toolbar + publication_list(rows, selectable=True, compact=True, display_style=publication_display_style, repo=repo, env=env) + "</div>", env)
-
+    '''
+    pager = front_pager(query, total_rows, page, per_page, env)
+    items_html = publication_list(rows, selectable=True, compact=True, display_style=publication_display_style, repo=repo, env=env, total_rows=total_rows, offset=offset, lazy=True)
+    if front_lazy_partial(query):
+        return items_html + pager
+    return layout(repo, scoped_page_title(t(env, "publications"), fixed_filters), '<div class="compact-page">' + toolbar + front_lazy_block(items_html, pager) + "</div>", env)
 
 def list_page(repo: Repository, query: dict[str, str], env: dict[str, str], table: str, title: str, fields: list[str], search_placeholder: str = "关键词", filter_specs: list[tuple[str, str]] | None = None) -> str:
     filter_specs = filter_specs or []
-    all_rows = visible_list(repo, env, table, Query(limit=500))
-    filters = query_filters(query, [name for name, _label in filter_specs])
-    rows = visible_list(repo, env, table, Query(q=query.get("q", ""), filters=filters, limit=500))
+    scope_values = front_filter_values(repo, env, table, filter_specs)
+    fixed_filters = localized_scope_filters(query, navigation_scope_field_names(table, filter_specs), scope_values, repo, env, table)
+    visible_specs = scoped_filter_specs(filter_specs, fixed_filters)
+    option_values = front_filter_values(repo, env, table, filter_specs, fixed_filters)
+    filters = localized_query_filters(query, visible_specs, option_values, repo, env, table)
+    filters.update(fixed_filters)
+    page, per_page, offset = front_page_args(query)
+    rows = visible_list(repo, env, table, Query(q=query.get("q", ""), filters=filters, limit=per_page, offset=offset))
+    total_rows = visible_count(repo, env, table, Query(q=query.get("q", ""), filters=filters))
     items = []
-    for index, row in enumerate(rows, 1):
+    for index, row in enumerate(rows, offset + 1):
         display_row = front_row(repo, env, table, row)
         meta = " / ".join(str(display_row.get(field) or "") for field in fields[1:4] if display_row.get(field))
         summary = front_paragraphs(repo, env, table, row, fields[-1]) if row.get(fields[-1]) else ""
         items.append(f'<article class="compact-item"><div class="item-index"><span class="item-number">{index}</span></div><div class="compact-body"><h2>{esc(display_row.get(fields[0]))}</h2><div class="compact-meta">{esc(meta)}</div>{summary}</div></article>')
-    toolbar = compact_filter_form(query, search_placeholder, filter_options(all_rows, filter_specs, repo, env, table), env)
-    body = f'<div class="compact-page">{toolbar}<section class="compact-list">{"".join(items) or empty(env)}</section></div>'
-    return layout(repo, title, body, env)
-
+    toolbar = compact_filter_form(query, search_placeholder, filter_options(option_values, visible_specs, repo, env, table), env, fixed_params=localized_scope_params(fixed_filters, option_values, repo, env, table))
+    pager = front_pager(query, total_rows, page, per_page, env)
+    items_html = f'<section class="compact-list" data-lazy-list>{"".join(items) or empty(env)}</section>'
+    if front_lazy_partial(query):
+        return items_html + pager
+    body = f'<div class="compact-page">{toolbar}{front_lazy_block(items_html, pager)}</div>'
+    return layout(repo, scoped_page_title(title, fixed_filters), body, env)
 
 def projects_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> str:
-    all_rows = visible_list(repo, env, "projects", Query(limit=500, order_by="sort_order", descending=True))
     filter_specs = [("source", t(env, "source")), ("fund_name", t(env, "fund_name")), ("status", t(env, "status"))]
-    filters = query_filters(query, [name for name, _label in filter_specs])
-    rows = visible_list(repo, env, "projects", Query(q=query.get("q", ""), filters=filters, limit=500, order_by="sort_order", descending=True))
-    total = len(rows)
-    cards = [project_card(row, total - index + 1, env, repo) for index, row in enumerate(rows, 1)]
-    toolbar = compact_filter_form(query, t(env, "project_search"), filter_options(all_rows, filter_specs, repo, env, "projects"), env)
-    body = f'<div class="compact-page">{toolbar}<section class="compact-list project-list">{"".join(cards) or empty(env)}</section></div>'
-    return layout(repo, t(env, "projects"), body, env)
-
+    scope_values = front_filter_values(repo, env, "projects", filter_specs)
+    fixed_filters = localized_scope_filters(query, navigation_scope_field_names("projects", filter_specs), scope_values, repo, env, "projects")
+    visible_specs = scoped_filter_specs(filter_specs, fixed_filters)
+    option_values = front_filter_values(repo, env, "projects", filter_specs, fixed_filters)
+    filters = localized_query_filters(query, visible_specs, option_values, repo, env, "projects")
+    filters.update(fixed_filters)
+    page, per_page, offset = front_page_args(query)
+    total_rows = visible_count(repo, env, "projects", Query(q=query.get("q", ""), filters=filters, order_by="sort_order", descending=True))
+    rows = visible_list(repo, env, "projects", Query(q=query.get("q", ""), filters=filters, limit=per_page, offset=offset, order_by="sort_order", descending=True))
+    cards = [project_card(row, total_rows - offset - index + 1, env, repo) for index, row in enumerate(rows, 1)]
+    toolbar = compact_filter_form(query, t(env, "project_search"), filter_options(option_values, visible_specs, repo, env, "projects"), env, fixed_params=localized_scope_params(fixed_filters, option_values, repo, env, "projects"))
+    pager = front_pager(query, total_rows, page, per_page, env)
+    items_html = f'<section class="compact-list project-list" data-lazy-list>{"".join(cards) or empty(env)}</section>'
+    if front_lazy_partial(query):
+        return items_html + pager
+    body = f'<div class="compact-page">{toolbar}{front_lazy_block(items_html, pager)}</div>'
+    return layout(repo, scoped_page_title(t(env, "projects"), fixed_filters), body, env)
 
 def project_card(row: dict[str, Any], index: int, env: dict[str, str], repo: Repository | None = None) -> str:
     display_row = front_row(repo, env, "projects", row) if repo else row
@@ -1006,18 +1199,24 @@ def format_decimal_amount(value: Decimal) -> str:
 
 
 def patents_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> str:
-    all_rows = visible_list(repo, env, "patents", Query(limit=500))
     filter_specs = [("patent_type", t(env, "patent_type")), ("legal_status", t(env, "legal_status")), ("country", t(env, "country"))]
-    filters = query_filters(query, [name for name, _label in filter_specs])
-    rows = visible_list(repo, env, "patents", Query(q=query.get("q", ""), filters=filters, limit=500, order_by="sort_order", descending=True))
-    cards = []
-    total = len(rows)
-    for index, row in enumerate(rows, 1):
-        cards.append(patent_card(row, total - index + 1, env, repo))
-    toolbar = compact_filter_form(query, t(env, "patent_search"), filter_options(all_rows, filter_specs, repo, env, "patents"), env)
-    body = f'<div class="compact-page">{toolbar}<section class="compact-list patent-list">{"".join(cards) or empty(env)}</section></div>'
-    return layout(repo, t(env, "patents"), body, env)
-
+    scope_values = front_filter_values(repo, env, "patents", filter_specs)
+    fixed_filters = localized_scope_filters(query, navigation_scope_field_names("patents", filter_specs), scope_values, repo, env, "patents")
+    visible_specs = scoped_filter_specs(filter_specs, fixed_filters)
+    option_values = front_filter_values(repo, env, "patents", filter_specs, fixed_filters)
+    filters = localized_query_filters(query, visible_specs, option_values, repo, env, "patents")
+    filters.update(fixed_filters)
+    page, per_page, offset = front_page_args(query)
+    total_rows = visible_count(repo, env, "patents", Query(q=query.get("q", ""), filters=filters, order_by="sort_order", descending=True))
+    rows = visible_list(repo, env, "patents", Query(q=query.get("q", ""), filters=filters, limit=per_page, offset=offset, order_by="sort_order", descending=True))
+    cards = [patent_card(row, total_rows - offset - index + 1, env, repo) for index, row in enumerate(rows, 1)]
+    toolbar = compact_filter_form(query, t(env, "patent_search"), filter_options(option_values, visible_specs, repo, env, "patents"), env, fixed_params=localized_scope_params(fixed_filters, option_values, repo, env, "patents"))
+    pager = front_pager(query, total_rows, page, per_page, env)
+    items_html = f'<section class="compact-list patent-list" data-lazy-list>{"".join(cards) or empty(env)}</section>'
+    if front_lazy_partial(query):
+        return items_html + pager
+    body = f'<div class="compact-page">{toolbar}{front_lazy_block(items_html, pager)}</div>'
+    return layout(repo, scoped_page_title(t(env, "patents"), fixed_filters), body, env)
 
 def patent_card(row: dict[str, Any], index: int, env: dict[str, str], repo: Repository | None = None) -> str:
     display_row = front_row(repo, env, "patents", row) if repo else row
@@ -1068,10 +1267,16 @@ def patent_tags(row: dict[str, Any]) -> str:
 
 def students_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> str:
     lang = current_lang(env)
-    all_rows = visible_list(repo, env, "students", Query(limit=300, order_by="sort_order", descending=True))
     filter_specs = [("degree", t(env, "degree")), ("category", t(env, "category")), ("grade", t(env, "grade")), ("status", t(env, "status"))]
-    filters = query_filters(query, [name for name, _label in filter_specs])
-    rows = visible_list(repo, env, "students", Query(q=query.get("q", ""), filters=filters, limit=300, order_by="sort_order", descending=True))
+    scope_values = front_filter_values(repo, env, "students", filter_specs)
+    fixed_filters = localized_scope_filters(query, navigation_scope_field_names("students", filter_specs), scope_values, repo, env, "students")
+    visible_specs = scoped_filter_specs(filter_specs, fixed_filters)
+    option_values = front_filter_values(repo, env, "students", filter_specs, fixed_filters)
+    filters = localized_query_filters(query, visible_specs, option_values, repo, env, "students")
+    filters.update(fixed_filters)
+    page, per_page, offset = front_page_args(query, default_per_page=30)
+    total_rows = visible_count(repo, env, "students", Query(q=query.get("q", ""), filters=filters, order_by="sort_order", descending=True))
+    rows = visible_list(repo, env, "students", Query(q=query.get("q", ""), filters=filters, limit=per_page, offset=offset, order_by="sort_order", descending=True))
     rows = sorted(rows, key=lambda row: (int_value(row.get("sort_order"), int_value(row.get("id"), 0)), int_value(row.get("id"), 0)), reverse=True)
     rows_by_group: dict[str, dict[str, Any]] = {}
     group_mode = student_group_mode(query)
@@ -1086,13 +1291,16 @@ def students_page(repo: Repository, query: dict[str, str], env: dict[str, str]) 
         group_rows = group["rows"]
         group_total = len(group_rows)
         cards = [student_card(row, group_total - index + 1, repo, env, lang) for index, row in enumerate(group_rows, 1)]
-        sections.append(f"""<section class="student-group-section">
+        sections.append(f'''<section class="student-group-section">
           <div class="student-group-head"><h2>{esc(group["title"])}</h2><span>{len(cards)} {esc(t(env, "people_count_unit"))}</span></div>
           <div class="people-list student-group-list">{"".join(cards)}</div>
-        </section>""")
-    toolbar = student_filter_form(query, t(env, "student_search"), filter_options(all_rows, filter_specs, repo, env, "students"), env)
-    return layout(repo, t(env, "students"), f'<div class="compact-page student-page">{toolbar}<div class="student-groups">{"".join(sections) or empty(env)}</div></div>', env)
-
+        </section>''')
+    toolbar = student_filter_form(query, t(env, "student_search"), filter_options(option_values, visible_specs, repo, env, "students"), env, fixed_params=localized_scope_params(fixed_filters, option_values, repo, env, "students"))
+    pager = front_pager(query, total_rows, page, per_page, env)
+    items_html = f'<div class="student-groups" data-lazy-list>{"".join(sections) or empty(env)}</div>'
+    if front_lazy_partial(query):
+        return items_html + pager
+    return layout(repo, scoped_page_title(t(env, "students"), fixed_filters), f'<div class="compact-page student-page">{toolbar}{front_lazy_block(items_html, pager)}</div>', env)
 
 def student_card(row: dict[str, Any], number: int, repo: Repository, env: dict[str, str], lang: str) -> str:
     display_row = front_row(repo, env, "students", row)
@@ -1110,22 +1318,21 @@ def student_group_mode(query: dict[str, str]) -> str:
     return value if value in {"category", "degree"} else "category"
 
 
-def student_filter_form(query: dict[str, str], placeholder: str, filter_groups: list[tuple[str, str, list[Any]]], env: dict[str, str]) -> str:
-    reset_href = "?lang=en" if current_lang(env) == "en" else "?"
+def student_filter_form(query: dict[str, str], placeholder: str, filter_groups: list[tuple[str, str, list[Any]]], env: dict[str, str], fixed_params: dict[str, Any] | None = None) -> str:
+    fixed_hidden, reset_href = fixed_filter_form_bits(fixed_params, env)
     group_options = [
         ("category", t(env, "group_by_category")),
         ("degree", t(env, "group_by_degree")),
     ]
     group_style = filter_select_style(t(env, "student_group_mode"), group_options, student_group_mode(query))
     return f"""<form class="filters compact-filterbar student-filterbar" method="get">
-      {lang_hidden(env)}
+      {lang_hidden(env)}{fixed_hidden}
       <input class="filter-search" name="q" value="{esc(query.get("q", ""))}" placeholder="{esc(placeholder)}">
       <select name="group_by" class="filter-select student-group-select" style="{group_style}"><option value="">{esc(t(env, "student_group_mode"))}</option>{select_options(group_options, student_group_mode(query))}</select>
       {filter_selects(query, filter_groups)}
       <button>{esc(t(env, "search"))}</button>
       <a class="button ghost filter-reset" href="{esc(reset_href)}">{esc(t(env, "reset"))}</a>
     </form>"""
-
 
 def student_category_display_map(repo: Repository, env: dict[str, str]) -> dict[str, tuple[int, str]]:
     rows = repo.list("student_category_displays", Query(filters={"enabled": 1}, limit=200, order_by="display_order"))
@@ -1171,13 +1378,79 @@ def student_category_match(value: str, category_meta: dict[str, tuple[int, str]]
 
 
 def news_page(repo: Repository, query: dict[str, str], env: dict[str, str]) -> str:
-    all_rows = visible_list(repo, env, "news", Query(limit=100, order_by="published_at", descending=True))
     filter_specs = [("category", t(env, "category"))]
-    filters = query_filters(query, [name for name, _label in filter_specs])
-    rows = visible_list(repo, env, "news", Query(q=query.get("q", ""), filters=filters, limit=100, order_by="published_at", descending=True))
-    toolbar = compact_filter_form(query, t(env, "news_search"), filter_options(all_rows, filter_specs, repo, env, "news"), env)
-    return layout(repo, t(env, "news"), f'<div class="compact-page">{toolbar}{news_list(rows, detail=True, repo=repo, env=env)}</div>', env)
+    scope_values = front_filter_values(repo, env, "news", filter_specs, extra_fields=["published_at"])
+    fixed_filters = localized_scope_filters(query, navigation_scope_field_names("news", filter_specs), scope_values, repo, env, "news")
+    visible_specs = scoped_filter_specs(filter_specs, fixed_filters)
+    option_values = front_filter_values(repo, env, "news", filter_specs, fixed_filters, extra_fields=["published_at"])
+    filters = localized_query_filters(query, visible_specs, option_values, repo, env, "news")
+    filters.update(fixed_filters)
+    row_filters, token_filters = split_multi_value_filters("news", filters)
+    prefix_filters = news_date_prefix_filters(query)
+    page, per_page, offset = front_page_args(query)
+    total_rows = visible_count(repo, env, "news", Query(q=query.get("q", ""), filters=row_filters, token_filters=token_filters, prefix_filters=prefix_filters, order_by="published_at", descending=True))
+    rows = visible_list(repo, env, "news", Query(q=query.get("q", ""), filters=row_filters, token_filters=token_filters, prefix_filters=prefix_filters, limit=per_page, offset=offset, order_by="published_at", descending=True))
+    filter_groups = filter_options(option_values, visible_specs, repo, env, "news") + news_date_filter_options(option_values.get("published_at", []), query, env)
+    toolbar = compact_filter_form(query, t(env, "news_search"), filter_groups, env, fixed_params=localized_scope_params(fixed_filters, option_values, repo, env, "news"))
+    pager = front_pager(query, total_rows, page, per_page, env)
+    items_html = news_list(rows, detail=True, repo=repo, env=env, start_index=offset + 1, lazy=True)
+    if front_lazy_partial(query):
+        return items_html + pager
+    return layout(repo, scoped_page_title(t(env, "news"), fixed_filters), f'<div class="compact-page">{toolbar}{front_lazy_block(items_html, pager)}</div>', env)
 
+def news_date_parts(row: dict[str, Any]) -> tuple[str, str]:
+    return news_date_parts_from_text(row.get("published_at"))
+
+
+def news_date_parts_from_text(value: Any) -> tuple[str, str]:
+    text = text_only(value, 40).strip()
+    match = re.match(r"^(\d{4})-(\d{1,2})", text)
+    if not match:
+        return "", ""
+    year, month = match.groups()
+    return f"{int(year):04d}", f"{int(month):02d}"
+
+def news_date_prefix_filters(query: dict[str, str]) -> dict[str, str]:
+    selected_year = text_only(query.get("year"), 20).strip()
+    selected_month = text_only(query.get("month"), 20).strip()
+    if selected_month:
+        selected_month = selected_month.zfill(2)
+    result: dict[str, str] = {}
+    if selected_year and selected_month:
+        result["published_at"] = f"{selected_year}-{selected_month}"
+    elif selected_year:
+        result["published_at"] = selected_year
+    elif selected_month:
+        result["published_at"] = f"*-{selected_month}"
+    return result
+
+
+def news_date_filtered_rows(rows: list[dict[str, Any]], query: dict[str, str]) -> list[dict[str, Any]]:
+    selected_year = text_only(query.get("year"), 20).strip()
+    selected_month = text_only(query.get("month"), 20).strip().zfill(2) if text_only(query.get("month"), 20).strip() else ""
+    if not selected_year and not selected_month:
+        return rows
+    result = []
+    for row in rows:
+        year, month = news_date_parts(row)
+        if selected_year and year != selected_year:
+            continue
+        if selected_month and month != selected_month:
+            continue
+        result.append(row)
+    return result
+
+def news_date_filter_options(date_values: list[str], query: dict[str, str], env: dict[str, str]) -> list[tuple[str, str, list[Any]]]:
+    selected_year = text_only(query.get("year"), 20).strip()
+    pairs = [news_date_parts_from_text(value) for value in date_values]
+    years = sorted({year for year, _month in pairs if year}, reverse=True)
+    month_source = [(year, month) for year, month in pairs if month and (not selected_year or year == selected_year)]
+    month_values = sorted({month for _year, month in month_source}, key=lambda value: int_value(value, 0))
+    if current_lang(env) == "en":
+        months = [(value, value) for value in month_values]
+    else:
+        months = [(value, f"{value}月") for value in month_values]
+    return [("year", t(env, "year"), years), ("month", t(env, "month"), months)]
 
 def news_detail_page(repo: Repository, slug: str, env: dict[str, str]) -> str:
     row = visible_get(repo, env, "news", safe_slug(slug))
@@ -1220,7 +1493,7 @@ def news_rich_editor_tool_page() -> str:
     return f"""<!doctype html><html lang="zh-CN"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>动态富文本编辑器</title>
-<link rel="stylesheet" href="/assets/site.css?v={ASSET_VERSION}">
+<link rel="stylesheet" href="/assets/admin.css?v={ASSET_VERSION}">
 <link rel="stylesheet" href="/assets/news-rich-editor.css?v={ASSET_VERSION}">
 </head><body class="news-rich-tool-page">
 <main class="news-rich-window-shell">
@@ -1357,6 +1630,66 @@ def admin_paginate_rows(rows: list[dict[str, Any]], query: dict[str, str]) -> tu
     return rows[start:start + per_page], page, per_page, total
 
 
+ADMIN_OPTION_FIELDS: dict[str, tuple[str, ...]] = {
+    "navigation_items": ("kind", "location", "enabled", "visibility"),
+    "profiles": ("role", "title", "organization", "lab", "is_active", "is_featured", "visibility", "contact_visibility"),
+    "research_interests": ("visibility",),
+    "publications": ("year", "venue", "publication_type", "author_role", "index_type", "visibility", "is_featured", "pdf_visibility"),
+    "projects": ("source", "fund_name", "status", "visibility", "is_featured"),
+    "patents": ("country", "patent_type", "legal_status", "visibility", "is_featured"),
+    "students": ("degree", "category", "grade", "status", "visibility", "is_featured", "contact_visibility"),
+    "student_category_displays": ("enabled",),
+    "news": ("category", "content_format", "visibility", "is_featured", "allow_comments"),
+    "courses": ("semester", "audience", "material_visibility", "visibility", "is_featured"),
+    "messages": ("message_type", "status", "visibility"),
+    "auth_roles": ("is_active", "visibility_scopes"),
+    "auth_users": ("role_uid", "status", "visibility", "must_change_password"),
+    "auth_permissions": ("role_uid", "module", "can_view", "can_create", "can_edit", "can_delete", "can_export"),
+    "operation_logs": ("action", "module", "status"),
+}
+
+
+def admin_option_rows(repo: Repository, table: str, extra_fields: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+    meta = TABLE_MAP.get(table)
+    if not meta:
+        return []
+    fields: list[str] = []
+    for name in (*ADMIN_OPTION_FIELDS.get(table, ()), *globals().get("BATCH_UPDATE_FIELDS", {}).get(table, ()), *extra_fields):
+        if name in meta.field_names and name not in fields:
+            fields.append(name)
+    rows: list[dict[str, Any]] = []
+    for field in fields:
+        for value in repo.distinct_values(table, field, limit=200):
+            rows.append({field: value})
+    return rows
+
+
+def admin_query_page(
+    repo: Repository,
+    table: str,
+    query: dict[str, str],
+    filters: dict[str, Any] | None = None,
+    order_by: str = "updated_at",
+    descending: bool = True,
+) -> tuple[list[dict[str, Any]], int, int, int]:
+    page, per_page = admin_list_page_args(query)
+    q = query.get("q", "")
+    base_query = Query(q=q, filters=filters or {}, order_by=order_by, descending=descending)
+    total = repo.count(table, base_query)
+    rows = repo.list(
+        table,
+        Query(
+            q=q,
+            filters=filters or {},
+            limit=per_page,
+            offset=(page - 1) * per_page,
+            order_by=order_by,
+            descending=descending,
+        ),
+    )
+    return rows, page, per_page, total
+
+
 def admin_pager(table: str, query: dict[str, str], page: int, per_page: int, total_rows: int) -> str:
     total_pages = max(1, (total_rows + per_page - 1) // per_page)
     params = {key: value for key, value in query.items() if key not in {"page", "per_page"} and value}
@@ -1394,6 +1727,8 @@ def admin_quick_update_redirect(repo: Repository, env: dict[str, str], table: st
     data = _form(body)
     target_uid = text_only(data.get("uid") or data.get("key"), 200).strip()
     location = handler(repo, body)
+    if translation_requirements_depend_on_table(table):
+        invalidate_translation_requirements_cache()
     audit_admin_action(repo, env, "quick_update", table, target_uid, f"快速修改 {TABLE_MAP.get(table).label if table in TABLE_MAP else table}", {"return_to": location})
     return redirect(location)
 
@@ -1414,7 +1749,14 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
         breadcrumbs = [("后台", "/admin")]
         export_link = '<a class="button" href="/admin/export">导入与导出</a>' if has_permission(repo, env, "export", "can_export") else ""
         permission_link = '<a class="button ghost" href="/admin/permissions">权限管理</a>' if has_permission(repo, env, "auth_permissions", "can_view") else ""
-        return html_response(admin_layout(repo, "后台", f'<section class="admin-hero"><h1>内容管理</h1><p>管理导航、按钮、教师照片、团队、论文、项目、专利、学生、动态、课程、权限和导出。</p><p>{export_link}{permission_link}</p></section><section class="admin-grid">{cards}</section>', env, breadcrumbs))
+        cache_form = '<form method="post" action="/admin/cache/clear"><button class="button light" type="submit">清理 HTML 缓存</button></form>'
+        return html_response(admin_layout(repo, "后台", f'{html_cache_admin_notice(query)}<section class="admin-hero"><h1>内容管理</h1><p>管理导航、按钮、教师照片、团队、论文、项目、专利、学生、动态、课程、权限和导出。</p><div class="admin-hero-actions">{export_link}{permission_link}{cache_form}</div></section><section class="admin-grid">{cards}</section>', env, breadcrumbs))
+    if path == "/admin/cache/clear" and method == "POST":
+        removed = invalidate_public_html_cache()
+        audit_admin_action(repo, env, "clear_html_cache", "admin", "", "手动清理前台 HTML 缓存", {"removed": removed})
+        return redirect(f"/admin?html_cache_cleared={removed}")
+    if method == "POST":
+        invalidate_public_html_cache()
     if path == "/admin/tools/news-rich-editor":
         if not has_permission(repo, env, "news", "can_edit"):
             return html_response(admin_denied_html(repo, env, "富文本工具", "当前账号没有编辑动态正文的权限。"), 403)
@@ -1431,6 +1773,7 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             if not has_permission(repo, env, "translation_cache", "can_edit"):
                 return html_response(admin_layout(repo, "手动中英词典", admin_denied_panel("手动中英词典", "当前账号没有编辑词典文件的权限。"), env, breadcrumbs), 403)
             result = i18n_dictionary_save_local_from_body(body, env)
+            invalidate_public_html_cache()
             audit_admin_action(repo, env, "dictionary_save", "translation_cache", "", "保存手动中英词典文件", result)
             return redirect(f"/admin/i18n-dictionary?saved={quote(str(result.get('saved') or 'local'))}&entries={result.get('entries', 0)}")
         return html_response(admin_layout(repo, "手动中英词典", admin_i18n_dictionary_page(query, env), env, breadcrumbs))
@@ -1442,6 +1785,7 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             if not has_permission(repo, env, "export", "can_edit"):
                 return html_response(admin_layout(repo, "导入与导出", admin_denied_panel("导入恢复", "当前账号没有恢复导入数据的权限。"), env, breadcrumbs), 403)
             result = import_restore_payload(repo, body, env)
+            invalidate_translation_requirements_cache()
             audit_admin_action(repo, env, "import_restore", "export", "", "导入恢复网站数据", result, "warning" if result.get("errors") else "success")
             suffix = urlencode({key: str(value) for key, value in result.items() if value not in (None, "")})
             return redirect(f"/admin/export?{suffix}")
@@ -1464,6 +1808,8 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
                 action = "can_export"
             elif len(parts) >= 4 and parts[3] in {"delete"}:
                 action = "can_delete"
+            elif len(parts) >= 4 and parts[3] == "batch-update" and table in ALLOWED_ADMIN_DELETE_TABLES:
+                action = "can_delete" if text_only(_form(body).get("_batch_action"), 40).strip() == "delete" else "can_edit"
             elif table == "media_assets" and any(part in {"trash", "clear", "batch"} for part in parts[3:]):
                 action = "can_delete" if "delete" in parts[3:] or "clear" in parts[3:] else "can_edit"
             if not has_permission(repo, env, table, action):
@@ -1505,6 +1851,12 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             location, result = media_batch_update(repo, body)
             audit_admin_action(repo, env, "batch_update", table, "", "批量修改媒体库", result, "warning" if result.get("skipped") else "success")
             return redirect(location)
+        if method == "POST" and len(parts) >= 5 and parts[3] == "delete" and table in ALLOWED_ADMIN_DELETE_TABLES:
+            location, result = admin_delete_record(repo, table, parts[4], body)
+            if translation_requirements_depend_on_table(table):
+                invalidate_translation_requirements_cache()
+            audit_admin_action(repo, env, "delete", table, parts[4], f"删除 {meta.label} 记录", result, "warning" if result.get("skipped") else "success")
+            return redirect(location)
         if method == "POST" and table == "global_settings" and len(parts) >= 4 and parts[3] == "quick-update":
             return admin_quick_update_redirect(repo, env, table, body, global_settings_quick_update)
         if method == "POST" and table == "site_settings" and len(parts) >= 4 and parts[3] == "quick-update":
@@ -1533,6 +1885,8 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             return admin_quick_update_redirect(repo, env, table, body, message_quick_update)
         if method == "POST" and len(parts) >= 4 and parts[3] == "batch-update":
             location, result = admin_batch_update(repo, table, body)
+            if translation_requirements_depend_on_table(table):
+                invalidate_translation_requirements_cache()
             audit_admin_action(repo, env, "batch_update", table, "", f"批量修改 {meta.label}", result, "warning" if result.get("skipped") else "success")
             return redirect(location)
         if method == "POST" and table == "translation_cache" and len(parts) >= 4 and parts[3] == "scan":
@@ -1545,10 +1899,12 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             return redirect(f"/admin/table/translation_cache?translated={result.get('translated', 0)}&failed={result.get('failed', 0)}&provider={quote(str(result.get('provider') or ''))}&scope={quote(str(result.get('scope') or ''))}&selected={result.get('selected', 0)}")
         if method == "POST" and table == "translation_cache" and len(parts) >= 4 and parts[3] == "inline":
             inline_result = translation_inline_update(repo, body)
+            invalidate_translation_requirements_cache()
             audit_admin_action(repo, env, "inline_update", table, text_only(_form(body).get("uid"), 200), "手动保存/确认翻译缓存", {"result": inline_result})
             return redirect("/admin/table/translation_cache")
         if method == "POST" and table == "translation_cache" and len(parts) >= 5 and parts[3] == "delete":
             deleted = translation_delete_cache(repo, parts[4])
+            invalidate_translation_requirements_cache()
             audit_admin_action(repo, env, "delete", table, parts[4], "删除翻译缓存", {"deleted": deleted})
             return redirect("/admin/table/translation_cache")
         if method == "POST" and len(parts) >= 4 and parts[3] == "save":
@@ -1598,6 +1954,8 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
             if table == "courses" and not text_only(data.get("sort_order"), 40).strip():
                 saved["sort_order"] = int_value(saved.get("id"), int_value(saved.get("sort_order"), 0))
                 saved = repo.save(table, saved)
+            if translation_requirements_depend_on_table(table):
+                invalidate_translation_requirements_cache()
             audit_admin_action(repo, env, "save", table, text_only(saved.get("uid") or saved.get("id"), 200), f"保存 {meta.label}", {"action": data.get("_action") or "save"})
             if data.get("_action") == "save_continue":
                 saved_key = saved.get("uid") or saved.get("id") or normalized.get("uid")
@@ -1629,116 +1987,100 @@ def admin_route(repo: Repository, method: str, path: str, query: dict[str, str],
         elif table == "navigation_items":
             nav_order_by, nav_descending = navigation_sort_args(query.get("sort", "sort_asc"))
             nav_filters = {key: query.get(key, "") for key in ("kind", "location", "enabled")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=nav_filters, limit=1000, order_by=nav_order_by, descending=nav_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=False))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, nav_filters, nav_order_by, nav_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_navigation_table(meta, rows, query, all_rows) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "profiles":
             profile_order_by, profile_descending = profile_sort_args(query.get("sort", "sort_asc"))
             profile_filters = {key: query.get(key, "") for key in ("role", "title", "organization", "lab", "is_active", "is_featured")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=profile_filters, limit=1000, order_by=profile_order_by, descending=profile_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=False))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, profile_filters, profile_order_by, profile_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_profiles_table(meta, rows, query, all_rows, env) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "research_interests":
             research_order_by, research_descending = research_interest_sort_args(query.get("sort", "sort_asc"))
             research_filters = {"visibility": query.get("visibility", "")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=research_filters, limit=1000, order_by=research_order_by, descending=research_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=False))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, research_filters, research_order_by, research_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_research_interests_table(meta, rows, query, all_rows) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "publications":
             publication_order_by, publication_descending = publication_admin_sort_args(query.get("sort", "year_desc"))
             publication_filters = {key: query.get(key, "") for key in ("year", "venue", "publication_type", "author_role", "index_type", "visibility", "is_featured")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=publication_filters, limit=1000, order_by=publication_order_by, descending=publication_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="year", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, publication_filters, publication_order_by, publication_descending)
+            all_rows = admin_option_rows(repo, table)
             display_style = str(active_global(repo).get("publication_display_style") or "gbt")
             content = admin_publications_table(meta, rows, query, all_rows, display_style) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "projects":
             project_order_by, project_descending = project_admin_sort_args(query.get("sort", "sort_desc"))
             project_filters = {key: query.get(key, "") for key in ("source", "fund_name", "status", "visibility", "is_featured")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=project_filters, limit=1000, order_by=project_order_by, descending=project_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, project_filters, project_order_by, project_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_projects_table(meta, rows, query, all_rows) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "patents":
             patent_order_by, patent_descending = patent_admin_sort_args(query.get("sort", "sort_desc"))
             patent_filters = {key: query.get(key, "") for key in ("country", "patent_type", "legal_status", "visibility", "is_featured")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=patent_filters, limit=1000, order_by=patent_order_by, descending=patent_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, patent_filters, patent_order_by, patent_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_patents_table(meta, rows, query, all_rows) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "students":
             student_order_by, student_descending = student_admin_sort_args(query.get("sort", "sort_desc"))
             student_filters = {key: query.get(key, "") for key in ("degree", "category", "grade", "status", "visibility", "is_featured")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=student_filters, limit=1000, order_by=student_order_by, descending=student_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, student_filters, student_order_by, student_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_students_table(meta, rows, query, all_rows, env) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "student_category_displays":
             category_order_by, category_descending = student_category_sort_args(query.get("sort", "order_asc"))
             category_filters = {"enabled": query.get("enabled", "")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=category_filters, limit=1000, order_by=category_order_by, descending=category_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="display_order", descending=False))
-            student_rows = repo.list("students", Query(limit=1000, order_by="sort_order", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, category_filters, category_order_by, category_descending)
+            all_rows = admin_option_rows(repo, table)
+            student_rows = repo.list("students", Query(limit=EXPORT_ROW_LIMIT, order_by="sort_order", descending=True))
             content = admin_student_categories_table(meta, rows, query, all_rows, student_rows) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "news":
             news_order_by, news_descending = news_admin_sort_args(query.get("sort", "published_desc"))
             news_filters = {key: query.get(key, "") for key in ("category", "content_format", "visibility", "is_featured", "allow_comments")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=news_filters, limit=1000, order_by=news_order_by, descending=news_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="published_at", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, news_filters, news_order_by, news_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_news_table(meta, rows, query, all_rows, env) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "courses":
             course_order_by, course_descending = course_admin_sort_args(query.get("sort", "sort_desc"))
             course_filters = {key: query.get(key, "") for key in ("semester", "audience", "material_visibility", "visibility", "is_featured")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=course_filters, limit=1000, order_by=course_order_by, descending=course_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, course_filters, course_order_by, course_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_courses_table(meta, rows, query, all_rows) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "messages":
             message_order_by, message_descending = message_admin_sort_args(query.get("sort", "updated_desc"))
             message_filters = {key: query.get(key, "") for key in ("message_type", "status", "visibility")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=message_filters, limit=1000, order_by=message_order_by, descending=message_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="updated_at", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, message_filters, message_order_by, message_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_messages_table(meta, rows, query, all_rows) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "translation_cache":
             content = admin_translation_cache_table(meta, repo, query, env)
         elif table == "auth_roles":
             auth_order_by, auth_descending = auth_role_sort_args(query.get("sort", "level_desc"))
             auth_filters = {key: query.get(key, "") for key in ("is_active", "is_system")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=auth_filters, limit=1000, order_by=auth_order_by, descending=auth_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=False))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, auth_filters, auth_order_by, auth_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_auth_roles_table(meta, rows, query, all_rows, repo) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "auth_users":
             auth_order_by, auth_descending = auth_user_sort_args(query.get("sort", "updated_desc"))
             auth_filters = {key: query.get(key, "") for key in ("role_uid", "status", "visibility")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=auth_filters, limit=1000, order_by=auth_order_by, descending=auth_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="updated_at", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, auth_filters, auth_order_by, auth_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_auth_users_table(meta, rows, query, all_rows, repo) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "auth_permissions":
             auth_order_by, auth_descending = auth_permission_sort_args(query.get("sort", "module_asc"))
             auth_filters = {key: query.get(key, "") for key in ("role_uid", "module", "can_view", "can_create", "can_edit", "can_delete", "can_export")}
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=auth_filters, limit=1000, order_by=auth_order_by, descending=auth_descending))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="sort_order", descending=False))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, auth_filters, auth_order_by, auth_descending)
+            all_rows = admin_option_rows(repo, table)
             content = admin_auth_permissions_table(meta, rows, query, all_rows, repo) + admin_pager(table, query, page, per_page, total_rows)
         elif table == "operation_logs":
             log_filters = {key: query.get(key, "") for key in ("action", "module", "status")}
             log_order = "created_at" if query.get("sort") != "module" else "module"
             log_desc = query.get("sort") != "module"
-            rows_full = repo.list(table, Query(q=query.get("q", ""), filters=log_filters, limit=1000, order_by=log_order, descending=log_desc))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
-            all_rows = repo.list(table, Query(limit=1000, order_by="created_at", descending=True))
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, log_filters, log_order, log_desc)
+            all_rows = admin_option_rows(repo, table)
             content = admin_operation_logs_table(meta, rows, query, all_rows) + admin_pager(table, query, page, per_page, total_rows)
         else:
-            rows_full = repo.list(table, Query(q=query.get("q", ""), limit=1000, order_by="updated_at", descending=True))
-            rows, page, per_page, total_rows = admin_paginate_rows(rows_full, query)
+            rows, page, per_page, total_rows = admin_query_page(repo, table, query, {}, "updated_at", True)
             content = admin_table(meta, rows, query.get("q", "")) + admin_pager(table, query, page, per_page, total_rows)
         return html_response(admin_layout(repo, meta.label, content, env, table_breadcrumbs))
     return html_response(admin_layout(repo, "后台", "<p>后台路径不存在。</p>", env, [("后台", "/admin"), ("路径不存在", path)]), 404)
@@ -1749,8 +2091,8 @@ def layout(repo: Repository, title: str, content: str, env: dict[str, str], site
     lang = current_lang(env)
     site_name = front_value(repo, env, "site_settings", site, "site_name", 200) or localized_site_name(site, lang)
     brand_html = site_brand_html(site, site_name, env)
-    nav_html = "".join(f'<a href="{esc(lang_url(str(item.get("path") or "/"), env))}">{esc(front_value(repo, env, "navigation_items", item, "title", 120) or localized_nav_title(item, lang))}</a>' for item in nav(repo, "header", env))
-    lang_switch = language_switch(env)
+    nav_html = "".join(f'<a href="{esc(navigation_item_href(repo, env, item))}">{esc(navigation_item_label(repo, env, item))}</a>' for item in nav(repo, "header", env))
+    lang_switch = language_switch(repo, env)
     auth = current_auth(repo, env)
     user = auth.get("user") if auth else {}
     user_label = text_only((user or {}).get("display_name") or (user or {}).get("username"), 80).strip()
@@ -1772,7 +2114,7 @@ def layout(repo: Repository, title: str, content: str, env: dict[str, str], site
 {robots_meta}
 {seo_links}
 {media_links}
-<link rel="stylesheet" href="/assets/site.css?v={ASSET_VERSION}"><script defer src="/assets/site.js?v={ASSET_VERSION}"></script></head>
+<link rel="stylesheet" href="/assets/{'admin' if is_admin_page else 'public'}.css?v={ASSET_VERSION}"><script defer src="/assets/{'admin' if is_admin_page else 'public'}.js?v={ASSET_VERSION}"></script></head>
 <body{body_class}><header class="site-header"><a class="brand" href="{esc(lang_url("/", env))}">{brand_html}</a><button class="front-nav-toggle" type="button" data-front-nav-toggle aria-controls="front-site-nav" aria-expanded="false">{esc(menu_label)}</button><nav id="front-site-nav" class="site-nav">{nav_html}</nav><div class="header-actions">{lang_switch}{user_badge}{auth_link}{admin_link}</div></header>
 <main>{content}</main><footer class="site-footer">{footer_html}</footer><button class="back-to-top" type="button" data-back-to-top aria-label="{esc('Back to top' if lang == 'en' else '回到顶部')}" title="{esc('Back to top' if lang == 'en' else '回到顶部')}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 19V6m0 0-5 5m5-5 5 5M5 4h14"/></svg></button></body></html>"""
 
@@ -1826,6 +2168,7 @@ def site_media_head_links(site: dict[str, Any], site_name: str, page_title: str,
 
 
 def site_footer_html(repo: Repository, env: dict[str, str], site: dict[str, Any], fallback: str) -> str:
+    footer_nav = footer_nav_html(repo, env)
     raw = str(site.get("footer_text") or "").strip()
     if current_lang(env) == "en":
         translated = front_value(repo, env, "site_settings", site, "footer_text", 3000).strip()
@@ -1833,8 +2176,50 @@ def site_footer_html(repo: Repository, env: dict[str, str], site: dict[str, Any]
             raw = translated
     raw = raw or fallback
     if "<" in raw and ">" in raw:
-        return f'<div class="site-footer-html">{render_limited_html(raw)}</div>'
-    return f'<div class="site-footer-text">{paragraphs(raw)}</div>'
+        text_html = f'<div class="site-footer-html">{render_limited_html(raw)}</div>'
+    else:
+        text_html = f'<div class="site-footer-text">{paragraphs(raw)}</div>'
+    return footer_nav + text_html
+
+
+def navigation_item_label(repo: Repository, env: dict[str, str], item: dict[str, Any]) -> str:
+    return front_value(repo, env, "navigation_items", item, "title", 120) or localized_nav_title(item, current_lang(env)) or text_only(item.get("uid"), 80).strip()
+
+
+def navigation_item_target(item: dict[str, Any]) -> str:
+    path = text_only(item.get("path") or item.get("url_name"), 500).strip()
+    fragment = text_only(item.get("fragment"), 120).strip().lstrip("#")
+    if not path and fragment:
+        return f"#{fragment}"
+    if not path:
+        return "/"
+    parsed = urlparse(path)
+    if not parsed.scheme and not parsed.netloc and not path.startswith(("/", "#")):
+        path = "/" + path
+    if fragment and "#" not in path and not parsed.scheme:
+        path = f"{path}#{fragment}"
+    return path
+
+
+def navigation_item_href(repo: Repository, env: dict[str, str], item: dict[str, Any], localize: bool = True) -> str:
+    target = navigation_item_target(item)
+    if target.startswith("#"):
+        return safe_href(target)
+    if not localize:
+        return safe_href(target)
+    return localized_front_url(repo, env, target)
+
+
+def footer_nav_html(repo: Repository, env: dict[str, str]) -> str:
+    links = []
+    for item in nav(repo, "footer", env):
+        label = navigation_item_label(repo, env, item)
+        if label:
+            links.append(f'<a href="{esc(navigation_item_href(repo, env, item))}">{esc(label)}</a>')
+    if not links:
+        return ""
+    label = "Footer navigation" if current_lang(env) == "en" else "页脚导航"
+    return f'<nav class="site-footer-nav" aria-label="{esc(label)}">{"".join(links)}</nav>'
 
 
 def admin_layout(repo: Repository, title: str, content: str, env: dict[str, str], breadcrumbs: list[tuple[str, str]] | None = None) -> str:
@@ -1848,15 +2233,19 @@ def admin_layout(repo: Repository, title: str, content: str, env: dict[str, str]
         primary_links.append(admin_sidebar_link("/admin/export", "导入与导出", "导", active_path))
     if has_permission(repo, env, "auth_permissions", "can_view"):
         primary_links.append(admin_sidebar_link("/admin/permissions", "权限管理", "权", active_path))
+    primary_links.append(admin_sidebar_cache_form())
     table_groups = [
         ("站点配置", ("site_settings", "global_settings", "navigation_items")),
         ("人员与互动", ("profiles", "students", "student_category_displays", "messages")),
         ("科研成果", ("research_interests", "publications", "projects", "patents")),
-        ("内容与媒体", ("news", "courses", "media_assets", "translation_cache", "autofetch_logs")),
+        ("内容与媒体", ("news", "courses", "media_assets", "translation_cache")),
         ("账号安全", ("auth_roles", "auth_users", "auth_permissions", "operation_logs")),
     ]
     grouped_tables = {name for _label, names in table_groups for name in names}
     sections = [admin_sidebar_section("常用操作", "".join(primary_links))]
+    custom_section = admin_navigation_sidebar_section(repo, env, active_path)
+    if custom_section:
+        sections.append(custom_section)
     for label, names in table_groups:
         section = admin_table_sidebar_section(repo, env, label, names, active_path)
         if section:
@@ -1896,6 +2285,10 @@ def admin_sidebar_section(label: str, links: str) -> str:
     return f'<section class="admin-sidebar-section"><h2>{esc(label)}</h2>{links}</section>'
 
 
+
+def admin_sidebar_cache_form() -> str:
+    return '<form class="admin-sidebar-cache-form" method="post" action="/admin/cache/clear"><button class="admin-sidebar-link" type="submit" title="清理前台公开页面 HTML 缓存"><span class="admin-nav-icon">缓</span><span>清理 HTML 缓存</span></button></form>'
+
 def admin_table_sidebar_section(repo: Repository, env: dict[str, str], label: str, names: tuple[str, ...], active_path: str) -> str:
     links = []
     for name in names:
@@ -1905,9 +2298,21 @@ def admin_table_sidebar_section(repo: Repository, env: dict[str, str], label: st
     return admin_sidebar_section(label, "".join(links))
 
 
-def admin_sidebar_link(href: str, label: str, icon: str, active_path: str) -> str:
+def admin_navigation_sidebar_section(repo: Repository, env: dict[str, str], active_path: str) -> str:
+    links = []
+    for item in nav(repo, "admin_sidebar", env):
+        label = navigation_item_label(repo, env, item)
+        href = navigation_item_href(repo, env, item, localize=False)
+        if label and href and href != "#":
+            icon = text_only(item.get("icon"), 8).strip() or "航"
+            links.append(admin_sidebar_link(href, label, icon[:2], active_path, new_tab=True))
+    return admin_sidebar_section("自定义入口", "".join(links))
+
+
+def admin_sidebar_link(href: str, label: str, icon: str, active_path: str, new_tab: bool = False) -> str:
     active = admin_sidebar_active(href, active_path)
-    return f'<a class="admin-sidebar-link{" is-active" if active else ""}" href="{esc(href)}"><span class="admin-nav-icon">{esc(icon)}</span><span>{esc(label)}</span></a>'
+    target_attrs = ' target="_blank" rel="noreferrer"' if new_tab else ''
+    return f'<a class="admin-sidebar-link{" is-active" if active else ""}" href="{esc(href)}"{target_attrs}><span class="admin-nav-icon">{esc(icon)}</span><span>{esc(label)}</span></a>'
 
 
 def admin_sidebar_active(href: str, active_path: str) -> bool:
@@ -1933,7 +2338,6 @@ def admin_nav_icon(table_or_key: str) -> str:
         "courses": "课",
         "media_assets": "媒",
         "translation_cache": "译",
-        "autofetch_logs": "取",
         "operation_logs": "审",
         "auth_roles": "角",
         "auth_users": "户",
@@ -2420,18 +2824,18 @@ def export_api_route(repo: Repository, path: str, query: dict[str, str], env: di
         tables = export_selected_tables(query.get("tables"), default=EXPORT_MAIN_TABLES)
         return download_json_response(export_payload(repo, tables), "teacher-site-main.json")
     if path.endswith("/site.json"):
-        tables = export_selected_tables(query.get("tables"), default=tuple(repo.table_names()))
+        tables = export_selected_tables(query.get("tables"), default=EXPORT_SITE_TABLES)
         return download_json_response(export_payload(repo, tables), "teacher-site-site.json")
     if path.endswith("/table.json"):
         table = text_only(query.get("table"), 80).strip()
-        if table not in TABLE_MAP:
-            return json_response({"ok": False, "message": "未知数据表。"}, 404)
+        if table not in TABLE_MAP or table in EXPORT_EXCLUDED_TABLES:
+            return json_response({"ok": False, "message": "未知或不支持导出的数据表。"}, 404)
         return download_json_response(export_payload(repo, (table,)), f"teacher-site-{table}.json")
     if path.endswith("/table.csv"):
         table = text_only(query.get("table"), 80).strip()
-        if table not in TABLE_MAP:
-            return json_response({"ok": False, "message": "未知数据表。"}, 404)
-        rows = repo.list(table, Query(limit=1000))
+        if table not in TABLE_MAP or table in EXPORT_EXCLUDED_TABLES:
+            return json_response({"ok": False, "message": "未知或不支持导出的数据表。"}, 404)
+        rows = repo.list(table, Query(limit=EXPORT_ROW_LIMIT))
         return binary_response(csv_bytes(rows, TABLE_MAP[table].field_names), "text/csv; charset=utf-8", f"teacher-site-{table}.csv")
     if path.endswith("/main.xlsx"):
         if env.get("PLATFORM") == "cloudflare":
@@ -2446,12 +2850,13 @@ def export_api_route(repo: Repository, path: str, query: dict[str, str], env: di
 
 def export_selected_tables(raw: Any, default: tuple[str, ...]) -> tuple[str, ...]:
     selected = [item.strip() for item in text_only(raw, 2000).split(",") if item.strip()]
-    valid = tuple(table for table in selected if table in TABLE_MAP)
-    return valid or tuple(table for table in default if table in TABLE_MAP)
+    valid = tuple(table for table in selected if table in TABLE_MAP and table not in EXPORT_EXCLUDED_TABLES)
+    return valid or tuple(table for table in default if table in TABLE_MAP and table not in EXPORT_EXCLUDED_TABLES)
 
 
 def export_payload(repo: Repository, tables: tuple[str, ...]) -> dict[str, Any]:
     payload = export_json(ExportViewRepository(repo, tables))
+    tables = tuple(table for table in tables if table in TABLE_MAP and table not in EXPORT_EXCLUDED_TABLES)
     payload["tables"] = {table: payload["tables"].get(table, []) for table in tables}
     payload["table_labels"] = {table: TABLE_MAP[table].label for table in tables}
     payload["export_scope"] = "selected"
@@ -2478,11 +2883,96 @@ def binary_response(content: bytes, content_type: str, filename: str, status: in
     return status, security_headers() + [("content-type", content_type), ("content-disposition", f'attachment; filename="{filename}"')], content
 
 
+def public_host_label(env: dict[str, str]) -> str:
+    configured = text_only(env.get("SITE_URL") or "", 500).strip()
+    host = text_only(env.get("_HOST") or "", 300).strip()
+    value = configured or host
+    if not value:
+        return "local"
+    parsed = urlparse(value if "://" in value else f"//{value}")
+    label = parsed.netloc or parsed.path or value
+    return label.strip("/") or "local"
+
+
+def pdf_download_key(query: dict[str, str]) -> str:
+    raw = text_only(query.get("key") or query.get("src") or "", 1000).strip()
+    if not raw:
+        return ""
+    parsed = urlparse(raw)
+    if parsed.scheme in {"http", "https"}:
+        raw = parsed.path
+    return normalize_media_key(raw)
+
+
+def pdf_watermark_text(repo: Repository, env: dict[str, str]) -> str:
+    site = active_site(repo)
+    site_name = front_value(repo, env, "site_settings", site, "site_name", 200) or localized_site_name(site, current_lang(env))
+    host = public_host_label(env)
+    return " | ".join(part for part in (site_name, host) if part) or "Teacher Site"
+
+
+def watermarked_pdf_bytes(source: bytes, watermark_text: str) -> bytes:
+    try:
+        from pypdf import PdfReader, PdfWriter
+        from reportlab.lib.colors import Color
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        from reportlab.pdfgen import canvas
+    except Exception as exc:
+        raise RuntimeError("PDF 水印依赖缺失，请在运行环境安装 pypdf 和 reportlab。") from exc
+
+    reader = PdfReader(io.BytesIO(source))
+    writer = PdfWriter()
+    font_name = "Helvetica"
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+        font_name = "STSong-Light"
+    except Exception:
+        pass
+    for page in reader.pages:
+        width = float(page.mediabox.width or 595)
+        height = float(page.mediabox.height or 842)
+        stamp_buffer = io.BytesIO()
+        stamp = canvas.Canvas(stamp_buffer, pagesize=(width, height))
+        stamp.saveState()
+        stamp.setFillColor(Color(0.12, 0.22, 0.18, alpha=0.16))
+        stamp.setFont(font_name, max(9, min(16, width / 45)))
+        stamp.translate(width / 2, height / 2)
+        stamp.rotate(32)
+        stamp.drawCentredString(0, 0, watermark_text)
+        stamp.restoreState()
+        stamp.showPage()
+        stamp.save()
+        stamp_buffer.seek(0)
+        watermark_page = PdfReader(stamp_buffer).pages[0]
+        page.merge_page(watermark_page)
+        writer.add_page(page)
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def media_pdf_download_response(repo: Repository, query: dict[str, str], env: dict[str, str]) -> ResponseTuple:
+    key = pdf_download_key(query)
+    if not key or not key.lower().endswith(".pdf"):
+        return text_response("PDF 文件参数无效。", 400)
+    path = media_local_path(key, env)
+    if not path:
+        return text_response("PDF 文件不存在或无法访问。", 404)
+    try:
+        source = path.read_bytes()
+        payload = watermarked_pdf_bytes(source, pdf_watermark_text(repo, env))
+    except Exception as exc:
+        return text_response(f"PDF 水印生成失败：{exc}", 500)
+    stem = safe_slug(Path(key).stem) or "document"
+    return binary_response(payload, "application/pdf", f"{stem}-watermarked.pdf")
+
+
 def import_restore_payload(repo: Repository, body: bytes, env: dict[str, str]) -> dict[str, Any]:
     if env.get("PLATFORM") == "cloudflare":
         return {"error": "Cloudflare Worker 环境暂不执行批量恢复导入。"}
-    if len(body) > 12 * 1024 * 1024:
-        return {"error": "导入文件超过 12MB，请拆分为分组或分表文件后恢复。"}
+    if len(body) > 64 * 1024 * 1024:
+        return {"error": "导入文件超过 64MB，请拆分为分组或分表文件后恢复。"}
     data = import_restore_form_data(body, env)
     mode = text_only(import_form_value(data, "mode", "merge"), 40).strip() or "merge"
     selected = [table for table in import_form_values(data, "tables") if table in EXPORT_MAIN_TABLES]
@@ -2527,12 +3017,12 @@ def import_restore_payload(repo: Repository, body: bytes, env: dict[str, str]) -
             skipped += 1
             continue
         if mode == "replace":
-            for old in repo.list(table, Query(limit=1000)):
+            for old in repo.list(table, Query(limit=EXPORT_ROW_LIMIT)):
                 old_key = str(old.get("uid") or old.get("id") or "").strip()
                 if old_key:
                     repo.delete(table, old_key)
         meta = TABLE_MAP[table]
-        for row in rows[:1000]:
+        for row in rows:
             if not isinstance(row, dict):
                 skipped += 1
                 continue
@@ -2561,9 +3051,9 @@ def analyze_import_restore(repo: Repository, tables_data: dict[str, Any], restor
             skipped += 1
             continue
         if mode == "replace":
-            delete += len(repo.list(table, Query(limit=1000)))
+            delete += len(repo.list(table, Query(limit=EXPORT_ROW_LIMIT)))
         meta = TABLE_MAP[table]
-        for row in rows[:1000]:
+        for row in rows:
             if not isinstance(row, dict):
                 skipped += 1
                 continue
@@ -2728,8 +3218,18 @@ def import_row_uid_seed(row: dict[str, Any]) -> str:
     return ""
 
 
+def import_cell_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        return "; ".join(import_cell_value(item) for item in value if item not in (None, ""))
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return str(value)
+
+
 def normalize_import_row(meta: Table, row: dict[str, Any]) -> dict[str, Any]:
-    data = {key: "" if value is None else str(value) for key, value in row.items()}
+    data = {key: import_cell_value(value) for key, value in row.items()}
     if meta.name in {"news", "projects", "patents", "students", "global_settings", "translation_cache"}:
         data = normalize_admin_data(meta, data)
     return data
@@ -3596,7 +4096,71 @@ def translation_cache_groups(repo: Repository) -> list[dict[str, Any]]:
     return list(grouped.values())
 
 
-def translation_requirement_groups(repo: Repository, env: dict[str, str] | None = None) -> list[dict[str, Any]]:
+
+def translation_requirements_depend_on_table(table: str) -> bool:
+    return table in TRANSLATION_REQUIREMENT_SOURCE_TABLES
+
+
+def translation_requirements_cache_fingerprint(env: dict[str, str] | None = None) -> str:
+    try:
+        entries = i18n_dictionary_entries(env or {})
+        payload = json.dumps(entries, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    except (OSError, TypeError, ValueError):
+        payload = ""
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+def translation_requirements_cache_load(env: dict[str, str] | None = None) -> list[dict[str, Any]] | None:
+    try:
+        if not TRANSLATION_REQUIREMENTS_CACHE_PATH.is_file():
+            return None
+        data = json.loads(TRANSLATION_REQUIREMENTS_CACHE_PATH.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        created_at = float(data.get("created_at") or 0)
+        if time.time() - created_at > TRANSLATION_REQUIREMENTS_CACHE_TTL_SECONDS:
+            return None
+        if data.get("dictionary_fingerprint") != translation_requirements_cache_fingerprint(env):
+            return None
+        groups = data.get("groups")
+        if not isinstance(groups, list):
+            return None
+        return [dict(item) for item in groups if isinstance(item, dict)]
+    except (OSError, TypeError, ValueError):
+        return None
+
+
+def translation_requirements_cache_save(groups: list[dict[str, Any]], env: dict[str, str] | None = None) -> None:
+    try:
+        TRANSLATION_REQUIREMENTS_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "created_at": time.time(),
+            "dictionary_fingerprint": translation_requirements_cache_fingerprint(env),
+            "groups": groups,
+        }
+        TRANSLATION_REQUIREMENTS_CACHE_PATH.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str), encoding="utf-8")
+    except OSError:
+        return
+
+
+def invalidate_translation_requirements_cache() -> None:
+    try:
+        TRANSLATION_REQUIREMENTS_CACHE_PATH.unlink(missing_ok=True)
+    except OSError:
+        return
+
+
+def translation_requirement_groups(repo: Repository, env: dict[str, str] | None = None, force_refresh: bool = False) -> list[dict[str, Any]]:
+    if not force_refresh:
+        cached = translation_requirements_cache_load(env)
+        if cached is not None:
+            return cached
+    groups = translation_requirement_groups_compute(repo, env)
+    translation_requirements_cache_save(groups, env)
+    return groups
+
+
+def translation_requirement_groups_compute(repo: Repository, env: dict[str, str] | None = None) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
     for item in frontend_translation_requirements(repo, env):
         source_hash = str(item.get("source_hash") or "")
@@ -3936,6 +4500,7 @@ def translation_status_badge(status: str) -> str:
 
 
 def translation_scan_database(repo: Repository, env: dict[str, str] | None = None) -> dict[str, int]:
+    invalidate_translation_requirements_cache()
     result = {"created": 0, "updated": 0, "dedicated": 0, "deleted": 0}
     rows = translation_scan_cache_rows(repo, result, env)
     current_hashes = {row["source_hash"] for row in rows if row.get("source_hash")}
@@ -3958,6 +4523,7 @@ def translation_scan_database(repo: Repository, env: dict[str, str] | None = Non
         key = text_only(old.get("uid") or old.get("id"), 200).strip()
         if key and repo.delete("translation_cache", key):
             result["deleted"] += 1
+    invalidate_translation_requirements_cache()
     return result
 
 
@@ -4060,6 +4626,7 @@ def translation_dictionary_save_local(repo: Repository, env: dict[str, str] | No
     root_path = Path(I18N_DICTIONARY_FILENAME)
     root_path.write_bytes(payload["content"])
     I18N_DICTIONARY_CACHE.update({"path": "", "mtime": -1.0, "data": None})
+    invalidate_translation_requirements_cache()
     return {"saved": "local", "path": str(root_path), "entries": payload.get("entries", 0)}
 
 
@@ -4068,6 +4635,7 @@ def i18n_dictionary_save_local_from_body(body: bytes, env: dict[str, str] | None
     root_path = Path(I18N_DICTIONARY_FILENAME)
     root_path.write_bytes(payload["content"])
     I18N_DICTIONARY_CACHE.update({"path": "", "mtime": -1.0, "data": None})
+    invalidate_translation_requirements_cache()
     return {"saved": "local", "path": str(root_path), "entries": payload.get("entries", 0)}
 
 
@@ -4446,6 +5014,8 @@ def translation_translate_rows(repo: Repository, candidates: list[dict[str, Any]
             failed += 1
             items.append({"uid": key, "ok": False, "status": "failed", "display_status": "failed", "translated_text": text_only(row.get("translated_text"), 12000).strip(), "provider": row["provider"], "message": row["error_message"]})
         repo.save("translation_cache", row)
+    if items:
+        invalidate_translation_requirements_cache()
     return translated, failed, items
 
 
@@ -4554,12 +5124,18 @@ def translation_parse_bundle(value: Any, expected: int) -> list[str]:
     text = text_only(value, 12000).strip()
     if not text:
         return []
-    pattern = re.compile(r"\[\[\[" + re.escape(TRANSLATION_BUNDLE_MARKER) + r"_(\d{3})\]\]\]\s*(.*?)(?=\s*\[\[\[" + re.escape(TRANSLATION_BUNDLE_MARKER) + r"_\d{3}\]\]\]|\s*$)", re.S)
-    found = {int(match.group(1)): match.group(2).strip() for match in pattern.finditer(text)}
+    marker_pattern = r"\[\[\[" + re.escape(TRANSLATION_BUNDLE_MARKER) + r"_(\d{3})\]\]\]"
+    marker_re = re.compile(marker_pattern, re.I)
+
+    def clean_bundle_chunk(chunk: Any) -> str:
+        return marker_re.sub("", text_only(chunk, 12000)).strip()
+
+    pattern = re.compile(marker_pattern + r"\s*(.*?)(?=\s*" + marker_pattern + r"|\s*$)", re.I | re.S)
+    found = {int(match.group(1)): clean_bundle_chunk(match.group(2)) for match in pattern.finditer(text)}
     if len(found) == expected:
         return [found.get(index, "") for index in range(1, expected + 1)]
     chunks = re.split(r"\n\s*\n", text)
-    chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
+    chunks = [cleaned for chunk in chunks if (cleaned := clean_bundle_chunk(chunk))]
     return chunks if len(chunks) == expected else []
 
 
@@ -4782,7 +5358,7 @@ def admin_navigation_table(meta: Table, rows: list[dict[str, Any]], query: dict[
               <button class="button {'danger' if enabled else 'secondary'}" type="submit" name="_nav_action" value="toggle_enabled">{toggle_label}</button>
             </form>
           </td>
-          <td><a class="button ghost" href="/admin/table/navigation_items/{esc(key)}">编辑</a></td>
+          <td class="admin-row-actions"><a class="button ghost" href="/admin/table/navigation_items/{esc(key)}">编辑</a>{admin_delete_button("navigation_items", key, query)}</td>
         </tr>""")
     return f"""<section class="admin-card nav-admin-card compact-admin-card">
       <div class="admin-card-head"><h1>{esc(meta.label)}</h1><a class="button" href="/admin/table/navigation_items/new">新增</a></div>
@@ -4893,6 +5469,7 @@ def admin_profiles_table(meta: Table, rows: list[dict[str, Any]], query: dict[st
             <a class="button ghost" href="/admin/table/profiles/{esc(key)}">编辑</a>
             <form method="post" action="/admin/table/profiles/quick-update"><input type="hidden" name="uid" value="{esc(key)}"><button class="button {'danger' if active else 'secondary'}" type="submit" name="_profile_action" value="toggle_active">{'停用' if active else '启用'}</button></form>
             <form method="post" action="/admin/table/profiles/quick-update"><input type="hidden" name="uid" value="{esc(key)}"><button class="button light" type="submit" name="_profile_action" value="toggle_featured">{'取消首页' if featured else '设首页'}</button></form>
+            {admin_delete_button("profiles", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card profile-admin-card compact-admin-card">
@@ -5011,6 +5588,7 @@ def admin_research_interests_table(meta: Table, rows: list[dict[str, Any]], quer
           </form>
           <div class="research-admin-actions">
             <a class="button ghost" href="/admin/table/research_interests/{esc(key)}">编辑</a>
+            {admin_delete_button("research_interests", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card research-admin-card compact-admin-card">
@@ -5118,6 +5696,7 @@ def admin_publications_table(meta: Table, rows: list[dict[str, Any]], query: dic
             <a class="button ghost" href="/admin/table/publications/{esc(key)}">编辑</a>
             {f'<a class="button light" href="{esc(doi_href)}" target="_blank" rel="noreferrer">DOI</a>' if doi_href else ""}
             <a class="button light" href="{esc(front_href)}" target="_blank" rel="noreferrer">前台</a>
+            {admin_delete_button("publications", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card publication-admin-card compact-admin-card">
@@ -5245,6 +5824,13 @@ def admin_batch_select(table: str, key: Any) -> str:
     return f'<label class="admin-batch-select-cell" title="选择此条记录"><input type="checkbox" name="selected" value="{esc(key)}" form="{esc(table)}-batch-form" data-batch-table="{esc(table)}"><span class="sr-only">选择</span></label>'
 
 
+
+def admin_batch_delete_button(table: str) -> str:
+    if table not in ALLOWED_ADMIN_DELETE_TABLES:
+        return ""
+    return '<button class="button danger" type="submit" name="_batch_action" value="delete" data-confirm="确认删除选中的记录吗？此操作不可撤销。">删除选中</button>'
+
+
 def admin_batch_toolbar(table: str, meta: Table, query: dict[str, str], all_rows: list[dict[str, Any]]) -> str:
     field_controls = admin_batch_field_controls(table, meta, all_rows)
     notice = admin_batch_result_notice(query)
@@ -5260,6 +5846,7 @@ def admin_batch_toolbar(table: str, meta: Table, query: dict[str, str], all_rows
       <label class="admin-batch-select-all"><input type="checkbox" data-batch-select-all="{esc(table)}"> 全选</label>
       {field_controls}{sort_controls}
       <button type="submit">应用到选中</button>
+      {admin_batch_delete_button(table)}
       <span class="admin-muted" data-batch-count="{esc(table)}">已选 0 条</span>
       <small class="admin-batch-help">示例：筛选“非公开”后全选，将可见范围统一改为 public；填写“排序起始 100、步长 10”可按当前列表顺序重排。留空的配置不会改动。</small>
     </form>"""
@@ -5303,16 +5890,54 @@ def admin_table_return_to(table: str, query: dict[str, str]) -> str:
     return f"/admin/table/{table}{suffix}"
 
 
+def admin_table_return_to_allowed(table: str, value: str) -> bool:
+    base = f"/admin/table/{table}"
+    return value == base or value.startswith(f"{base}?") or value.startswith(f"{base}/")
+
+
+
+def admin_delete_button(table: str, key: Any, query: dict[str, str], label: str = "删除") -> str:
+    if table not in ALLOWED_ADMIN_DELETE_TABLES:
+        return ""
+    key_text = text_only(key, 180).strip()
+    if not key_text:
+        return ""
+    return_to = admin_table_return_to(table, query)
+    action = f"/admin/table/{table}/delete/{quote(key_text, safe='')}"
+    return f'<form class="admin-inline-delete-form" method="post" action="{esc(action)}"><input type="hidden" name="return_to" value="{esc(return_to)}"><button class="button danger" type="submit" data-confirm="确认删除这条记录吗？此操作不可撤销。">{esc(label)}</button></form>'
+
+
+def admin_delete_record(repo: Repository, table: str, key: str, body: bytes) -> tuple[str, dict[str, Any]]:
+    data = _form(body)
+    return_to = text_only(data.get("return_to"), 500).strip() or f"/admin/table/{table}"
+    if table not in ALLOWED_ADMIN_DELETE_TABLES or not admin_table_return_to_allowed(table, return_to):
+        return_to = f"/admin/table/{table}"
+    deleted = 1 if table in ALLOWED_ADMIN_DELETE_TABLES and repo.delete(table, key) else 0
+    result = {"selected": 1, "updated": 0, "deleted": deleted, "skipped": 0 if deleted else 1}
+    return append_query_params(return_to, {"batch_selected": 1, "batch_deleted": deleted, "batch_skipped": 0 if deleted else 1}), result
+
+
 def admin_batch_update(repo: Repository, table: str, body: bytes) -> tuple[str, dict[str, Any]]:
     if table not in TABLE_MAP:
         return "/admin", {"selected": 0, "updated": 0, "deleted": 0, "skipped": 0}
     data = _form_multi(body)
     selected = [text_only(item, 180).strip() for item in data.get("selected", []) if text_only(item, 180).strip()][:500]
     return_to = text_only((data.get("return_to") or [f"/admin/table/{table}"])[-1], 500).strip()
-    if not return_to.startswith(f"/admin/table/{table}"):
+    if not admin_table_return_to_allowed(table, return_to):
         return_to = f"/admin/table/{table}"
     if not selected:
         return append_query_params(return_to, {"batch_selected": 0, "batch_updated": 0, "batch_deleted": 0, "batch_skipped": 0}), {"selected": 0, "updated": 0, "deleted": 0, "skipped": 0}
+    batch_action = text_only((data.get("_batch_action") or [""])[-1], 40).strip()
+    if batch_action == "delete" and table in ALLOWED_ADMIN_DELETE_TABLES:
+        deleted = 0
+        skipped = 0
+        for key in selected:
+            if repo.delete(table, key):
+                deleted += 1
+            else:
+                skipped += 1
+        result = {"selected": len(selected), "updated": 0, "deleted": deleted, "skipped": skipped, "action": "delete"}
+        return append_query_params(return_to, {"batch_selected": len(selected), "batch_updated": 0, "batch_deleted": deleted, "batch_skipped": skipped}), result
     meta = TABLE_MAP[table]
     allowed = set(BATCH_UPDATE_FIELDS.get(table, ()))
     changes: dict[str, Any] = {}
@@ -5407,6 +6032,7 @@ def admin_projects_table(meta: Table, rows: list[dict[str, Any]], query: dict[st
           <div class="project-admin-actions">
             <a class="button ghost" href="/admin/table/projects/{esc(key)}">编辑</a>
             <a class="button light" href="{esc(front_href)}" target="_blank" rel="noreferrer">前台</a>
+            {admin_delete_button("projects", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card project-admin-card compact-admin-card">
@@ -5524,6 +6150,7 @@ def admin_patents_table(meta: Table, rows: list[dict[str, Any]], query: dict[str
           <div class="patent-admin-actions">
             <a class="button ghost" href="/admin/table/patents/{esc(key)}">编辑</a>
             <a class="button light" href="{esc(front_href)}" target="_blank" rel="noreferrer">前台</a>
+            {admin_delete_button("patents", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card patent-admin-card compact-admin-card">
@@ -5639,6 +6266,7 @@ def admin_students_table(meta: Table, rows: list[dict[str, Any]], query: dict[st
           <div class="student-admin-actions">
             <a class="button ghost" href="/admin/table/students/{esc(key)}">编辑</a>
             <a class="button light" href="{esc(front_href)}" target="_blank" rel="noreferrer">前台</a>
+            {admin_delete_button("students", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card student-admin-card compact-admin-card">
@@ -5774,6 +6402,7 @@ def admin_student_categories_table(meta: Table, rows: list[dict[str, Any]], quer
           <div class="student-category-admin-actions">
             <a class="button ghost" href="/admin/table/student_category_displays/{esc(key)}">编辑</a>
             <a class="button light" href="/students?category={esc(quote(row.get("label") or row.get("key") or ""))}" target="_blank" rel="noreferrer">前台</a>
+            {admin_delete_button("student_category_displays", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card student-category-admin-card compact-admin-card">
@@ -5866,7 +6495,7 @@ def admin_news_table(meta: Table, rows: list[dict[str, Any]], query: dict[str, s
         related = news_related_summary(row)
         body.append(f"""<article class="news-admin-row{' is-disabled' if visibility != 'public' else ''}">
           {admin_batch_select("news", key)}
-          <div class="news-admin-cover">{image_tag(row.get("cover_key"), title or "动态", "news-admin-thumb", env.get("PUBLIC_MEDIA_BASE_URL", "")) if row.get("cover_key") else '<span class="news-admin-thumb placeholder">N</span>'}</div>
+          <div class="news-admin-cover">{news_cover_html(row, row, "news-admin-thumb", env, current_lang(env))}</div>
           <div class="news-admin-main">
             <strong title="{esc(title)}">{esc(title or "未命名动态")}</strong>
             <small>{esc(key)} / {esc(row.get("slug") or "slug 未设置")}</small>
@@ -5893,6 +6522,7 @@ def admin_news_table(meta: Table, rows: list[dict[str, Any]], query: dict[str, s
           <div class="news-admin-actions">
             <a class="button ghost" href="/admin/table/news/{esc(key)}">编辑</a>
             <a class="button light" href="{esc(front_href)}" target="_blank" rel="noreferrer">前台</a>
+            {admin_delete_button("news", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card news-admin-card compact-admin-card">
@@ -6010,6 +6640,7 @@ def admin_courses_table(meta: Table, rows: list[dict[str, Any]], query: dict[str
           <div class="course-admin-actions">
             <a class="button ghost" href="/admin/table/courses/{esc(key)}">编辑</a>
             <a class="button light" href="{esc(front_href)}" target="_blank" rel="noreferrer">前台</a>
+            {admin_delete_button("courses", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card course-admin-card compact-admin-card">
@@ -6136,6 +6767,7 @@ def admin_messages_table(meta: Table, rows: list[dict[str, Any]], query: dict[st
             <a class="button ghost" href="/admin/table/messages/{esc(key)}">编辑</a>
             {mail_action}
             {attachment_action}
+            {admin_delete_button("messages", key, query)}
           </div>
         </article>""")
     return f"""<section class="admin-card message-admin-card compact-admin-card">
@@ -6224,29 +6856,39 @@ def message_quick_update(repo: Repository, body: bytes) -> str:
 def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, str], mode: str = "library") -> str:
     media_auto_empty_trash(repo)
     is_trash = mode == "trash"
-    all_rows = repo.list("media_assets", Query(filters={"status": "trash" if is_trash else "active"}, limit=1000, order_by="updated_at", descending=True))
+    scope_status = "trash" if is_trash else "active"
+    option_filters = {"status": scope_status}
+    category_options = repo.distinct_values("media_assets", "category", Query(filters=option_filters), limit=200)
+    mime_type_options = repo.distinct_values("media_assets", "mime_type", Query(filters=option_filters), limit=200)
     order_by, descending = media_sort_args(query.get("sort", "updated_desc"))
-    filters = {"status": "trash" if is_trash else "active"}
+    filters = {"status": scope_status}
     if query.get("category"):
         filters["category"] = query["category"]
     if query.get("mime_type"):
         filters["mime_type"] = query["mime_type"]
     if query.get("storage_kind"):
         filters["storage_kind"] = query["storage_kind"]
-    page = max(1, int_value(query.get("page"), 1))
-    per_page = max(20, min(int_value(query.get("per_page"), 80), 200))
-    queried_rows = repo.list("media_assets", Query(q=query.get("q", ""), filters=filters, limit=1000, order_by=order_by, descending=descending))
+    page, per_page = admin_list_page_args(query)
     usage_map = media_usage_map(repo)
-    queried_rows = media_filter_by_file_state(queried_rows, query.get("file_state", ""), usage_map, env)
-    total_rows = len(queried_rows)
-    start = (page - 1) * per_page
-    rows = queried_rows[start:start + per_page]
+    file_state = query.get("file_state", "")
+    if file_state:
+        queried_rows = repo.list("media_assets", Query(q=query.get("q", ""), filters=filters, limit=EXPORT_ROW_LIMIT, order_by=order_by, descending=descending))
+        queried_rows = media_filter_by_file_state(queried_rows, file_state, usage_map, env)
+        total_rows = len(queried_rows)
+        start = (page - 1) * per_page
+        rows = queried_rows[start:start + per_page]
+    else:
+        queried_rows = rows = repo.list(
+            "media_assets",
+            Query(q=query.get("q", ""), filters=filters, limit=per_page, offset=(page - 1) * per_page, order_by=order_by, descending=descending),
+        )
+        total_rows = repo.count("media_assets", Query(q=query.get("q", ""), filters=filters))
     items = []
     total_size = sum(int_value(row.get("size")) for row in queried_rows)
-    active_rows = repo.list("media_assets", Query(filters={"status": "active"}, limit=1000))
+    active_rows = repo.list("media_assets", Query(filters={"status": "active"}, limit=EXPORT_ROW_LIMIT))
     active_count = sum(1 for row in active_rows if str(row.get("status") or "active") == "active" and media_file_exists(row, env))
     missing_count = sum(1 for row in active_rows if str(row.get("status") or "active") == "active" and not media_file_exists(row, env))
-    trash_count = sum(1 for row in repo.list("media_assets", Query(filters={"status": "trash"}, limit=1000)) if str(row.get("status") or "active") == "trash")
+    trash_count = repo.count("media_assets", Query(filters={"status": "trash"}))
     for row in rows:
         key = str(row.get("object_key") or "")
         usage = usage_map.get(normalize_media_key(key), [])
@@ -6300,7 +6942,7 @@ def admin_media_table(repo: Repository, query: dict[str, str], env: dict[str, st
       {media_capacity_panel(queried_rows)}
       <div class="media-sticky-tools">
       {admin_batch_result_notice(query)}
-      {media_filter_form(query, all_rows, mode)}
+      {media_filter_form(query, category_options, mime_type_options, mode)}
       <form id="media-batch-form" class="media-batch-toolbar" method="post" action="/admin/table/media_assets/batch" data-delete-scope="{esc(delete_scope_label)}">
         <input type="hidden" name="return_to" value="{esc('/admin/table/media_assets/trash' if is_trash else '/admin/table/media_assets')}">
         <input type="hidden" name="scope" value="{esc(mode)}">
@@ -6366,10 +7008,10 @@ def media_export_used_url(query: dict[str, str], mode: str) -> str:
     return f"/admin/table/media_assets/export-used{suffix}"
 
 
-def media_filter_form(query: dict[str, str], rows: list[dict[str, Any]], mode: str) -> str:
+def media_filter_form(query: dict[str, str], category_values: list[str], mime_type_values: list[str], mode: str) -> str:
     action = "/admin/table/media_assets/trash" if mode == "trash" else "/admin/table/media_assets"
-    categories = sorted({text_only(row.get("category"), 80).strip() for row in rows if text_only(row.get("category"), 80).strip()})
-    mime_types = sorted({text_only(row.get("mime_type"), 120).strip() for row in rows if text_only(row.get("mime_type"), 120).strip()})
+    categories = sorted({text_only(value, 80).strip() for value in category_values if text_only(value, 80).strip()})
+    mime_types = sorted({text_only(value, 120).strip() for value in mime_type_values if text_only(value, 120).strip()})
     storage_kinds = [("", "全部存储"), ("static", "静态包"), ("local", "本地"), ("r2", "R2"), ("external", "外链")]
     file_states = [("", "全部状态"), ("available", "可用"), ("missing", "文件缺失"), ("used", "有引用"), ("unused", "未引用")]
     return f"""<form class="filters admin-media-search" method="get" action="{action}">
@@ -6460,8 +7102,8 @@ def media_options_payload(repo: Repository, env: dict[str, str], query: dict[str
     q = text_only(query.get("q"), 120)
     page = max(1, int_value(query.get("page"), 1))
     per_page = max(20, min(120, int_value(query.get("per_page"), 60)))
-    all_rows = repo.list("media_assets", Query(q=q, filters={"status": "active"}, limit=1000, order_by="updated_at", descending=True))
-    rows = all_rows[(page - 1) * per_page: page * per_page]
+    total_rows = repo.count("media_assets", Query(q=q, filters={"status": "active"}))
+    rows = repo.list("media_assets", Query(q=q, filters={"status": "active"}, limit=per_page, offset=(page - 1) * per_page, order_by="updated_at", descending=True))
     items = []
     for row in rows:
         key = normalize_media_key(str(row.get("object_key") or ""))
@@ -6472,7 +7114,7 @@ def media_options_payload(repo: Repository, env: dict[str, str], query: dict[str
             "uid": row.get("uid") or row.get("id"),
             "key": key,
             "title": text_only(row.get("title") or key, 160),
-            "category": text_only(row.get("category"), 80),
+            "category": media_category_value(row.get("category"), key),
             "storage_kind": media_storage_kind(row),
             "storage_label": media_storage_label(row),
             "mime_type": mime,
@@ -6485,14 +7127,14 @@ def media_options_payload(repo: Repository, env: dict[str, str], query: dict[str
         "folders": media_folder_options(repo),
         "page": page,
         "per_page": per_page,
-        "total": len(all_rows),
-        "has_more": page * per_page < len(all_rows),
+        "total": total_rows,
+        "has_more": page * per_page < total_rows,
     }
 
 
 def media_folder_options(repo: Repository) -> list[str]:
     folders: set[str] = set()
-    for row in repo.list("media_assets", Query(limit=1000)):
+    for row in repo.list("media_assets", Query(limit=EXPORT_ROW_LIMIT)):
         key = normalize_media_key(str(row.get("object_key") or ""))
         if "/" in key:
             folders.add(safe_media_folder("/".join(key.split("/")[:-1])))
@@ -6736,6 +7378,41 @@ def publication_parse_payload(body: bytes) -> dict[str, Any]:
         return {"ok": False, "message": "请先粘贴 BibTeX、GB/T、IEEE 或普通引文文本。"}
     fields = parse_publication_reference(raw, fmt)
     return {"ok": True, "fields": fields, "message": f"已解析 {len(fields)} 个字段" if fields else "未识别到可自动填写的字段"}
+
+
+def identifier_duplicates_payload(repo: Repository, query: dict[str, str]) -> dict[str, Any]:
+    table = text_only(query.get("table"), 80).strip()
+    field_name = text_only(query.get("field"), 80).strip()
+    current = text_only(query.get("current"), 200).strip()
+    value = text_only(query.get("value"), 300).strip()
+    if table not in TABLE_MAP:
+        return {"ok": False, "message": "未知数据表。", "matches": []}
+    meta = TABLE_MAP[table]
+    if field_name not in {"uid", "slug"} or field_name not in meta.field_names:
+        return {"ok": False, "message": "当前表没有这个可查重字段。", "matches": []}
+    if field_name == "slug":
+        value = safe_slug(value) if value else ""
+    if not value:
+        return {"ok": False, "message": "请先填写标识内容。", "matches": [], "length": 0}
+    matches = []
+    for row in repo.list(table, Query(limit=1000)):
+        key = text_only(row.get("uid") or row.get("id"), 200).strip()
+        row_value = text_only(row.get(field_name), 300).strip()
+        if field_name == "slug" and row_value:
+            row_value = safe_slug(row_value)
+        if current and key == current:
+            continue
+        if row_value == value:
+            title = row.get(meta.title_field) or row.get("title") or row.get("name") or key or row.get("id") or value
+            matches.append({
+                "uid": key,
+                "title": text_only(title, 240),
+                "field": field_name,
+                "value": value,
+                "edit_url": f"/admin/table/{table}/{key}",
+                "reasons": ["稳定标识重复" if field_name == "uid" else "URL 标识重复"],
+            })
+    return {"ok": True, "field": field_name, "value": value, "length": len(value), "matches": matches[:10]}
 
 
 def publication_duplicates_payload(repo: Repository, query: dict[str, str]) -> dict[str, Any]:
@@ -7079,7 +7756,7 @@ def news_suggestions_payload(repo: Repository) -> dict[str, Any]:
     if cached is not None and ttl > 0 and now - float(NEWS_SUGGESTION_CACHE.get("ts") or 0) < ttl and int(NEWS_SUGGESTION_CACHE.get("ttl") or ttl) == ttl:
         return {**cached, "cached": True, "ttl": ttl}
     rows = repo.list("news", Query(limit=1000, order_by="published_at", descending=True))
-    payload = {"ok": True, "fields": {"category": publication_unique_values(rows, "category")}}
+    payload = {"ok": True, "fields": {"category": publication_split_values(rows, "category")}}
     NEWS_SUGGESTION_CACHE.update({"ts": now, "ttl": ttl, "payload": payload})
     return {**payload, "cached": False, "ttl": ttl}
 
@@ -7687,6 +8364,20 @@ def compact_fields(fields: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in fields.items() if value not in (None, "")}
 
 
+def media_category_from_key(key: Any) -> str:
+    clean = normalize_media_key(str(key or ""))
+    first = clean.split("/", 1)[0].strip() if clean else ""
+    return first or "uploads"
+
+
+def media_category_value(value: Any, key: Any = "") -> str:
+    text = text_only(value, 500).strip()
+    polluted = text_only(NEWS_CATEGORY_HELP_TEXT, 500).strip()
+    if not text or text == polluted:
+        return media_category_from_key(key) if key else ""
+    return text_only(text, 120).strip()
+
+
 def save_media_record(repo: Repository, key: str, title: str, category: str, mime: str, size: int, storage_kind: str = "local") -> dict[str, Any]:
     return repo.save("media_assets", media_record_data(key, title, category, mime, size, storage_kind))
 
@@ -7698,7 +8389,7 @@ def media_record_data(key: str, title: str, category: str, mime: str, size: int,
         "object_key": key,
         "storage_kind": normalize_media_storage_kind(storage_kind, "local"),
         "title": title or key,
-        "category": category or "media",
+        "category": media_category_value(category, key),
         "mime_type": mime,
         "size": size,
         "status": "active",
@@ -7826,7 +8517,7 @@ def media_trash_retention_days(rows_or_repo: Any) -> int:
 def media_auto_empty_trash(repo: Repository) -> None:
     retention_days = media_trash_retention_days(repo)
     cutoff = time.time() - retention_days * 86400
-    for row in repo.list("media_assets", Query(limit=1000)):
+    for row in repo.list("media_assets", Query(limit=EXPORT_ROW_LIMIT)):
         if str(row.get("status") or "active") != "trash":
             continue
         changed_at = parse_timestamp(row.get("updated_at") or row.get("created_at"))
@@ -8015,7 +8706,7 @@ def media_scan_project_files(repo: Repository, env: dict[str, str]) -> dict[str,
     if env.get("PLATFORM") == "cloudflare":
         return {"unsupported": 1, "scanned": 0, "added": 0, "updated": 0, "skipped": 0}
     existing_by_key: dict[str, dict[str, Any]] = {}
-    for row in repo.list("media_assets", Query(limit=1000)):
+    for row in repo.list("media_assets", Query(limit=EXPORT_ROW_LIMIT)):
         key = normalize_media_key(str(row.get("object_key") or ""))
         if key and key not in existing_by_key:
             existing_by_key[key] = row
@@ -8130,7 +8821,7 @@ def media_delete_physical_file_for_row(row: dict[str, Any] | None) -> bool:
         return False
 
 
-def media_path_inside_managed_root(path: Path) -> bool:
+def media_path_inside_managed_root(path: Path, env: dict[str, str] | None = None) -> bool:
     try:
         resolved = path.resolve()
     except OSError:
@@ -8160,7 +8851,7 @@ def media_export_used_response(repo: Repository, query: dict[str, str], body: by
         result = {"ok": False, "exported": 0, "skipped": 0, "reason": "cloudflare"}
         return json_response({"ok": False, "message": "Cloudflare Worker 环境暂不能从 Static Assets 文件系统打包媒体文件；如需生产环境导出媒体，请后续接入 R2 对象读取。"}, 501), result
     form = _form_multi(body) if body else {}
-    selected = [value for value in form.get("selected", []) if value][:500]
+    selected = [value for value in form.get("selected", []) if value][:EXPORT_ROW_LIMIT]
     selected_mode = bool(selected)
     usage_map = media_usage_map(repo)
     raw_rows = media_export_candidate_rows(repo, query, selected, mode)
@@ -8176,11 +8867,11 @@ def media_export_used_response(repo: Repository, query: dict[str, str], body: by
         if not selected_mode and not usage:
             skipped.append({"object_key": key, "reason": "未发现使用位置"})
             continue
-        path = media_local_path(key)
+        path = media_local_path(key, env)
         if not path or not path.is_file():
             skipped.append({"object_key": key, "reason": "本地文件缺失"})
             continue
-        if not media_path_inside_managed_root(path):
+        if not media_path_inside_managed_root(path, env):
             skipped.append({"object_key": key, "reason": "文件不在受管理媒体目录"})
             continue
         try:
@@ -8191,7 +8882,7 @@ def media_export_used_response(repo: Repository, query: dict[str, str], body: by
         entries.append({
             "object_key": key,
             "title": text_only(row.get("title") or key, 200),
-            "category": text_only(row.get("category"), 120),
+            "category": media_category_value(row.get("category"), key),
             "mime_type": text_only(row.get("mime_type"), 160) or mimetypes.guess_type(path.name)[0] or "application/octet-stream",
             "size": size,
             "status": text_only(row.get("status") or "active", 40),
@@ -8214,7 +8905,7 @@ def media_export_used_response(repo: Repository, query: dict[str, str], body: by
                 "object_key": key,
                 "archive_path": arcname,
                 "title": entry["title"],
-                "category": entry["category"],
+                "category": entry.get("category", ""),
                 "mime_type": entry["mime_type"],
                 "size": entry["size"],
                 "status": entry["status"],
@@ -8244,7 +8935,7 @@ def media_export_candidate_rows(repo: Repository, query: dict[str, str], selecte
     if query.get("mime_type"):
         filters["mime_type"] = query["mime_type"]
     order_by, descending = media_sort_args(query.get("sort", "updated_desc"))
-    return repo.list("media_assets", Query(q=query.get("q", ""), filters=filters, limit=1000, order_by=order_by, descending=descending))
+    return repo.list("media_assets", Query(q=query.get("q", ""), filters=filters, limit=EXPORT_ROW_LIMIT, order_by=order_by, descending=descending))
 
 
 def media_zip_arcname(key: str) -> str:
@@ -8364,7 +9055,7 @@ def media_usage_map(repo: Repository) -> dict[str, list[dict[str, str]]]:
         fields = [field for field in table.fields if field.kind == "file"]
         if not fields or table.name == "media_assets":
             continue
-        for row in repo.list(table.name, Query(limit=1000)):
+        for row in repo.list(table.name, Query(limit=EXPORT_ROW_LIMIT)):
             for field in fields:
                 key = normalize_media_key(str(row.get(field.name) or ""))
                 if not key:
@@ -8381,7 +9072,7 @@ def media_usage_map(repo: Repository) -> dict[str, list[dict[str, str]]]:
             content_field = next((field for field in table.fields if field.name == "content"), None)
             if not content_field:
                 continue
-            for row in repo.list(table.name, Query(limit=1000)):
+            for row in repo.list(table.name, Query(limit=EXPORT_ROW_LIMIT)):
                 for key in media_keys_from_html(row.get("content")):
                     usage.setdefault(key, []).append({
                         "table": table.name,
@@ -8538,7 +9229,7 @@ def admin_form(meta: Table, row: dict[str, Any], repo: Repository | None = None)
     if meta.name == "global_settings":
         return admin_global_settings_form(meta, row)
     if meta.name == "navigation_items":
-        return admin_navigation_form(meta, row)
+        return admin_navigation_form(meta, row, repo)
     if meta.name == "profiles":
         return admin_profile_form(meta, row)
     if meta.name == "research_interests":
@@ -8867,6 +9558,11 @@ def admin_field_label(field: Any, value: Any, help_text: str = "", extra_class: 
     control = admin_field_control(field, value, textarea_rows, control_attrs)
     help_html = f'<small class="field-help" title="{esc(help_text)}">{esc(help_text)}</small>' if help_text else ""
     classes = " ".join(item for item in [extra_class, f"field-{field.name}"] if item)
+    if field.name in {"uid", "slug"}:
+        title = "检查稳定标识是否重复" if field.name == "uid" else "检查 URL 标识是否重复"
+        label_html = f'<span class="field-label field-label-with-action"><span>{esc(field.label)}</span><button class="button ghost identifier-duplicate-button" type="button" data-identifier-check="{esc(field.name)}" title="{esc(title)}">查重</button></span>'
+        result_html = f'<small class="field-check-result" data-identifier-result="{esc(field.name)}" aria-live="polite"></small>'
+        return f'<label class="{esc(classes)}">{label_html}{control}{help_html}{result_html}</label>'
     return f'<label class="{esc(classes)}"><span class="field-label">{esc(field.label)}</span>{control}{help_html}</label>'
 
 
@@ -8978,27 +9674,27 @@ def admin_media_preview_extension(value: str) -> str:
     return (suffix or "file").upper()[:8]
 
 
-def admin_navigation_form(meta: Table, row: dict[str, Any]) -> str:
+def admin_navigation_form(meta: Table, row: dict[str, Any], repo: Repository | None = None) -> str:
     field_map = {field.name: field for field in meta.fields}
     groups = [
-        ("基础信息", ["uid", "title", "title_en", "kind", "enabled", "sort_order"]),
+        ("基本信息", ["uid", "title", "title_en", "kind", "enabled", "sort_order"]),
         ("链接与显示位置", ["path", "url_name", "fragment", "location", "visibility"]),
         ("视觉样式", ["icon", "style"]),
     ]
     help_map = {
-        "uid": "稳定标识用于数据迁移和更新，创建后尽量不要频繁修改。",
-        "title": "前台中文导航文字或按钮文字。",
+        "uid": "稳定标识，用于数据迁移和更新；创建后通常不需要频繁修改。",
+        "title": "前台显示的导航文字或按钮文字。",
         "title_en": "英文模式下显示的导航文字，留空时使用中文标题。",
         "kind": "route 表示站内页面，external 表示外部链接，anchor 表示页面锚点，button 表示强调按钮。",
-        "path": "站内路径如 /team、/publications；外链可填写 https://...。",
-        "url_name": "可记录语义化路由名，供后续自动生成路径或迁移时识别。",
-        "fragment": "页面锚点，不含 #，例如 publications；通常与 path 组合跳转到页面局部。",
-        "icon": "可填写媒体 key、/media/...、https://... 或 Iconify 等公开图标路径；也可点“选择/上传”。",
-        "style": "link 为普通链接，primary/secondary/ghost 用于按钮外观。",
-        "location": "header 显示在顶部导航，home_hero 显示在首页主按钮区，footer 显示在页脚，admin_sidebar 显示在后台侧栏。",
-        "visibility": "public 为公开可见；staff/private 可为后续权限扩展保留。",
-        "enabled": "1 表示启用，0 表示停用；列表页也可以一键切换。",
-        "sort_order": "数字越小越靠前；列表页按此字段从小到大显示。",
+        "path": "站内路径，如 /team、/publications；外部链接填写 https://...。固定筛选支持多个条件，例如 /news?scope_category=比赛&scope_title=某条动态标题，或 /publications?scope_year=2025&scope_publication_type=期刊论文；下方生成器可自动填充这里。",
+        "url_name": "可记录语义化路由名称，主要用于自动生成路径或迁移时识别。",
+        "fragment": "页面锚点，不含 #，例如 publications；通常与 path 配合跳转到页面局部。",
+        "icon": "可填写媒体 key、/media/...、https://... 或 Iconify 等公开图标路径，也可点“选择/上传媒体”。",
+        "style": "link 为普通链接；primary/secondary/ghost 用于按钮外观。",
+        "location": "header 显示在顶部导航；home_hero 显示在首页主按钮；footer 显示在页脚；admin_sidebar 显示在后台侧栏。",
+        "visibility": "public 为公开可见；staff/private 作为后续权限扩展使用。",
+        "enabled": "1 表示启用；0 表示停用，列表页也可以一键切换。",
+        "sort_order": "数字越小越靠前；列表页按该字段大小排序显示。",
     }
     sections = []
     for title, names in groups:
@@ -9007,8 +9703,141 @@ def admin_navigation_form(meta: Table, row: dict[str, Any]) -> str:
             field = field_map.get(name)
             if field:
                 labels.append(admin_field_label(field, row.get(name, ""), help_map.get(name, "")))
-        sections.append(f'<fieldset class="form-section nav-form-section"><legend>{esc(title)}</legend>{"".join(labels)}</fieldset>')
+        extra = navigation_scope_builder(repo) if title == "链接与显示位置" else ""
+        sections.append(f'<fieldset class="form-section nav-form-section"><legend>{esc(title)}</legend>{"".join(labels)}{extra}</fieldset>')
     return f'<form class="edit-form nav-edit-form" method="post" action="/admin/table/{esc(meta.name)}/save">{"".join(sections)}{admin_form_actions(meta.name)}</form>'
+
+
+def navigation_scope_builder(repo: Repository | None) -> str:
+    data = navigation_scope_builder_data(repo)
+    payload = json.dumps(data, ensure_ascii=False).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+    table_options = "".join(
+        '<option value="{}">{} - {}</option>'.format(esc(item.get("table", "")), esc(item.get("label", "")), esc(item.get("path", "")))
+        for item in data
+    )
+    current = data[0] if data else {"fields": [], "path": ""}
+    fields = current.get("fields", []) or []
+    first_field = fields[0] if fields else {"name": "", "label": "", "values": []}
+    field_options = "".join(
+        '<option value="{}">{} ({})</option>'.format(esc(field.get("name", "")), esc(field.get("label", "")), esc(field.get("name", "")))
+        for field in fields
+    )
+    value_options = "".join(
+        '<option value="{}">{} ({})</option>'.format(esc(item.get("value", "")), esc(item.get("value", "")), esc(item.get("count", 0)))
+        for item in (first_field.get("values", []) or [])
+    )
+    first_value = (first_field.get("values", []) or [{}])[0].get("value", "") if first_field.get("values") else ""
+    initial_row = ""
+    if fields:
+        initial_row = (
+            f'<div class="nav-scope-condition-row" data-nav-scope-row="1">'
+            f'<label><span>字段</span><select data-nav-scope-field>{field_options}</select></label>'
+            f'<label><span>手动字段名</span><input type="text" data-nav-scope-field-manual value="{esc(first_field.get("name", ""))}" placeholder="如 category / status"></label>'
+            f'<label><span>取值</span><select data-nav-scope-value>{value_options}</select></label>'
+            f'<label><span>手动取值</span><input type="text" data-nav-scope-value-manual value="{esc(first_value)}" placeholder="可输入新值"></label>'
+            '<button class="button ghost" type="button" data-nav-scope-remove>移除</button>'
+            '</div>'
+        )
+    summary_rows = []
+    for field in fields:
+        values = field.get("values", []) or []
+        chips = "".join(f'<span>{esc(item.get("value", ""))} <em>{esc(item.get("count", 0))}</em></span>' for item in values[:8])
+        if len(values) > 8:
+            chips += f'<span>+{len(values) - 8}</span>'
+        summary_rows.append(
+            f'<div class="nav-scope-field-row"><strong>{esc(field.get("label", ""))} <code>{esc(field.get("name", ""))}</code></strong><div>{chips or "<span>暂无已有取值，可手动输入</span>"}</div></div>'
+        )
+    summary_html = "".join(summary_rows) or '<span>当前表没有可用于固定筛选的字段。</span>'
+    return f'''<section class="nav-scope-builder" data-nav-scope-builder>
+      <div class="nav-scope-builder-head">
+        <div><strong>固定筛选路径生成器</strong><small>选择目标页面后，可以添加多个固定筛选条件；也可以手动输入尚未出现的新字段或新取值。</small></div>
+        <div class="nav-scope-builder-actions"><button class="button light" type="button" data-nav-scope-add>添加条件</button><button class="button secondary" type="button" data-nav-scope-apply>填入路径</button></div>
+      </div>
+      <div class="nav-scope-builder-grid nav-scope-builder-mainline">
+        <label class="nav-scope-table-cell"><span>目标页面</span><select data-nav-scope-table>{table_options}</select></label>
+        <label class="nav-scope-output-cell"><span>生成路径</span><input type="text" value="{esc(current.get("path", ""))}" readonly data-nav-scope-output></label>
+        <button class="button ghost" type="button" data-nav-scope-copy>复制</button>
+      </div>
+      <div class="nav-scope-condition-list" data-nav-scope-conditions>{initial_row}</div>
+      <div class="nav-scope-field-summary" data-nav-scope-summary>{summary_html}</div>
+      <template data-nav-scope-data>{payload}</template>
+    </section>'''
+
+
+def navigation_scope_builder_data(repo: Repository | None) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for target in navigation_scope_field_config():
+        table = text_only(target.get("table"), 80).strip()
+        path = text_only(target.get("path"), 200).strip()
+        label = text_only(target.get("label"), 120).strip() or table
+        field_names = [text_only(name, 80).strip() for name in target.get("fields", []) if text_only(name, 80).strip()]
+        meta = TABLE_MAP.get(table)
+        if not meta or not path or not field_names:
+            continue
+        rows = repo.list(table, Query(limit=1000)) if repo else []
+        fields = []
+        for field_name in field_names:
+            if field_name not in meta.field_names:
+                fields.append({"name": field_name, "label": field_name, "values": []})
+                continue
+            field = field_by_name(meta, field_name)
+            values: dict[str, int] = {}
+            if field.choices:
+                for choice in field.choices:
+                    choice_text = text_only(choice, 120).strip()
+                    if choice_text:
+                        values.setdefault(choice_text, 0)
+            for row in rows:
+                value = text_only(row.get(field_name), 160).strip()
+                if value:
+                    values[value] = values.get(value, 0) + 1
+            value_items = [
+                {"value": value, "count": count}
+                for value, count in sorted(values.items(), key=lambda item: filter_option_sort_key(field_name, item[0]))[:80]
+            ]
+            fields.append({"name": field_name, "label": field.label, "values": value_items})
+        result.append({"table": table, "label": label, "path": path, "fields": fields})
+    return result
+
+
+def navigation_scope_field_config() -> list[dict[str, Any]]:
+    fallback = [
+        {"table": "news", "label": "动态", "path": "/news", "fields": ["title", "category"]},
+        {"table": "projects", "label": "项目", "path": "/projects", "fields": ["name", "source", "fund_name", "status", "principal"]},
+        {"table": "publications", "label": "论文", "path": "/publications", "fields": ["title", "year", "venue", "publication_type", "author_role", "index_type"]},
+        {"table": "patents", "label": "专利", "path": "/patents", "fields": ["name", "patent_type", "legal_status", "country", "owner"]},
+        {"table": "students", "label": "学生", "path": "/students", "fields": ["name", "degree", "category", "grade", "status", "direction"]},
+        {"table": "profiles", "label": "团队", "path": "/team", "fields": ["name", "role", "title", "organization", "lab"]},
+        {"table": "courses", "label": "课程", "path": "/courses", "fields": ["name", "semester", "audience"]},
+    ]
+    try:
+        data = json.loads(NAVIGATION_SCOPE_FIELDS_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return fallback
+    if not isinstance(data, list):
+        return fallback
+    cleaned: list[dict[str, Any]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        table = text_only(item.get("table"), 80).strip()
+        path = text_only(item.get("path"), 200).strip()
+        fields = [text_only(value, 80).strip() for value in (item.get("fields") or []) if text_only(value, 80).strip()]
+        if table and path and fields:
+            cleaned.append({"table": table, "label": text_only(item.get("label"), 120).strip() or table, "path": path, "fields": fields})
+    return cleaned or fallback
+
+
+def navigation_scope_field_names(table: str, filter_specs: list[tuple[str, str]]) -> list[str]:
+    names = [name for name, _label in filter_specs]
+    for item in navigation_scope_field_config():
+        if item.get("table") == table:
+            for name in item.get("fields", []):
+                clean = text_only(name, 80).strip()
+                if clean and clean not in names:
+                    names.append(clean)
+            break
+    return names
 
 
 def admin_profile_form(meta: Table, row: dict[str, Any]) -> str:
@@ -9260,7 +10089,7 @@ def admin_student_form(meta: Table, row: dict[str, Any]) -> str:
         "student_id": "学号、入组编号或内部管理编号，可用于后台检索。",
         "avatar_key": "学生照片媒体 key，可从媒体库选择、上传或裁剪；前台无图时显示姓名姓氏。",
         "degree": "培养层次，例如本科、硕士、博士、访问学生；支持历史填法提示。",
-        "category": "学生分组，例如在读学生、毕业校友、助研、本科生；支持历史填法提示。",
+        "category": "学生类别，例如本科生、硕士生、博士生、校友；用于前台分组和筛选，支持历史项补全提示。",
         "grade": "年级或入学届别，例如 2024 级；支持历史填法提示。",
         "status": "当前状态，例如在读、毕业、联合培养、访学；支持历史填法提示。",
         "direction": "研究方向或课题方向，前台列表会显示；支持历史填法提示。",
@@ -9352,7 +10181,7 @@ def admin_news_form(meta: Table, row: dict[str, Any]) -> str:
         "uid": "稳定标识用于后台编辑路径、导入导出和迁移。新增时自动生成，创建后尽量不要频繁修改。",
         "title": "动态标题，前台列表、详情页标题和后台搜索都会优先读取。",
         "slug": "动态详情页 URL 标识，例如 paper-accepted；留空保存时会根据标题自动生成。",
-        "category": "动态分类，例如 论文、项目、学生、课程、获奖、网站；支持历史分类提示。",
+        "category": "动态分类，支持填写一个或多个分类；多个分类请用分号分隔，例如：项目;比赛;课程。前台筛选任一分类时都能命中该动态。",
         "cover_key": "封面图媒体 key，可从媒体库选择或上传；未设置时前台列表显示轻量占位。",
         "content": "动态正文。可直接编辑源码，也可打开富文本窗口编辑；使用富文本保存时会自动切换为 html。",
         "content_format": "正文解析格式。plain 最省资源；html 支持富文本、图片和链接；markdown 预留给后续扩展。",
@@ -9368,7 +10197,7 @@ def admin_news_form(meta: Table, row: dict[str, Any]) -> str:
     attrs_map = {
         "title": 'placeholder="例如 团队论文被 XXX 录用"',
         "slug": 'placeholder="例如 paper-accepted-2026"',
-        "category": 'placeholder="例如 论文、项目、学生、课程" data-news-suggest="category" autocomplete="off"',
+        "category": 'placeholder="例如 项目;比赛;课程" data-news-suggest="category" autocomplete="off"',
         "cover_key": 'placeholder="例如 news/paper-accepted.webp"',
         "related_publication_uid": 'placeholder="例如 pub-2026-001"',
         "related_project_uid": 'placeholder="例如 project-2026-001"',
@@ -9405,7 +10234,9 @@ def admin_news_content_field(field: Any, value: Any, help_text: str) -> str:
         <div class="news-rich-entry-actions">
           <button class="button secondary" type="button" data-news-rich-open>打开富文本编辑器</button>
           <button class="button light" type="button" data-news-rich-preview>预览 HTML</button>
-          <span class="admin-muted">富文本媒体会进入媒体库统一管理。</span>
+          <button class="button light" type="button" data-news-content-upload>上传 PDF/媒体并插入正文</button>
+          <input type="file" accept=".pdf,application/pdf,image/*,video/*,.doc,.docx" data-news-content-upload-file hidden>
+          <span class="admin-muted" data-news-content-upload-status>上传后会自动写入正文，媒体进入媒体库统一管理。</span>
         </div>
         {control}
       </div>
@@ -9718,6 +10549,7 @@ def normalize_admin_data(meta: Table, data: dict[str, str]) -> dict[str, Any]:
     if meta.name == "media_assets" and not normalized.get("status"):
         normalized["status"] = "active"
     if meta.name == "media_assets":
+        normalized["category"] = media_category_value(normalized.get("category"), normalized.get("object_key"))
         if not normalized.get("storage_kind"):
             normalized["storage_kind"] = media_storage_kind(normalized.get("object_key"))
         else:
@@ -9833,7 +10665,8 @@ def fact(label: str, value: Any) -> str:
 def button(item: dict[str, Any], env: dict[str, str] | None = None, repo: Repository | None = None) -> str:
     env = env or {}
     label = front_value(repo, env, "navigation_items", item, "title", 120) if repo else localized_nav_title(item, current_lang(env))
-    return f'<a class="button {esc(item.get("style") or "secondary")}" href="{esc(lang_url(str(item.get("path") or "/"), env))}">{esc(label)}</a>'
+    href = navigation_item_href(repo, env, item) if repo else lang_url(navigation_item_target(item), env)
+    return f'<a class="button {esc(item.get("style") or "secondary")}" href="{esc(href)}">{esc(label)}</a>'
 
 
 TRANSLATIONS = {
@@ -9852,7 +10685,7 @@ TRANSLATIONS = {
         "source": "来源", "fund_name": "基金", "project_search": "项目名称、来源、基金、项目号、负责人、成员",
         "project_number": "项目号", "project_period": "周期", "project_amount": "金额", "project_amount_unit": "万元",
         "semester": "学期", "audience": "对象", "course_search": "课程名称、学期、对象、简介",
-        "year": "年份", "venue": "期刊会议", "publication_type": "类型", "author_role": "作者角色", "index_type": "收录",
+        "year": "年份", "month": "月份", "venue": "期刊会议", "publication_type": "类型", "author_role": "作者角色", "index_type": "收录",
         "publication_search": "题名、作者、期刊、DOI、关键词", "news_search": "标题、分类、内容、关联信息",
         "inventors": "发明人/作者", "owner": "权利人", "application_number": "申请号", "grant_number": "授权号",
         "application_info": "申请", "grant_info": "授权",
@@ -9880,7 +10713,7 @@ TRANSLATIONS = {
         "source": "Source", "fund_name": "Fund", "project_search": "Project title, source, fund, project no., PI, members",
         "project_number": "Project No.", "project_period": "Period", "project_amount": "Amount", "project_amount_unit": "CNY",
         "semester": "Semester", "audience": "Audience", "course_search": "Course name, semester, audience, summary",
-        "year": "Year", "venue": "Journal / Conference", "publication_type": "Type", "author_role": "Author Role", "index_type": "Indexing",
+        "year": "Year", "month": "Month", "venue": "Journal / Conference", "publication_type": "Type", "author_role": "Author Role", "index_type": "Indexing",
         "publication_search": "Title, authors, venue, DOI, keywords", "news_search": "Title, category, content, related information",
         "inventors": "Inventors", "owner": "Owner", "application_number": "Application No.", "grant_number": "Grant No.",
         "application_info": "Application", "grant_info": "Grant",
@@ -10162,10 +10995,10 @@ def localized_nav_title(item: dict[str, Any], lang: str) -> str:
 
 
 def lang_url(path: str, env: dict[str, str]) -> str:
-    if current_lang(env) != "en" or path.startswith(("http://", "https://", "mailto:")):
+    if current_lang(env) != "zh" or path.startswith(("http://", "https://", "mailto:")):
         return safe_href(path)
     separator = "&" if "?" in path else "?"
-    return safe_href(f"{path}{separator}lang=en")
+    return safe_href(f"{path}{separator}lang=zh")
 
 
 def site_absolute_url(site_url: str, path: str) -> str:
@@ -10178,33 +11011,130 @@ def site_absolute_url(site_url: str, path: str) -> str:
     return f"{base}{clean}" if base else clean
 
 
-def english_path(path: str) -> str:
+def zh_path(path: str) -> str:
     separator = "&" if "?" in path else "?"
-    return f"{path}{separator}lang=en"
+    return f"{path}{separator}lang=zh"
 
 
 def seo_language_links(env: dict[str, str]) -> str:
     site_url = str(env.get("SITE_URL") or "").rstrip("/")
     path = str(env.get("_PATH") or "/")
-    zh_url = site_absolute_url(site_url, path)
-    en_url = site_absolute_url(site_url, english_path(path))
-    canonical = en_url if current_lang(env) == "en" else zh_url
+    en_url = site_absolute_url(site_url, path)
+    zh_url = site_absolute_url(site_url, zh_path(path))
+    canonical = zh_url if current_lang(env) == "zh" else en_url
     return "\n".join(
         [
             f'<link rel="canonical" href="{esc(canonical)}">',
             f'<link rel="alternate" hreflang="zh-CN" href="{esc(zh_url)}">',
             f'<link rel="alternate" hreflang="en" href="{esc(en_url)}">',
-            f'<link rel="alternate" hreflang="x-default" href="{esc(zh_url)}">',
+            f'<link rel="alternate" hreflang="x-default" href="{esc(en_url)}">',
         ]
     )
 
 
-def language_switch(env: dict[str, str]) -> str:
-    path = env.get("_PATH") or "/"
-    if current_lang(env) == "en":
-        return f'<a class="lang-switch" href="{esc(safe_href(path))}" lang="zh-CN">中文</a>'
-    return f'<a class="lang-switch" href="{esc(safe_href(path + "?lang=en"))}" lang="en">EN</a>'
+def language_switch(repo: Repository, env: dict[str, str]) -> str:
+    lang = current_lang(env)
+    en_href = localized_language_url(repo, env, "en")
+    zh_href = localized_language_url(repo, env, "zh")
+    en_active = ' is-active' if lang == 'en' else ''
+    zh_active = ' is-active' if lang == 'zh' else ''
+    en_current = 'true' if lang == 'en' else 'false'
+    zh_current = 'true' if lang == 'zh' else 'false'
+    switch_state = "is-zh" if lang == "zh" else "is-en"
+    return (
+        f'<div class="lang-switch {switch_state}" role="group" aria-label="Language">'
+        f'<a class="lang-switch-option{en_active}" href="{esc(safe_href(en_href))}" lang="en" aria-current="{en_current}">EN</a>'
+        f'<a class="lang-switch-option{zh_active}" href="{esc(safe_href(zh_href))}" lang="zh-CN" aria-current="{zh_current}">中</a>'
+        f'</div>'
+    )
 
+
+def localized_front_url(repo: Repository, env: dict[str, str], url: str) -> str:
+    if current_lang(env) != "zh" or url.startswith(("http://", "https://", "mailto:")):
+        return safe_href(url)
+    parsed = urlparse(url)
+    if parsed.scheme or parsed.netloc:
+        return safe_href(url)
+    path = parsed.path or "/"
+    query = _query(parsed.query)
+    params = localized_language_query_params(repo, env, path, query, "zh")
+    params["lang"] = "zh"
+    localized = append_query_params(path, params)
+    if parsed.fragment:
+        localized += f"#{parsed.fragment}"
+    return safe_href(localized)
+
+
+def localized_language_url(repo: Repository, env: dict[str, str], target_lang: str) -> str:
+    path = text_only(env.get("_PATH") or "/", 300).strip() or "/"
+    raw_query = env.get("_QUERY")
+    query = dict(raw_query) if isinstance(raw_query, dict) else {}
+    params = localized_language_query_params(repo, env, path, query, target_lang)
+    if target_lang == "zh":
+        params["lang"] = "zh"
+    else:
+        params.pop("lang", None)
+    return append_query_params(path, params)
+
+
+def localized_request_redirect_url(repo: Repository, method: str, path: str, query: dict[str, str], env: dict[str, str]) -> str:
+    if method.upper() != "GET":
+        return ""
+    table, _specs = public_filter_context(path, env)
+    if not table:
+        return ""
+    target_lang = current_lang(env)
+    params = localized_language_query_params(repo, env, path, query, target_lang)
+    if target_lang == "zh":
+        params["lang"] = "zh"
+    else:
+        params.pop("lang", None)
+    current = {key: value for key, value in query.items() if value not in (None, "")}
+    if target_lang == "zh":
+        current["lang"] = "zh"
+    else:
+        current.pop("lang", None)
+    return "" if params == current else append_query_params(path, params)
+
+
+def localized_language_query_params(repo: Repository, env: dict[str, str], path: str, query: dict[str, str], target_lang: str) -> dict[str, str]:
+    table, specs = public_filter_context(path, env)
+    if not table:
+        result = {key: value for key, value in query.items() if key != "lang" and value not in (None, "")}
+        return result
+    names = navigation_scope_field_names(table, specs)
+    spec_names = {name for name, _label in specs}
+    values_by_field = filter_distinct_map(repo, env, table, list(dict.fromkeys([*names, *spec_names])))
+    result: dict[str, str] = {}
+    target_env = {**env, "_LANG": target_lang}
+    for key, value in query.items():
+        if key == "lang" or value in (None, ""):
+            continue
+        field_name = key.removeprefix("scope_") if key.startswith("scope_") else key
+        if field_name in names or field_name in spec_names:
+            source = filter_source_value_from_param(repo, env, table, values_by_field, field_name, value)
+            result[key] = localized_filter_value(repo, target_env, table, {field_name: source}, field_name, source) if target_lang == "en" else source
+        else:
+            result[key] = value
+    return result
+
+
+def public_filter_context(path: str, env: dict[str, str]) -> tuple[str, list[tuple[str, str]]]:
+    if path == "/team":
+        return "profiles", [("role", t(env, "role")), ("title", t(env, "title")), ("organization", t(env, "organization")), ("lab", t(env, "team"))]
+    if path == "/publications":
+        return "publications", [("year", t(env, "year")), ("venue", t(env, "venue")), ("publication_type", t(env, "publication_type")), ("author_role", t(env, "author_role")), ("index_type", t(env, "index_type"))]
+    if path == "/projects":
+        return "projects", [("source", t(env, "source")), ("fund_name", t(env, "fund_name")), ("status", t(env, "status"))]
+    if path == "/patents":
+        return "patents", [("patent_type", t(env, "patent_type")), ("legal_status", t(env, "legal_status")), ("country", t(env, "country"))]
+    if path == "/students":
+        return "students", [("degree", t(env, "degree")), ("category", t(env, "category")), ("grade", t(env, "grade")), ("status", t(env, "status"))]
+    if path == "/news":
+        return "news", [("category", t(env, "category"))]
+    if path == "/courses":
+        return "courses", [("semester", t(env, "semester")), ("audience", t(env, "audience"))]
+    return "", []
 
 def external_links(profile: dict[str, Any]) -> str:
     links = []
@@ -10353,13 +11283,13 @@ def latest_publications(rows: list[dict[str, Any]], limit: int) -> list[dict[str
     return sorted(rows, key=key, reverse=True)[: max(1, limit)]
 
 
-def publication_list(rows: list[dict[str, Any]], selectable: bool = False, compact: bool = False, display_style: str = "gbt", repo: Repository | None = None, env: dict[str, str] | None = None) -> str:
+def publication_list(rows: list[dict[str, Any]], selectable: bool = False, compact: bool = False, display_style: str = "gbt", repo: Repository | None = None, env: dict[str, str] | None = None, total_rows: int | None = None, offset: int = 0, lazy: bool = False) -> str:
     items = []
-    total = len(rows)
+    total = len(rows) if total_rows is None else total_rows
     base_names = publication_highlight_base_names(repo) if repo else []
     for index, row in enumerate(rows, 1):
         display_row = front_row(repo, env or {}, "publications", row) if repo and env else row
-        number = total - index + 1 if compact else index
+        number = total - offset - index + 1 if compact else offset + index
         citations = publication_citations(display_row)
         pdf = f'<a href="{esc(media_url(row.get("pdf_key")))}">PDF</a>' if row.get("pdf_key") else ""
         doi = f'<a href="https://doi.org/{esc(row.get("doi"))}" target="_blank" rel="noreferrer">DOI</a>' if row.get("doi") else ""
@@ -10385,7 +11315,8 @@ def publication_list(rows: list[dict[str, Any]], selectable: bool = False, compa
         else:
             items.append(f'<article class="publication-item">{checkbox}<span class="index">{number}</span><div><p>{esc(display_citation)}</p><p class="meta">{esc(row.get("year"))} / {esc(display_row.get("venue"))} / {esc(display_row.get("publication_type"))} {doi} {pdf}</p></div></article>')
     class_name = "citation-list classified-list" if compact else "publication-list"
-    return f'<section class="{class_name}">' + ("".join(items) or empty(env or {})) + "</section>"
+    lazy_attr = " data-lazy-list" if lazy else ""
+    return f'<section class="{class_name}"{lazy_attr}>' + ("".join(items) or empty(env or {})) + "</section>"
 
 
 def publication_citations(row: dict[str, Any]) -> dict[str, str]:
@@ -10923,34 +11854,213 @@ def simple_items(rows: list[dict[str, Any]], title_field: str, meta_field: str, 
     return '<div class="mini-list">' + "".join(parts) + "</div>"
 
 
-def news_list(rows: list[dict[str, Any]], detail: bool = False, repo: Repository | None = None, env: dict[str, str] | None = None) -> str:
+def news_cover_placeholder_text(row: dict[str, Any], display_row: dict[str, Any] | None = None) -> str:
+    display_row = display_row or row
+    categories = split_filter_tokens(display_row.get("category") or row.get("category"))
+    return text_only(categories[0] if categories else "动态", 40).strip() or "动态"
+
+
+def news_cover_html(row: dict[str, Any], display_row: dict[str, Any], css_class: str, env: dict[str, str] | None = None, lang: str = "zh") -> str:
+    env = env or {}
+    cover_key = text_only(row.get("cover_key"), 300).strip()
+    if cover_key and (cover_key.startswith(("http://", "https://")) or not local_media_missing(cover_key)):
+        return image_tag(cover_key, text_only(display_row.get("title") or row.get("title") or "动态", 240), css_class, env.get("PUBLIC_MEDIA_BASE_URL", ""), lang)
+    label = news_cover_placeholder_text(row, display_row)
+    return f'<span class="{esc(css_class)} placeholder news-cover-category" title="{esc(label)}">{esc(label)}</span>'
+
+
+
+def news_category_tags(row: dict[str, Any], display_row: dict[str, Any], repo: Repository | None = None, env: dict[str, str] | None = None) -> str:
+    env = env or {}
+    source_tokens = split_filter_tokens(row.get("category"))
+    display_tokens = split_filter_tokens(display_row.get("category"))
+    if not source_tokens and display_tokens:
+        source_tokens = display_tokens
+    if not source_tokens:
+        return ""
+    parts = []
+    for index, source in enumerate(source_tokens[:5]):
+        label = display_tokens[index] if index < len(display_tokens) else ""
+        if not label and repo:
+            label = localized_filter_value(repo, env, "news", {"category": source}, "category", source)
+        label = text_only(label or source, 80).strip()
+        href = lang_url(f"/news?category={quote(source)}", env)
+        parts.append(f'<a class="news-category-tag" href="{esc(href)}" title="{esc(label)}">{esc(label)}</a>')
+    if len(source_tokens) > 5:
+        parts.append(f'<span class="news-category-tag news-category-more">+{len(source_tokens) - 5}</span>')
+    return '<span class="news-category-tags">' + "".join(parts) + '</span>'
+
+
+def news_list(rows: list[dict[str, Any]], detail: bool = False, repo: Repository | None = None, env: dict[str, str] | None = None, start_index: int = 1, lazy: bool = False) -> str:
     items = []
-    for index, row in enumerate(rows, 1):
+    for index, row in enumerate(rows, start_index):
         display_row = front_row(repo, env or {}, "news", row) if repo and env else row
         href = f'/news/{safe_slug(str(row.get("slug") or row.get("title") or ""))}'
         if env:
             href = lang_url(href, env)
         if detail:
             summary = f'<p class="news-excerpt">{esc(text_only(display_row.get("content"), 180))}</p>'
-            cover = '<div class="news-cover placeholder">N</div>'
-            items.append(f'<article class="news-row"><span class="item-number">{index}</span>{cover}<div class="news-content"><div class="news-meta-line"><time>{esc(row.get("published_at"))}</time><span>{esc(display_row.get("category"))}</span></div><h2><a href="{esc(href)}">{esc(display_row.get("title"))}</a></h2>{summary}</div></article>')
+            cover = news_cover_html(row, display_row, "news-cover", env or {}, current_lang(env or {}))
+            category_tags = news_category_tags(row, display_row, repo, env or {})
+            items.append(f'<article class="news-row"><span class="item-number">{index}</span>{cover}<div class="news-content"><div class="news-meta-line"><time>{esc(row.get("published_at"))}</time>{category_tags}</div><h2><a href="{esc(href)}">{esc(display_row.get("title"))}</a></h2>{summary}</div></article>')
         else:
             items.append(f'<article class="news-item"><time>{esc(row.get("published_at"))}</time><a href="{esc(href)}">{esc(display_row.get("title"))}</a></article>')
     class_name = "news-list compact-news-list" if detail else "news-list"
-    return f'<section class="{class_name}">' + ("".join(items) or empty(env or {})) + "</section>"
+    lazy_attr = " data-lazy-list" if lazy else ""
+    return f'<section class="{class_name}"{lazy_attr}>' + ("".join(items) or empty(env or {})) + "</section>"
 
 
-def compact_filter_form(query: dict[str, str], placeholder: str, filter_groups: list[tuple[str, str, list[Any]]], env: dict[str, str] | None = None) -> str:
+def front_page_args(query: dict[str, str], default_per_page: int = 20) -> tuple[int, int, int]:
+    page = max(1, int_value(query.get("page"), 1))
+    per_page = max(10, min(int_value(query.get("per_page"), default_per_page), 100))
+    return page, per_page, (page - 1) * per_page
+
+
+def front_lazy_partial(query: dict[str, str]) -> bool:
+    return text_only(query.get("partial"), 30).strip() == "items"
+
+
+def front_lazy_block(items_html: str, pager: str) -> str:
+    return f'<div class="front-lazy" data-front-lazy>{items_html}{pager}</div>'
+
+
+def front_pager(query: dict[str, str], total_rows: int, page: int, per_page: int, env: dict[str, str]) -> str:
+    if total_rows <= per_page and page <= 1:
+        return ""
+    total_pages = max(1, (total_rows + per_page - 1) // per_page)
+    params = {key: value for key, value in query.items() if key not in {"page", "partial"} and value not in (None, "")}
+    prev_label = "Previous" if current_lang(env) == "en" else "上一页"
+    next_label = "Next" if current_lang(env) == "en" else "下一页"
+    total_label = "items" if current_lang(env) == "en" else "条"
+    page_label = f"{page} / {total_pages}, {total_rows} {total_label}"
+    prev_link = front_page_link(params, page - 1, prev_label, "prev") if page > 1 else f'<span class="button light is-disabled">{esc(prev_label)}</span>'
+    next_link = front_page_link(params, page + 1, next_label, "next") if page < total_pages else f'<span class="button light is-disabled">{esc(next_label)}</span>'
+    return f'<nav class="front-pager" data-lazy-pager aria-label="Pagination">{prev_link}<span>{esc(page_label)}</span>{next_link}</nav>'
+
+
+def front_page_link(params: dict[str, str], page: int, label: str, rel: str = "") -> str:
+    query = urlencode({**params, "page": str(page)})
+    rel_attr = f' rel="{esc(rel)}"' if rel else ""
+    lazy_attr = ' data-lazy-next' if rel == "next" else ""
+    return f'<a class="button light" href="?{esc(query)}"{rel_attr}{lazy_attr}>{esc(label)}</a>'
+
+
+
+def is_multi_value_filter_field(table: str, field: str) -> bool:
+    return (table, field) in MULTI_VALUE_FILTER_FIELDS
+
+
+def split_filter_tokens(value: Any) -> list[str]:
+    text = text_only(value, 500).strip()
+    for sep in ("；", "，", ",", "|", "、"):
+        text = text.replace(sep, ";")
+    return [item.strip() for item in text.split(";") if item.strip()]
+
+
+def split_multi_value_filters(table: str, filters: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    row_filters: dict[str, Any] = {}
+    token_filters: dict[str, Any] = {}
+    for key, value in filters.items():
+        if is_multi_value_filter_field(table, key):
+            token_filters[key] = value
+        else:
+            row_filters[key] = value
+    return row_filters, token_filters
+
+
+def filter_distinct_cache_load() -> dict[str, Any]:
+    try:
+        if FILTER_DISTINCT_CACHE_PATH.is_file():
+            data = json.loads(FILTER_DISTINCT_CACHE_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except (OSError, ValueError, TypeError):
+        return {}
+    return {}
+
+
+def filter_distinct_cache_save(cache: dict[str, Any]) -> None:
+    try:
+        FILTER_DISTINCT_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        FILTER_DISTINCT_CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except OSError:
+        return
+
+
+def filter_distinct_cache_key(table: str, fields: list[str], filters: dict[str, Any], scopes: tuple[str, ...]) -> str:
+    payload = json.dumps({"table": table, "fields": fields, "filters": filters, "scopes": scopes}, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+def filter_distinct_map(repo: Repository, env: dict[str, str], table: str, fields: list[str], filters: dict[str, Any] | None = None, limit: int = 120) -> dict[str, list[str]]:
+    meta = TABLE_MAP.get(table)
+    if not meta:
+        return {}
+    clean_fields = []
+    for field in fields:
+        if field in meta.field_names and field not in clean_fields:
+            clean_fields.append(field)
+    if not clean_fields:
+        return {}
+    clean_filters = {key: value for key, value in (filters or {}).items() if key in meta.field_names and value not in (None, "")}
+    row_filters, token_filters = split_multi_value_filters(table, clean_filters)
+    scopes = visible_scopes_for_current_user(repo, env)
+    cache_key = filter_distinct_cache_key(table, clean_fields, clean_filters, scopes)
+    request_cache = env.setdefault("_FILTER_DISTINCT_CACHE", {})
+    if isinstance(request_cache, dict) and cache_key in request_cache:
+        cached_request = request_cache.get(cache_key)
+        if isinstance(cached_request, dict):
+            return {key: list(value) for key, value in cached_request.items()}
+    now = time.time()
+    file_cache = filter_distinct_cache_load()
+    cached = file_cache.get(cache_key)
+    if isinstance(cached, dict) and now - float(cached.get("time") or 0) <= FILTER_DISTINCT_CACHE_TTL_SECONDS:
+        values = cached.get("values")
+        if isinstance(values, dict):
+            result = {key: [text_only(item, 300).strip() for item in value if text_only(item, 300).strip()] for key, value in values.items() if isinstance(value, list)}
+            if isinstance(request_cache, dict):
+                request_cache[cache_key] = result
+            return result
+    result: dict[str, list[str]] = {}
+    distinct = getattr(repo, "distinct_values", None)
+    for field in clean_fields:
+        query = Query(filters=row_filters, token_filters=token_filters, limit=limit, order_by=field)
+        if callable(distinct):
+            values = distinct(table, field, visible_query(repo, env, query), limit)
+        else:
+            rows = visible_list(repo, env, table, Query(filters=row_filters, token_filters=token_filters, limit=1000, order_by=field))
+            values = [text_only(row.get(field), 300).strip() for row in rows]
+        if is_multi_value_filter_field(table, field):
+            expanded_values = []
+            for value in values:
+                expanded_values.extend(split_filter_tokens(value))
+            values = expanded_values
+        deduped = sorted({text_only(value, 300).strip() for value in values if text_only(value, 300).strip()}, key=lambda value: filter_option_sort_key(field, value))[:limit]
+        result[field] = deduped
+    if isinstance(request_cache, dict):
+        request_cache[cache_key] = result
+    file_cache[cache_key] = {"time": now, "values": result}
+    if len(file_cache) > 80:
+        file_cache = dict(sorted(file_cache.items(), key=lambda item: float((item[1] or {}).get("time") or 0), reverse=True)[:80])
+    filter_distinct_cache_save(file_cache)
+    return result
+
+
+def front_filter_values(repo: Repository, env: dict[str, str], table: str, filter_specs: list[tuple[str, str]], fixed_filters: dict[str, Any] | None = None, extra_fields: list[str] | None = None) -> dict[str, list[str]]:
+    fields = list(dict.fromkeys([*navigation_scope_field_names(table, filter_specs), *(name for name, _label in filter_specs), *(extra_fields or [])]))
+    return filter_distinct_map(repo, env, table, fields, fixed_filters or {})
+
+
+def compact_filter_form(query: dict[str, str], placeholder: str, filter_groups: list[tuple[str, str, list[Any]]], env: dict[str, str] | None = None, fixed_params: dict[str, Any] | None = None, form_class: str = "filters compact-filterbar") -> str:
     env = env or {}
-    reset_href = "?lang=en" if current_lang(env) == "en" else "?"
-    return f"""<form class="filters compact-filterbar" method="get">
-      {lang_hidden(env)}
+    fixed_hidden, reset_href = fixed_filter_form_bits(fixed_params, env)
+    return f"""<form class="{esc(form_class)}" method="get">
+      {lang_hidden(env)}{fixed_hidden}
       <input class="filter-search" name="q" value="{esc(query.get("q", ""))}" placeholder="{esc(placeholder)}">
       {filter_selects(query, filter_groups)}
       <button>{esc(t(env, "search"))}</button>
       <a class="button ghost filter-reset" href="{esc(reset_href)}">{esc(t(env, "reset"))}</a>
     </form>"""
-
 
 def lang_hidden(env: dict[str, str]) -> str:
     return '<input type="hidden" name="lang" value="en">' if current_lang(env) == "en" else ""
@@ -11015,20 +12125,74 @@ def visual_text_units(value: Any) -> float:
     return max(units, 1.0)
 
 
-def filter_options(rows: list[dict[str, Any]], specs: list[tuple[str, str]], repo: Repository | None = None, env: dict[str, str] | None = None, table: str = "") -> list[tuple[str, str, list[Any]]]:
+def localized_filter_value(repo: Repository | None, env: dict[str, str] | None, table: str, row: dict[str, Any], field: str, value: Any) -> str:
+    source = text_only(value, 300).strip()
+    env = env or {}
+    if not source or current_lang(env) != "en" or not repo or not table:
+        return source
+    display = front_value(repo, env, table, row, field, 300) if row else ""
+    fallback = localized_option_label(env, source)
+    return text_only(fallback if display == source and fallback != source else display or fallback or source, 300).strip() or source
+
+
+def filter_source_value_from_param(repo: Repository | None, env: dict[str, str] | None, table: str, values_by_field: dict[str, list[str]], field: str, value: Any) -> str:
+    selected = text_only(value, 300).strip()
+    if not selected:
+        return ""
+    values = [text_only(item, 300).strip() for item in values_by_field.get(field, []) if text_only(item, 300).strip()]
+    candidates = {source: {field: source} for source in values}
+    if selected in candidates:
+        return selected
+    selected_folded = selected.casefold()
+    for source, row in candidates.items():
+        localized = localized_filter_value(repo, env, table, row, field, source)
+        if localized and localized.casefold() == selected_folded:
+            return source
+    zh_value = i18n_dictionary_lookup_source(env or {}, selected, "zh")
+    if zh_value and zh_value in candidates:
+        return zh_value
+    return selected
+
+
+def localized_query_filters(query: dict[str, str], specs: list[tuple[str, str]], values_by_field: dict[str, list[str]], repo: Repository | None, env: dict[str, str], table: str) -> dict[str, str]:
+    filters: dict[str, str] = {}
+    for name, _label in specs:
+        if query.get(name):
+            filters[name] = filter_source_value_from_param(repo, env, table, values_by_field, name, query.get(name))
+    return filters
+
+
+def localized_scope_filters(query: dict[str, str], names: list[str], values_by_field: dict[str, list[str]], repo: Repository | None, env: dict[str, str], table: str) -> dict[str, str]:
+    filters: dict[str, str] = {}
+    for name in names:
+        raw = query.get(f"scope_{name}")
+        if raw:
+            filters[name] = filter_source_value_from_param(repo, env, table, values_by_field, name, raw)
+    return filters
+
+
+def localized_scope_params(filters: dict[str, Any], values_by_field: dict[str, list[str]], repo: Repository | None, env: dict[str, str], table: str) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+    for name, value in filters.items():
+        source = text_only(value, 300).strip()
+        params[f"scope_{name}"] = localized_filter_value(repo, env, table, {name: source}, name, source)
+    return params
+
+
+def filter_options(values_by_field: dict[str, list[str]], specs: list[tuple[str, str]], repo: Repository | None = None, env: dict[str, str] | None = None, table: str = "") -> list[tuple[str, str, list[Any]]]:
     groups = []
     for name, label in specs:
         values = sorted(
-            {text_only(row.get(name), 120).strip() for row in rows if text_only(row.get(name), 120).strip()},
+            {text_only(value, 120).strip() for value in values_by_field.get(name, []) if text_only(value, 120).strip()},
             key=lambda value: filter_option_sort_key(name, value),
         )
         if repo and env and table and current_lang(env) == "en":
             options_with_labels = []
             for value in values[:80]:
-                sample = next((row for row in rows if text_only(row.get(name), 120).strip() == value), {})
-                display = front_value(repo, env, table, sample, name, 300) if sample else ""
+                display = localized_filter_value(repo, env, table, {name: value}, name, value)
                 fallback = localized_option_label(env, value)
-                options_with_labels.append((value, fallback if display == value and fallback != value else display or fallback))
+                option_text = fallback if display == value and fallback != value else display or fallback
+                options_with_labels.append((option_text or value, option_text or value))
             groups.append((name, label, options_with_labels))
         else:
             groups.append((name, label, values[:80]))
@@ -11109,6 +12273,43 @@ def status_rank(value: str) -> int:
         if any(keyword in text for keyword in keywords):
             return rank
     return 50
+
+
+
+def scope_filters(query: dict[str, str], names: list[str]) -> dict[str, str]:
+    filters: dict[str, str] = {}
+    for name in names:
+        value = text_only(query.get(f"scope_{name}"), 200).strip()
+        if value:
+            filters[name] = value
+    return filters
+
+
+def scope_params(filters: dict[str, Any]) -> dict[str, Any]:
+    return {f"scope_{name}": value for name, value in filters.items() if value not in (None, "")}
+
+
+def scoped_filter_specs(filter_specs: list[tuple[str, str]], fixed_filters: dict[str, Any]) -> list[tuple[str, str]]:
+    return [(name, label) for name, label in filter_specs if name not in fixed_filters]
+
+
+def scoped_page_title(default_title: str, fixed_filters: dict[str, Any]) -> str:
+    values = [text_only(value, 120).strip() for value in fixed_filters.values() if text_only(value, 120).strip()]
+    if len(values) == 1:
+        return values[0]
+    if values:
+        return f"{default_title} - {' / '.join(values[:3])}"
+    return default_title
+
+
+def fixed_filter_form_bits(fixed_params: dict[str, Any] | None, env: dict[str, str]) -> tuple[str, str]:
+    fixed_params = {key: value for key, value in (fixed_params or {}).items() if value not in (None, "")}
+    reset_params = dict(fixed_params)
+    if current_lang(env) == "en":
+        reset_params["lang"] = "en"
+    reset_href = f"?{urlencode(reset_params)}" if reset_params else "?"
+    hidden = "".join(f'<input type="hidden" name="{esc(key)}" value="{esc(value)}">' for key, value in fixed_params.items())
+    return hidden, reset_href
 
 
 def query_filters(query: dict[str, str], names: list[str]) -> dict[str, str]:
@@ -11269,15 +12470,15 @@ def sitemap_xml(repo: Repository, site_url: str) -> str:
     unique_urls = public_sitemap_paths(repo)
     entries = []
     for path in unique_urls:
-        zh_url = site_absolute_url(site_url, path)
-        en_url = site_absolute_url(site_url, english_path(path))
+        en_url = site_absolute_url(site_url, path)
+        zh_url = site_absolute_url(site_url, zh_path(path))
         alternates = (
             f'<xhtml:link rel="alternate" hreflang="zh-CN" href="{esc(zh_url)}"/>'
             f'<xhtml:link rel="alternate" hreflang="en" href="{esc(en_url)}"/>'
-            f'<xhtml:link rel="alternate" hreflang="x-default" href="{esc(zh_url)}"/>'
+            f'<xhtml:link rel="alternate" hreflang="x-default" href="{esc(en_url)}"/>'
         )
-        entries.append(f"<url><loc>{esc(zh_url)}</loc>{alternates}</url>")
         entries.append(f"<url><loc>{esc(en_url)}</loc>{alternates}</url>")
+        entries.append(f"<url><loc>{esc(zh_url)}</loc>{alternates}</url>")
     body = "".join(entries)
     return f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">{body}</urlset>'
 
@@ -11318,7 +12519,7 @@ def security_headers() -> list[tuple[str, str]]:
         ("permissions-policy", "camera=(), microphone=(), geolocation=(), payment=()"),
         (
             "content-security-policy",
-            "default-src 'self'; img-src 'self' data: https://api.iconify.design; media-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+            "default-src 'self'; img-src 'self' data: https://api.iconify.design; media-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
         ),
     ]
 

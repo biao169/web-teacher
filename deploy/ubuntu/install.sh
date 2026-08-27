@@ -521,6 +521,10 @@ CADDY
     echo "Caddy site:   /etc/caddy/sites/web-teacher.caddy"
     echo "Service:      /etc/systemd/system/web-teacher.service"
     ;;
+  pull-code)
+    cd "$INSTALL_DIR"
+    sudo git -C "$INSTALL_DIR" pull --ff-only
+    ;;
   update)
     cd "$INSTALL_DIR"
     sudo git -C "$INSTALL_DIR" pull --ff-only
@@ -583,6 +587,7 @@ Commands:
   nginx-test  Test Nginx configuration and public port listeners
   caddy-example  Show a Caddy reverse-proxy example for this site
   paths       Show important file paths
+  pull-code   Pull latest Git code only; do not install deps, touch data or restart
   update      Pull latest code, install deps, apply DB defaults, restart
   backup      Create a local tar.gz backup under exports/
   reset-data  Delete runtime data and reinitialize an empty database

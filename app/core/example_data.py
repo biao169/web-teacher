@@ -222,11 +222,4 @@ EXAMPLE_ROWS = {
         {"uid": "trans-interest-ai", "source_hash": "interest-ai", "source_ref_key": "research_interests.interest-ai", "source_text": "可靠人工智能", "source_lang": "zh", "target_lang": "en", "translated_text": "Reliable Artificial Intelligence", "provider": "manual", "status": "success", "is_manual": 1, "is_current": 1, "source_refs": "research_interests:interest-ai"},
         {"uid": "trans-news-welcome", "source_hash": "news-welcome", "source_ref_key": "news.news-welcome", "source_text": "新版个人主页启动", "source_lang": "zh", "target_lang": "en", "translated_text": "New Personal Homepage Launched", "provider": "manual", "status": "success", "is_manual": 1, "is_current": 1, "source_refs": "news:news-welcome"},
     ],
-    "autofetch_logs": [
-        {"uid": "fetch-demo-001", "source": "crossref", "query": "10.0000/example.2026.001", "success": 1, "message": "示例 DOI 元数据补全成功。", "changes_json": "{\"year\":2026}", "publication_uid": "pub-demo-reliable-ai"},
-        {"uid": "fetch-demo-002", "source": "openalex", "query": "Reliable AI Systems for Education", "success": 1, "message": "示例标题检索返回候选结果。", "changes_json": "{\"venue\":\"Journal of Educational Intelligence\"}", "publication_uid": "pub-demo-reliable-ai"},
-        {"uid": "fetch-demo-003", "source": "manual", "query": "A Dual-Deployment Architecture for Academic Personal Websites", "success": 1, "message": "管理员手动确认会议论文信息。", "changes_json": "{\"publication_type\":\"会议论文\"}", "publication_uid": "pub-edge-teacher-site-2026"},
-        {"uid": "fetch-demo-004", "source": "crossref", "query": "10.0000/example.2025.011", "success": 1, "message": "示例 DOI 元数据补全成功。", "changes_json": "{\"year\":2025}", "publication_uid": "pub-learning-analytics-2025"},
-        {"uid": "fetch-demo-005", "source": "openalex", "query": "Low-CPU Server-Side Rendering for Academic Information Systems", "success": 0, "message": "示例：未找到可靠匹配，需要人工确认。", "changes_json": "{}", "publication_uid": "pub-lightweight-rendering-2024"},
-    ],
 }

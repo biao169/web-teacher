@@ -26,6 +26,7 @@ web-teacher status
 web-teacher logs
 web-teacher restart
 web-teacher paths
+web-teacher pull-code
 web-teacher update
 web-teacher backup
 web-teacher reset-data

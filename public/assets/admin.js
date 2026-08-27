@@ -65,96 +65,19 @@
     });
   }
 
-  document.addEventListener("click", async (event) => {
-    const button = event.target.closest?.(".citation-copy-one");
-    if (!button) return;
-    const status = document.getElementById("copy-status");
-    const text = citationText(button);
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      if (status) status.textContent = "已复制 1 条";
-    } catch {
-      if (status) status.textContent = "复制失败";
-    }
-  });
-
-  if (selectAll) {
-    document.addEventListener("change", (event) => {
-      if (!event.target.matches?.(".copy-check")) return;
-      const checks = citationChecks();
-      selectAll.checked = checks.length > 0 && checks.every((check) => check.checked);
-    });
-  }
-
-  const setupFrontLazyLoading = () => {
-    const roots = Array.from(document.querySelectorAll("[data-front-lazy]"));
-    if (!roots.length) return;
-    let observer = null;
-    const observePager = (pager) => {
-      if (observer && pager) observer.observe(pager);
-    };
-    const loadRoot = async (root) => {
-      if (root.dataset.loading === "1") return;
-      const pager = root.querySelector("[data-lazy-pager]");
-      const next = pager?.querySelector("[data-lazy-next]");
-      const list = root.querySelector("[data-lazy-list]");
-      if (!pager || !next || !list) return;
-      root.dataset.loading = "1";
-      root.classList.add("is-loading");
-      root.classList.remove("has-load-error");
-      next.setAttribute("aria-disabled", "true");
+  document.querySelectorAll(".citation-copy-one").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const status = document.getElementById("copy-status");
+      const text = citationText(button);
+      if (!text) return;
       try {
-        const url = new URL(next.getAttribute("href"), window.location.href);
-        url.searchParams.set("partial", "items");
-        const response = await fetch(url.toString(), { headers: { "x-requested-with": "fetch", "accept": "text/html" } });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const doc = new DOMParser().parseFromString(await response.text(), "text/html");
-        const newList = doc.querySelector("[data-lazy-list]");
-        const newPager = doc.querySelector("[data-lazy-pager]");
-        if (!newList) throw new Error("Missing lazy list");
-        const currentEmpty = list.querySelector(":scope > .empty");
-        if (currentEmpty && newList.children.length) currentEmpty.remove();
-        Array.from(newList.children).forEach((child) => list.appendChild(document.importNode(child, true)));
-        if (newPager) {
-          const importedPager = document.importNode(newPager, true);
-          pager.replaceWith(importedPager);
-          observePager(importedPager);
-        } else {
-          pager.remove();
-        }
-        refreshVisibleCitations();
-      } catch (error) {
-        next.removeAttribute("aria-disabled");
-        root.classList.add("has-load-error");
-      } finally {
-        root.dataset.loading = "0";
-        root.classList.remove("is-loading");
+        await navigator.clipboard.writeText(text);
+        if (status) status.textContent = "已复制 1 条";
+      } catch {
+        if (status) status.textContent = "复制失败";
       }
-    };
-    if ("IntersectionObserver" in window) {
-      observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) loadRoot(entry.target.closest("[data-front-lazy]"));
-        });
-      }, { rootMargin: "640px 0px" });
-      roots.forEach((root) => {
-        const pager = root.querySelector("[data-lazy-pager]");
-        if (pager) observer.observe(pager);
-      });
-    }
-    roots.forEach((root) => {
-      root.addEventListener("click", (event) => {
-        const next = event.target.closest?.("[data-lazy-next]");
-        if (!next) return;
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        loadRoot(root);
-      });
     });
-  };
-
-  setupFrontLazyLoading();
+  });
 
   document.querySelectorAll(".contact-icon-img").forEach((icon) => {
     const parent = icon.closest(".contact-icon");
@@ -1867,6 +1790,48 @@
     if (!data.ok) throw new Error(data.message || "上传失败");
     insertRichMedia({ key: data.key || "", url: data.url || "" });
   };
+  const newsContentUploadStatus = (message) => {
+    const target = newsEditForm?.querySelector("[data-news-content-upload-status]");
+    if (target) target.textContent = message || "";
+  };
+  const insertIntoNewsContent = (html) => {
+    if (!newsContentSource) return;
+    const current = newsContentFormat?.value || "plain";
+    if (current !== "html") {
+      newsContentSource.value = plainTextToRichHtml(newsContentSource.value || "");
+      if (newsContentFormat) newsContentFormat.value = "html";
+    }
+    const addition = String(html || "").trim();
+    if (!addition) return;
+    const glue = newsContentSource.value.trim() ? "\n" : "";
+    newsContentSource.value = `${newsContentSource.value}${glue}${addition}`;
+    newsContentSource.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const richMediaHtml = ({ key, url }) => {
+    const mediaUrl = url || mediaPreviewUrl(key);
+    const alt = key || "media";
+    const type = mediaPreviewType(key || mediaUrl);
+    if (type === "image") return `<figure><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;"><figcaption></figcaption></figure>`;
+    if (type === "video") return `<figure><video src="${escapeHtml(mediaUrl)}" controls preload="metadata" style="max-width:100%;height:auto;"></video><figcaption></figcaption></figure>`;
+    return `<p><a href="${escapeHtml(mediaUrl)}" target="_blank" rel="noreferrer">${escapeHtml(alt)}</a></p>`;
+  };
+  const insertNewsContentMedia = (item) => {
+    insertIntoNewsContent(richMediaHtml(item));
+    newsContentUploadStatus(`已插入：${item.key || item.url || "媒体"}。请继续保存动态。`);
+  };
+  const uploadNewsContentFile = async (file) => {
+    if (!file || !newsContentSource) return;
+    const form = new FormData();
+    form.append("file", file);
+    form.append("title", readableTitleFromFile(file.name || "news-media"));
+    form.append("file_name", `${Date.now()}-${safeMediaName(file.name || "news-media.bin")}`);
+    form.append("folder", "news");
+    newsContentUploadStatus(`正在上传：${file.name || "媒体文件"}`);
+    const data = await fetch("/api/admin/media/upload", { method: "POST", body: form }).then((item) => item.json());
+    if (!data.ok) throw new Error(data.message || "上传失败");
+    insertNewsContentMedia({ key: data.key || "", url: data.url || "" });
+  };
+
   const openNewsRichEditor = (previewOnly = false) => {
     if (!newsContentSource) return;
     const toolUrl = `/admin/tools/news-rich-editor?mode=${previewOnly ? "preview" : "edit"}`;
@@ -1982,6 +1947,20 @@
   if (newsContentSource) {
     newsEditForm.querySelector("[data-news-rich-open]")?.addEventListener("click", () => openNewsRichEditor(false));
     newsEditForm.querySelector("[data-news-rich-preview]")?.addEventListener("click", () => openNewsRichEditor(true));
+    const uploadButton = newsEditForm.querySelector("[data-news-content-upload]");
+    const uploadInput = newsEditForm.querySelector("[data-news-content-upload-file]");
+    uploadButton?.addEventListener("click", () => uploadInput?.click());
+    uploadInput?.addEventListener("change", async () => {
+      const file = uploadInput.files?.[0];
+      if (!file) return;
+      try {
+        await uploadNewsContentFile(file);
+      } catch (error) {
+        newsContentUploadStatus(error.message || "上传失败");
+      } finally {
+        uploadInput.value = "";
+      }
+    });
   }
   const courseForm = document.querySelector(".course-edit-form, .course-admin-card");
   let courseSuggestionsPromise = null;

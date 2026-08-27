@@ -179,5 +179,4 @@ DEMO_ROWS = {
         {"id": 3, "uid": "media-student-default-avatar", "object_key": "default/student-male-avatar.png", "title": "学生默认头像", "category": "default", "mime_type": "image/png", "size": 10567, "storage_kind": "static", "status": "active"},
     ],
     "translation_cache": [],
-    "autofetch_logs": [],
 }

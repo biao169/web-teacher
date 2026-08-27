@@ -416,7 +416,6 @@ Cloudflare Worker 入口目录。
 - `global_settings.patent_metadata_providers`、`patentsview_api_key`、`epo_ops_client_id`、`epo_ops_client_secret`：专利与软著联网查验平台与凭据配置。
 - `global_settings.translation_provider`、`translation_providers`、`libretranslate_url`、`libretranslate_api_key`、`deepl_api_key`、`google_translate_api_key`、`microsoft_translator_key`、`microsoft_translator_region`、`microsoft_translator_endpoint`、`mymemory_email`、`translation_batch_size`、`translation_worker_count`、`translation_timeout_seconds`：翻译缓存自动翻译平台、凭据、批量和超时配置。
 - `translation_cache`：翻译缓存。
-- `autofetch_logs`：论文元数据补全日志。
 
 可见性统一使用：
 
