@@ -2066,7 +2066,7 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; v
   max-width: 72px;
   height: 90px;
   border-radius: 7px;
-  padding: 4px;
+  padding: 0;
   font-size: 23px;
   font-weight: 800;
   line-height: 1.05;
@@ -3450,8 +3450,4 @@ html:has(body.admin-page) {
     max-height: min(156px, calc(100vh - var(--admin-edit-sticky-top) - 18px));
     margin-bottom: 8px;
   }
-}
-.person-avatar,
-.compact-page .person-avatar {
-  padding: 0;
 }
