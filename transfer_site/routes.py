@@ -375,7 +375,9 @@ def session_api(repo: Any, method: str, path: str, query: dict[str, str], body: 
 
         except ValueError as error:
 
-            return json_response({"ok": False, "message": str(error)}, 403)
+            status = 429 if "Too many invalid access code attempts" in str(error) else 403
+
+            return json_response({"ok": False, "message": str(error)}, status)
 
     session = services.get_session(repo, room)
 

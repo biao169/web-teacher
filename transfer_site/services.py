@@ -18,8 +18,9 @@ from .db import DEFAULT_CONTROL, cloud_root, connection_context, ensure_schema, 
 
 
 CHUNK_LIMIT = 8 * 1024 * 1024
-ACCESS_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
-ACCESS_FAILURE_LIMIT = 8
+ACCESS_CODE_DIGITS = "0123456789"
+ACCESS_CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+ACCESS_FAILURE_LIMIT = 5
 ACCESS_LOCK_SECONDS = 10 * 60
 
 
@@ -74,8 +75,13 @@ def save_control(repo: Any, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def access_code() -> str:
-    chunks = ["".join(secrets.choice(ACCESS_CODE_ALPHABET) for _ in range(4)) for _ in range(4)]
-    return "-".join(chunks)
+    digits = "".join(secrets.choice(ACCESS_CODE_DIGITS) for _ in range(4))
+    letters = "".join(secrets.choice(ACCESS_CODE_LETTERS) for _ in range(2))
+    return f"{digits}{letters}"
+
+
+def normalize_access_code(value: Any) -> str:
+    return text_only(value, 40).strip().upper().replace("-", "").replace(" ", "")
 
 
 def room_id() -> str:
@@ -215,7 +221,9 @@ def verify_session_access(repo: Any, session: dict[str, Any], code: str, user_ui
         return True
     if user_uid and not truthy(cfg.get("require_login"), True):
         return True
-    if truthy(cfg.get("allow_anonymous_by_code"), True) and code and code == str(session.get("access_code") or ""):
+    provided_code = normalize_access_code(code)
+    stored_code = normalize_access_code(session.get("access_code"))
+    if truthy(cfg.get("allow_anonymous_by_code"), True) and provided_code and stored_code and provided_code == stored_code:
         return not expired(session.get("code_expires_at"))
     return False
 
