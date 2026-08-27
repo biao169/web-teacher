@@ -3351,3 +3351,7 @@ html:has(body.admin-page) {
     margin-bottom: 8px;
   }
 }
+.person-avatar,
+.compact-page .person-avatar {
+  padding: 0;
+}

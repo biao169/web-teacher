@@ -2110,3 +2110,7 @@ html[lang="en"] .front-lazy.is-loading .front-pager::after {
 html[lang="en"] .front-lazy.has-load-error .front-pager::after {
   content: "Auto load failed. Use Next to continue.";
 }
+.person-avatar,
+.compact-page .person-avatar {
+  padding: 0;
+}
