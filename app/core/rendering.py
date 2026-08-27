@@ -9,6 +9,7 @@ import mimetypes
 import os
 import re
 import shutil
+import threading
 import time
 import zipfile
 from decimal import Decimal, InvalidOperation
@@ -77,6 +78,10 @@ PATENT_SUGGESTION_CACHE: dict[str, Any] = {"ts": 0.0, "ttl": 30, "payload": None
 STUDENT_SUGGESTION_CACHE: dict[str, Any] = {"ts": 0.0, "ttl": 30, "payload": None}
 NEWS_SUGGESTION_CACHE: dict[str, Any] = {"ts": 0.0, "ttl": 30, "payload": None}
 COURSE_SUGGESTION_CACHE: dict[str, Any] = {"ts": 0.0, "ttl": 30, "payload": None}
+AUTH_DEFAULTS_LOCK = threading.RLock()
+AUTH_DEFAULTS_READY: set[str] = set()
+
+
 TRANSLATION_FALLBACK_PROVIDERS = "auto,mymemory,argos_local"
 MICROSOFT_TRANSLATOR_DEFAULT_ENDPOINT = "https://api.cognitive.microsofttranslator.com"
 TRANSLATION_BUNDLE_MAX_ITEMS = 6
@@ -383,45 +388,63 @@ def auth_config_response(env: dict[str, str], api: bool = False) -> ResponseTupl
     return html_response(body, 503)
 
 
-def ensure_auth_defaults(repo: Repository) -> None:
-    for role in AUTH_ROLE_DEFAULTS:
-        existing = repo.get("auth_roles", role["uid"])
-        if not existing:
-            repo.save("auth_roles", role)
-    roles = {str(row.get("uid") or ""): row for row in repo.list("auth_roles", Query(limit=1000))}
-    modules = admin_modules()
-    for role_uid, role in roles.items():
-        if not role_uid:
-            continue
-        level = int_value(role.get("level"), 0)
-        for index, module in enumerate(modules, 1):
-            uid = stable_uid("perm", f"{role_uid}:{module}")
-            if repo.get("auth_permissions", uid):
-                continue
-            if level >= 100:
-                flags = {"can_view": 1, "can_create": 1, "can_edit": 1, "can_delete": 1, "can_export": 1}
-            elif level >= 80:
-                can_manage = module in CONTENT_ADMIN_TABLES or module in {"admin", "export", "media_tools"}
-                flags = {
-                    "can_view": 1 if can_manage else 0,
-                    "can_create": 1 if module in CONTENT_ADMIN_TABLES else 0,
-                    "can_edit": 1 if module in CONTENT_ADMIN_TABLES else 0,
-                    "can_delete": 1 if module in CONTENT_ADMIN_TABLES - {"translation_cache"} else 0,
-                    "can_export": 1 if module == "export" else 0,
-                }
-            elif level >= 40:
-                staff_tables = {"news", "messages", "students", "student_category_displays", "media_assets"}
-                flags = {
-                    "can_view": 1 if module in staff_tables or module in {"admin", "media_tools"} else 0,
-                    "can_create": 1 if module in {"news", "media_assets"} else 0,
-                    "can_edit": 1 if module in staff_tables else 0,
-                    "can_delete": 0,
-                    "can_export": 0,
-                }
-            else:
-                flags = {"can_view": 0, "can_create": 0, "can_edit": 0, "can_delete": 0, "can_export": 0}
-            repo.save("auth_permissions", {"uid": uid, "role_uid": role_uid, "module": module, "sort_order": index, **flags})
+def auth_defaults_cache_key(repo: Repository) -> str:
+    db_path = getattr(repo, "db_path", None)
+    if db_path:
+        return str(db_path)
+    inner = getattr(repo, "inner", None)
+    inner_path = getattr(inner, "db_path", None) if inner is not None else None
+    return str(inner_path or id(repo))
 
+
+def ensure_auth_defaults(repo: Repository) -> None:
+    cache_key = auth_defaults_cache_key(repo)
+    if cache_key in AUTH_DEFAULTS_READY:
+        return
+    with AUTH_DEFAULTS_LOCK:
+        if cache_key in AUTH_DEFAULTS_READY:
+            return
+        role_rows = repo.list("auth_roles", Query(limit=1000))
+        roles = {str(row.get("uid") or ""): row for row in role_rows}
+        for role in AUTH_ROLE_DEFAULTS:
+            role_uid = str(role.get("uid") or "")
+            if role_uid and role_uid not in roles:
+                roles[role_uid] = repo.save("auth_roles", role)
+        existing_permissions = {str(row.get("uid") or "") for row in repo.list("auth_permissions", Query(limit=1000))}
+        modules = admin_modules()
+        for role_uid, role in roles.items():
+            if not role_uid:
+                continue
+            level = int_value(role.get("level"), 0)
+            for index, module in enumerate(modules, 1):
+                uid = stable_uid("perm", f"{role_uid}:{module}")
+                if uid in existing_permissions:
+                    continue
+                if level >= 100:
+                    flags = {"can_view": 1, "can_create": 1, "can_edit": 1, "can_delete": 1, "can_export": 1}
+                elif level >= 80:
+                    can_manage = module in CONTENT_ADMIN_TABLES or module in {"admin", "export", "media_tools"}
+                    flags = {
+                        "can_view": 1 if can_manage else 0,
+                        "can_create": 1 if module in CONTENT_ADMIN_TABLES else 0,
+                        "can_edit": 1 if module in CONTENT_ADMIN_TABLES else 0,
+                        "can_delete": 1 if module in CONTENT_ADMIN_TABLES - {"translation_cache"} else 0,
+                        "can_export": 1 if module == "export" else 0,
+                    }
+                elif level >= 40:
+                    staff_tables = {"news", "messages", "students", "student_category_displays", "media_assets"}
+                    flags = {
+                        "can_view": 1 if module in staff_tables or module in {"admin", "media_tools"} else 0,
+                        "can_create": 1 if module in {"news", "media_assets"} else 0,
+                        "can_edit": 1 if module in staff_tables else 0,
+                        "can_delete": 0,
+                        "can_export": 0,
+                    }
+                else:
+                    flags = {"can_view": 0, "can_create": 0, "can_edit": 0, "can_delete": 0, "can_export": 0}
+                repo.save("auth_permissions", {"uid": uid, "role_uid": role_uid, "module": module, "sort_order": index, **flags})
+                existing_permissions.add(uid)
+        AUTH_DEFAULTS_READY.add(cache_key)
 
 def auth_users_exist(repo: Repository) -> bool:
     return any(str(row.get("status") or "active") == "active" for row in repo.list("auth_users", Query(limit=1000)))
@@ -436,12 +459,15 @@ def current_auth(repo: Repository, env: dict[str, str]) -> dict[str, Any]:
     uid = text_only(payload.get("uid"), 120).strip()
     user = repo.get("auth_users", uid) if uid else {}
     if not user or str(user.get("status") or "active") != "active":
+        env["_AUTH_USER"] = {}
         return {}
     role = repo.get("auth_roles", user.get("role_uid") or "") or {}
     if not role or not truthy(role.get("is_active"), default=True):
+        env["_AUTH_USER"] = {}
         return {}
-    return {"user": user, "role": role, "payload": payload}
-
+    auth = {"user": user, "role": role, "payload": payload}
+    env["_AUTH_USER"] = auth
+    return auth
 
 def current_user(repo: Repository, env: dict[str, str]) -> dict[str, Any]:
     return current_auth(repo, env).get("user") or {}
@@ -468,16 +494,26 @@ def auth_visibility_scopes(repo: Repository, env: dict[str, str]) -> set[str]:
     return {"public"}
 
 
-def role_permission(repo: Repository, role_uid: str, module: str) -> dict[str, Any]:
+def role_permission(repo: Repository, role_uid: str, module: str, env: dict[str, str] | None = None) -> dict[str, Any]:
+    cache_key = f"{role_uid}:{module}"
+    if env is not None:
+        cache = env.setdefault("_ROLE_PERMISSION_CACHE", {})
+        if isinstance(cache, dict) and cache_key in cache:
+            cached = cache.get(cache_key)
+            return cached if isinstance(cached, dict) else {}
     target_uid = stable_uid("perm", f"{role_uid}:{module}")
     row = repo.get("auth_permissions", target_uid)
-    if row:
-        return row
-    for item in repo.list("auth_permissions", Query(limit=1000)):
-        if str(item.get("role_uid") or "") == role_uid and str(item.get("module") or "") == module:
-            return item
-    return {}
-
+    if not row:
+        for item in repo.list("auth_permissions", Query(limit=1000)):
+            if str(item.get("role_uid") or "") == role_uid and str(item.get("module") or "") == module:
+                row = item
+                break
+    result = row or {}
+    if env is not None:
+        cache = env.setdefault("_ROLE_PERMISSION_CACHE", {})
+        if isinstance(cache, dict):
+            cache[cache_key] = result
+    return result
 
 def has_permission(repo: Repository, env: dict[str, str], module: str, action: str = "can_view") -> bool:
     auth = current_auth(repo, env)
@@ -485,11 +521,18 @@ def has_permission(repo: Repository, env: dict[str, str], module: str, action: s
     role_uid = str(role.get("uid") or "")
     if not role_uid:
         return False
+    permission_key = f"{role_uid}:{module}:{action}"
+    cache = env.setdefault("_HAS_PERMISSION_CACHE", {})
+    if isinstance(cache, dict) and permission_key in cache:
+        return bool(cache[permission_key])
     if int_value(role.get("level"), 0) >= 100:
-        return True
-    perm = role_permission(repo, role_uid, module)
-    return truthy(perm.get(action), default=False)
-
+        allowed = True
+    else:
+        perm = role_permission(repo, role_uid, module, env)
+        allowed = truthy(perm.get(action), default=False)
+    if isinstance(cache, dict):
+        cache[permission_key] = allowed
+    return allowed
 
 def auth_cookie(repo: Repository, env: dict[str, str], user: dict[str, Any]) -> str:
     now = int(time.time())
