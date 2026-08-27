@@ -311,7 +311,7 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; v
 .compact-admin-card .filters .button, .compact-admin-card .filters button { min-height: 30px; padding: 4px 9px; font-size: var(--font-small); }
 .translation-admin-card .admin-card-head { align-items: flex-start; }
 .translation-admin-card .admin-card-head h1 { margin-bottom: 2px; }
-.translation-sticky-tools { position: sticky; top: 68px; z-index: 8; display: grid; gap: 2px; padding: 2px 0 3px; border-bottom: 1px solid rgba(197, 216, 207, .72); background: rgba(251, 253, 251, .98); box-shadow: 0 6px 14px rgba(19, 54, 44, .06); }
+.translation-sticky-tools { position: sticky; top: 0px; z-index: 8; display: grid; gap: 2px; padding: 2px 0 3px; border-bottom: 1px solid rgba(197, 216, 207, .72); background: rgba(251, 253, 251, .98); box-shadow: 0 6px 14px rgba(19, 54, 44, .06); }
 .translation-toolbar-row { display: flex; align-items: center; gap: 5px; min-height: 28px; flex-wrap: wrap; }
 .translation-toolbar-title { flex: 0 0 auto; color: var(--ink); font-size: var(--font-body); line-height: 1.1; margin-right: 2px; }
 .translation-toolbar-row form { margin: 0; }
