@@ -60,7 +60,7 @@ MEDIA_SCAN_EXTENSIONS = {
     ".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav",
     ".csv", ".doc", ".docx", ".json", ".md", ".pdf", ".ppt", ".pptx", ".txt", ".xls", ".xlsx", ".yaml", ".yml",
 }
-ASSET_VERSION = "20260827-translation-toolbar-top0"
+ASSET_VERSION = "20260827-admin-edit-nav-single-scroll"
 NAVIGATION_SCOPE_FIELDS_PATH = Path(__file__).with_name("navigation_scope_fields.json")
 I18N_DICTIONARY_FILENAME = "i18n_dictionary.json"
 I18N_DICTIONARY_R2_KEY = "i18n/i18n_dictionary.json"

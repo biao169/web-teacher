@@ -3354,3 +3354,100 @@ html[lang="en"] .front-lazy.is-loading .front-pager::after {
 html[lang="en"] .front-lazy.has-load-error .front-pager::after {
   content: "Auto load failed. Use Next to continue.";
 }
+/* Admin edit sticky nav unified fix */
+:root {
+  --admin-edit-sticky-top: 78px;
+  --admin-edit-anchor-offset: 170px;
+}
+html:has(body.admin-page) {
+  scroll-padding-top: var(--admin-edit-anchor-offset);
+}
+.admin-page .admin-shell {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  align-items: start;
+}
+.admin-page .admin-main {
+  max-height: none;
+  overflow: visible;
+  overscroll-behavior: auto;
+  padding-right: 0;
+  scroll-padding-top: var(--admin-edit-anchor-offset);
+}
+.admin-page :is(.site-edit-sticky, .global-edit-sticky, .profile-edit-sticky, .project-edit-sticky, .patent-edit-sticky, .student-edit-sticky, .publication-edit-sticky, .translation-edit-sticky) {
+  position: sticky !important;
+  top: var(--admin-edit-sticky-top) !important;
+  z-index: 69 !important;
+  grid-column: 1 / -1;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px 12px !important;
+  width: 100%;
+  max-height: min(112px, calc(100vh - var(--admin-edit-sticky-top) - 18px));
+  min-height: 38px;
+  margin: 0 0 8px;
+  padding: 6px 8px !important;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #bfd5ca;
+  border-radius: 8px;
+  background: rgba(251, 253, 251, .98);
+  box-shadow: 0 10px 24px rgba(16, 40, 33, .12);
+  backdrop-filter: blur(8px);
+}
+.admin-page :is(.site-edit-nav, .global-edit-nav, .profile-edit-nav, .project-edit-nav, .patent-edit-nav, .student-edit-nav, .publication-edit-nav, .translation-edit-nav) {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 5px 12px !important;
+  min-width: 0;
+  padding: 0 !important;
+  margin: 0;
+}
+.admin-page :is(.site-edit-nav, .global-edit-nav, .profile-edit-nav, .project-edit-nav, .patent-edit-nav, .student-edit-nav, .publication-edit-nav, .translation-edit-nav)::before {
+  content: "编辑区导航";
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  margin-right: 2px;
+  color: #6d8178;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.admin-page :is(.site-edit-nav, .global-edit-nav, .profile-edit-nav, .project-edit-nav, .patent-edit-nav, .student-edit-nav, .publication-edit-nav, .translation-edit-nav) a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.admin-page :is(.site-edit-nav, .global-edit-nav, .profile-edit-nav, .project-edit-nav, .patent-edit-nav, .student-edit-nav, .publication-edit-nav, .translation-edit-nav) a:hover,
+.admin-page :is(.site-edit-nav, .global-edit-nav, .profile-edit-nav, .project-edit-nav, .patent-edit-nav, .student-edit-nav, .publication-edit-nav, .translation-edit-nav) a:focus-visible {
+  border-bottom-color: var(--accent);
+  color: #0d5d4e;
+}
+.admin-page :is(.site-form-section, .global-form-section, .profile-form-section, .project-form-section, .patent-form-section, .student-form-section, .publication-form-section, .translation-form-section) {
+  scroll-margin-top: var(--admin-edit-anchor-offset) !important;
+}
+@media (max-width: 720px) {
+  :root {
+    --admin-edit-sticky-top: 112px;
+    --admin-edit-anchor-offset: 220px;
+  }
+  .admin-page :is(.site-edit-sticky, .global-edit-sticky, .profile-edit-sticky, .project-edit-sticky, .patent-edit-sticky, .student-edit-sticky, .publication-edit-sticky, .translation-edit-sticky) {
+    max-height: min(156px, calc(100vh - var(--admin-edit-sticky-top) - 18px));
+    margin-bottom: 8px;
+  }
+}

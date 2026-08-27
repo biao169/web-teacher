@@ -2516,4 +2516,70 @@
     window.setTimeout(prefetchCommonPages, 1800);
   }
 
+  // Admin edit sticky nav unified fix
+  const initAdminEditStickyNav = () => {
+    if (!document.body?.classList.contains('admin-page')) return;
+    const stickySelector = '.site-edit-sticky, .global-edit-sticky, .profile-edit-sticky, .project-edit-sticky, .patent-edit-sticky, .student-edit-sticky, .publication-edit-sticky, .translation-edit-sticky';
+    const navSelector = '.site-edit-nav a[href^=\\#], .global-edit-nav a[href^=\\#], .profile-edit-nav a[href^=\\#], .project-edit-nav a[href^=\\#], .patent-edit-nav a[href^=\\#], .student-edit-nav a[href^=\\#], .publication-edit-nav a[href^=\\#], .translation-edit-nav a[href^=\\#]';
+    const readHeight = (element) => element ? Math.ceil(element.getBoundingClientRect().height || 0) : 0;
+    const decodeHashTarget = (rawHash) => {
+      if (!rawHash || !rawHash.startsWith('#') || rawHash.length <= 1) return null;
+      try { return decodeURIComponent(rawHash.slice(1)); } catch { return rawHash.slice(1); }
+    };
+    const updateAdminEditOffsets = () => {
+      const header = document.querySelector('.site-header');
+      const headerRect = header?.getBoundingClientRect();
+      const headerHeight = Math.ceil(headerRect?.height || 0);
+      const headerBottom = Math.ceil(headerRect?.bottom || headerHeight || 0);
+      const stickyHeight = Array.from(document.querySelectorAll(stickySelector)).reduce((height, element) => {
+        const rectHeight = readHeight(element);
+        const scrollHeight = Math.ceil(Math.min(element.scrollHeight || rectHeight, window.innerHeight * 0.35));
+        return Math.max(height, rectHeight, scrollHeight);
+      }, 0);
+      const stickyTop = Math.max(58, headerBottom > 0 ? headerBottom + 8 : headerHeight + 8);
+      const anchorOffset = Math.max(132, stickyTop + stickyHeight + 22);
+      document.documentElement.style.setProperty('--admin-edit-sticky-top', stickyTop + 'px');
+      document.documentElement.style.setProperty('--admin-edit-anchor-offset', anchorOffset + 'px');
+      document.documentElement.style.scrollPaddingTop = anchorOffset + 'px';
+      return anchorOffset;
+    };
+    const scrollToEditSection = (target, behavior = 'smooth') => {
+      if (!target) return;
+      const offset = updateAdminEditOffsets();
+      const top = Math.max(0, window.scrollY + target.getBoundingClientRect().top - offset);
+      window.scrollTo({ top, behavior });
+    };
+    const settleScrollToEditSection = (target, behavior = 'smooth') => {
+      scrollToEditSection(target, behavior);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => scrollToEditSection(target, 'auto'));
+      });
+      window.setTimeout(() => scrollToEditSection(target, 'auto'), 180);
+    };
+    updateAdminEditOffsets();
+    window.addEventListener('resize', updateAdminEditOffsets, { passive: true });
+    window.addEventListener('load', () => {
+      updateAdminEditOffsets();
+      const targetId = decodeHashTarget(window.location.hash);
+      if (targetId) settleScrollToEditSection(document.getElementById(targetId), 'auto');
+    }, { once: true });
+    window.addEventListener('hashchange', () => {
+      const targetId = decodeHashTarget(window.location.hash);
+      if (targetId) settleScrollToEditSection(document.getElementById(targetId), 'auto');
+    });
+    document.querySelectorAll(navSelector).forEach((link) => {
+      link.addEventListener('click', (event) => {
+        const targetId = decodeHashTarget(link.getAttribute('href') || '');
+        if (!targetId) return;
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        event.preventDefault();
+        settleScrollToEditSection(target, 'smooth');
+        if (history.pushState) history.pushState(null, '', '#' + encodeURIComponent(targetId));
+      });
+    });
+    const initialTargetId = decodeHashTarget(window.location.hash);
+    if (initialTargetId) window.setTimeout(() => settleScrollToEditSection(document.getElementById(initialTargetId), 'auto'), 80);
+  };
+  initAdminEditStickyNav();
 })();
