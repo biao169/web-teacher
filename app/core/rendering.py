@@ -61,7 +61,7 @@ MEDIA_SCAN_EXTENSIONS = {
     ".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav",
     ".csv", ".doc", ".docx", ".json", ".md", ".pdf", ".ppt", ".pptx", ".txt", ".xls", ".xlsx", ".yaml", ".yml",
 }
-ASSET_VERSION = "20260827-compact-avatar-padding0"
+ASSET_VERSION = "20260828-project-role-translation"
 NAVIGATION_SCOPE_FIELDS_PATH = Path(__file__).with_name("navigation_scope_fields.json")
 I18N_DICTIONARY_FILENAME = "i18n_dictionary.json"
 I18N_DICTIONARY_R2_KEY = "i18n/i18n_dictionary.json"
@@ -200,7 +200,7 @@ FRONTEND_TRANSLATION_FIELDS = {
     "profiles": ("name", "role", "title", "organization", "lab", "office", "bio", "education", "experience", "recruiting"),
     "research_interests": ("name", "description"),
     "publications": ("title", "source_citation", "authors", "venue", "publication_type", "author_role", "index_type", "display_tags"),
-    "projects": ("name", "source", "fund_name", "principal", "members", "status", "summary"),
+    "projects": ("name", "source", "fund_name", "project_role", "principal", "members", "status", "summary"),
     "patents": ("name", "country", "patent_type", "inventors", "owner", "legal_status", "summary"),
     "students": ("name", "degree", "category", "grade", "direction", "status", "destination", "awards", "bio"),
     "student_category_displays": ("label",),
@@ -1147,8 +1147,11 @@ def project_card(row: dict[str, Any], index: int, env: dict[str, str], repo: Rep
     display_row = front_row(repo, env, "projects", row) if repo else row
     source = text_only(display_row.get("source"), 160).strip()
     fund_name = text_only(display_row.get("fund_name"), 180).strip()
+    project_role = text_only(display_row.get("project_role"), 80).strip()
     number = text_only(row.get("project_number"), 120).strip()
     funding_parts = []
+    if project_role:
+        funding_parts.append(f'<span class="project-role">{esc(project_role)}</span>')
     if source:
         funding_parts.append(f'<span class="project-source">{esc(source)}</span>')
     if source and fund_name:
@@ -4108,7 +4111,7 @@ def parse_translation_providers(settings: dict[str, Any]) -> list[str]:
 
 def translation_cache_groups(repo: Repository) -> list[dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
-    for row in repo.list("translation_cache", Query(limit=1000)):
+    for row in repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT)):
         if text_only(row.get("target_lang"), 20).strip() not in {"en", "EN", "english", "English"}:
             continue
         source = text_only(row.get("source_text"), 12000).strip()
@@ -4147,9 +4150,15 @@ def translation_requirements_depend_on_table(table: str) -> bool:
 def translation_requirements_cache_fingerprint(env: dict[str, str] | None = None) -> str:
     try:
         entries = i18n_dictionary_entries(env or {})
-        payload = json.dumps(entries, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+        payload = json.dumps(
+            {"dictionary": entries, "fields": FRONTEND_TRANSLATION_FIELDS},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
     except (OSError, TypeError, ValueError):
-        payload = ""
+        payload = json.dumps({"fields": FRONTEND_TRANSLATION_FIELDS}, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
@@ -4349,7 +4358,7 @@ def translation_source_links(item: dict[str, Any]) -> str:
 
 def frontend_translation_requirements(repo: Repository, env: dict[str, str] | None = None) -> list[dict[str, Any]]:
     env = env or {}
-    cache_rows = repo.list("translation_cache", Query(limit=1000))
+    cache_rows = repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT))
     by_exact: dict[tuple[str, str], dict[str, Any]] = {}
     by_ref: dict[str, dict[str, Any]] = {}
     by_hash: dict[str, dict[str, Any]] = {}
@@ -4547,7 +4556,7 @@ def translation_scan_database(repo: Repository, env: dict[str, str] | None = Non
     result = {"created": 0, "updated": 0, "dedicated": 0, "deleted": 0}
     rows = translation_scan_cache_rows(repo, result, env)
     current_hashes = {row["source_hash"] for row in rows if row.get("source_hash")}
-    existing = {text_only(row.get("source_hash"), 80).strip(): row for row in repo.list("translation_cache", Query(limit=1000)) if text_only(row.get("source_hash"), 80).strip()}
+    existing = {text_only(row.get("source_hash"), 80).strip(): row for row in repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT)) if text_only(row.get("source_hash"), 80).strip()}
     for row in rows:
         old = existing.get(row["source_hash"])
         if old:
@@ -4559,7 +4568,7 @@ def translation_scan_database(repo: Repository, env: dict[str, str] | None = Non
         else:
             repo.save("translation_cache", row)
             result["created"] += 1
-    for old in repo.list("translation_cache", Query(limit=1000)):
+    for old in repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT)):
         old_hash = text_only(old.get("source_hash"), 80).strip()
         if not old_hash or old_hash in current_hashes:
             continue
@@ -4743,7 +4752,7 @@ def translation_inline_update(repo: Repository, body: bytes) -> dict[str, Any]:
     }
     repo.save("translation_cache", changes)
     if source_hash:
-        for row in repo.list("translation_cache", Query(limit=1000)):
+        for row in repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT)):
             if text_only(row.get("source_hash"), 80).strip() == source_hash and str(row.get("uid")) != str(changes.get("uid")):
                 row.update({key: changes[key] for key in ("translated_text", "provider", "is_manual", "is_current", "status", "error_message")})
                 repo.save("translation_cache", row)
@@ -4774,7 +4783,7 @@ def translation_delete_cache(repo: Repository, uid_or_id: str) -> bool:
     source_hash = text_only(row.get("source_hash"), 80).strip()
     deleted = repo.delete("translation_cache", uid_or_id)
     if source_hash:
-        for other in repo.list("translation_cache", Query(limit=1000)):
+        for other in repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT)):
             if text_only(other.get("source_hash"), 80).strip() == source_hash:
                 repo.delete("translation_cache", other.get("uid") or other.get("id") or "")
     return deleted
@@ -5185,7 +5194,7 @@ def translation_parse_bundle(value: Any, expected: int) -> list[str]:
 def translation_auto_candidates(repo: Repository, scope: str = "priority", selected: set[str] | None = None) -> list[dict[str, Any]]:
     selected = selected or set()
     rows = []
-    for row in repo.list("translation_cache", Query(limit=1000)):
+    for row in repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT)):
         key = text_only(row.get("uid") or row.get("id"), 200).strip()
         if selected and key not in selected:
             continue
@@ -6043,6 +6052,8 @@ def admin_projects_table(meta: Table, rows: list[dict[str, Any]], query: dict[st
         name = text_only(row.get("name"), 400).strip()
         status = text_only(row.get("status"), 80).strip() or "未设置"
         status_value = "" if status == "未设置" else status
+        project_role = text_only(row.get("project_role"), 80).strip()
+        role_html = f'<b class="project-admin-role">{esc(project_role)}</b>' if project_role else ""
         front_href = f'/projects?q={quote(name)}'
         body.append(f"""<article class="project-admin-row{' is-disabled' if visibility != 'public' else ''}">
           {admin_batch_select("projects", key)}
@@ -6056,7 +6067,7 @@ def admin_projects_table(meta: Table, rows: list[dict[str, Any]], query: dict[st
             <small>{esc(row.get("project_number") or "项目编号未填写")}</small>
           </div>
           <div class="project-admin-people">
-            <span>负责人：{esc(row.get("principal") or "未填写")}</span>
+            <span>{role_html}负责人：{esc(row.get("principal") or "未填写")}</span>
             <small title="{esc(row.get("members") or "")}">成员：{esc(text_only(row.get("members"), 180) or "未填写")}</small>
           </div>
           <div class="project-admin-state">
@@ -7724,6 +7735,7 @@ def project_suggestions_payload(repo: Repository) -> dict[str, Any]:
         "fields": {
             "source": publication_unique_values(rows, "source"),
             "fund_name": publication_unique_values(rows, "fund_name"),
+            "project_role": publication_unique_values(rows, "project_role"),
             "status": publication_unique_values(rows, "status"),
             "principal": publication_unique_values(rows, "principal"),
             "members": project_split_values(rows, "members"),
@@ -9954,7 +9966,7 @@ def admin_project_form(meta: Table, row: dict[str, Any]) -> str:
     groups = [
         ("proj-basic", "基础信息", ["uid", "name", "project_number"]),
         ("proj-fund", "来源与经费", ["source", "fund_name", "amount"]),
-        ("proj-people", "负责人和成员", ["principal", "members"]),
+        ("proj-people", "负责人和成员", ["project_role", "principal", "members"]),
         ("proj-time", "时间与状态", ["start_date", "end_date", "status"]),
         ("proj-content", "项目简介", ["summary"]),
         ("proj-display", "展示与排序", ["visibility", "is_featured", "sort_order"]),
@@ -9966,6 +9978,7 @@ def admin_project_form(meta: Table, row: dict[str, Any]) -> str:
         "source": "项目来源，例如国家自然科学基金、科技厅、企业合作等；支持历史填法提示。",
         "fund_name": "基金/计划名称，例如面上项目、重点研发计划、横向课题等；支持历史填法提示。",
         "amount": "项目经费金额，可填写数字，单位可在项目名称或简介中说明。",
+        "project_role": "填写该项目中本团队或教师的承担角色，如主持、参与、合作、指导等；不限制固定选项，前台会与项目来源同一行显示。",
         "principal": "项目负责人；支持从历史项目负责人中选择。",
         "members": "项目成员，多个成员可用逗号、分号或换行分隔；支持历史成员提示。",
         "start_date": "开始日期，可从日期控件选择，也可直接输入 YYYY-MM-DD。",
@@ -9986,7 +9999,7 @@ def admin_project_form(meta: Table, row: dict[str, Any]) -> str:
             if not field:
                 continue
             value = row.get(name, "")
-            attrs = project_suggestion_attrs(name) if name in {"source", "fund_name", "status", "principal", "members"} else ""
+            attrs = project_suggestion_attrs(name) if name in {"source", "fund_name", "status", "project_role", "principal", "members"} else ""
             if name == "sort_order":
                 value = row.get(name) if text_only(row.get(name), 40).strip() else row.get("id", "")
                 attrs = 'placeholder="保存留空时自动使用记录 ID"'
@@ -9995,6 +10008,8 @@ def admin_project_form(meta: Table, row: dict[str, Any]) -> str:
                 labels.append(project_duplicate_field(field, value, help_map.get(name, ""), name))
             else:
                 labels.append(admin_field_label(field, value, help_map.get(name, ""), control_attrs=attrs, textarea_rows=rows))
+        if section_id == "proj-people":
+            labels.append('<p class="project-role-note">承担角色用于前台项目列表展示，可填写“主持”“参与”“合作”“指导”等任意字样；留空则前台不显示角色标签。负责人和成员仍分别记录项目负责人及参与人员。</p>')
         sections.append(f'<fieldset class="form-section project-form-section" id="{esc(section_id)}"><legend>{esc(title)}</legend>{"".join(labels)}</fieldset>')
     return f'<form class="edit-form project-edit-form" method="post" action="/admin/table/{esc(meta.name)}/save"><section class="project-edit-sticky"><nav class="project-edit-nav">{"".join(nav_items)}</nav></section>{"".join(sections)}{admin_form_actions(meta.name)}</form>'
 
@@ -10917,7 +10932,7 @@ def translation_cache_index(repo: Repository, env: dict[str, str]) -> dict[tuple
     if isinstance(existing, dict):
         return existing
     index: dict[tuple[str, str], dict[str, Any]] = {}
-    for row in repo.list("translation_cache", Query(limit=1000)):
+    for row in repo.list("translation_cache", Query(limit=EXPORT_ROW_LIMIT)):
         if text_only(row.get("target_lang"), 20).strip() not in {"en", "EN", "english", "English"}:
             continue
         if not truthy(row.get("is_current"), default=True):

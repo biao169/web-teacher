@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-SCHEMA_VERSION = "2026.08.20.1"
+SCHEMA_VERSION = "2026.08.28.1"
 
 
 @dataclass(frozen=True)
@@ -227,6 +227,7 @@ TABLES: tuple[Table, ...] = (
             Field("source", "来源", list=True, search=True),
             Field("fund_name", "基金/计划", search=True),
             Field("project_number", "项目编号", list=True, search=True),
+            Field("project_role", "承担角色", search=True),
             Field("principal", "负责人", search=True),
             Field("members", "成员", search=True),
             Field("start_date", "开始日期", "date"),

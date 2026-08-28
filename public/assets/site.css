@@ -787,6 +787,7 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; v
 .project-admin-main, .project-admin-fund, .project-admin-people, .project-admin-state { display: grid; gap: 2px; min-width: 0; align-content: center; }
 .project-admin-main strong, .project-admin-fund strong { color: var(--ink); font-size: var(--font-body); line-height: 1.25; overflow-wrap: anywhere; }
 .project-admin-main small, .project-admin-fund span, .project-admin-fund small, .project-admin-people span, .project-admin-people small, .project-admin-state small { color: var(--muted); font-size: var(--font-tag); line-height: 1.25; overflow-wrap: anywhere; }
+.project-admin-role { display: inline-flex; align-items: center; max-width: 100%; min-height: 19px; margin-right: 6px; padding: 1px 7px; border: 1px solid #c7ded3; border-radius: 999px; background: #eef7f2; color: #17624d; font-size: var(--font-small); font-weight: 900; line-height: 1.2; vertical-align: baseline; }
 .project-inline-form { display: grid; grid-template-columns: minmax(58px, .8fr) minmax(50px, .55fr) minmax(76px, .7fr) 62px auto; gap: 4px; align-items: end; }
 .project-quick-field { display: grid; grid-template-rows: 14px 28px; gap: 1px; margin: 0; font-weight: 600; min-width: 0; }
 .project-quick-field span { color: var(--muted); font-size: var(--font-small); line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -802,10 +803,11 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; v
 .project-edit-form .project-form-section { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px 8px; padding: 7px 9px 8px; align-items: start; scroll-margin-top: 120px; }
 .project-edit-form .project-form-section label { grid-column: span 3; grid-template-rows: 16px minmax(32px, auto) minmax(30px, auto); gap: 3px; min-width: 0; align-content: start; }
 .project-edit-form .project-form-section .field-name, .project-edit-form .project-form-section .field-fund_name { grid-column: span 5; }
-.project-edit-form .project-form-section .field-source, .project-edit-form .project-form-section .field-project_number, .project-edit-form .project-form-section .field-principal, .project-edit-form .project-form-section .field-members { grid-column: span 4; }
+.project-edit-form .project-form-section .field-source, .project-edit-form .project-form-section .field-project_number, .project-edit-form .project-form-section .field-project_role, .project-edit-form .project-form-section .field-principal, .project-edit-form .project-form-section .field-members { grid-column: span 4; }
 .project-edit-form .project-form-section .field-summary { grid-column: 1 / -1; grid-template-rows: 16px auto 28px; }
 .project-edit-form .project-form-section .field-summary textarea, .project-edit-form .project-form-section .field-members textarea { min-height: 52px; max-height: 340px; resize: vertical; }
 .project-edit-form .field-help { display: -webkit-box; min-height: 30px; max-height: 30px; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.project-edit-form .project-role-note { grid-column: 1 / -1; margin: 0; padding: 6px 8px; border: 1px dashed #cbded5; border-radius: 7px; background: #f7fbf8; color: #60766d; font-size: var(--font-tag); line-height: 1.45; }
 .project-inline-lookup-name { grid-column: span 5; }
 .project-inline-lookup-project_number { grid-column: span 4; }
 @media (max-width: 1280px) and (min-width: 821px) {
@@ -1663,6 +1665,7 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; v
   min-width: 0;
 }
 
+.compact-page .project-role,
 .compact-page .project-source,
 .compact-page .project-fund {
   display: inline-flex;
@@ -1682,6 +1685,17 @@ th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; v
   background: transparent;
   color: #6b7d75;
   font-weight: 700;
+}
+
+.compact-page .project-role {
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid #c7ded3;
+  border-radius: 999px;
+  background: #eef7f2;
+  color: #17624d;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
 }
 
 .compact-page .project-fund {

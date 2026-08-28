@@ -180,6 +180,7 @@ CREATE TABLE IF NOT EXISTS projects (
   source TEXT,
   fund_name TEXT,
   project_number TEXT,
+  project_role TEXT,
   principal TEXT,
   members TEXT,
   start_date TEXT,

@@ -820,7 +820,9 @@ body.front-nav-open .site-header .site-nav a:hover { background: #e8f4ef; text-d
   min-width: 0;
 }
 
-.compact-page .project-source, .compact-page .project-fund {
+.compact-page .project-role,
+.compact-page .project-source,
+.compact-page .project-fund {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
@@ -832,6 +834,17 @@ body.front-nav-open .site-header .site-nav a:hover { background: #e8f4ef; text-d
   font-weight: 700;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.compact-page .project-role {
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid #c7ded3;
+  border-radius: 999px;
+  background: #eef7f2;
+  color: #17624d;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
 }
 
 .compact-page .project-source {

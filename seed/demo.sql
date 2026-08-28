@@ -31,8 +31,8 @@ INSERT OR IGNORE INTO research_interests (uid, name, description, sort_order, vi
 INSERT OR IGNORE INTO publications (uid, title, authors, venue, year, volume, issue, pages, doi, citation_gbt, citation_apa, citation_ieee, publication_type, author_role, index_type, display_tags, keywords, visibility, pdf_visibility, is_featured, sort_order)
 VALUES ('pub-demo-reliable-ai', 'Reliable AI Systems for Education', 'San Zhang; Si Li', 'Journal of Educational Intelligence', 2026, '12', '1', '15-28', '10.0000/example.2026.001', 'Zhang S, Li S. Reliable AI Systems for Education[J]. Journal of Educational Intelligence, 2026.', 'Zhang, S., & Li, S. (2026). Reliable AI Systems for Education. Journal of Educational Intelligence.', 'S. Zhang and S. Li, "Reliable AI Systems for Education," Journal of Educational Intelligence, 2026.', '期刊论文', 'corresponding', 'SCI', '期刊论文, SCI', 'AI; education; reliability', 'public', 'public', 1, 1);
 
-INSERT OR IGNORE INTO projects (uid, name, source, project_number, principal, members, start_date, end_date, status, summary, visibility, is_featured, sort_order)
-VALUES ('project-reliable-ai', '面向教育场景的可靠人工智能系统', '国家自然科学基金', 'NSFC-000000', '张三', '李四', '2026-01-01', '2029-12-31', '在研', '研究低资源、高可靠、可解释的教育智能系统。', 'public', 1, 1);
+INSERT OR IGNORE INTO projects (uid, name, source, project_number, project_role, principal, members, start_date, end_date, status, summary, visibility, is_featured, sort_order)
+VALUES ('project-reliable-ai', '面向教育场景的可靠人工智能系统', '国家自然科学基金', 'NSFC-000000', '主持', '张三', '李四', '2026-01-01', '2029-12-31', '在研', '研究低资源、高可靠、可解释的教育智能系统。', 'public', 1, 1);
 
 INSERT OR IGNORE INTO patents (uid, name, country, patent_type, application_number, application_date, inventors, owner, legal_status, visibility, is_featured, sort_order)
 VALUES ('patent-ai-platform', '一种教学资源智能组织方法及系统', '中国', '发明专利', 'CN000000000', '2026-03-18', '张三; 李四', '某某大学', '申请中', 'public', 1, 1);

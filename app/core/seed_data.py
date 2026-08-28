@@ -155,7 +155,7 @@ DEMO_ROWS = {
         }
     ],
     "projects": [
-        {"id": 1, "uid": "project-reliable-ai", "name": "面向教育场景的可靠人工智能系统", "source": "国家自然科学基金", "project_number": "NSFC-000000", "principal": "张三", "members": "李四", "start_date": "2026-01-01", "end_date": "2029-12-31", "status": "在研", "summary": "研究低资源、高可靠、可解释的教育智能系统。", "visibility": "public", "is_featured": 1, "sort_order": 1}
+        {"id": 1, "uid": "project-reliable-ai", "name": "面向教育场景的可靠人工智能系统", "source": "国家自然科学基金", "project_number": "NSFC-000000", "project_role": "主持", "principal": "张三", "members": "李四", "start_date": "2026-01-01", "end_date": "2029-12-31", "status": "在研", "summary": "研究低资源、高可靠、可解释的教育智能系统。", "visibility": "public", "is_featured": 1, "sort_order": 1}
     ],
     "patents": [
         {"id": 1, "uid": "patent-ai-platform", "name": "一种教学资源智能组织方法及系统", "country": "中国", "patent_type": "发明专利", "application_number": "CN000000000", "application_date": "2026-03-18", "inventors": "张三; 李四", "owner": "某某大学", "legal_status": "申请中", "visibility": "public", "is_featured": 1, "sort_order": 1}
