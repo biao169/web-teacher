@@ -11,7 +11,7 @@ import { runProcess } from './release/process.mjs'
 
 const target = resolveBuildTarget(process.argv[2])
 // Resolve prerequisites before touching the previous working build.
-const environment = await inspectEnvironment(projectRoot)
+const environment = await inspectEnvironment(projectRoot, { productionOnly: target.target === 'ubuntu' })
 if (environment.blockers.length) {
   throw new Error(`Build prerequisites failed: ${environment.blockers.map(item => item.code).join(', ')}`)
 }

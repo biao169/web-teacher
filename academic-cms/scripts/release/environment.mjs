@@ -20,8 +20,9 @@ export async function inspectEnvironment(root, options = {}) {
   const expectedPnpm = /^pnpm@(.+)$/u.exec(pkg.packageManager ?? '')?.[1]
   const manager = spawnSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--version'], { cwd: root, encoding: 'utf8', timeout: 10000 })
   if (manager.status !== 0 || manager.stdout.trim() !== expectedPnpm) blockers.push({ code: 'PNPM_VERSION', expected: expectedPnpm, actual: manager.status === 0 ? manager.stdout.trim() : 'unavailable' })
+  const dependencySet = options.productionOnly ? (pkg.dependencies ?? {}) : { ...pkg.dependencies, ...pkg.devDependencies }
   const dependencies = []
-  for (const [name, specifier] of Object.entries({ ...pkg.dependencies, ...pkg.devDependencies })) {
+  for (const [name, specifier] of Object.entries(dependencySet)) {
     const dep = exactDependency(name, specifier)
     let installed
     try { installed = JSON.parse(await readFile(resolve(root, 'node_modules', name, 'package.json'), 'utf8')) } catch { /* Recorded explicitly, never treated as a passed install. */ }

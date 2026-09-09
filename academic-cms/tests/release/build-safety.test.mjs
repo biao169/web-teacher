@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { withBuildTransaction } from '../../scripts/release/build-transaction.mjs'
 import { resolveBuildTarget } from '../../scripts/lib/build-output.mjs'
 import { sourceIdentity } from '../../scripts/release/inputs.mjs'
-import { exactDependency } from '../../scripts/release/environment.mjs'
+import { exactDependency, inspectEnvironment } from '../../scripts/release/environment.mjs'
 import { assertCurrentBuildSource } from '../../scripts/release/assert-current-source.mjs'
 import { inspectContinuity } from '../../scripts/release/continuity.mjs'
 const roots=[]
@@ -66,6 +66,17 @@ test('source identity responds to implementation changes but ignores reports',as
 test('source symlinks are not silently fingerprinted as trusted files',async()=>{
  const root=await fixture();await mkdir(resolve(root,'app'));await writeFile(resolve(root,'outside'),'x');await symlink(resolve(root,'outside'),resolve(root,'app/file.ts'))
  await assert.rejects(sourceIdentity(root),/symlink/)
+})
+test('ubuntu production environment check ignores skipped dev dependencies', async () => {
+ const root = await fixture()
+ await mkdir(resolve(root, 'node_modules/prod'), { recursive: true })
+ await writeFile(resolve(root, 'package.json'), JSON.stringify({ packageManager: 'pnpm@11.19.0', dependencies: { prod: '1.2.3' }, devDependencies: { devonly: '4.5.6' } }))
+ await writeFile(resolve(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n')
+ await writeFile(resolve(root, 'node_modules/prod/package.json'), JSON.stringify({ name: 'prod', version: '1.2.3' }))
+ const prodOnly = await inspectEnvironment(root, { productionOnly: true, nodeVersion: '24.19.0' })
+ assert.deepEqual(prodOnly.blockers.filter(item => item.code === 'DEPENDENCY_MISSING_OR_MISMATCH'), [])
+ const full = await inspectEnvironment(root, { nodeVersion: '24.19.0' })
+ assert.equal(full.blockers.some(item => item.name === 'devonly'), true)
 })
 test('exact dependency identity handles npm aliases without permitting ranges',()=>{
  assert.deepEqual(exactDependency('typescript','npm:@typescript/typescript6@6.0.2'),{installedName:'typescript',registryName:'@typescript/typescript6',version:'6.0.2'})
