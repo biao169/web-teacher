@@ -252,10 +252,10 @@ start_services() {
 }
 bootstrap() {
   local username password again result uid
-  ask '首位高级管理员登录名（3–64位，字母开头，支持字母/数字/._-）' admin username
+  ask '数据库（网站）高级管理员登录名（3–64位，字母开头，支持字母/数字/._-；与 VPN/系统账号无关）' admin username
   username=${username,,}
   [[ $username =~ ^[a-z][a-z0-9._-]{2,63}$ ]] || die '登录名格式不符合网站规则，可重新运行 Tweb bootstrap'
-  read -r -s -p '管理员密码（至少6位，不写入配置文件）: ' password; echo
+  read -r -s -p '数据库（网站）高级管理员密码（至少6位，不写入配置文件）: ' password; echo
   [[ ${#password} -ge 6 ]] || die '密码至少6位'
   read -r -s -p '再次输入密码: ' again; echo
   [[ $password == "$again" ]] || die '两次密码不一致；可重新运行 Tweb bootstrap'
@@ -265,10 +265,10 @@ bootstrap() {
   unset password again
   sed -i '/^NUXT_AUTH_BOOTSTRAP_TOKEN=/d' "$CONF/site.env"
   chmod 640 "$CONF/site.env"
-  echo "高级管理员创建成功：$username；账号 UID：$uid"
+  echo "数据库（网站）高级管理员创建成功：$username；账号 UID：$uid"
   if [[ $TRANSFER == true ]]; then
     local grant_now
-    ask '同时授予此账号快传管理权限？true/false' true grant_now
+    ask '同时授予这个网站管理员快传管理权限？true/false' true grant_now
     if [[ $grant_now == true ]]; then ft scripts/manage-admin.mjs grant "$uid"; fi
   fi
   echo "教师登录：$ORIGIN/zh/login；后台：$ORIGIN/admin；快传后台：$ORIGIN/transfer-admin/"
@@ -298,6 +298,7 @@ JS
   checkout_source
   confirm '将安装专用账号、systemd 服务和快捷命令；不会自动修改 Nginx/VPN/防火墙。'
   if id "$USER_NAME" >/dev/null 2>&1; then die '专用账号已存在，拒绝接管'; fi
+  # Linux service account is separate from the website database administrator.
   useradd --system --home-dir "$BASE/service-home" --create-home --shell /usr/sbin/nologin "$USER_NAME"
   chmod 755 "$BASE"; mkdir -p "$CONF"; chown root:"$USER_NAME" "$CONF"; chmod 750 "$CONF"
   save_config; copy_source; configure_env
@@ -389,7 +390,7 @@ main() {
     printf '%s\n' '1 首次安装  2 仅源码更新  3 仅数据库迁移  4 完整更新' \
       '5 保留数据重装/重建  6 备份  7 恢复  8 启停快传组件' \
       '9 状态  10 日志  11 网络/VPN检测  12 安装依赖' \
-      '13 启动  14 停止  15 创建首位管理员  16 快传管理员授权' \
+      '13 启动  14 停止  15 创建网站高级管理员  16 快传管理员授权' \
       '17 Nginx配置示例  0 退出（操作完成后重新 Tweb 进入）'
     read -r -p '请选择: ' action
     case $action in 1) action=install;;2) action=source;;3) action=database;;4) action=full;;5) action=rebuild;;6) action=backup;;7) action=restore;;8) action=toggle;;9) action=status;;10) action=logs;;11) action=inspect;;12) action=deps;;13) action=start;;14) action=stop;;15) action=bootstrap;;16) action=grant;;17) action=nginx;;0) return;;*) die '无效选项';;esac
