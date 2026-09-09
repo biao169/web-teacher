@@ -71,7 +71,7 @@ save_config() {
   printf 'REPO=%q\nBRANCH=%q\nTRANSFER=%q\nPORT=%q\nORIGIN=%q\n' "$REPO" "$BRANCH" "$TRANSFER" "$PORT" "$ORIGIN" > "$temp"
   chmod 600 "$temp"; mv "$temp" "$CONF/settings.sh"
 }
-as_app() { runuser -u "$USER_NAME" -- env HOME="$BASE/service-home" PATH="$PATH" "$@"; }
+as_app() { env HOME="$BASE/service-home" PATH="$PATH" "$@"; }
 cms() { (cd "$APP/academic-cms"; as_app node --env-file="$CONF/site.env" "$@"); }
 ft() { (cd "$APP/file-transfer"; as_app node "$@"); }
 stop_services() {
@@ -122,6 +122,9 @@ copy_source() {
       "$STAGE/repo/$component/" "$APP/$component/"
   done
   git -C "$STAGE/repo" rev-parse HEAD > "$APP/REVISION"
+  chown -R "$USER_NAME:$GROUP_NAME" "$APP"
+}
+fix_permissions() {
   chown -R "$USER_NAME:$GROUP_NAME" "$APP"
 }
 install_dependencies() {
@@ -308,7 +311,7 @@ JS
   install_shortcut
   install_dependencies; migrate; build; units
   echo '数据库已建立，不注入任何演示数据。'
-  bootstrap; start_services
+  bootstrap; fix_permissions; start_services
 }
 update_site() {
   local mode=$1; load_config; prerequisites
@@ -328,7 +331,7 @@ update_site() {
     # Transfer schema may migrate on startup. Do not silently migrate it in source-only mode.
   else migrate; fi
   if [[ $mode != database ]]; then build; fi
-  units; start_services; refresh_manager
+  fix_permissions; units; start_services; refresh_manager
 }
 restore() {
   load_config
@@ -350,7 +353,7 @@ toggle() {
   load_config; confirm '切换快传将停机备份、重建教师站，不删除快传数据。'
   stop_services; backup_stopped
   if [[ $TRANSFER == true ]]; then TRANSFER=false; else TRANSFER=true; fi
-  save_config; set_transfer_env; migrate; build; units; start_services
+  save_config; set_transfer_env; migrate; build; fix_permissions; units; start_services
 }
 nginx_example() {
   load_config
