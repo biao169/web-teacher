@@ -1,3 +1,15 @@
+-- Consolidated initial migration for Academic CMS.
+
+-- Source migrations: 0001_initial.sql, 0002_auth_security.sql, 0003_media_i18n_cache.sql, 0004_public_content_indexes.sql, 0005_public_interactions_and_demo_seed.sql, 0006_admin_shell.sql, 0007_admin_content_management.sql, 0008_complete_admin_integrity.sql, 0009_auth_management_integrity.sql, 0010_profile_link_values.sql, 0011_media_full_scan.sql
+
+-- Transaction ownership belongs to scripts/db/migrations.mjs.
+
+
+
+-- ============================================================================
+-- Source: 0001_initial.sql
+-- ============================================================================
+
 -- Initial application schema. Immutable after first deployment.
 -- Shared by Cloudflare D1 and SQLite; transactions are owned by the migration runner.
 
@@ -685,3 +697,348 @@ CREATE TABLE "operation_logs" (
 
 CREATE INDEX "idx_operation_logs_module_created" ON "operation_logs" ("module", "created_at" DESC, "id");
 
+-- ============================================================================
+-- Source: 0002_auth_security.sql
+-- ============================================================================
+
+-- Server-side authentication state. Transaction ownership belongs to the migration runner.
+
+CREATE TABLE "auth_bootstrap_state" (
+  "id" INTEGER PRIMARY KEY NOT NULL,
+  "completed_at" TEXT NOT NULL,
+  "user_uid" TEXT NOT NULL,
+  CONSTRAINT "ck_auth_bootstrap_state_singleton" CHECK ("id" = 1),
+  CONSTRAINT "ck_auth_bootstrap_state_completed_at" CHECK (length("completed_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "completed_at", '+0 seconds') = "completed_at", 0)),
+  CONSTRAINT "ck_auth_bootstrap_state_user_uid" CHECK (length(trim("user_uid")) > 0 AND length("user_uid") <= 128)
+);
+
+CREATE TABLE "auth_sessions" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  "uid" TEXT NOT NULL UNIQUE,
+  "user_uid" TEXT NOT NULL REFERENCES "auth_users"("uid") ON UPDATE RESTRICT ON DELETE CASCADE,
+  "token_hash" TEXT NOT NULL,
+  "created_at" TEXT NOT NULL,
+  "updated_at" TEXT NOT NULL,
+  "last_seen_at" TEXT NOT NULL,
+  "idle_expires_at" TEXT NOT NULL,
+  "expires_at" TEXT NOT NULL,
+  "revoked_at" TEXT,
+  "revoke_reason" TEXT,
+  "user_agent_hash" TEXT,
+  CONSTRAINT "ck_auth_sessions_uid" CHECK (length(trim("uid")) > 0 AND length("uid") <= 128),
+  CONSTRAINT "ck_auth_sessions_token_hash" CHECK (length("token_hash") = 64 AND "token_hash" NOT GLOB '*[^0-9a-f]*'),
+  CONSTRAINT "ck_auth_sessions_created_at" CHECK (length("created_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "created_at", '+0 seconds') = "created_at", 0)),
+  CONSTRAINT "ck_auth_sessions_updated_at" CHECK (length("updated_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "updated_at", '+0 seconds') = "updated_at", 0)),
+  CONSTRAINT "ck_auth_sessions_last_seen_at" CHECK (length("last_seen_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "last_seen_at", '+0 seconds') = "last_seen_at", 0)),
+  CONSTRAINT "ck_auth_sessions_idle_expires_at" CHECK (length("idle_expires_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "idle_expires_at", '+0 seconds') = "idle_expires_at", 0)),
+  CONSTRAINT "ck_auth_sessions_expires_at" CHECK (length("expires_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "expires_at", '+0 seconds') = "expires_at", 0)),
+  CONSTRAINT "ck_auth_sessions_revoked_at" CHECK ("revoked_at" IS NULL OR (length("revoked_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "revoked_at", '+0 seconds') = "revoked_at", 0))),
+  CONSTRAINT "ck_auth_sessions_revoke_reason" CHECK ("revoke_reason" IS NULL OR "revoke_reason" IN ('logout', 'expired', 'rotated', 'user_disabled', 'role_disabled', 'password_changed', 'admin_revoked', 'security_policy')),
+  CONSTRAINT "ck_auth_sessions_revocation_pair" CHECK (("revoked_at" IS NULL) = ("revoke_reason" IS NULL)),
+  CONSTRAINT "ck_auth_sessions_user_agent_hash" CHECK ("user_agent_hash" IS NULL OR (length("user_agent_hash") = 64 AND "user_agent_hash" NOT GLOB '*[^0-9a-f]*')),
+  CONSTRAINT "ck_auth_sessions_time_order" CHECK (
+    "updated_at" >= "created_at" AND
+    "last_seen_at" >= "created_at" AND
+    "idle_expires_at" > "last_seen_at" AND
+    "idle_expires_at" <= "expires_at" AND
+    "expires_at" > "created_at" AND
+    ("revoked_at" IS NULL OR "revoked_at" >= "created_at")
+  )
+);
+
+CREATE UNIQUE INDEX "idx_auth_sessions_token_hash" ON "auth_sessions" ("token_hash");
+CREATE INDEX "idx_auth_sessions_user_active" ON "auth_sessions" ("user_uid", "revoked_at", "created_at", "id");
+CREATE INDEX "idx_auth_sessions_expiry" ON "auth_sessions" ("expires_at", "idle_expires_at", "id");
+CREATE INDEX "idx_auth_sessions_revoked" ON "auth_sessions" ("revoked_at", "id");
+
+CREATE TABLE "auth_login_throttles" (
+  "key_hash" TEXT PRIMARY KEY NOT NULL,
+  "scope" TEXT NOT NULL,
+  "failures" INTEGER NOT NULL DEFAULT 0,
+  "window_started_at" TEXT NOT NULL,
+  "blocked_until" TEXT,
+  "updated_at" TEXT NOT NULL,
+  "expires_at" TEXT NOT NULL,
+  CONSTRAINT "ck_auth_login_throttles_key_hash" CHECK (length("key_hash") = 64 AND "key_hash" NOT GLOB '*[^0-9a-f]*'),
+  CONSTRAINT "ck_auth_login_throttles_scope" CHECK ("scope" IN ('account', 'network')),
+  CONSTRAINT "ck_auth_login_throttles_failures" CHECK (typeof("failures") = 'integer' AND "failures" BETWEEN 0 AND 1000000),
+  CONSTRAINT "ck_auth_login_throttles_window_started_at" CHECK (length("window_started_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "window_started_at", '+0 seconds') = "window_started_at", 0)),
+  CONSTRAINT "ck_auth_login_throttles_blocked_until" CHECK ("blocked_until" IS NULL OR (length("blocked_until") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "blocked_until", '+0 seconds') = "blocked_until", 0))),
+  CONSTRAINT "ck_auth_login_throttles_updated_at" CHECK (length("updated_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "updated_at", '+0 seconds') = "updated_at", 0)),
+  CONSTRAINT "ck_auth_login_throttles_expires_at" CHECK (length("expires_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "expires_at", '+0 seconds') = "expires_at", 0)),
+  CONSTRAINT "ck_auth_login_throttles_time_order" CHECK (
+    "updated_at" >= "window_started_at" AND
+    "expires_at" >= "updated_at" AND
+    ("blocked_until" IS NULL OR ("blocked_until" >= "updated_at" AND "expires_at" >= "blocked_until"))
+  )
+);
+
+CREATE INDEX "idx_auth_login_throttles_expiry" ON "auth_login_throttles" ("expires_at", "key_hash");
+
+-- ============================================================================
+-- Source: 0003_media_i18n_cache.sql
+-- ============================================================================
+
+-- Stage 3 technical cache generation table. Transaction ownership belongs to the migration runner.
+CREATE TABLE "cache_generations" (
+  "tag" TEXT PRIMARY KEY NOT NULL,
+  "generation" INTEGER NOT NULL DEFAULT 1,
+  "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  CONSTRAINT "ck_cache_generations_tag" CHECK (length(trim("tag")) > 0 AND length("tag") <= 128),
+  CONSTRAINT "ck_cache_generations_generation" CHECK ("generation" >= 1 AND "generation" <= 9007199254740990),
+  CONSTRAINT "ck_cache_generations_updated_at" CHECK (length("updated_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "updated_at", '+0 seconds') = "updated_at", 0))
+) STRICT;
+
+-- ============================================================================
+-- Source: 0004_public_content_indexes.sql
+-- ============================================================================
+
+-- Hot-path ordering indexes for public list pages.
+-- This migration is append-only; the immutable initial migration remains unchanged.
+
+CREATE INDEX "idx_profiles_visibility_active_sort"
+  ON "profiles" ("visibility", "is_active", "sort_order", "id");
+
+CREATE INDEX "idx_projects_visibility_start_date"
+  ON "projects" ("visibility", "start_date" DESC, "sort_order", "id");
+
+CREATE INDEX "idx_courses_visibility_semester"
+  ON "courses" ("visibility", "semester" DESC, "sort_order", "id");
+
+-- ============================================================================
+-- Source: 0005_public_interactions_and_demo_seed.sql
+-- ============================================================================
+
+-- Stage 6 public registration/contact throttling and development seed marker.
+-- Transaction ownership belongs to the migration runner.
+
+CREATE TABLE "public_action_throttles" (
+  "key_hash" TEXT PRIMARY KEY NOT NULL,
+  "action" TEXT NOT NULL,
+  "scope" TEXT NOT NULL,
+  "attempts" INTEGER NOT NULL DEFAULT 0,
+  "window_started_at" TEXT NOT NULL,
+  "blocked_until" TEXT,
+  "updated_at" TEXT NOT NULL,
+  "expires_at" TEXT NOT NULL,
+  CONSTRAINT "ck_public_action_throttles_key_hash" CHECK (length("key_hash") = 64 AND "key_hash" NOT GLOB '*[^0-9a-f]*'),
+  CONSTRAINT "ck_public_action_throttles_action" CHECK ("action" IN ('registration', 'contact')),
+  CONSTRAINT "ck_public_action_throttles_scope" CHECK ("scope" IN ('identity', 'network')),
+  CONSTRAINT "ck_public_action_throttles_attempts" CHECK (typeof("attempts") = 'integer' AND "attempts" BETWEEN 0 AND 1000000),
+  CONSTRAINT "ck_public_action_throttles_window_started_at" CHECK (length("window_started_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "window_started_at", '+0 seconds') = "window_started_at", 0)),
+  CONSTRAINT "ck_public_action_throttles_blocked_until" CHECK ("blocked_until" IS NULL OR (length("blocked_until") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "blocked_until", '+0 seconds') = "blocked_until", 0))),
+  CONSTRAINT "ck_public_action_throttles_updated_at" CHECK (length("updated_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "updated_at", '+0 seconds') = "updated_at", 0)),
+  CONSTRAINT "ck_public_action_throttles_expires_at" CHECK (length("expires_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "expires_at", '+0 seconds') = "expires_at", 0)),
+  CONSTRAINT "ck_public_action_throttles_time_order" CHECK (
+    "updated_at" >= "window_started_at" AND
+    "expires_at" >= "updated_at" AND
+    ("blocked_until" IS NULL OR ("blocked_until" >= "updated_at" AND "expires_at" >= "blocked_until"))
+  )
+) STRICT;
+
+CREATE INDEX "idx_public_action_throttles_expiry"
+  ON "public_action_throttles" ("expires_at", "key_hash");
+CREATE INDEX "idx_public_action_throttles_action_scope"
+  ON "public_action_throttles" ("action", "scope", "updated_at");
+
+-- This marker makes the sample dataset atomic, repeatable and impossible to
+-- mistake for production content. Its singleton shape is intentional.
+CREATE TABLE "demo_seed_state" (
+  "id" INTEGER PRIMARY KEY NOT NULL,
+  "dataset_version" TEXT NOT NULL,
+  "seeded_at" TEXT NOT NULL,
+  "seed_digest" TEXT NOT NULL,
+  CONSTRAINT "ck_demo_seed_state_singleton" CHECK ("id" = 1),
+  CONSTRAINT "ck_demo_seed_state_dataset_version" CHECK (length(trim("dataset_version")) BETWEEN 1 AND 64),
+  CONSTRAINT "ck_demo_seed_state_seeded_at" CHECK (length("seeded_at") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', "seeded_at", '+0 seconds') = "seeded_at", 0)),
+  CONSTRAINT "ck_demo_seed_state_seed_digest" CHECK (length("seed_digest") = 64 AND "seed_digest" NOT GLOB '*[^0-9a-f]*')
+) STRICT;
+
+CREATE INDEX "idx_global_settings_updated"
+  ON "global_settings" ("updated_at" DESC, "id" DESC);
+
+-- ============================================================================
+-- Source: 0006_admin_shell.sql
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS "idx_operation_logs_created_desc"
+  ON "operation_logs" ("created_at" DESC, "id" DESC);
+
+-- ============================================================================
+-- Source: 0007_admin_content_management.sql
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS "admin_mutation_guards" (
+  "uid" TEXT PRIMARY KEY NOT NULL,
+  "module" TEXT NOT NULL,
+  "target_uid" TEXT NOT NULL,
+  "expected_updated_at" TEXT NOT NULL,
+  "created_at" TEXT NOT NULL,
+  CONSTRAINT "ck_admin_mutation_guards_uid" CHECK (length("uid") BETWEEN 1 AND 128),
+  CONSTRAINT "ck_admin_mutation_guards_module" CHECK (length("module") BETWEEN 1 AND 128),
+  CONSTRAINT "ck_admin_mutation_guards_target" CHECK (length("target_uid") BETWEEN 1 AND 2048),
+  CONSTRAINT "ck_admin_mutation_guards_expected" CHECK (strftime('%Y-%m-%dT%H:%M:%fZ', "expected_updated_at") = "expected_updated_at"),
+  CONSTRAINT "ck_admin_mutation_guards_created" CHECK (strftime('%Y-%m-%dT%H:%M:%fZ', "created_at") = "created_at")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_admin_mutation_guards_created_at"
+  ON "admin_mutation_guards" ("created_at");
+
+CREATE INDEX IF NOT EXISTS "idx_profiles_admin_updated"
+  ON "profiles" ("updated_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "idx_publications_admin_updated"
+  ON "publications" ("updated_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "idx_projects_admin_updated"
+  ON "projects" ("updated_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "idx_patents_admin_updated"
+  ON "patents" ("updated_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "idx_students_admin_updated"
+  ON "students" ("updated_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "idx_news_admin_updated"
+  ON "news" ("updated_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "idx_courses_admin_updated"
+  ON "courses" ("updated_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "idx_messages_admin_status_created"
+  ON "messages" ("status", "created_at" DESC, "id" DESC);
+
+-- ============================================================================
+-- Source: 0008_complete_admin_integrity.sql
+-- ============================================================================
+
+-- 后台完整性与高频查询约束
+-- 根据现有业务表增加唯一性和管理查询索引。
+
+DELETE FROM auth_permissions WHERE id NOT IN (SELECT MAX(id) FROM auth_permissions GROUP BY role_uid, module);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_auth_permissions_role_module ON auth_permissions(role_uid, module);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_auth_users_username_nocase ON auth_users(username COLLATE NOCASE);
+
+UPDATE site_settings SET is_active = 0 WHERE is_active = 1 AND id <> (SELECT id FROM site_settings WHERE is_active = 1 ORDER BY updated_at DESC, id DESC LIMIT 1);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_site_settings_single_active ON site_settings(is_active) WHERE is_active = 1;
+
+CREATE INDEX IF NOT EXISTS idx_media_assets_admin_status_updated ON media_assets(status, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_translation_cache_admin_status_updated ON translation_cache(status, is_current, updated_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_active_expiry ON auth_sessions(user_uid, revoked_at, expires_at DESC);
+CREATE INDEX IF NOT EXISTS idx_operation_logs_module_created ON operation_logs(module, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_status_created ON messages(status, created_at DESC, id DESC);
+
+
+CREATE TABLE IF NOT EXISTS admin_mutation_guards (
+  uid TEXT PRIMARY KEY,
+  expected_changes INTEGER NOT NULL,
+  actual_changes INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  CHECK (expected_changes >= 0),
+  CHECK (actual_changes = expected_changes)
+);
+CREATE INDEX IF NOT EXISTS idx_admin_mutation_guards_created
+  ON admin_mutation_guards(created_at);
+
+-- ============================================================================
+-- Source: 0009_auth_management_integrity.sql
+-- ============================================================================
+
+-- Normalize permission module identifiers written by the legacy account UI.
+-- Authentication treats unknown modules as a protocol error, so existing
+-- sessions for affected roles are revoked before the rows are repaired.
+
+UPDATE auth_sessions
+SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+    revoke_reason = 'security_policy',
+    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+WHERE revoked_at IS NULL
+  AND user_uid IN (
+    SELECT u.uid
+    FROM auth_users u
+    JOIN auth_permissions p ON p.role_uid = u.role_uid
+    WHERE p.module NOT IN (
+      'dashboard','site_settings','global_settings','navigation_items','profiles',
+      'research_interests','publications','projects','patents','students',
+      'student_category_displays','news','courses','messages','media_assets',
+      'translation_cache','operation_logs','auth','import_export'
+    )
+  );
+
+INSERT INTO auth_permissions (
+  uid, role_uid, module, can_view, can_create, can_edit, can_delete, can_export,
+  sort_order, created_at, updated_at
+)
+SELECT
+  'permission:migrated:' || lower(hex(randomblob(16))), role_uid, 'navigation_items',
+  can_view, can_create, can_edit, can_delete, can_export, sort_order, created_at, updated_at
+FROM auth_permissions WHERE module = 'navigation'
+ON CONFLICT(role_uid, module) DO UPDATE SET
+  can_view = MAX(auth_permissions.can_view, excluded.can_view),
+  can_create = MAX(auth_permissions.can_create, excluded.can_create),
+  can_edit = MAX(auth_permissions.can_edit, excluded.can_edit),
+  can_delete = MAX(auth_permissions.can_delete, excluded.can_delete),
+  can_export = MAX(auth_permissions.can_export, excluded.can_export),
+  updated_at = MAX(auth_permissions.updated_at, excluded.updated_at);
+
+INSERT INTO auth_permissions (
+  uid, role_uid, module, can_view, can_create, can_edit, can_delete, can_export,
+  sort_order, created_at, updated_at
+)
+SELECT
+  'permission:migrated:' || lower(hex(randomblob(16))), role_uid, 'media_assets',
+  can_view, can_create, can_edit, can_delete, can_export, sort_order, created_at, updated_at
+FROM auth_permissions WHERE module = 'media'
+ON CONFLICT(role_uid, module) DO UPDATE SET
+  can_view = MAX(auth_permissions.can_view, excluded.can_view),
+  can_create = MAX(auth_permissions.can_create, excluded.can_create),
+  can_edit = MAX(auth_permissions.can_edit, excluded.can_edit),
+  can_delete = MAX(auth_permissions.can_delete, excluded.can_delete),
+  can_export = MAX(auth_permissions.can_export, excluded.can_export),
+  updated_at = MAX(auth_permissions.updated_at, excluded.updated_at);
+
+INSERT INTO auth_permissions (
+  uid, role_uid, module, can_view, can_create, can_edit, can_delete, can_export,
+  sort_order, created_at, updated_at
+)
+SELECT
+  'permission:migrated:' || lower(hex(randomblob(16))), role_uid, 'translation_cache',
+  can_view, can_create, can_edit, can_delete, can_export, sort_order, created_at, updated_at
+FROM auth_permissions WHERE module = 'translation'
+ON CONFLICT(role_uid, module) DO UPDATE SET
+  can_view = MAX(auth_permissions.can_view, excluded.can_view),
+  can_create = MAX(auth_permissions.can_create, excluded.can_create),
+  can_edit = MAX(auth_permissions.can_edit, excluded.can_edit),
+  can_delete = MAX(auth_permissions.can_delete, excluded.can_delete),
+  can_export = MAX(auth_permissions.can_export, excluded.can_export),
+  updated_at = MAX(auth_permissions.updated_at, excluded.updated_at);
+
+DELETE FROM auth_permissions
+WHERE module NOT IN (
+  'dashboard','site_settings','global_settings','navigation_items','profiles',
+  'research_interests','publications','projects','patents','students',
+  'student_category_displays','news','courses','messages','media_assets',
+  'translation_cache','operation_logs','auth','import_export'
+);
+
+-- ============================================================================
+-- Source: 0010_profile_link_values.sql
+-- ============================================================================
+
+-- Optional display values for existing teacher platform links; no existing values are changed.
+ALTER TABLE "profiles" ADD COLUMN "orcid_value" INTEGER CHECK ("orcid_value" IS NULL OR (typeof("orcid_value") = 'integer' AND "orcid_value" BETWEEN 0 AND 9007199254740991));
+ALTER TABLE "profiles" ADD COLUMN "personal_homepage_value" INTEGER CHECK ("personal_homepage_value" IS NULL OR (typeof("personal_homepage_value") = 'integer' AND "personal_homepage_value" BETWEEN 0 AND 9007199254740991));
+ALTER TABLE "profiles" ADD COLUMN "google_scholar_value" INTEGER CHECK ("google_scholar_value" IS NULL OR (typeof("google_scholar_value") = 'integer' AND "google_scholar_value" BETWEEN 0 AND 9007199254740991));
+ALTER TABLE "profiles" ADD COLUMN "dblp_value" INTEGER CHECK ("dblp_value" IS NULL OR (typeof("dblp_value") = 'integer' AND "dblp_value" BETWEEN 0 AND 9007199254740991));
+ALTER TABLE "profiles" ADD COLUMN "github_value" INTEGER CHECK ("github_value" IS NULL OR (typeof("github_value") = 'integer' AND "github_value" BETWEEN 0 AND 9007199254740991));
+ALTER TABLE "profiles" ADD COLUMN "cnki_value" INTEGER CHECK ("cnki_value" IS NULL OR (typeof("cnki_value") = 'integer' AND "cnki_value" BETWEEN 0 AND 9007199254740991));
+
+-- ============================================================================
+-- Source: 0011_media_full_scan.sql
+-- ============================================================================
+
+-- Last full-scan job and per-media inspection results. Media contents are never deleted.
+CREATE TABLE media_scan_jobs (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  token TEXT NOT NULL,
+  lease_until INTEGER NOT NULL,
+  state_json TEXT NOT NULL CHECK (json_valid(state_json))
+);
+CREATE TABLE media_inspections (
+  media_uid TEXT PRIMARY KEY REFERENCES media_assets(uid) ON DELETE CASCADE,
+  result_json TEXT NOT NULL CHECK (json_valid(result_json))
+);

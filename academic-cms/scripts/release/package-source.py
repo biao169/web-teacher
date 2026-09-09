@@ -17,7 +17,7 @@ REQUIRED = (
     "server/services/public/public-home-service.ts", "server/services/auth/authentication-service.ts",
     "server/services/media/media-service.ts", "server/media/store.ts", "app/pages/admin/media/index.vue",
     "db/repository.ts", "db/runtime/node.ts", "db/runtime/cloudflare.ts",
-    "migrations/0001_initial.sql", "migrations/0005_public_interactions_and_demo_seed.sql",
+    "migrations/0001_initial.sql",
     "tests/release/native-services.spec.mjs", "docs/09_后台对象编辑统一设计.md",
 )
 MANIFEST = "reports/stage10b_manifest.sha256"

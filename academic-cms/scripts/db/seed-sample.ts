@@ -35,7 +35,7 @@ if (actualPath !== databasePath) throw new Error('The demo database path may not
 const database = openNodeDatabase(databasePath)
 try {
   const table = await database.adapter.execute({ sql: "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'demo_seed_state'", params: [], mode: 'rows', write: false })
-  if (table.rows.length !== 1) throw new Error('Apply migration 0005_public_interactions_and_demo_seed.sql before seeding sample data')
+  if (table.rows.length !== 1) throw new Error('Run the CMS database migrations before seeding sample data')
   const passwordHash = await new PasswordService().hash(password)
   const result = await applySampleSeed(database.adapter, { passwordHash })
   console.log(JSON.stringify({

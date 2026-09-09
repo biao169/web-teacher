@@ -9,7 +9,7 @@ export function openNodeDatabase(path: string) {
   const connection = new Database(resolve(path), { fileMustExist: true })
   try {
     if (!connection.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_cms_migrations'").get()) throw new Error('Database is not initialized by the CMS migration tool')
-    for (const migration of ['0001_initial.sql', '0002_auth_security.sql', '0003_media_i18n_cache.sql', '0004_public_content_indexes.sql', '0005_public_interactions_and_demo_seed.sql']) {
+    for (const migration of ['0001_initial.sql']) {
       if (!connection.prepare('SELECT name FROM _cms_migrations WHERE name = ?').get(migration)) throw new Error(`Database is missing required CMS migration: ${migration}`)
     }
     connection.pragma('foreign_keys = ON')
