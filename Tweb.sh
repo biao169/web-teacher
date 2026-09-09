@@ -7,7 +7,7 @@ APP=$BASE/app
 CONF=/etc/academic-suite
 USER_NAME=${TWEB_SERVICE_USER:-nobody}
 GROUP_NAME=${TWEB_SERVICE_GROUP:-nogroup}
-export PATH=/opt/academic-suite/runtime/bin:/usr/local/bin:/usr/bin:/bin
+export PATH=/opt/academic-suite/runtime/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 SELF=$(readlink -f "${BASH_SOURCE[0]}")
 die() { echo "[失败] $*" >&2; exit 1; }
 ask() { local reply; read -r -p "$1 [$2]: " reply; printf -v "$3" '%s' "${reply:-$2}"; }
@@ -510,3 +510,4 @@ main() {
   esac
 }
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi
+
