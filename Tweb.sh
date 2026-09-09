@@ -41,6 +41,25 @@ prerequisites() {
   node -e 'let [a,b]=process.versions.node.split(".").map(Number);if(a!==24||b<19)process.exit(1)' || die '需要 Node >=24.19.0 <25'
   [[ $(pnpm --version) == 11.19.0 ]] || die '需要 pnpm 11.19.0'
 }
+ensure_build_swap() {
+  local total swap
+  total=$(awk '/^(MemTotal|SwapTotal):/ {n+=$2} END {print n+0}' /proc/meminfo)
+  (( total >= 2097152 )) && return
+  swap=$BASE/build.swap
+  swapon --show=NAME | grep -Fxq "$swap" && return
+  echo "[内存] 内存+Swap 低于 2GiB，启用 $swap 作为部署 Swap。"
+  if [[ ! -f $swap ]]; then
+    if command -v fallocate >/dev/null; then fallocate -l 2G "$swap" || dd if=/dev/zero of="$swap" bs=1M count=2048 status=none
+    else dd if=/dev/zero of="$swap" bs=1M count=2048 status=none; fi
+    chmod 600 "$swap"; mkswap "$swap" >/dev/null
+  fi
+  swapon "$swap"
+}
+remove_build_swap() {
+  local swap=$BASE/build.swap
+  swapon --show=NAME | grep -Fxq "$swap" && swapoff "$swap"
+  rm -f -- "$swap"
+}
 toolchain() {
   confirm '将 apt 安装系统依赖，并在专用目录安装 Node 24.19.0 / pnpm 11.19.0，不替换系统 Node。'
   apt-get update
@@ -111,6 +130,7 @@ purge_install() {
   if [[ -L /usr/local/bin/Tweb && $(readlink /usr/local/bin/Tweb) == "$BASE/Tweb.sh" ]]; then rm -f /usr/local/bin/Tweb; fi
   safe_remove "$APP"
   safe_remove "$CONF"
+  remove_build_swap
   echo '[完成] 已删除全部安装与数据；可重新执行 install。'
 }
 cleanup_menu() {
@@ -140,8 +160,8 @@ existing_install_menu() {
   case $choice in
     1) update_site full;;
     2) update_site rebuild;;
-    3) systemctl --no-pager status academic-teacher.service academic-transfer.service;;
-    4) journalctl -u academic-teacher.service -u academic-transfer.service -n 100 --no-pager;;
+    3) status_services;;
+    4) log_services;;
     5) stop_services;;
     6) load_config; start_services;;
     7) load_config; bootstrap;;
@@ -198,8 +218,9 @@ fix_permissions() {
   chown -R "$USER_NAME:$GROUP_NAME" "$APP"
 }
 install_dependencies() {
-  (cd "$APP/academic-cms"; as_app pnpm install --frozen-lockfile)
-  (cd "$APP/file-transfer"; as_app pnpm install --frozen-lockfile)
+  ensure_build_swap
+  (cd "$APP/academic-cms"; as_app pnpm install --prod --frozen-lockfile --child-concurrency=1 --network-concurrency=1)
+  (cd "$APP/file-transfer"; as_app pnpm install --prod --frozen-lockfile --child-concurrency=1 --network-concurrency=1)
 }
 refresh_manager() {
   if [[ -n ${STAGE:-} && -f $STAGE/repo/Tweb.sh ]]; then
@@ -237,6 +258,7 @@ migrate() {
   fi
 }
 build() {
+  ensure_build_swap
   if [[ $TRANSFER == true ]]; then ft scripts/integrate-teacher.mjs apply "$APP/academic-cms"; fi
   cms scripts/build-target.mjs ubuntu
 }
@@ -425,6 +447,8 @@ toggle() {
   if [[ $TRANSFER == true ]]; then TRANSFER=false; else TRANSFER=true; fi
   save_config; set_transfer_env; migrate; build; fix_permissions; units; start_services
 }
+status_services() { systemctl --no-pager status academic-teacher.service academic-transfer.service || true; }
+log_services() { journalctl -u academic-teacher.service -u academic-transfer.service -n 100 --no-pager || true; }
 nginx_example() {
   load_config
   cat <<EOF
@@ -476,8 +500,8 @@ main() {
     backup) backup;; restore) restore;; toggle) toggle;;
     clean) cleanup_menu;; purge) purge_install;;
     start) load_config; start_services;; stop) load_config; stop_services;;
-    status) systemctl --no-pager status academic-teacher.service academic-transfer.service;;
-    logs) journalctl -u academic-teacher.service -u academic-transfer.service -n 100 --no-pager;;
+    status) status_services;;
+    logs|status/log|status/logs) log_services;;
     bootstrap) load_config; bootstrap;;
     grant) load_config; local uid; ask '教师账号 UID' '' uid; ft scripts/manage-admin.mjs grant "$uid";;
     nginx) nginx_example;; *) die '未知命令，使用 --help';;

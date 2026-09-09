@@ -23,7 +23,9 @@ export default defineNuxtConfig({
   ssr: true,
   devtools: { enabled: process.env.NODE_ENV !== 'production' },
 
-  modules: ['@nuxt/eslint', 'nuxt-security',
+  modules: [
+    ...(process.env.NODE_ENV === 'production' ? [] : ['@nuxt/eslint']),
+    'nuxt-security',
     // File transfer is optional; when disabled the sibling module is not imported.
     ...(process.env.FT_TEACHER_MODULE_ENABLED === 'true'
       ? [[new URL('../file-transfer/integration/teacher-site/module.mjs', import.meta.url).href, { enabled: true }] as [string, { enabled: boolean }]] : []),
