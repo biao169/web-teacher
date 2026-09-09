@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "files": [
+    "shared/contracts/health.ts",
+    "shared/utils/locale-path.ts",
+    "shared/utils/request-id.ts",
+    "server/utils/health.ts"
+  ]
+}

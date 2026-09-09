@@ -1,0 +1,14 @@
+node_modules/
+config.local.json
+storage/*
+!storage/README.md
+reports/
+coverage/
+*.log
+*.zip
+
+dist/
+.wrangler/
+.dev.vars*
+.env*
+!config.example.json

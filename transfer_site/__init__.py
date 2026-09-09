@@ -1,2 +1,0 @@
-﻿"""Independent transfer tool package."""
-

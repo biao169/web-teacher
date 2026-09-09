@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true
+  },
+  "include": [
+    "db/contracts.ts",
+    "db/query.ts",
+    "db/errors.ts",
+    "db/statement.ts",
+    "db/codec.ts",
+    "db/catalog.ts",
+    "db/models.ts",
+    "db/schema-types.ts",
+    "db/adapters/sqlite.ts",
+    "db/adapters/d1.ts",
+    "shared/enums/auth.ts",
+    "shared/contracts/auth.ts",
+    "shared/utils/unicode.ts",
+    "server/security/*.ts",
+    "server/audit/*.ts",
+    "server/services/auth/*.ts"
+  ]
+}

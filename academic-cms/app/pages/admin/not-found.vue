@@ -1,0 +1,2 @@
+<script setup lang="ts">import { LayoutDashboard } from '@lucide/vue'; import { ElButton } from 'element-plus'; definePageMeta({ layout: 'admin' }); useSeoMeta({ title: '后台页面不存在' })</script>
+<template><AdminStatePanel tone="error" title="后台页面不存在" description="该后台路径没有注册，或对应模块尚未接入当前版本。"><template #actions><ElButton type="primary" tag="a" href="/admin"><LayoutDashboard :size="16" />返回控制台</ElButton></template></AdminStatePanel></template>

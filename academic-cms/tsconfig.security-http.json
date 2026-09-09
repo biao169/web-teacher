@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "."
+  },
+  "include": [
+    "tests/types/offline-runtime.d.ts",
+    "db/contracts.ts", "db/query.ts", "db/errors.ts", "db/statement.ts",
+    "db/codec.ts", "db/catalog.ts", "db/models.ts", "db/schema-types.ts",
+    "db/context.ts", "db/adapters/sqlite.ts", "db/adapters/d1.ts",
+    "shared/enums/auth.ts", "shared/contracts/auth.ts", "shared/utils/unicode.ts", "shared/schemas/auth.ts",
+    "server/security/*.ts", "server/audit/*.ts", "server/services/auth/*.ts",
+    "server/utils/database.ts", "server/utils/auth-runtime.ts", "server/utils/auth-http.ts",
+    "server/utils/auth-guard.ts", "server/utils/admin-handler.ts", "server/utils/bounded-json.ts",
+    "server/middleware/00-request-context.ts", "server/middleware/01-api-security.ts",
+    "server/routes/api/v1/auth/*.ts"
+  ]
+}

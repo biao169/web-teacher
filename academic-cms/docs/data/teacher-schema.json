@@ -1,0 +1,4681 @@
+{
+  "admin_mutation_guards": {
+    "sql": "CREATE TABLE \"admin_mutation_guards\" (\n  \"uid\" TEXT PRIMARY KEY NOT NULL,\n  \"module\" TEXT NOT NULL,\n  \"target_uid\" TEXT NOT NULL,\n  \"expected_updated_at\" TEXT NOT NULL,\n  \"created_at\" TEXT NOT NULL,\n  CONSTRAINT \"ck_admin_mutation_guards_uid\" CHECK (length(\"uid\") BETWEEN 1 AND 128),\n  CONSTRAINT \"ck_admin_mutation_guards_module\" CHECK (length(\"module\") BETWEEN 1 AND 128),\n  CONSTRAINT \"ck_admin_mutation_guards_target\" CHECK (length(\"target_uid\") BETWEEN 1 AND 2048),\n  CONSTRAINT \"ck_admin_mutation_guards_expected\" CHECK (strftime('%Y-%m-%dT%H:%M:%fZ', \"expected_updated_at\") = \"expected_updated_at\"),\n  CONSTRAINT \"ck_admin_mutation_guards_created\" CHECK (strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\") = \"created_at\")\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "module",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "target_uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "expected_updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_admin_mutation_guards_created",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "created_at"
+        ],
+        "sql": "CREATE INDEX idx_admin_mutation_guards_created\n  ON admin_mutation_guards(created_at)"
+      },
+      {
+        "name": "idx_admin_mutation_guards_created_at",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "created_at"
+        ],
+        "sql": "CREATE INDEX \"idx_admin_mutation_guards_created_at\"\n  ON \"admin_mutation_guards\" (\"created_at\")"
+      },
+      {
+        "name": "sqlite_autoindex_admin_mutation_guards_1",
+        "unique": true,
+        "origin": "pk",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "auth_bootstrap_state": {
+    "sql": "CREATE TABLE \"auth_bootstrap_state\" (\n  \"id\" INTEGER PRIMARY KEY NOT NULL,\n  \"completed_at\" TEXT NOT NULL,\n  \"user_uid\" TEXT NOT NULL,\n  CONSTRAINT \"ck_auth_bootstrap_state_singleton\" CHECK (\"id\" = 1),\n  CONSTRAINT \"ck_auth_bootstrap_state_completed_at\" CHECK (length(\"completed_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"completed_at\", '+0 seconds') = \"completed_at\", 0)),\n  CONSTRAINT \"ck_auth_bootstrap_state_user_uid\" CHECK (length(trim(\"user_uid\")) > 0 AND length(\"user_uid\") <= 128)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "completed_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "user_uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": []
+  },
+  "auth_login_throttles": {
+    "sql": "CREATE TABLE \"auth_login_throttles\" (\n  \"key_hash\" TEXT PRIMARY KEY NOT NULL,\n  \"scope\" TEXT NOT NULL,\n  \"failures\" INTEGER NOT NULL DEFAULT 0,\n  \"window_started_at\" TEXT NOT NULL,\n  \"blocked_until\" TEXT,\n  \"updated_at\" TEXT NOT NULL,\n  \"expires_at\" TEXT NOT NULL,\n  CONSTRAINT \"ck_auth_login_throttles_key_hash\" CHECK (length(\"key_hash\") = 64 AND \"key_hash\" NOT GLOB '*[^0-9a-f]*'),\n  CONSTRAINT \"ck_auth_login_throttles_scope\" CHECK (\"scope\" IN ('account', 'network')),\n  CONSTRAINT \"ck_auth_login_throttles_failures\" CHECK (typeof(\"failures\") = 'integer' AND \"failures\" BETWEEN 0 AND 1000000),\n  CONSTRAINT \"ck_auth_login_throttles_window_started_at\" CHECK (length(\"window_started_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"window_started_at\", '+0 seconds') = \"window_started_at\", 0)),\n  CONSTRAINT \"ck_auth_login_throttles_blocked_until\" CHECK (\"blocked_until\" IS NULL OR (length(\"blocked_until\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"blocked_until\", '+0 seconds') = \"blocked_until\", 0))),\n  CONSTRAINT \"ck_auth_login_throttles_updated_at\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_auth_login_throttles_expires_at\" CHECK (length(\"expires_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"expires_at\", '+0 seconds') = \"expires_at\", 0)),\n  CONSTRAINT \"ck_auth_login_throttles_time_order\" CHECK (\n    \"updated_at\" >= \"window_started_at\" AND\n    \"expires_at\" >= \"updated_at\" AND\n    (\"blocked_until\" IS NULL OR (\"blocked_until\" >= \"updated_at\" AND \"expires_at\" >= \"blocked_until\"))\n  )\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "key_hash",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "scope",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "failures",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "window_started_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "blocked_until",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "expires_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_auth_login_throttles_expiry",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "expires_at",
+          "key_hash"
+        ],
+        "sql": "CREATE INDEX \"idx_auth_login_throttles_expiry\" ON \"auth_login_throttles\" (\"expires_at\", \"key_hash\")"
+      },
+      {
+        "name": "sqlite_autoindex_auth_login_throttles_1",
+        "unique": true,
+        "origin": "pk",
+        "partial": false,
+        "columns": [
+          "key_hash"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "auth_permissions": {
+    "sql": "CREATE TABLE \"auth_permissions\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"role_uid\" TEXT NOT NULL REFERENCES \"auth_roles\"(\"uid\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"module\" TEXT NOT NULL,\n  \"can_view\" INTEGER NOT NULL DEFAULT 0,\n  \"can_create\" INTEGER NOT NULL DEFAULT 0,\n  \"can_edit\" INTEGER NOT NULL DEFAULT 0,\n  \"can_delete\" INTEGER NOT NULL DEFAULT 0,\n  \"can_export\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_auth_permissions_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_auth_permissions_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_auth_permissions_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_auth_permissions_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_auth_permissions_role_uid_0\" CHECK (length(trim(\"role_uid\")) > 0),\n  CONSTRAINT \"ck_auth_permissions_module_0\" CHECK (length(trim(\"module\")) > 0),\n  CONSTRAINT \"ck_auth_permissions_can_view_0\" CHECK (\"can_view\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_permissions_can_create_0\" CHECK (\"can_create\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_permissions_can_edit_0\" CHECK (\"can_edit\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_permissions_can_delete_0\" CHECK (\"can_delete\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_permissions_can_export_0\" CHECK (\"can_export\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_permissions_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "role_uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "module",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "can_view",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "can_create",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "can_edit",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "can_delete",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "can_export",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "auth_roles",
+        "from": "role_uid",
+        "to": "uid",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ux_auth_permissions_role_module",
+        "unique": true,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "role_uid",
+          "module"
+        ],
+        "sql": "CREATE UNIQUE INDEX ux_auth_permissions_role_module ON auth_permissions(role_uid, module)"
+      },
+      {
+        "name": "idx_auth_permissions_role_module",
+        "unique": true,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "role_uid",
+          "module"
+        ],
+        "sql": "CREATE UNIQUE INDEX \"idx_auth_permissions_role_module\" ON \"auth_permissions\" (\"role_uid\", \"module\")"
+      },
+      {
+        "name": "idx_auth_permissions_role_uid",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "role_uid"
+        ],
+        "sql": "CREATE INDEX \"idx_auth_permissions_role_uid\" ON \"auth_permissions\" (\"role_uid\")"
+      },
+      {
+        "name": "sqlite_autoindex_auth_permissions_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "auth_roles": {
+    "sql": "CREATE TABLE \"auth_roles\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT NOT NULL,\n  \"level\" INTEGER NOT NULL DEFAULT 0,\n  \"description\" TEXT,\n  \"visibility_scopes\" TEXT NOT NULL DEFAULT '[\"public\"]',\n  \"is_system\" INTEGER NOT NULL DEFAULT 0,\n  \"is_active\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_auth_roles_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_auth_roles_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_auth_roles_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_auth_roles_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_auth_roles_name_0\" CHECK (length(trim(\"name\")) > 0),\n  CONSTRAINT \"ck_auth_roles_level_0\" CHECK (typeof(\"level\") = 'integer' AND \"level\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_auth_roles_level_1\" CHECK (\"level\" >= 0),\n  CONSTRAINT \"ck_auth_roles_visibility_scopes_0\" CHECK (CASE WHEN json_valid(\"visibility_scopes\") THEN json_type(\"visibility_scopes\") = 'array' ELSE 0 END),\n  CONSTRAINT \"ck_auth_roles_is_system_0\" CHECK (\"is_system\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_roles_is_active_0\" CHECK (\"is_active\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_roles_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "level",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "description",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "visibility_scopes",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'[\"public\"]'",
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "is_system",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "is_active",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_auth_roles_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "auth_sessions": {
+    "sql": "CREATE TABLE \"auth_sessions\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"user_uid\" TEXT NOT NULL REFERENCES \"auth_users\"(\"uid\") ON UPDATE RESTRICT ON DELETE CASCADE,\n  \"token_hash\" TEXT NOT NULL,\n  \"created_at\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  \"last_seen_at\" TEXT NOT NULL,\n  \"idle_expires_at\" TEXT NOT NULL,\n  \"expires_at\" TEXT NOT NULL,\n  \"revoked_at\" TEXT,\n  \"revoke_reason\" TEXT,\n  \"user_agent_hash\" TEXT,\n  CONSTRAINT \"ck_auth_sessions_uid\" CHECK (length(trim(\"uid\")) > 0 AND length(\"uid\") <= 128),\n  CONSTRAINT \"ck_auth_sessions_token_hash\" CHECK (length(\"token_hash\") = 64 AND \"token_hash\" NOT GLOB '*[^0-9a-f]*'),\n  CONSTRAINT \"ck_auth_sessions_created_at\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_auth_sessions_updated_at\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_auth_sessions_last_seen_at\" CHECK (length(\"last_seen_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"last_seen_at\", '+0 seconds') = \"last_seen_at\", 0)),\n  CONSTRAINT \"ck_auth_sessions_idle_expires_at\" CHECK (length(\"idle_expires_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"idle_expires_at\", '+0 seconds') = \"idle_expires_at\", 0)),\n  CONSTRAINT \"ck_auth_sessions_expires_at\" CHECK (length(\"expires_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"expires_at\", '+0 seconds') = \"expires_at\", 0)),\n  CONSTRAINT \"ck_auth_sessions_revoked_at\" CHECK (\"revoked_at\" IS NULL OR (length(\"revoked_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"revoked_at\", '+0 seconds') = \"revoked_at\", 0))),\n  CONSTRAINT \"ck_auth_sessions_revoke_reason\" CHECK (\"revoke_reason\" IS NULL OR \"revoke_reason\" IN ('logout', 'expired', 'rotated', 'user_disabled', 'role_disabled', 'password_changed', 'admin_revoked', 'security_policy')),\n  CONSTRAINT \"ck_auth_sessions_revocation_pair\" CHECK ((\"revoked_at\" IS NULL) = (\"revoke_reason\" IS NULL)),\n  CONSTRAINT \"ck_auth_sessions_user_agent_hash\" CHECK (\"user_agent_hash\" IS NULL OR (length(\"user_agent_hash\") = 64 AND \"user_agent_hash\" NOT GLOB '*[^0-9a-f]*')),\n  CONSTRAINT \"ck_auth_sessions_time_order\" CHECK (\n    \"updated_at\" >= \"created_at\" AND\n    \"last_seen_at\" >= \"created_at\" AND\n    \"idle_expires_at\" > \"last_seen_at\" AND\n    \"idle_expires_at\" <= \"expires_at\" AND\n    \"expires_at\" > \"created_at\" AND\n    (\"revoked_at\" IS NULL OR \"revoked_at\" >= \"created_at\")\n  )\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "user_uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "token_hash",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "last_seen_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "idle_expires_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "expires_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "revoked_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "revoke_reason",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "user_agent_hash",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "auth_users",
+        "from": "user_uid",
+        "to": "uid",
+        "on_update": "RESTRICT",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_auth_sessions_user_active_expiry",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "user_uid",
+          "revoked_at",
+          "expires_at"
+        ],
+        "sql": "CREATE INDEX idx_auth_sessions_user_active_expiry ON auth_sessions(user_uid, revoked_at, expires_at DESC)"
+      },
+      {
+        "name": "idx_auth_sessions_revoked",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "revoked_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_auth_sessions_revoked\" ON \"auth_sessions\" (\"revoked_at\", \"id\")"
+      },
+      {
+        "name": "idx_auth_sessions_expiry",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "expires_at",
+          "idle_expires_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_auth_sessions_expiry\" ON \"auth_sessions\" (\"expires_at\", \"idle_expires_at\", \"id\")"
+      },
+      {
+        "name": "idx_auth_sessions_user_active",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "user_uid",
+          "revoked_at",
+          "created_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_auth_sessions_user_active\" ON \"auth_sessions\" (\"user_uid\", \"revoked_at\", \"created_at\", \"id\")"
+      },
+      {
+        "name": "idx_auth_sessions_token_hash",
+        "unique": true,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "token_hash"
+        ],
+        "sql": "CREATE UNIQUE INDEX \"idx_auth_sessions_token_hash\" ON \"auth_sessions\" (\"token_hash\")"
+      },
+      {
+        "name": "sqlite_autoindex_auth_sessions_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "auth_users": {
+    "sql": "CREATE TABLE \"auth_users\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"username\" TEXT NOT NULL,\n  \"password_hash\" TEXT NOT NULL,\n  \"display_name\" TEXT,\n  \"email\" TEXT,\n  \"role_uid\" TEXT NOT NULL REFERENCES \"auth_roles\"(\"uid\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"status\" TEXT NOT NULL DEFAULT 'disabled',\n  \"must_change_password\" INTEGER NOT NULL DEFAULT 0,\n  \"last_login_at\" TEXT,\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  CONSTRAINT \"ck_auth_users_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_auth_users_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_auth_users_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_auth_users_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_auth_users_username_0\" CHECK (length(trim(\"username\")) > 0),\n  CONSTRAINT \"ck_auth_users_username_1\" CHECK (length(\"username\") <= 150),\n  CONSTRAINT \"ck_auth_users_password_hash_0\" CHECK (length(trim(\"password_hash\")) > 0),\n  CONSTRAINT \"ck_auth_users_role_uid_0\" CHECK (length(trim(\"role_uid\")) > 0),\n  CONSTRAINT \"ck_auth_users_status_0\" CHECK (\"status\" IN ('active', 'disabled', 'locked')),\n  CONSTRAINT \"ck_auth_users_must_change_password_0\" CHECK (\"must_change_password\" IN (0, 1)),\n  CONSTRAINT \"ck_auth_users_last_login_at_0\" CHECK (\"last_login_at\" IS NULL OR (length(\"last_login_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"last_login_at\", '+0 seconds') = \"last_login_at\", 0))),\n  CONSTRAINT \"ck_auth_users_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden'))\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "username",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "password_hash",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "display_name",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "email",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "role_uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'disabled'",
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "must_change_password",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "last_login_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "auth_roles",
+        "from": "role_uid",
+        "to": "uid",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ux_auth_users_username_nocase",
+        "unique": true,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "username"
+        ],
+        "sql": "CREATE UNIQUE INDEX ux_auth_users_username_nocase ON auth_users(username COLLATE NOCASE)"
+      },
+      {
+        "name": "idx_auth_users_username_nocase",
+        "unique": true,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "username"
+        ],
+        "sql": "CREATE UNIQUE INDEX \"idx_auth_users_username_nocase\" ON \"auth_users\" (\"username\" COLLATE NOCASE)"
+      },
+      {
+        "name": "idx_auth_users_role_uid",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "role_uid"
+        ],
+        "sql": "CREATE INDEX \"idx_auth_users_role_uid\" ON \"auth_users\" (\"role_uid\")"
+      },
+      {
+        "name": "sqlite_autoindex_auth_users_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "cache_generations": {
+    "sql": "CREATE TABLE \"cache_generations\" (\n  \"tag\" TEXT PRIMARY KEY NOT NULL,\n  \"generation\" INTEGER NOT NULL DEFAULT 1,\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  CONSTRAINT \"ck_cache_generations_tag\" CHECK (length(trim(\"tag\")) > 0 AND length(\"tag\") <= 128),\n  CONSTRAINT \"ck_cache_generations_generation\" CHECK (\"generation\" >= 1 AND \"generation\" <= 9007199254740990),\n  CONSTRAINT \"ck_cache_generations_updated_at\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0))\n) STRICT",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "tag",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "generation",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "1",
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_cache_generations_1",
+        "unique": true,
+        "origin": "pk",
+        "partial": false,
+        "columns": [
+          "tag"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "courses": {
+    "sql": "CREATE TABLE \"courses\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT NOT NULL,\n  \"semester\" TEXT,\n  \"audience\" TEXT,\n  \"summary\" TEXT,\n  \"syllabus_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"material_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"material_visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"references_text\" TEXT,\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"is_featured\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_courses_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_courses_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_courses_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_courses_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_courses_name_0\" CHECK (length(trim(\"name\")) > 0),\n  CONSTRAINT \"ck_courses_material_visibility_0\" CHECK (\"material_visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_courses_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_courses_is_featured_0\" CHECK (\"is_featured\" IN (0, 1)),\n  CONSTRAINT \"ck_courses_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "semester",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "audience",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "summary",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "syllabus_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "material_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "material_visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "references_text",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "is_featured",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "material_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "syllabus_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_courses_admin_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_courses_admin_updated\"\n  ON \"courses\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_courses_visibility_semester",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "semester",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_courses_visibility_semester\"\n  ON \"courses\" (\"visibility\", \"semester\" DESC, \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_courses_material_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "material_key"
+        ],
+        "sql": "CREATE INDEX \"idx_courses_material_key\" ON \"courses\" (\"material_key\")"
+      },
+      {
+        "name": "idx_courses_syllabus_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "syllabus_key"
+        ],
+        "sql": "CREATE INDEX \"idx_courses_syllabus_key\" ON \"courses\" (\"syllabus_key\")"
+      },
+      {
+        "name": "idx_courses_featured",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_featured",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_courses_featured\" ON \"courses\" (\"visibility\", \"is_featured\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_courses_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_courses_visibility_sort\" ON \"courses\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_courses_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "demo_seed_state": {
+    "sql": "CREATE TABLE \"demo_seed_state\" (\n  \"id\" INTEGER PRIMARY KEY NOT NULL,\n  \"dataset_version\" TEXT NOT NULL,\n  \"seeded_at\" TEXT NOT NULL,\n  \"seed_digest\" TEXT NOT NULL,\n  CONSTRAINT \"ck_demo_seed_state_singleton\" CHECK (\"id\" = 1),\n  CONSTRAINT \"ck_demo_seed_state_dataset_version\" CHECK (length(trim(\"dataset_version\")) BETWEEN 1 AND 64),\n  CONSTRAINT \"ck_demo_seed_state_seeded_at\" CHECK (length(\"seeded_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"seeded_at\", '+0 seconds') = \"seeded_at\", 0)),\n  CONSTRAINT \"ck_demo_seed_state_seed_digest\" CHECK (length(\"seed_digest\") = 64 AND \"seed_digest\" NOT GLOB '*[^0-9a-f]*')\n) STRICT",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "dataset_version",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "seeded_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "seed_digest",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": []
+  },
+  "global_settings": {
+    "sql": "CREATE TABLE \"global_settings\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"allow_public_registration\" INTEGER NOT NULL DEFAULT 0,\n  \"allow_anonymous_messages\" INTEGER NOT NULL DEFAULT 0,\n  \"upload_max_size_mb\" INTEGER NOT NULL DEFAULT 20,\n  \"upload_allowed_extensions\" TEXT NOT NULL DEFAULT '[\"jpg\",\"jpeg\",\"png\",\"webp\",\"pdf\"]',\n  \"media_trash_retention_days\" INTEGER NOT NULL DEFAULT 30,\n  \"news_pdf_engine\" TEXT,\n  \"news_pdf_allow_download\" INTEGER NOT NULL DEFAULT 0,\n  \"news_pdf_watermark\" TEXT,\n  \"translation_provider\" TEXT,\n  \"translation_providers\" TEXT NOT NULL DEFAULT '[]',\n  \"libretranslate_url\" TEXT,\n  \"libretranslate_api_key\" TEXT,\n  \"deepl_api_key\" TEXT,\n  \"google_translate_api_key\" TEXT,\n  \"microsoft_translator_key\" TEXT,\n  \"microsoft_translator_region\" TEXT,\n  \"microsoft_translator_endpoint\" TEXT,\n  \"mymemory_email\" TEXT,\n  \"translation_batch_size\" INTEGER NOT NULL DEFAULT 10,\n  \"translation_worker_count\" INTEGER NOT NULL DEFAULT 2,\n  \"translation_timeout_seconds\" INTEGER NOT NULL DEFAULT 15,\n  \"translation_job_state\" TEXT NOT NULL DEFAULT '{}',\n  \"publication_metadata_provider\" TEXT,\n  \"publication_metadata_providers\" TEXT NOT NULL DEFAULT '[]',\n  \"publication_display_style\" TEXT,\n  \"publication_suggestion_cache_seconds\" INTEGER NOT NULL DEFAULT 60,\n  \"profile_suggestion_cache_seconds\" INTEGER NOT NULL DEFAULT 60,\n  \"project_suggestion_cache_seconds\" INTEGER NOT NULL DEFAULT 60,\n  \"patent_suggestion_cache_seconds\" INTEGER NOT NULL DEFAULT 60,\n  \"student_suggestion_cache_seconds\" INTEGER NOT NULL DEFAULT 60,\n  \"news_suggestion_cache_seconds\" INTEGER NOT NULL DEFAULT 60,\n  \"course_suggestion_cache_seconds\" INTEGER NOT NULL DEFAULT 60,\n  \"patent_metadata_providers\" TEXT NOT NULL DEFAULT '[]',\n  \"patentsview_api_key\" TEXT,\n  \"epo_ops_client_id\" TEXT,\n  \"epo_ops_client_secret\" TEXT,\n  \"notify_email\" TEXT,\n  CONSTRAINT \"ck_global_settings_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_global_settings_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_global_settings_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_global_settings_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_global_settings_allow_public_registration_0\" CHECK (\"allow_public_registration\" IN (0, 1)),\n  CONSTRAINT \"ck_global_settings_allow_anonymous_messages_0\" CHECK (\"allow_anonymous_messages\" IN (0, 1)),\n  CONSTRAINT \"ck_global_settings_upload_max_size_mb_0\" CHECK (typeof(\"upload_max_size_mb\") = 'integer' AND \"upload_max_size_mb\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_upload_max_size_mb_1\" CHECK (\"upload_max_size_mb\" >= 1),\n  CONSTRAINT \"ck_global_settings_upload_allowed_extensions_0\" CHECK (CASE WHEN json_valid(\"upload_allowed_extensions\") THEN json_type(\"upload_allowed_extensions\") = 'array' ELSE 0 END),\n  CONSTRAINT \"ck_global_settings_media_trash_retention_days_0\" CHECK (typeof(\"media_trash_retention_days\") = 'integer' AND \"media_trash_retention_days\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_media_trash_retention_days_1\" CHECK (\"media_trash_retention_days\" >= 0),\n  CONSTRAINT \"ck_global_settings_news_pdf_allow_download_0\" CHECK (\"news_pdf_allow_download\" IN (0, 1)),\n  CONSTRAINT \"ck_global_settings_translation_providers_0\" CHECK (CASE WHEN json_valid(\"translation_providers\") THEN json_type(\"translation_providers\") = 'array' ELSE 0 END),\n  CONSTRAINT \"ck_global_settings_translation_batch_size_0\" CHECK (typeof(\"translation_batch_size\") = 'integer' AND \"translation_batch_size\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_translation_batch_size_1\" CHECK (\"translation_batch_size\" >= 1),\n  CONSTRAINT \"ck_global_settings_translation_batch_size_2\" CHECK (\"translation_batch_size\" <= 50),\n  CONSTRAINT \"ck_global_settings_translation_worker_count_0\" CHECK (typeof(\"translation_worker_count\") = 'integer' AND \"translation_worker_count\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_translation_worker_count_1\" CHECK (\"translation_worker_count\" >= 1),\n  CONSTRAINT \"ck_global_settings_translation_worker_count_2\" CHECK (\"translation_worker_count\" <= 8),\n  CONSTRAINT \"ck_global_settings_translation_timeout_seconds_0\" CHECK (typeof(\"translation_timeout_seconds\") = 'integer' AND \"translation_timeout_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_translation_timeout_seconds_1\" CHECK (\"translation_timeout_seconds\" >= 1),\n  CONSTRAINT \"ck_global_settings_translation_timeout_seconds_2\" CHECK (\"translation_timeout_seconds\" <= 120),\n  CONSTRAINT \"ck_global_settings_translation_job_state_0\" CHECK (CASE WHEN json_valid(\"translation_job_state\") THEN json_type(\"translation_job_state\") = 'object' ELSE 0 END),\n  CONSTRAINT \"ck_global_settings_publication_metadata_providers_0\" CHECK (CASE WHEN json_valid(\"publication_metadata_providers\") THEN json_type(\"publication_metadata_providers\") = 'array' ELSE 0 END),\n  CONSTRAINT \"ck_global_settings_publication_suggestion_cache_seconds_0\" CHECK (typeof(\"publication_suggestion_cache_seconds\") = 'integer' AND \"publication_suggestion_cache_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_publication_suggestion_cache_seconds_1\" CHECK (\"publication_suggestion_cache_seconds\" >= 0),\n  CONSTRAINT \"ck_global_settings_profile_suggestion_cache_seconds_0\" CHECK (typeof(\"profile_suggestion_cache_seconds\") = 'integer' AND \"profile_suggestion_cache_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_profile_suggestion_cache_seconds_1\" CHECK (\"profile_suggestion_cache_seconds\" >= 0),\n  CONSTRAINT \"ck_global_settings_project_suggestion_cache_seconds_0\" CHECK (typeof(\"project_suggestion_cache_seconds\") = 'integer' AND \"project_suggestion_cache_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_project_suggestion_cache_seconds_1\" CHECK (\"project_suggestion_cache_seconds\" >= 0),\n  CONSTRAINT \"ck_global_settings_patent_suggestion_cache_seconds_0\" CHECK (typeof(\"patent_suggestion_cache_seconds\") = 'integer' AND \"patent_suggestion_cache_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_patent_suggestion_cache_seconds_1\" CHECK (\"patent_suggestion_cache_seconds\" >= 0),\n  CONSTRAINT \"ck_global_settings_student_suggestion_cache_seconds_0\" CHECK (typeof(\"student_suggestion_cache_seconds\") = 'integer' AND \"student_suggestion_cache_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_student_suggestion_cache_seconds_1\" CHECK (\"student_suggestion_cache_seconds\" >= 0),\n  CONSTRAINT \"ck_global_settings_news_suggestion_cache_seconds_0\" CHECK (typeof(\"news_suggestion_cache_seconds\") = 'integer' AND \"news_suggestion_cache_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_news_suggestion_cache_seconds_1\" CHECK (\"news_suggestion_cache_seconds\" >= 0),\n  CONSTRAINT \"ck_global_settings_course_suggestion_cache_seconds_0\" CHECK (typeof(\"course_suggestion_cache_seconds\") = 'integer' AND \"course_suggestion_cache_seconds\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_global_settings_course_suggestion_cache_seconds_1\" CHECK (\"course_suggestion_cache_seconds\" >= 0),\n  CONSTRAINT \"ck_global_settings_patent_metadata_providers_0\" CHECK (CASE WHEN json_valid(\"patent_metadata_providers\") THEN json_type(\"patent_metadata_providers\") = 'array' ELSE 0 END)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "allow_public_registration",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "allow_anonymous_messages",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "upload_max_size_mb",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "20",
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "upload_allowed_extensions",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'[\"jpg\",\"jpeg\",\"png\",\"webp\",\"pdf\"]'",
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "media_trash_retention_days",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "30",
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "news_pdf_engine",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "news_pdf_allow_download",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "news_pdf_watermark",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "translation_provider",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "translation_providers",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'[]'",
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "libretranslate_url",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "libretranslate_api_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "deepl_api_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "google_translate_api_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 18,
+        "name": "microsoft_translator_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 19,
+        "name": "microsoft_translator_region",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 20,
+        "name": "microsoft_translator_endpoint",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 21,
+        "name": "mymemory_email",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 22,
+        "name": "translation_batch_size",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "10",
+        "pk": 0
+      },
+      {
+        "cid": 23,
+        "name": "translation_worker_count",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "2",
+        "pk": 0
+      },
+      {
+        "cid": 24,
+        "name": "translation_timeout_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "15",
+        "pk": 0
+      },
+      {
+        "cid": 25,
+        "name": "translation_job_state",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'{}'",
+        "pk": 0
+      },
+      {
+        "cid": 26,
+        "name": "publication_metadata_provider",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 27,
+        "name": "publication_metadata_providers",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'[]'",
+        "pk": 0
+      },
+      {
+        "cid": 28,
+        "name": "publication_display_style",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 29,
+        "name": "publication_suggestion_cache_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "60",
+        "pk": 0
+      },
+      {
+        "cid": 30,
+        "name": "profile_suggestion_cache_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "60",
+        "pk": 0
+      },
+      {
+        "cid": 31,
+        "name": "project_suggestion_cache_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "60",
+        "pk": 0
+      },
+      {
+        "cid": 32,
+        "name": "patent_suggestion_cache_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "60",
+        "pk": 0
+      },
+      {
+        "cid": 33,
+        "name": "student_suggestion_cache_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "60",
+        "pk": 0
+      },
+      {
+        "cid": 34,
+        "name": "news_suggestion_cache_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "60",
+        "pk": 0
+      },
+      {
+        "cid": 35,
+        "name": "course_suggestion_cache_seconds",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "60",
+        "pk": 0
+      },
+      {
+        "cid": 36,
+        "name": "patent_metadata_providers",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'[]'",
+        "pk": 0
+      },
+      {
+        "cid": 37,
+        "name": "patentsview_api_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 38,
+        "name": "epo_ops_client_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 39,
+        "name": "epo_ops_client_secret",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 40,
+        "name": "notify_email",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_global_settings_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_global_settings_updated\"\n  ON \"global_settings\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "sqlite_autoindex_global_settings_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "media_assets": {
+    "sql": "CREATE TABLE \"media_assets\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"object_key\" TEXT NOT NULL UNIQUE,\n  \"title\" TEXT,\n  \"category\" TEXT,\n  \"mime_type\" TEXT,\n  \"size\" INTEGER NOT NULL DEFAULT 0,\n  \"storage_kind\" TEXT NOT NULL DEFAULT 'local',\n  \"status\" TEXT NOT NULL DEFAULT 'active',\n  \"checksum\" TEXT,\n  CONSTRAINT \"ck_media_assets_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_media_assets_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_media_assets_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_media_assets_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_media_assets_object_key_0\" CHECK (length(trim(\"object_key\")) > 0),\n  CONSTRAINT \"ck_media_assets_size_0\" CHECK (typeof(\"size\") = 'integer' AND \"size\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_media_assets_size_1\" CHECK (\"size\" >= 0),\n  CONSTRAINT \"ck_media_assets_storage_kind_0\" CHECK (\"storage_kind\" IN ('static', 'local', 'r2', 'external')),\n  CONSTRAINT \"ck_media_assets_status_0\" CHECK (\"status\" IN ('active', 'trash'))\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "object_key",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "title",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "category",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "mime_type",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "size",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "storage_kind",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'local'",
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'active'",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "checksum",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_media_assets_admin_status_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "status",
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX idx_media_assets_admin_status_updated ON media_assets(status, updated_at DESC, id DESC)"
+      },
+      {
+        "name": "idx_media_assets_status_category_mime",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "status",
+          "category",
+          "mime_type",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_media_assets_status_category_mime\" ON \"media_assets\" (\"status\", \"category\", \"mime_type\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_media_assets_2",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "object_key"
+        ],
+        "sql": null
+      },
+      {
+        "name": "sqlite_autoindex_media_assets_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "messages": {
+    "sql": "CREATE TABLE \"messages\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT,\n  \"email\" TEXT,\n  \"message_type\" TEXT,\n  \"subject\" TEXT,\n  \"content\" TEXT NOT NULL,\n  \"attachment_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"status\" TEXT NOT NULL DEFAULT 'new',\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  CONSTRAINT \"ck_messages_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_messages_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_messages_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_messages_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_messages_content_0\" CHECK (length(trim(\"content\")) > 0),\n  CONSTRAINT \"ck_messages_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden'))\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "email",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "message_type",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "subject",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "content",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "attachment_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'new'",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "attachment_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_messages_admin_status_created",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "status",
+          "created_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_messages_admin_status_created\"\n  ON \"messages\" (\"status\", \"created_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_messages_status_created",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "status",
+          "created_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_messages_status_created\" ON \"messages\" (\"status\", \"created_at\" DESC, \"id\")"
+      },
+      {
+        "name": "idx_messages_attachment_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "attachment_key"
+        ],
+        "sql": "CREATE INDEX \"idx_messages_attachment_key\" ON \"messages\" (\"attachment_key\")"
+      },
+      {
+        "name": "sqlite_autoindex_messages_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "navigation_items": {
+    "sql": "CREATE TABLE \"navigation_items\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"title\" TEXT NOT NULL,\n  \"title_en\" TEXT,\n  \"kind\" TEXT,\n  \"url_name\" TEXT,\n  \"path\" TEXT,\n  \"fragment\" TEXT,\n  \"icon\" TEXT,\n  \"style\" TEXT,\n  \"location\" TEXT,\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"enabled\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_navigation_items_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_navigation_items_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_navigation_items_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_navigation_items_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_navigation_items_title_0\" CHECK (length(trim(\"title\")) > 0),\n  CONSTRAINT \"ck_navigation_items_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_navigation_items_enabled_0\" CHECK (\"enabled\" IN (0, 1)),\n  CONSTRAINT \"ck_navigation_items_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "title",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "title_en",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "kind",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "url_name",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "path",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "fragment",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "icon",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "style",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "location",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "enabled",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_navigation_items_location",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "location",
+          "enabled",
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_navigation_items_location\" ON \"navigation_items\" (\"location\", \"enabled\", \"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_navigation_items_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_navigation_items_visibility_sort\" ON \"navigation_items\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_navigation_items_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "news": {
+    "sql": "CREATE TABLE \"news\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"title\" TEXT NOT NULL,\n  \"slug\" TEXT NOT NULL UNIQUE,\n  \"category\" TEXT,\n  \"cover_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"content\" TEXT,\n  \"content_format\" TEXT NOT NULL DEFAULT 'plain',\n  \"related_publication_uid\" TEXT REFERENCES \"publications\"(\"uid\") ON UPDATE RESTRICT ON DELETE SET NULL,\n  \"related_project_uid\" TEXT REFERENCES \"projects\"(\"uid\") ON UPDATE RESTRICT ON DELETE SET NULL,\n  \"related_student_uid\" TEXT REFERENCES \"students\"(\"uid\") ON UPDATE RESTRICT ON DELETE SET NULL,\n  \"allow_comments\" INTEGER NOT NULL DEFAULT 0,\n  \"published_at\" TEXT,\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"is_featured\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_news_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_news_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_news_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_news_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_news_title_0\" CHECK (length(trim(\"title\")) > 0),\n  CONSTRAINT \"ck_news_slug_0\" CHECK (length(trim(\"slug\")) > 0),\n  CONSTRAINT \"ck_news_content_format_0\" CHECK (\"content_format\" IN ('plain', 'html', 'markdown')),\n  CONSTRAINT \"ck_news_allow_comments_0\" CHECK (\"allow_comments\" IN (0, 1)),\n  CONSTRAINT \"ck_news_published_at_0\" CHECK (\"published_at\" IS NULL OR (length(\"published_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"published_at\", '+0 seconds') = \"published_at\", 0))),\n  CONSTRAINT \"ck_news_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_news_is_featured_0\" CHECK (\"is_featured\" IN (0, 1)),\n  CONSTRAINT \"ck_news_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "title",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "slug",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "category",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "cover_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "content",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "content_format",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'plain'",
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "related_publication_uid",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "related_project_uid",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "related_student_uid",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "allow_comments",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "published_at",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "is_featured",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "students",
+        "from": "related_student_uid",
+        "to": "uid",
+        "on_update": "RESTRICT",
+        "on_delete": "SET NULL",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "projects",
+        "from": "related_project_uid",
+        "to": "uid",
+        "on_update": "RESTRICT",
+        "on_delete": "SET NULL",
+        "match": "NONE"
+      },
+      {
+        "id": 2,
+        "seq": 0,
+        "table": "publications",
+        "from": "related_publication_uid",
+        "to": "uid",
+        "on_update": "RESTRICT",
+        "on_delete": "SET NULL",
+        "match": "NONE"
+      },
+      {
+        "id": 3,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "cover_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_news_admin_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_news_admin_updated\"\n  ON \"news\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_news_published",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "published_at",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_news_published\" ON \"news\" (\"visibility\", \"published_at\" DESC, \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_news_related_student_uid",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "related_student_uid"
+        ],
+        "sql": "CREATE INDEX \"idx_news_related_student_uid\" ON \"news\" (\"related_student_uid\")"
+      },
+      {
+        "name": "idx_news_related_project_uid",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "related_project_uid"
+        ],
+        "sql": "CREATE INDEX \"idx_news_related_project_uid\" ON \"news\" (\"related_project_uid\")"
+      },
+      {
+        "name": "idx_news_related_publication_uid",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "related_publication_uid"
+        ],
+        "sql": "CREATE INDEX \"idx_news_related_publication_uid\" ON \"news\" (\"related_publication_uid\")"
+      },
+      {
+        "name": "idx_news_cover_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "cover_key"
+        ],
+        "sql": "CREATE INDEX \"idx_news_cover_key\" ON \"news\" (\"cover_key\")"
+      },
+      {
+        "name": "idx_news_featured",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_featured",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_news_featured\" ON \"news\" (\"visibility\", \"is_featured\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_news_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_news_visibility_sort\" ON \"news\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_news_2",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "slug"
+        ],
+        "sql": null
+      },
+      {
+        "name": "sqlite_autoindex_news_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "operation_logs": {
+    "sql": "CREATE TABLE \"operation_logs\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"actor_uid\" TEXT,\n  \"actor_name\" TEXT,\n  \"action\" TEXT NOT NULL,\n  \"module\" TEXT NOT NULL,\n  \"target_uid\" TEXT,\n  \"summary\" TEXT,\n  \"detail_json\" TEXT NOT NULL DEFAULT '{}',\n  \"status\" TEXT,\n  CONSTRAINT \"ck_operation_logs_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_operation_logs_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_operation_logs_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_operation_logs_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_operation_logs_action_0\" CHECK (length(trim(\"action\")) > 0),\n  CONSTRAINT \"ck_operation_logs_module_0\" CHECK (length(trim(\"module\")) > 0),\n  CONSTRAINT \"ck_operation_logs_detail_json_0\" CHECK (CASE WHEN json_valid(\"detail_json\") THEN json_type(\"detail_json\") = 'object' ELSE 0 END)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "actor_uid",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "actor_name",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "action",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "module",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "target_uid",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "summary",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "detail_json",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'{}'",
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_operation_logs_created_desc",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "created_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_operation_logs_created_desc\"\n  ON \"operation_logs\" (\"created_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_operation_logs_module_created",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "module",
+          "created_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_operation_logs_module_created\" ON \"operation_logs\" (\"module\", \"created_at\" DESC, \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_operation_logs_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "patents": {
+    "sql": "CREATE TABLE \"patents\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT NOT NULL,\n  \"country\" TEXT,\n  \"patent_type\" TEXT,\n  \"application_number\" TEXT,\n  \"grant_number\" TEXT,\n  \"application_date\" TEXT,\n  \"grant_date\" TEXT,\n  \"inventors\" TEXT,\n  \"owner\" TEXT,\n  \"legal_status\" TEXT,\n  \"summary\" TEXT,\n  \"certificate_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"is_featured\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_patents_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_patents_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_patents_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_patents_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_patents_name_0\" CHECK (length(trim(\"name\")) > 0),\n  CONSTRAINT \"ck_patents_application_date_0\" CHECK (\"application_date\" IS NULL OR (length(\"application_date\") = 10 AND COALESCE(strftime('%Y-%m-%d', \"application_date\", '+0 days') = \"application_date\", 0))),\n  CONSTRAINT \"ck_patents_grant_date_0\" CHECK (\"grant_date\" IS NULL OR (length(\"grant_date\") = 10 AND COALESCE(strftime('%Y-%m-%d', \"grant_date\", '+0 days') = \"grant_date\", 0))),\n  CONSTRAINT \"ck_patents_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_patents_is_featured_0\" CHECK (\"is_featured\" IN (0, 1)),\n  CONSTRAINT \"ck_patents_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "country",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "patent_type",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "application_number",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "grant_number",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "application_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "grant_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "inventors",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "owner",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "legal_status",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "summary",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "certificate_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "is_featured",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 18,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "certificate_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_patents_admin_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_patents_admin_updated\"\n  ON \"patents\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_patents_certificate_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "certificate_key"
+        ],
+        "sql": "CREATE INDEX \"idx_patents_certificate_key\" ON \"patents\" (\"certificate_key\")"
+      },
+      {
+        "name": "idx_patents_featured",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_featured",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_patents_featured\" ON \"patents\" (\"visibility\", \"is_featured\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_patents_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_patents_visibility_sort\" ON \"patents\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_patents_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "profiles": {
+    "sql": "CREATE TABLE \"profiles\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT NOT NULL,\n  \"name_en\" TEXT,\n  \"role\" TEXT,\n  \"title\" TEXT,\n  \"organization\" TEXT,\n  \"lab\" TEXT,\n  \"avatar_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"email\" TEXT,\n  \"phone\" TEXT,\n  \"office\" TEXT,\n  \"bio\" TEXT,\n  \"bio_en\" TEXT,\n  \"education\" TEXT,\n  \"experience\" TEXT,\n  \"recruiting\" TEXT,\n  \"orcid\" TEXT,\n  \"personal_homepage\" TEXT,\n  \"google_scholar\" TEXT,\n  \"dblp\" TEXT,\n  \"github\" TEXT,\n  \"cnki\" TEXT,\n  \"contact_visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"is_active\" INTEGER NOT NULL DEFAULT 0,\n  \"is_featured\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0, \"orcid_value\" INTEGER CHECK (\"orcid_value\" IS NULL OR (typeof(\"orcid_value\") = 'integer' AND \"orcid_value\" BETWEEN 0 AND 9007199254740991)), \"personal_homepage_value\" INTEGER CHECK (\"personal_homepage_value\" IS NULL OR (typeof(\"personal_homepage_value\") = 'integer' AND \"personal_homepage_value\" BETWEEN 0 AND 9007199254740991)), \"google_scholar_value\" INTEGER CHECK (\"google_scholar_value\" IS NULL OR (typeof(\"google_scholar_value\") = 'integer' AND \"google_scholar_value\" BETWEEN 0 AND 9007199254740991)), \"dblp_value\" INTEGER CHECK (\"dblp_value\" IS NULL OR (typeof(\"dblp_value\") = 'integer' AND \"dblp_value\" BETWEEN 0 AND 9007199254740991)), \"github_value\" INTEGER CHECK (\"github_value\" IS NULL OR (typeof(\"github_value\") = 'integer' AND \"github_value\" BETWEEN 0 AND 9007199254740991)), \"cnki_value\" INTEGER CHECK (\"cnki_value\" IS NULL OR (typeof(\"cnki_value\") = 'integer' AND \"cnki_value\" BETWEEN 0 AND 9007199254740991)),\n  CONSTRAINT \"ck_profiles_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_profiles_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_profiles_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_profiles_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_profiles_name_0\" CHECK (length(trim(\"name\")) > 0),\n  CONSTRAINT \"ck_profiles_contact_visibility_0\" CHECK (\"contact_visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_profiles_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_profiles_is_active_0\" CHECK (\"is_active\" IN (0, 1)),\n  CONSTRAINT \"ck_profiles_is_featured_0\" CHECK (\"is_featured\" IN (0, 1)),\n  CONSTRAINT \"ck_profiles_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "name_en",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "role",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "title",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "organization",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "lab",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "avatar_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "email",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "phone",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "office",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "bio",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "bio_en",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "education",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "experience",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 18,
+        "name": "recruiting",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 19,
+        "name": "orcid",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 20,
+        "name": "personal_homepage",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 21,
+        "name": "google_scholar",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 22,
+        "name": "dblp",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 23,
+        "name": "github",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 24,
+        "name": "cnki",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 25,
+        "name": "contact_visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 26,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 27,
+        "name": "is_active",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 28,
+        "name": "is_featured",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 29,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 30,
+        "name": "orcid_value",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 31,
+        "name": "personal_homepage_value",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 32,
+        "name": "google_scholar_value",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 33,
+        "name": "dblp_value",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 34,
+        "name": "github_value",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 35,
+        "name": "cnki_value",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "avatar_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_profiles_admin_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_profiles_admin_updated\"\n  ON \"profiles\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_profiles_visibility_active_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_active",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_profiles_visibility_active_sort\"\n  ON \"profiles\" (\"visibility\", \"is_active\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_profiles_avatar_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "avatar_key"
+        ],
+        "sql": "CREATE INDEX \"idx_profiles_avatar_key\" ON \"profiles\" (\"avatar_key\")"
+      },
+      {
+        "name": "idx_profiles_featured",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_featured",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_profiles_featured\" ON \"profiles\" (\"visibility\", \"is_featured\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_profiles_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_profiles_visibility_sort\" ON \"profiles\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_profiles_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "projects": {
+    "sql": "CREATE TABLE \"projects\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT NOT NULL,\n  \"source\" TEXT,\n  \"fund_name\" TEXT,\n  \"project_number\" TEXT,\n  \"project_role\" TEXT,\n  \"principal\" TEXT,\n  \"members\" TEXT,\n  \"start_date\" TEXT,\n  \"end_date\" TEXT,\n  \"status\" TEXT,\n  \"amount\" TEXT,\n  \"summary\" TEXT,\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"is_featured\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_projects_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_projects_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_projects_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_projects_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_projects_name_0\" CHECK (length(trim(\"name\")) > 0),\n  CONSTRAINT \"ck_projects_start_date_0\" CHECK (\"start_date\" IS NULL OR (length(\"start_date\") = 10 AND COALESCE(strftime('%Y-%m-%d', \"start_date\", '+0 days') = \"start_date\", 0))),\n  CONSTRAINT \"ck_projects_end_date_0\" CHECK (\"end_date\" IS NULL OR (length(\"end_date\") = 10 AND COALESCE(strftime('%Y-%m-%d', \"end_date\", '+0 days') = \"end_date\", 0))),\n  CONSTRAINT \"ck_projects_amount_0\" CHECK (\"amount\" IS NULL OR (length(\"amount\") BETWEEN 1 AND 23 AND \"amount\" NOT GLOB '*[^0-9.]*' AND \"amount\" NOT LIKE '%.%.%' AND substr(\"amount\", 1, 1) GLOB '[0-9]' AND substr(\"amount\", -1, 1) GLOB '[0-9]' AND (instr(\"amount\", '.') = 0 AND length(\"amount\") <= 18 OR instr(\"amount\", '.') BETWEEN 2 AND 19 AND length(\"amount\") - instr(\"amount\", '.') BETWEEN 1 AND 4) AND (substr(\"amount\", 1, 1) != '0' OR \"amount\" = '0' OR substr(\"amount\", 1, 2) = '0.'))),\n  CONSTRAINT \"ck_projects_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_projects_is_featured_0\" CHECK (\"is_featured\" IN (0, 1)),\n  CONSTRAINT \"ck_projects_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "source",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "fund_name",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "project_number",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "project_role",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "principal",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "members",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "start_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "end_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "amount",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "summary",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "is_featured",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 18,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_projects_admin_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_projects_admin_updated\"\n  ON \"projects\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_projects_visibility_start_date",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "start_date",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_projects_visibility_start_date\"\n  ON \"projects\" (\"visibility\", \"start_date\" DESC, \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_projects_featured",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_featured",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_projects_featured\" ON \"projects\" (\"visibility\", \"is_featured\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_projects_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_projects_visibility_sort\" ON \"projects\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_projects_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "public_action_throttles": {
+    "sql": "CREATE TABLE \"public_action_throttles\" (\n  \"key_hash\" TEXT PRIMARY KEY NOT NULL,\n  \"action\" TEXT NOT NULL,\n  \"scope\" TEXT NOT NULL,\n  \"attempts\" INTEGER NOT NULL DEFAULT 0,\n  \"window_started_at\" TEXT NOT NULL,\n  \"blocked_until\" TEXT,\n  \"updated_at\" TEXT NOT NULL,\n  \"expires_at\" TEXT NOT NULL,\n  CONSTRAINT \"ck_public_action_throttles_key_hash\" CHECK (length(\"key_hash\") = 64 AND \"key_hash\" NOT GLOB '*[^0-9a-f]*'),\n  CONSTRAINT \"ck_public_action_throttles_action\" CHECK (\"action\" IN ('registration', 'contact')),\n  CONSTRAINT \"ck_public_action_throttles_scope\" CHECK (\"scope\" IN ('identity', 'network')),\n  CONSTRAINT \"ck_public_action_throttles_attempts\" CHECK (typeof(\"attempts\") = 'integer' AND \"attempts\" BETWEEN 0 AND 1000000),\n  CONSTRAINT \"ck_public_action_throttles_window_started_at\" CHECK (length(\"window_started_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"window_started_at\", '+0 seconds') = \"window_started_at\", 0)),\n  CONSTRAINT \"ck_public_action_throttles_blocked_until\" CHECK (\"blocked_until\" IS NULL OR (length(\"blocked_until\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"blocked_until\", '+0 seconds') = \"blocked_until\", 0))),\n  CONSTRAINT \"ck_public_action_throttles_updated_at\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_public_action_throttles_expires_at\" CHECK (length(\"expires_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"expires_at\", '+0 seconds') = \"expires_at\", 0)),\n  CONSTRAINT \"ck_public_action_throttles_time_order\" CHECK (\n    \"updated_at\" >= \"window_started_at\" AND\n    \"expires_at\" >= \"updated_at\" AND\n    (\"blocked_until\" IS NULL OR (\"blocked_until\" >= \"updated_at\" AND \"expires_at\" >= \"blocked_until\"))\n  )\n) STRICT",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "key_hash",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "action",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "scope",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "attempts",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "window_started_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "blocked_until",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "expires_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_public_action_throttles_action_scope",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "action",
+          "scope",
+          "updated_at"
+        ],
+        "sql": "CREATE INDEX \"idx_public_action_throttles_action_scope\"\n  ON \"public_action_throttles\" (\"action\", \"scope\", \"updated_at\")"
+      },
+      {
+        "name": "idx_public_action_throttles_expiry",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "expires_at",
+          "key_hash"
+        ],
+        "sql": "CREATE INDEX \"idx_public_action_throttles_expiry\"\n  ON \"public_action_throttles\" (\"expires_at\", \"key_hash\")"
+      },
+      {
+        "name": "sqlite_autoindex_public_action_throttles_1",
+        "unique": true,
+        "origin": "pk",
+        "partial": false,
+        "columns": [
+          "key_hash"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "publications": {
+    "sql": "CREATE TABLE \"publications\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"title\" TEXT NOT NULL,\n  \"source_citation\" TEXT,\n  \"authors\" TEXT,\n  \"venue\" TEXT,\n  \"year\" INTEGER,\n  \"volume\" TEXT,\n  \"issue\" TEXT,\n  \"pages\" TEXT,\n  \"doi\" TEXT,\n  \"url\" TEXT,\n  \"pdf_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"bibtex\" TEXT,\n  \"citation_gbt\" TEXT,\n  \"citation_elsevier\" TEXT,\n  \"citation_apa\" TEXT,\n  \"citation_ieee\" TEXT,\n  \"highlight_gbt\" TEXT,\n  \"highlight_elsevier\" TEXT,\n  \"highlight_apa\" TEXT,\n  \"highlight_ieee\" TEXT,\n  \"publication_type\" TEXT,\n  \"author_role\" TEXT,\n  \"corresponding_authors\" TEXT,\n  \"index_type\" TEXT,\n  \"display_tags\" TEXT,\n  \"abstract\" TEXT,\n  \"keywords\" TEXT,\n  \"pdf_visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"is_featured\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_publications_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_publications_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_publications_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_publications_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_publications_title_0\" CHECK (length(trim(\"title\")) > 0),\n  CONSTRAINT \"ck_publications_year_0\" CHECK (\"year\" IS NULL OR (typeof(\"year\") = 'integer' AND \"year\" BETWEEN -9007199254740991 AND 9007199254740991)),\n  CONSTRAINT \"ck_publications_year_1\" CHECK (\"year\" IS NULL OR (\"year\" >= 1)),\n  CONSTRAINT \"ck_publications_year_2\" CHECK (\"year\" IS NULL OR (\"year\" <= 9999)),\n  CONSTRAINT \"ck_publications_pdf_visibility_0\" CHECK (\"pdf_visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_publications_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_publications_is_featured_0\" CHECK (\"is_featured\" IN (0, 1)),\n  CONSTRAINT \"ck_publications_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "title",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "source_citation",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "authors",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "venue",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "year",
+        "type": "INTEGER",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "volume",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "issue",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "pages",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "doi",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "url",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "pdf_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "bibtex",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "citation_gbt",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "citation_elsevier",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 18,
+        "name": "citation_apa",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 19,
+        "name": "citation_ieee",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 20,
+        "name": "highlight_gbt",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 21,
+        "name": "highlight_elsevier",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 22,
+        "name": "highlight_apa",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 23,
+        "name": "highlight_ieee",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 24,
+        "name": "publication_type",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 25,
+        "name": "author_role",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 26,
+        "name": "corresponding_authors",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 27,
+        "name": "index_type",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 28,
+        "name": "display_tags",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 29,
+        "name": "abstract",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 30,
+        "name": "keywords",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 31,
+        "name": "pdf_visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 32,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 33,
+        "name": "is_featured",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 34,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "pdf_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_publications_admin_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_publications_admin_updated\"\n  ON \"publications\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_publications_visibility_year",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "year",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_publications_visibility_year\" ON \"publications\" (\"visibility\", \"year\" DESC, \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_publications_pdf_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "pdf_key"
+        ],
+        "sql": "CREATE INDEX \"idx_publications_pdf_key\" ON \"publications\" (\"pdf_key\")"
+      },
+      {
+        "name": "idx_publications_featured",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_featured",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_publications_featured\" ON \"publications\" (\"visibility\", \"is_featured\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_publications_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_publications_visibility_sort\" ON \"publications\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_publications_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "research_interests": {
+    "sql": "CREATE TABLE \"research_interests\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT NOT NULL,\n  \"name_en\" TEXT,\n  \"description\" TEXT,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  CONSTRAINT \"ck_research_interests_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_research_interests_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_research_interests_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_research_interests_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_research_interests_name_0\" CHECK (length(trim(\"name\")) > 0),\n  CONSTRAINT \"ck_research_interests_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_research_interests_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden'))\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "name_en",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "description",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_research_interests_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_research_interests_visibility_sort\" ON \"research_interests\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_research_interests_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "site_settings": {
+    "sql": "CREATE TABLE \"site_settings\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"is_active\" INTEGER NOT NULL DEFAULT 0,\n  \"site_name\" TEXT NOT NULL,\n  \"site_name_en\" TEXT,\n  \"hero_title\" TEXT,\n  \"hero_subtitle\" TEXT,\n  \"logo_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"favicon_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"og_image_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"seo_title\" TEXT,\n  \"seo_description\" TEXT,\n  \"seo_keywords\" TEXT,\n  \"footer_text\" TEXT,\n  \"homepage_profile_uid\" TEXT REFERENCES \"profiles\"(\"uid\") ON UPDATE RESTRICT ON DELETE SET NULL,\n  \"homepage_publication_limit\" INTEGER NOT NULL DEFAULT 6,\n  \"homepage_news_limit\" INTEGER NOT NULL DEFAULT 5,\n  CONSTRAINT \"ck_site_settings_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_site_settings_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_site_settings_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_site_settings_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_site_settings_is_active_0\" CHECK (\"is_active\" IN (0, 1)),\n  CONSTRAINT \"ck_site_settings_site_name_0\" CHECK (length(trim(\"site_name\")) > 0),\n  CONSTRAINT \"ck_site_settings_homepage_publication_limit_0\" CHECK (typeof(\"homepage_publication_limit\") = 'integer' AND \"homepage_publication_limit\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_site_settings_homepage_publication_limit_1\" CHECK (\"homepage_publication_limit\" >= 0),\n  CONSTRAINT \"ck_site_settings_homepage_news_limit_0\" CHECK (typeof(\"homepage_news_limit\") = 'integer' AND \"homepage_news_limit\" BETWEEN -9007199254740991 AND 9007199254740991),\n  CONSTRAINT \"ck_site_settings_homepage_news_limit_1\" CHECK (\"homepage_news_limit\" >= 0)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "is_active",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "site_name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "site_name_en",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "hero_title",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "hero_subtitle",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "logo_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "favicon_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "og_image_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "seo_title",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "seo_description",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "seo_keywords",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "footer_text",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "homepage_profile_uid",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "homepage_publication_limit",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "6",
+        "pk": 0
+      },
+      {
+        "cid": 18,
+        "name": "homepage_news_limit",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "5",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "profiles",
+        "from": "homepage_profile_uid",
+        "to": "uid",
+        "on_update": "RESTRICT",
+        "on_delete": "SET NULL",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "og_image_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      },
+      {
+        "id": 2,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "favicon_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      },
+      {
+        "id": 3,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "logo_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ux_site_settings_single_active",
+        "unique": true,
+        "origin": "c",
+        "partial": true,
+        "columns": [
+          "is_active"
+        ],
+        "sql": "CREATE UNIQUE INDEX ux_site_settings_single_active ON site_settings(is_active) WHERE is_active = 1"
+      },
+      {
+        "name": "idx_site_settings_one_active",
+        "unique": true,
+        "origin": "c",
+        "partial": true,
+        "columns": [
+          "is_active"
+        ],
+        "sql": "CREATE UNIQUE INDEX \"idx_site_settings_one_active\" ON \"site_settings\" (\"is_active\") WHERE \"is_active\" = 1"
+      },
+      {
+        "name": "idx_site_settings_homepage_profile_uid",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "homepage_profile_uid"
+        ],
+        "sql": "CREATE INDEX \"idx_site_settings_homepage_profile_uid\" ON \"site_settings\" (\"homepage_profile_uid\")"
+      },
+      {
+        "name": "idx_site_settings_og_image_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "og_image_key"
+        ],
+        "sql": "CREATE INDEX \"idx_site_settings_og_image_key\" ON \"site_settings\" (\"og_image_key\")"
+      },
+      {
+        "name": "idx_site_settings_favicon_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "favicon_key"
+        ],
+        "sql": "CREATE INDEX \"idx_site_settings_favicon_key\" ON \"site_settings\" (\"favicon_key\")"
+      },
+      {
+        "name": "idx_site_settings_logo_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "logo_key"
+        ],
+        "sql": "CREATE INDEX \"idx_site_settings_logo_key\" ON \"site_settings\" (\"logo_key\")"
+      },
+      {
+        "name": "sqlite_autoindex_site_settings_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "student_category_displays": {
+    "sql": "CREATE TABLE \"student_category_displays\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"key\" TEXT NOT NULL UNIQUE,\n  \"label\" TEXT NOT NULL,\n  \"label_en\" TEXT,\n  \"keywords\" TEXT,\n  \"enabled\" INTEGER NOT NULL DEFAULT 0,\n  \"display_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_student_category_displays_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_student_category_displays_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_student_category_displays_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_student_category_displays_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_student_category_displays_key_0\" CHECK (length(trim(\"key\")) > 0),\n  CONSTRAINT \"ck_student_category_displays_label_0\" CHECK (length(trim(\"label\")) > 0),\n  CONSTRAINT \"ck_student_category_displays_enabled_0\" CHECK (\"enabled\" IN (0, 1)),\n  CONSTRAINT \"ck_student_category_displays_display_order_0\" CHECK (typeof(\"display_order\") = 'integer' AND \"display_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "key",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "label",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "label_en",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "keywords",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "enabled",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "display_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_student_category_displays_2",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "key"
+        ],
+        "sql": null
+      },
+      {
+        "name": "sqlite_autoindex_student_category_displays_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "students": {
+    "sql": "CREATE TABLE \"students\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"name\" TEXT NOT NULL,\n  \"name_en\" TEXT,\n  \"avatar_key\" TEXT REFERENCES \"media_assets\"(\"object_key\") ON UPDATE RESTRICT ON DELETE RESTRICT,\n  \"student_id\" TEXT,\n  \"degree\" TEXT,\n  \"category\" TEXT,\n  \"grade\" TEXT,\n  \"direction\" TEXT,\n  \"status\" TEXT,\n  \"email\" TEXT,\n  \"homepage\" TEXT,\n  \"enrollment_date\" TEXT,\n  \"graduation_date\" TEXT,\n  \"destination\" TEXT,\n  \"awards\" TEXT,\n  \"bio\" TEXT,\n  \"contact_visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"visibility\" TEXT NOT NULL DEFAULT 'hidden',\n  \"is_featured\" INTEGER NOT NULL DEFAULT 0,\n  \"sort_order\" INTEGER NOT NULL DEFAULT 0,\n  CONSTRAINT \"ck_students_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_students_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_students_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_students_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_students_name_0\" CHECK (length(trim(\"name\")) > 0),\n  CONSTRAINT \"ck_students_enrollment_date_0\" CHECK (\"enrollment_date\" IS NULL OR (length(\"enrollment_date\") = 10 AND COALESCE(strftime('%Y-%m-%d', \"enrollment_date\", '+0 days') = \"enrollment_date\", 0))),\n  CONSTRAINT \"ck_students_graduation_date_0\" CHECK (\"graduation_date\" IS NULL OR (length(\"graduation_date\") = 10 AND COALESCE(strftime('%Y-%m-%d', \"graduation_date\", '+0 days') = \"graduation_date\", 0))),\n  CONSTRAINT \"ck_students_contact_visibility_0\" CHECK (\"contact_visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_students_visibility_0\" CHECK (\"visibility\" IN ('public', 'authenticated', 'staff', 'owner', 'hidden')),\n  CONSTRAINT \"ck_students_is_featured_0\" CHECK (\"is_featured\" IN (0, 1)),\n  CONSTRAINT \"ck_students_sort_order_0\" CHECK (typeof(\"sort_order\") = 'integer' AND \"sort_order\" BETWEEN -9007199254740991 AND 9007199254740991)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "name_en",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "avatar_key",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "student_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "degree",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "category",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "grade",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "direction",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "email",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "homepage",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "enrollment_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 16,
+        "name": "graduation_date",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 17,
+        "name": "destination",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 18,
+        "name": "awards",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 19,
+        "name": "bio",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 20,
+        "name": "contact_visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 21,
+        "name": "visibility",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'hidden'",
+        "pk": 0
+      },
+      {
+        "cid": 22,
+        "name": "is_featured",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 23,
+        "name": "sort_order",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "media_assets",
+        "from": "avatar_key",
+        "to": "object_key",
+        "on_update": "RESTRICT",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_students_admin_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_students_admin_updated\"\n  ON \"students\" (\"updated_at\" DESC, \"id\" DESC)"
+      },
+      {
+        "name": "idx_students_group",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "category",
+          "status",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_students_group\" ON \"students\" (\"visibility\", \"category\", \"status\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_students_avatar_key",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "avatar_key"
+        ],
+        "sql": "CREATE INDEX \"idx_students_avatar_key\" ON \"students\" (\"avatar_key\")"
+      },
+      {
+        "name": "idx_students_featured",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "is_featured",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_students_featured\" ON \"students\" (\"visibility\", \"is_featured\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "idx_students_visibility_sort",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "visibility",
+          "sort_order",
+          "id"
+        ],
+        "sql": "CREATE INDEX \"idx_students_visibility_sort\" ON \"students\" (\"visibility\", \"sort_order\", \"id\")"
+      },
+      {
+        "name": "sqlite_autoindex_students_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "translation_cache": {
+    "sql": "CREATE TABLE \"translation_cache\" (\n  \"id\" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,\n  \"uid\" TEXT NOT NULL UNIQUE,\n  \"created_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"updated_at\" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n  \"source_hash\" TEXT NOT NULL,\n  \"source_ref_key\" TEXT NOT NULL,\n  \"source_text\" TEXT NOT NULL,\n  \"source_lang\" TEXT NOT NULL,\n  \"target_lang\" TEXT NOT NULL,\n  \"translated_text\" TEXT,\n  \"provider\" TEXT,\n  \"status\" TEXT NOT NULL DEFAULT 'pending',\n  \"is_manual\" INTEGER NOT NULL DEFAULT 0,\n  \"is_current\" INTEGER NOT NULL DEFAULT 0,\n  \"source_refs\" TEXT NOT NULL DEFAULT '[]',\n  \"error_message\" TEXT,\n  CONSTRAINT \"ck_translation_cache_uid_0\" CHECK (length(trim(\"uid\")) > 0),\n  CONSTRAINT \"ck_translation_cache_uid_1\" CHECK (length(\"uid\") <= 128),\n  CONSTRAINT \"ck_translation_cache_created_at_0\" CHECK (length(\"created_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"created_at\", '+0 seconds') = \"created_at\", 0)),\n  CONSTRAINT \"ck_translation_cache_updated_at_0\" CHECK (length(\"updated_at\") = 24 AND COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', \"updated_at\", '+0 seconds') = \"updated_at\", 0)),\n  CONSTRAINT \"ck_translation_cache_source_hash_0\" CHECK (length(trim(\"source_hash\")) > 0),\n  CONSTRAINT \"ck_translation_cache_source_hash_1\" CHECK (length(\"source_hash\") >= 64),\n  CONSTRAINT \"ck_translation_cache_source_hash_2\" CHECK (length(\"source_hash\") <= 64),\n  CONSTRAINT \"ck_translation_cache_source_ref_key_0\" CHECK (length(trim(\"source_ref_key\")) > 0),\n  CONSTRAINT \"ck_translation_cache_source_text_0\" CHECK (length(trim(\"source_text\")) > 0),\n  CONSTRAINT \"ck_translation_cache_source_lang_0\" CHECK (length(trim(\"source_lang\")) > 0),\n  CONSTRAINT \"ck_translation_cache_target_lang_0\" CHECK (length(trim(\"target_lang\")) > 0),\n  CONSTRAINT \"ck_translation_cache_status_0\" CHECK (\"status\" IN ('pending', 'success', 'failed')),\n  CONSTRAINT \"ck_translation_cache_is_manual_0\" CHECK (\"is_manual\" IN (0, 1)),\n  CONSTRAINT \"ck_translation_cache_is_current_0\" CHECK (\"is_current\" IN (0, 1)),\n  CONSTRAINT \"ck_translation_cache_source_refs_0\" CHECK (CASE WHEN json_valid(\"source_refs\") THEN json_type(\"source_refs\") = 'array' ELSE 0 END)\n)",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "uid",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "created_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "updated_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "source_hash",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "source_ref_key",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "source_text",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "source_lang",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "target_lang",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "translated_text",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "provider",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "status",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'pending'",
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "is_manual",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "is_current",
+        "type": "INTEGER",
+        "notnull": 1,
+        "default": "0",
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "source_refs",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "'[]'",
+        "pk": 0
+      },
+      {
+        "cid": 15,
+        "name": "error_message",
+        "type": "TEXT",
+        "notnull": 0,
+        "default": null,
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_translation_cache_admin_status_updated",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "status",
+          "is_current",
+          "updated_at",
+          "id"
+        ],
+        "sql": "CREATE INDEX idx_translation_cache_admin_status_updated ON translation_cache(status, is_current, updated_at DESC, id DESC)"
+      },
+      {
+        "name": "idx_translation_cache_one_current",
+        "unique": true,
+        "origin": "c",
+        "partial": true,
+        "columns": [
+          "source_ref_key",
+          "target_lang"
+        ],
+        "sql": "CREATE UNIQUE INDEX \"idx_translation_cache_one_current\" ON \"translation_cache\" (\"source_ref_key\", \"target_lang\") WHERE \"is_current\" = 1 AND \"status\" = 'success'"
+      },
+      {
+        "name": "idx_translation_cache_ref_language",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "source_ref_key",
+          "target_lang",
+          "is_current"
+        ],
+        "sql": "CREATE INDEX \"idx_translation_cache_ref_language\" ON \"translation_cache\" (\"source_ref_key\", \"target_lang\", \"is_current\")"
+      },
+      {
+        "name": "idx_translation_cache_hash_language",
+        "unique": false,
+        "origin": "c",
+        "partial": false,
+        "columns": [
+          "source_hash",
+          "target_lang",
+          "is_current"
+        ],
+        "sql": "CREATE INDEX \"idx_translation_cache_hash_language\" ON \"translation_cache\" (\"source_hash\", \"target_lang\", \"is_current\")"
+      },
+      {
+        "name": "sqlite_autoindex_translation_cache_1",
+        "unique": true,
+        "origin": "u",
+        "partial": false,
+        "columns": [
+          "uid"
+        ],
+        "sql": null
+      }
+    ]
+  },
+  "_cms_migrations": {
+    "sql": "CREATE TABLE _cms_migrations (name TEXT PRIMARY KEY NOT NULL, sha256 TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))",
+    "columns": [
+      {
+        "cid": 0,
+        "name": "name",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "sha256",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": null,
+        "pk": 0
+      },
+      {
+        "cid": 2,
+        "name": "applied_at",
+        "type": "TEXT",
+        "notnull": 1,
+        "default": "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        "pk": 0
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__cms_migrations_1",
+        "unique": true,
+        "columns": [
+          "name"
+        ],
+        "sql": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+packages:
+  - .
+
+engineStrict: true
+savePrefix: ''
+autoInstallPeers: false
+strictPeerDependencies: true
+resolutionMode: highest
+minimumReleaseAge: 1440
+strictDepBuilds: true
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  sharp: true
+  workerd: true
+  '@parcel/watcher': true
+overrides:
+  vite: 8.2.2
+  unplugin: 3.3.0

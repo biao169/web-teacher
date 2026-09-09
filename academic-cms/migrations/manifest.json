@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_initial.sql",
+      "sha256": "d38087ea2a2b86f6f90bd7c12987d01e1b401480e282caa424a463f0015d3640"
+    },
+    {
+      "name": "0002_auth_security.sql",
+      "sha256": "0e0bbea058b8a638beba12df8d30ab7e9ada1b9560ab1392e3f2dffffb935d1e"
+    },
+    {
+      "name": "0003_media_i18n_cache.sql",
+      "sha256": "5fa036131842c313979d955563399e017c25656c9e4f7fd0ca11e52d5acc6a2e"
+    },
+    {
+      "name": "0004_public_content_indexes.sql",
+      "sha256": "5f7ddb5022d8cdf245f898b4fa1bef862028ea640581fc8427f89722293c2caa"
+    },
+    {
+      "name": "0005_public_interactions_and_demo_seed.sql",
+      "sha256": "c325f78e907a10911006019ad2ad6cc0d03fc1cddffc1785741aeb1149ce1909"
+    },
+    {
+      "name": "0006_admin_shell.sql",
+      "sha256": "f503e27b412e314bd83d6fc1a5756907f4dd9df9085edb739465471dc95339c8"
+    },
+    {
+      "name": "0007_admin_content_management.sql",
+      "sha256": "67ec9978b6723d347ef4a7a6f65e4feb021fc9030b8572543eec320d8759508d"
+    },
+    {
+      "name": "0008_complete_admin_integrity.sql",
+      "sha256": "17bd4057cd817a354eafdf0dde63081136ae151fe7669ed5deaee560d5c977dd"
+    },
+    {
+      "name": "0009_auth_management_integrity.sql",
+      "sha256": "7ab8a3226e9d138b5125c11279973d020e4a47cfb5df0c2848c19f699a7f7975"
+    },
+    {
+      "name": "0010_profile_link_values.sql",
+      "sha256": "6b5b09f19e296d8ff1fc7b5a377ef42868a93d1ce310862068d3225fc5d1bf67"
+    },
+    {
+      "name": "0011_media_full_scan.sql",
+      "sha256": "34bb836f88ce0cd3237ef115852b43deebc0650e145479adc356b3d6981d5c6e"
+    }
+  ]
+}

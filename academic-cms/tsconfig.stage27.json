@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "ES2022.Intl"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true
+  },
+  "include": [
+    "tests/types/offline-runtime.d.ts",
+    "tests/types/stage3-http-runtime.d.ts",
+    "server/types/h3.d.ts",
+    "db/contracts.ts",
+    "db/query.ts",
+    "db/errors.ts",
+    "db/statement.ts",
+    "db/codec.ts",
+    "db/catalog.ts",
+    "db/models.ts",
+    "db/schema-types.ts",
+    "shared/enums/*.ts",
+    "shared/contracts/*.ts",
+    "shared/utils/*.ts",
+    "shared/admin/*.ts",
+    "server/security/errors.ts",
+    "server/security/permissions.ts",
+    "server/audit/*.ts",
+    "server/cache/invalidation-map.ts",
+    "server/cache/keys.ts",
+    "server/cache/contracts.ts",
+    "server/cache/errors.ts",
+    "server/view-model/serializer.ts",
+    "server/media/object-key.ts",
+    "server/media/errors.ts",
+    "server/services/admin/*.ts",
+    "db/adapters/sqlite.ts",
+    "db/adapters/d1.ts"
+  ]
+}

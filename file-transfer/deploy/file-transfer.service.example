@@ -1,0 +1,25 @@
+# Same-host example. Replace paths, Node executable and existing service account.
+[Unit]
+Description=Independent academic file transfer
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=academic
+Group=academic
+WorkingDirectory=/srv/academic/file-transfer
+Environment=NODE_ENV=production
+ExecStartPre=/usr/bin/node /srv/academic/file-transfer/scripts/maintenance.mjs unlock-stale
+ExecStart=/usr/bin/node /srv/academic/file-transfer/scripts/start.mjs
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

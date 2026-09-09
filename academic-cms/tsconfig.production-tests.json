@@ -1,0 +1,29 @@
+{
+  "extends": "./.nuxt/tsconfig.node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  },
+  "include": [
+    "playwright.production.config.ts",
+    "tests/production/**/*.ts",
+    "scripts/release/seed-fixture.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".tmp",
+    "reports",
+    "tests/types",
+    "tests/helpers/offline*"
+  ]
+}

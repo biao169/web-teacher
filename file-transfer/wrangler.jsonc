@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "file-transfer",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {"directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/transfer-api/*"]},
+  "durable_objects": {"bindings": [{"name": "FT_STATE", "class_name": "TransferState"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["TransferState"]}],
+  "r2_buckets": [{"binding": "FT_FILES", "bucket_name": "file-transfer-files"}],
+  "observability": {"enabled": false}
+}

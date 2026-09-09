@@ -1,0 +1,4659 @@
+{
+  "resources": {
+    "site-settings": {
+      "key": "site-settings",
+      "table": "site_settings",
+      "permission": [
+        "site_settings"
+      ],
+      "label": "网站设置",
+      "singleton": false,
+      "titleField": "site_name",
+      "search": [
+        "site_name",
+        "site_name_en",
+        "hero_title"
+      ],
+      "filters": [
+        "is_active"
+      ],
+      "list": [
+        "uid",
+        "site_name",
+        "site_name_en",
+        "is_active",
+        "updated_at"
+      ],
+      "defaultSort": [
+        "updated_at",
+        "desc"
+      ],
+      "fields": [
+        {
+          "key": "site_name",
+          "label": "中文站点名称",
+          "type": "text",
+          "maxLength": 200,
+          "required": true,
+          "group": "品牌",
+          "placeholder": "请输入中文站点名称",
+          "help": "填写中文站点名称；此项必填，最多 200 个字符。"
+        },
+        {
+          "key": "site_name_en",
+          "label": "英文站点名称",
+          "type": "text",
+          "maxLength": 200,
+          "group": "品牌",
+          "placeholder": "请输入英文站点名称",
+          "help": "填写英文站点名称；此项可选，最多 200 个字符。"
+        },
+        {
+          "key": "hero_title",
+          "label": "首页主标题",
+          "type": "text",
+          "maxLength": 300,
+          "group": "首页",
+          "placeholder": "请输入首页主标题",
+          "help": "填写首页主标题；此项可选，最多 300 个字符。"
+        },
+        {
+          "key": "hero_subtitle",
+          "label": "首页副标题",
+          "type": "textarea",
+          "maxLength": 2000,
+          "group": "首页",
+          "placeholder": "请输入首页副标题",
+          "help": "填写首页副标题；此项可选，最多 2000 个字符。"
+        },
+        {
+          "key": "logo_key",
+          "label": "Logo",
+          "type": "media",
+          "accept": [
+            "image/*"
+          ],
+          "maxLength": 512,
+          "group": "媒体",
+          "placeholder": "请选择Logo",
+          "help": "从媒体库选择Logo，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "key": "favicon_key",
+          "label": "浏览器图标",
+          "type": "media",
+          "accept": [
+            "image/*"
+          ],
+          "maxLength": 512,
+          "group": "媒体",
+          "placeholder": "请选择浏览器图标",
+          "help": "从媒体库选择浏览器图标，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "key": "og_image_key",
+          "label": "社交分享图",
+          "type": "media",
+          "accept": [
+            "image/*"
+          ],
+          "maxLength": 512,
+          "group": "媒体",
+          "placeholder": "请选择社交分享图",
+          "help": "从媒体库选择社交分享图，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "key": "seo_title",
+          "label": "SEO 标题",
+          "type": "text",
+          "maxLength": 300,
+          "group": "SEO",
+          "placeholder": "请输入SEO 标题",
+          "help": "填写SEO 标题；此项可选，最多 300 个字符。"
+        },
+        {
+          "key": "seo_description",
+          "label": "SEO 描述",
+          "type": "textarea",
+          "maxLength": 1000,
+          "group": "SEO",
+          "placeholder": "请输入SEO 描述",
+          "help": "填写SEO 描述；此项可选，最多 1000 个字符。"
+        },
+        {
+          "key": "seo_keywords",
+          "label": "SEO 关键词",
+          "type": "text",
+          "maxLength": 1000,
+          "group": "SEO",
+          "placeholder": "请输入SEO 关键词",
+          "help": "填写SEO 关键词；此项可选，最多 1000 个字符。"
+        },
+        {
+          "key": "footer_text",
+          "label": "页脚内容（支持 HTML）",
+          "type": "textarea",
+          "maxLength": 10000,
+          "group": "页脚",
+          "help": "前台仅显示此处配置的页脚正文，不再自动追加版权或系统署名。支持 p、div、span、small、br、strong、em、列表和 HTTP/HTTPS/mailto 链接，可用 text-align 居中；脚本、事件和嵌入代码会被过滤。留空隐藏正文。",
+          "placeholder": "请输入页脚内容（支持 HTML）"
+        },
+        {
+          "key": "homepage_profile_uid",
+          "label": "旧版首页成员（兼容保留）",
+          "type": "text",
+          "maxLength": 128,
+          "readonly": true,
+          "group": "首页",
+          "help": "首页现自动显示公开、启用且设为精选的首位教师，按教师与团队的排序升序排列；此旧值保留，不再决定首页人物。",
+          "placeholder": "请输入旧版首页成员（兼容保留）"
+        },
+        {
+          "key": "homepage_publication_limit",
+          "label": "首页论文数量",
+          "type": "integer",
+          "min": 0,
+          "max": 100,
+          "group": "首页",
+          "placeholder": "请输入首页论文数量",
+          "help": "填写首页论文数量的整数值；允许范围 0 至 100。"
+        },
+        {
+          "key": "homepage_news_limit",
+          "label": "首页动态数量",
+          "type": "integer",
+          "min": 0,
+          "max": 100,
+          "group": "首页",
+          "placeholder": "请输入首页动态数量",
+          "help": "填写首页动态数量的整数值；允许范围 0 至 100。"
+        },
+        {
+          "key": "is_active",
+          "label": "当前启用",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "group": "状态",
+          "placeholder": "设置当前启用",
+          "help": "控制“当前启用”是否启用，保存后立即按当前状态生效。"
+        }
+      ],
+      "quick": [
+        "is_active"
+      ],
+      "invalidate": [
+        "module:site_settings",
+        "public:site",
+        "public:layout",
+        "public:home",
+        "public:seo"
+      ]
+    },
+    "global-settings": {
+      "key": "global-settings",
+      "table": "global_settings",
+      "permission": [
+        "global_settings"
+      ],
+      "label": "全局设置",
+      "singleton": false,
+      "titleField": "uid",
+      "search": [
+        "uid",
+        "translation_provider",
+        "publication_metadata_provider"
+      ],
+      "filters": [],
+      "list": [
+        "uid",
+        "allow_public_registration",
+        "allow_anonymous_messages",
+        "translation_provider",
+        "updated_at"
+      ],
+      "defaultSort": [
+        "updated_at",
+        "desc"
+      ],
+      "fields": [
+        {
+          "key": "allow_public_registration",
+          "label": "允许公开注册",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "group": "访问",
+          "placeholder": "设置允许公开注册",
+          "help": "控制“允许公开注册”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "key": "allow_anonymous_messages",
+          "label": "允许匿名留言",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "group": "访问",
+          "placeholder": "设置允许匿名留言",
+          "help": "控制“允许匿名留言”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "key": "upload_max_size_mb",
+          "label": "上传上限（MB）",
+          "type": "integer",
+          "min": 1,
+          "max": 20,
+          "group": "媒体",
+          "help": "管理端采用 20 MB 绝对安全上限；实际限制还会取运行环境存储上限的较小值。",
+          "placeholder": "请输入上传上限（MB）"
+        },
+        {
+          "key": "upload_allowed_extensions",
+          "label": "允许上传扩展名",
+          "type": "textarea",
+          "maxLength": 2000,
+          "format": "json",
+          "jsonType": "array",
+          "group": "媒体",
+          "help": "使用 JSON 数组，例如 [\"png\",\"jpg\",\"mp4\",\"webm\",\"pdf\"]。留空数组可暂停所有上传。",
+          "placeholder": "请输入允许上传扩展名"
+        },
+        {
+          "key": "media_trash_retention_days",
+          "label": "回收站保留天数",
+          "type": "integer",
+          "min": 1,
+          "max": 3650,
+          "group": "媒体",
+          "placeholder": "请输入回收站保留天数",
+          "help": "填写回收站保留天数的整数值；允许范围 1 至 3650。"
+        },
+        {
+          "key": "news_pdf_engine",
+          "label": "PDF 展示引擎",
+          "type": "select",
+          "options": [
+            {
+              "value": "browser",
+              "label": "browser"
+            },
+            {
+              "value": "pdfjs",
+              "label": "pdfjs"
+            }
+          ],
+          "group": "PDF",
+          "placeholder": "请选择PDF 展示引擎",
+          "help": "请选择PDF 展示引擎；此项可选。"
+        },
+        {
+          "key": "news_pdf_allow_download",
+          "label": "允许 PDF 下载",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "group": "PDF",
+          "placeholder": "设置允许 PDF 下载",
+          "help": "控制“允许 PDF 下载”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "key": "news_pdf_watermark",
+          "label": "PDF 水印说明",
+          "type": "text",
+          "maxLength": 500,
+          "group": "PDF",
+          "placeholder": "请输入PDF 水印说明",
+          "help": "填写PDF 水印说明；此项可选，最多 500 个字符。"
+        },
+        {
+          "key": "translation_provider",
+          "label": "默认翻译服务",
+          "type": "select",
+          "options": [
+            {
+              "value": "libretranslate",
+              "label": "libretranslate"
+            },
+            {
+              "value": "deepl",
+              "label": "deepl"
+            },
+            {
+              "value": "google",
+              "label": "google"
+            },
+            {
+              "value": "microsoft",
+              "label": "microsoft"
+            },
+            {
+              "value": "mymemory",
+              "label": "mymemory"
+            }
+          ],
+          "group": "翻译",
+          "help": "留空默认使用无需密钥的 MyMemory。指定服务缺少配置时，在允许的服务中选择可用项；保存后下一次任务立即读取新配置。",
+          "placeholder": "请选择默认翻译服务"
+        },
+        {
+          "key": "translation_providers",
+          "label": "可用翻译服务 JSON",
+          "type": "textarea",
+          "maxLength": 10000,
+          "format": "json",
+          "jsonType": "array",
+          "group": "翻译",
+          "help": "[] 表示自动选择；也可填写允许使用及失败后切换的服务，例如 [\"libretranslate\",\"mymemory\"]。非空列表以外的服务不会使用。",
+          "placeholder": "请输入可用翻译服务 JSON"
+        },
+        {
+          "key": "libretranslate_url",
+          "label": "LibreTranslate 地址",
+          "type": "url",
+          "maxLength": 2000,
+          "group": "翻译",
+          "help": "填写自建服务地址或完整 /translate 地址；官方托管服务还需配置 API Key。",
+          "placeholder": "例如：https://example.com"
+        },
+        {
+          "key": "libretranslate_api_key",
+          "label": "LibreTranslate API Key",
+          "type": "secret",
+          "secret": true,
+          "maxLength": 4096,
+          "group": "翻译密钥",
+          "placeholder": "留空则保持现有LibreTranslate API Key",
+          "help": "选择“替换”后填写新值；留空或保持现状都不会回显、覆盖已有密钥。"
+        },
+        {
+          "key": "deepl_api_key",
+          "label": "DeepL API Key",
+          "type": "secret",
+          "secret": true,
+          "maxLength": 4096,
+          "group": "翻译密钥",
+          "placeholder": "留空则保持现有DeepL API Key",
+          "help": "选择“替换”后填写新值；留空或保持现状都不会回显、覆盖已有密钥。"
+        },
+        {
+          "key": "google_translate_api_key",
+          "label": "Google Translate API Key",
+          "type": "secret",
+          "secret": true,
+          "maxLength": 4096,
+          "group": "翻译密钥",
+          "placeholder": "留空则保持现有Google Translate API Key",
+          "help": "选择“替换”后填写新值；留空或保持现状都不会回显、覆盖已有密钥。"
+        },
+        {
+          "key": "microsoft_translator_key",
+          "label": "Microsoft Translator Key",
+          "type": "secret",
+          "secret": true,
+          "maxLength": 4096,
+          "group": "翻译密钥",
+          "placeholder": "留空则保持现有Microsoft Translator Key",
+          "help": "选择“替换”后填写新值；留空或保持现状都不会回显、覆盖已有密钥。"
+        },
+        {
+          "key": "microsoft_translator_region",
+          "label": "Microsoft 区域",
+          "type": "text",
+          "maxLength": 200,
+          "group": "翻译",
+          "placeholder": "请输入Microsoft 区域",
+          "help": "填写Microsoft 区域；此项可选，最多 200 个字符。"
+        },
+        {
+          "key": "microsoft_translator_endpoint",
+          "label": "Microsoft Endpoint",
+          "type": "url",
+          "maxLength": 2000,
+          "group": "翻译",
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "key": "mymemory_email",
+          "label": "MyMemory 邮箱",
+          "type": "email",
+          "maxLength": 320,
+          "group": "翻译",
+          "help": "可选。匿名额度约 5000 字符/日，填写真实联系邮箱可申请更高额度；实际以服务商限制为准。不会自动使用其他通知邮箱。",
+          "placeholder": "例如：name@example.com"
+        },
+        {
+          "key": "translation_batch_size",
+          "label": "每批翻译条数",
+          "type": "integer",
+          "min": 1,
+          "max": 50,
+          "group": "翻译任务",
+          "help": "默认 10 条；同表短字段尽量合并，超过服务限制时自动分段。MyMemory 每次最多 500 字节（包含分隔标记），使用单并发。",
+          "placeholder": "请输入每批翻译条数"
+        },
+        {
+          "key": "translation_worker_count",
+          "label": "翻译并发数",
+          "type": "integer",
+          "min": 1,
+          "max": 8,
+          "group": "翻译任务",
+          "placeholder": "请输入翻译并发数",
+          "help": "填写翻译并发数的整数值；允许范围 1 至 8。"
+        },
+        {
+          "key": "translation_timeout_seconds",
+          "label": "翻译超时（秒）",
+          "type": "integer",
+          "min": 1,
+          "max": 120,
+          "group": "翻译任务",
+          "placeholder": "请输入翻译超时（秒）",
+          "help": "填写翻译超时（秒）的整数值；允许范围 1 至 120。"
+        },
+        {
+          "key": "translation_job_state",
+          "label": "翻译任务状态 JSON",
+          "type": "textarea",
+          "maxLength": 200000,
+          "format": "json",
+          "jsonType": "object",
+          "readonly": true,
+          "group": "翻译任务",
+          "placeholder": "请输入翻译任务状态 JSON",
+          "help": "翻译任务状态 JSON由系统维护，仅用于查看。"
+        },
+        {
+          "key": "publication_metadata_provider",
+          "label": "论文元数据服务",
+          "type": "select",
+          "options": [
+            {
+              "value": "crossref",
+              "label": "crossref"
+            },
+            {
+              "value": "openalex",
+              "label": "openalex"
+            },
+            {
+              "value": "semantic-scholar",
+              "label": "semantic-scholar"
+            },
+            {
+              "value": "datacite",
+              "label": "datacite"
+            },
+            {
+              "value": "europe-pmc",
+              "label": "europe-pmc"
+            },
+            {
+              "value": "pubmed",
+              "label": "pubmed"
+            }
+          ],
+          "group": "元数据",
+          "placeholder": "请选择论文元数据服务",
+          "help": "请选择论文元数据服务；此项可选。"
+        },
+        {
+          "key": "publication_metadata_providers",
+          "label": "论文元数据服务 JSON",
+          "type": "textarea",
+          "maxLength": 10000,
+          "format": "json",
+          "jsonType": "array",
+          "group": "元数据",
+          "help": "按优先级填写可用来源，例如 [\"openalex\",\"crossref\",\"datacite\",\"europe-pmc\",\"pubmed\"]；未填写时自动启用全部免费来源。",
+          "placeholder": "请输入论文元数据服务 JSON"
+        },
+        {
+          "key": "publication_display_style",
+          "label": "论文引用样式",
+          "type": "select",
+          "options": [
+            {
+              "value": "gbt",
+              "label": "gbt"
+            },
+            {
+              "value": "elsevier",
+              "label": "elsevier"
+            },
+            {
+              "value": "apa",
+              "label": "apa"
+            },
+            {
+              "value": "ieee",
+              "label": "ieee"
+            }
+          ],
+          "group": "论文",
+          "placeholder": "请选择论文引用样式",
+          "help": "请选择论文引用样式；此项可选。"
+        },
+        {
+          "key": "publication_suggestion_cache_seconds",
+          "label": "论文建议缓存秒数",
+          "type": "integer",
+          "min": 0,
+          "max": 86400,
+          "group": "建议缓存",
+          "placeholder": "请输入论文建议缓存秒数",
+          "help": "填写论文建议缓存秒数的整数值；允许范围 0 至 86400。"
+        },
+        {
+          "key": "profile_suggestion_cache_seconds",
+          "label": "人员建议缓存秒数",
+          "type": "integer",
+          "min": 0,
+          "max": 86400,
+          "group": "建议缓存",
+          "placeholder": "请输入人员建议缓存秒数",
+          "help": "填写人员建议缓存秒数的整数值；允许范围 0 至 86400。"
+        },
+        {
+          "key": "project_suggestion_cache_seconds",
+          "label": "项目建议缓存秒数",
+          "type": "integer",
+          "min": 0,
+          "max": 86400,
+          "group": "建议缓存",
+          "placeholder": "请输入项目建议缓存秒数",
+          "help": "填写项目建议缓存秒数的整数值；允许范围 0 至 86400。"
+        },
+        {
+          "key": "patent_suggestion_cache_seconds",
+          "label": "专利建议缓存秒数",
+          "type": "integer",
+          "min": 0,
+          "max": 86400,
+          "group": "建议缓存",
+          "placeholder": "请输入专利建议缓存秒数",
+          "help": "填写专利建议缓存秒数的整数值；允许范围 0 至 86400。"
+        },
+        {
+          "key": "student_suggestion_cache_seconds",
+          "label": "学生建议缓存秒数",
+          "type": "integer",
+          "min": 0,
+          "max": 86400,
+          "group": "建议缓存",
+          "placeholder": "请输入学生建议缓存秒数",
+          "help": "填写学生建议缓存秒数的整数值；允许范围 0 至 86400。"
+        },
+        {
+          "key": "news_suggestion_cache_seconds",
+          "label": "动态建议缓存秒数",
+          "type": "integer",
+          "min": 0,
+          "max": 86400,
+          "group": "建议缓存",
+          "placeholder": "请输入动态建议缓存秒数",
+          "help": "填写动态建议缓存秒数的整数值；允许范围 0 至 86400。"
+        },
+        {
+          "key": "course_suggestion_cache_seconds",
+          "label": "课程建议缓存秒数",
+          "type": "integer",
+          "min": 0,
+          "max": 86400,
+          "group": "建议缓存",
+          "placeholder": "请输入课程建议缓存秒数",
+          "help": "填写课程建议缓存秒数的整数值；允许范围 0 至 86400。"
+        },
+        {
+          "key": "patent_metadata_providers",
+          "label": "专利元数据服务 JSON",
+          "type": "textarea",
+          "maxLength": 10000,
+          "format": "json",
+          "jsonType": "array",
+          "group": "元数据",
+          "placeholder": "请输入专利元数据服务 JSON",
+          "help": "填写专利元数据服务 JSON；此项可选，最多 10000 个字符。"
+        },
+        {
+          "key": "patentsview_api_key",
+          "label": "PatentsView API Key",
+          "type": "secret",
+          "secret": true,
+          "maxLength": 4096,
+          "group": "元数据密钥",
+          "placeholder": "留空则保持现有PatentsView API Key",
+          "help": "选择“替换”后填写新值；留空或保持现状都不会回显、覆盖已有密钥。"
+        },
+        {
+          "key": "epo_ops_client_id",
+          "label": "EPO OPS Client ID",
+          "type": "secret",
+          "secret": true,
+          "maxLength": 4096,
+          "group": "元数据密钥",
+          "placeholder": "留空则保持现有EPO OPS Client ID",
+          "help": "选择“替换”后填写新值；留空或保持现状都不会回显、覆盖已有密钥。"
+        },
+        {
+          "key": "epo_ops_client_secret",
+          "label": "EPO OPS Client Secret",
+          "type": "secret",
+          "secret": true,
+          "maxLength": 4096,
+          "group": "元数据密钥",
+          "placeholder": "留空则保持现有EPO OPS Client Secret",
+          "help": "选择“替换”后填写新值；留空或保持现状都不会回显、覆盖已有密钥。"
+        },
+        {
+          "key": "notify_email",
+          "label": "系统通知邮箱",
+          "type": "email",
+          "maxLength": 320,
+          "group": "通知",
+          "placeholder": "例如：name@example.com",
+          "help": "填写可用的邮箱地址；此项可选。"
+        }
+      ],
+      "quick": [
+        "allow_public_registration",
+        "allow_anonymous_messages"
+      ],
+      "invalidate": [
+        "module:global_settings",
+        "public:settings",
+        "public:home",
+        "public:media-policy"
+      ]
+    },
+    "navigation": {
+      "key": "navigation",
+      "table": "navigation_items",
+      "permission": [
+        "navigation",
+        "navigation_items"
+      ],
+      "label": "导航与按钮",
+      "titleField": "title",
+      "search": [
+        "title",
+        "title_en",
+        "path",
+        "url_name"
+      ],
+      "filters": [
+        "kind",
+        "location",
+        "visibility",
+        "enabled"
+      ],
+      "list": [
+        "uid",
+        "title",
+        "kind",
+        "location",
+        "visibility",
+        "enabled",
+        "sort_order",
+        "updated_at"
+      ],
+      "defaultSort": [
+        "sort_order",
+        "asc"
+      ],
+      "fields": [
+        {
+          "key": "title",
+          "label": "中文文本",
+          "type": "text",
+          "maxLength": 200,
+          "required": true,
+          "group": "内容",
+          "placeholder": "请输入中文文本",
+          "help": "填写中文文本；此项必填，最多 200 个字符。"
+        },
+        {
+          "key": "title_en",
+          "label": "英文文本",
+          "type": "text",
+          "maxLength": 200,
+          "group": "内容",
+          "placeholder": "请输入英文文本",
+          "help": "填写英文文本；此项可选，最多 200 个字符。"
+        },
+        {
+          "key": "kind",
+          "label": "类型",
+          "type": "select",
+          "options": [
+            {
+              "value": "route",
+              "label": "站内路由"
+            },
+            {
+              "value": "external",
+              "label": "HTTPS 外链"
+            },
+            {
+              "value": "anchor",
+              "label": "页面锚点"
+            },
+            {
+              "value": "button",
+              "label": "站内按钮（固定筛选范围）"
+            }
+          ],
+          "required": true,
+          "default": "route",
+          "group": "链接",
+          "placeholder": "请选择类型",
+          "help": "请选择类型；此项必填。"
+        },
+        {
+          "key": "url_name",
+          "label": "预设路由",
+          "type": "select",
+          "options": [
+            {
+              "value": "home",
+              "label": "首页"
+            },
+            {
+              "value": "team",
+              "label": "团队"
+            },
+            {
+              "value": "research",
+              "label": "研究方向"
+            },
+            {
+              "value": "publications",
+              "label": "论文"
+            },
+            {
+              "value": "featured_publications",
+              "label": "精选论文"
+            },
+            {
+              "value": "projects",
+              "label": "项目"
+            },
+            {
+              "value": "patents",
+              "label": "专利软著"
+            },
+            {
+              "value": "students",
+              "label": "学生"
+            },
+            {
+              "value": "news",
+              "label": "动态"
+            },
+            {
+              "value": "courses",
+              "label": "课程"
+            },
+            {
+              "value": "contact",
+              "label": "联系"
+            },
+            {
+              "value": "login",
+              "label": "登录"
+            },
+            {
+              "value": "admin",
+              "label": "后台"
+            }
+          ],
+          "maxLength": 200,
+          "group": "链接",
+          "visibleWhen": {
+            "field": "kind",
+            "in": [
+              "route",
+              "button"
+            ]
+          },
+          "clearWhenHidden": true,
+          "help": "预设路由会自动适配中英文路径；与自定义站内路径二选一。",
+          "placeholder": "请选择预设路由"
+        },
+        {
+          "key": "path",
+          "label": "链接路径",
+          "type": "text",
+          "maxLength": 2000,
+          "group": "链接",
+          "visibleWhen": {
+            "field": "kind",
+            "in": [
+              "route",
+              "external",
+              "button"
+            ]
+          },
+          "requiredWhen": {
+            "field": "kind",
+            "in": [
+              "external"
+            ]
+          },
+          "clearWhenHidden": true,
+          "help": "站内路径以 /开头；外链必须使用不含账号密码的 HTTPS 地址。",
+          "placeholder": "请输入链接路径"
+        },
+        {
+          "key": "fragment",
+          "label": "页面锚点",
+          "type": "text",
+          "maxLength": 64,
+          "group": "链接",
+          "requiredWhen": {
+            "field": "kind",
+            "in": [
+              "anchor"
+            ]
+          },
+          "help": "以英文字母开头，可使用字母、数字、下划线和短横线。",
+          "placeholder": "请输入页面锚点"
+        },
+        {
+          "key": "icon",
+          "label": "图标",
+          "type": "text",
+          "maxLength": 100,
+          "group": "展示",
+          "placeholder": "请输入图标",
+          "help": "填写图标；此项可选，最多 100 个字符。"
+        },
+        {
+          "key": "style",
+          "label": "样式",
+          "type": "select",
+          "options": [
+            {
+              "value": "normal",
+              "label": "普通"
+            },
+            {
+              "value": "primary",
+              "label": "主按钮"
+            },
+            {
+              "value": "secondary",
+              "label": "次按钮"
+            }
+          ],
+          "default": "normal",
+          "group": "展示",
+          "placeholder": "请选择样式",
+          "help": "请选择样式；此项可选。"
+        },
+        {
+          "key": "location",
+          "label": "位置",
+          "type": "select",
+          "options": [
+            {
+              "value": "header",
+              "label": "顶部导航"
+            },
+            {
+              "value": "hero",
+              "label": "首页简介下方按钮"
+            },
+            {
+              "value": "footer",
+              "label": "页脚"
+            },
+            {
+              "value": "admin-sidebar",
+              "label": "后台侧边栏"
+            }
+          ],
+          "required": true,
+          "default": "header",
+          "group": "展示",
+          "help": "选择“首页简介下方按钮”可控制首页快捷入口的文字、链接、样式与排序；仅公开且启用的条目显示。后台侧边栏仅能指向有权限访问的 /admin 页面。",
+          "placeholder": "请选择位置"
+        },
+        {
+          "key": "visibility",
+          "label": "可见性",
+          "type": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "已登录"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "required": true,
+          "default": "public",
+          "group": "权限",
+          "placeholder": "请选择可见性",
+          "help": "请选择可见性；此项必填。"
+        },
+        {
+          "key": "enabled",
+          "label": "启用",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "default": 1,
+          "group": "状态",
+          "placeholder": "设置启用",
+          "help": "控制“启用”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "key": "sort_order",
+          "label": "排序",
+          "type": "integer",
+          "min": -1000000,
+          "max": 1000000,
+          "default": 0,
+          "group": "状态",
+          "placeholder": "请输入排序",
+          "help": "填写排序的整数值；允许范围 -1000000 至 1000000。"
+        }
+      ],
+      "validation": [
+        {
+          "type": "anyRequired",
+          "fields": [
+            "url_name",
+            "path"
+          ],
+          "when": {
+            "field": "kind",
+            "in": [
+              "route",
+              "button"
+            ]
+          },
+          "message": "请选择预设路由或填写站内路径"
+        },
+        {
+          "type": "atMostOne",
+          "fields": [
+            "url_name",
+            "path"
+          ],
+          "when": {
+            "field": "kind",
+            "in": [
+              "route",
+              "button"
+            ]
+          },
+          "message": "预设路由和自定义路径只能选择一项"
+        },
+        {
+          "type": "allowedValues",
+          "field": "kind",
+          "values": [
+            "route",
+            "button"
+          ],
+          "when": {
+            "field": "location",
+            "in": [
+              "admin-sidebar"
+            ]
+          },
+          "message": "后台侧边栏只支持站内路由或站内按钮"
+        }
+      ],
+      "batch": [
+        "visibility",
+        "enabled",
+        "sort_order"
+      ],
+      "invalidate": [
+        "public:navigation",
+        "public:layout",
+        "public:home"
+      ]
+    },
+    "media": {
+      "key": "media",
+      "table": "media_assets",
+      "permission": [
+        "media",
+        "media_assets"
+      ],
+      "label": "媒体库",
+      "readOnlyCreate": true,
+      "titleField": "title",
+      "search": [
+        "title",
+        "object_key",
+        "category",
+        "mime_type"
+      ],
+      "filters": [
+        "category",
+        "mime_type",
+        "storage_kind",
+        "status"
+      ],
+      "list": [
+        "uid",
+        "object_key",
+        "title",
+        "category",
+        "mime_type",
+        "size",
+        "storage_kind",
+        "status",
+        "updated_at"
+      ],
+      "defaultSort": [
+        "updated_at",
+        "desc"
+      ],
+      "fields": [
+        {
+          "key": "title",
+          "label": "标题",
+          "type": "text",
+          "maxLength": 300,
+          "placeholder": "请输入标题",
+          "help": "填写标题；此项可选，最多 300 个字符。"
+        },
+        {
+          "key": "category",
+          "label": "分类",
+          "type": "text",
+          "maxLength": 100,
+          "placeholder": "请输入分类",
+          "help": "填写分类；此项可选，最多 100 个字符。"
+        },
+        {
+          "key": "status",
+          "label": "状态",
+          "type": "select",
+          "options": [
+            {
+              "value": "active",
+              "label": "active"
+            },
+            {
+              "value": "trash",
+              "label": "trash"
+            }
+          ],
+          "readonly": true,
+          "placeholder": "请选择状态",
+          "help": "状态由系统维护，仅用于查看。"
+        }
+      ],
+      "batch": [
+        "category"
+      ],
+      "invalidate": [
+        "public:media"
+      ]
+    },
+    "translation": {
+      "key": "translation",
+      "table": "translation_cache",
+      "permission": [
+        "translation",
+        "translation_cache"
+      ],
+      "label": "翻译缓存",
+      "readOnlyCreate": true,
+      "titleField": "source_ref_key",
+      "search": [
+        "source_ref_key",
+        "source_text",
+        "translated_text",
+        "provider"
+      ],
+      "filters": [
+        "target_lang",
+        "provider",
+        "status",
+        "is_manual",
+        "is_current"
+      ],
+      "list": [
+        "uid",
+        "source_ref_key",
+        "source_text",
+        "translated_text",
+        "source_lang",
+        "target_lang",
+        "provider",
+        "status",
+        "is_manual",
+        "is_current",
+        "source_refs",
+        "error_message",
+        "updated_at"
+      ],
+      "defaultSort": [
+        "updated_at",
+        "desc"
+      ],
+      "fields": [
+        {
+          "key": "translated_text",
+          "label": "译文",
+          "type": "textarea",
+          "maxLength": 500000,
+          "readonly": true,
+          "placeholder": "请输入译文",
+          "help": "译文由系统维护，仅用于查看。"
+        },
+        {
+          "key": "is_manual",
+          "label": "人工维护",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "readonly": true,
+          "placeholder": "设置人工维护",
+          "help": "人工维护由系统维护，仅用于查看。"
+        },
+        {
+          "key": "is_current",
+          "label": "当前有效",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "readonly": true,
+          "placeholder": "设置当前有效",
+          "help": "当前有效由系统维护，仅用于查看。"
+        }
+      ],
+      "batch": [],
+      "invalidate": [
+        "public:translations"
+      ]
+    },
+    "news": {
+      "key": "news",
+      "table": "news",
+      "permission": [
+        "news"
+      ],
+      "label": "新闻动态",
+      "titleField": "title",
+      "search": [
+        "title",
+        "slug",
+        "category",
+        "content"
+      ],
+      "filters": [
+        "visibility",
+        "is_featured",
+        "content_format"
+      ],
+      "list": [
+        "uid",
+        "title",
+        "slug",
+        "category",
+        "content_format",
+        "published_at",
+        "visibility",
+        "is_featured",
+        "updated_at"
+      ],
+      "defaultSort": [
+        "updated_at",
+        "desc"
+      ],
+      "fields": [
+        {
+          "key": "title",
+          "label": "标题",
+          "type": "text",
+          "maxLength": 500,
+          "required": true,
+          "group": "基本信息",
+          "placeholder": "请输入标题",
+          "help": "填写标题；此项必填，最多 500 个字符。"
+        },
+        {
+          "key": "slug",
+          "label": "Slug",
+          "type": "text",
+          "maxLength": 200,
+          "required": true,
+          "group": "基本信息",
+          "help": "仅使用小写字母、数字和单个短横线；服务端会自动转为小写。",
+          "placeholder": "请输入Slug"
+        },
+        {
+          "key": "category",
+          "label": "分类",
+          "type": "text",
+          "maxLength": 500,
+          "group": "基本信息",
+          "placeholder": "请输入分类",
+          "help": "填写分类；此项可选，最多 500 个字符。"
+        },
+        {
+          "key": "cover_key",
+          "label": "封面图",
+          "type": "media",
+          "accept": [
+            "image/*"
+          ],
+          "maxLength": 512,
+          "group": "媒体",
+          "placeholder": "请选择封面图",
+          "help": "从媒体库选择封面图，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "key": "content",
+          "label": "正文",
+          "type": "textarea",
+          "maxLength": 500000,
+          "preserveWhitespace": true,
+          "group": "正文",
+          "visibleWhen": {
+            "field": "content_format",
+            "in": [
+              "plain",
+              "markdown"
+            ]
+          },
+          "help": "纯文本或 Markdown 可在此直接编辑；HTML 只能由安全富文本编辑器生成。",
+          "placeholder": "请输入正文"
+        },
+        {
+          "key": "content_format",
+          "label": "正文格式",
+          "type": "select",
+          "options": [
+            {
+              "value": "plain",
+              "label": "纯文本"
+            },
+            {
+              "value": "markdown",
+              "label": "Markdown"
+            },
+            {
+              "value": "html",
+              "label": "安全富文本",
+              "managed": true
+            }
+          ],
+          "required": true,
+          "default": "plain",
+          "group": "正文",
+          "help": "选择安全富文本或点击旁边按钮打开设计器；有修改时先保存，新建新闻先保存为非公开草稿。正文格式在设计器保存成功后切换。",
+          "placeholder": "请选择正文格式"
+        },
+        {
+          "key": "related_publication_uid",
+          "label": "关联论文",
+          "type": "relation",
+          "relationResource": "publications",
+          "relationLabelField": "title",
+          "maxLength": 128,
+          "group": "关联",
+          "placeholder": "搜索并选择关联论文",
+          "help": "搜索并关联一条关联论文记录；清空后将解除当前关联。"
+        },
+        {
+          "key": "related_project_uid",
+          "label": "关联项目",
+          "type": "relation",
+          "relationResource": "projects",
+          "relationLabelField": "name",
+          "maxLength": 128,
+          "group": "关联",
+          "placeholder": "搜索并选择关联项目",
+          "help": "搜索并关联一条关联项目记录；清空后将解除当前关联。"
+        },
+        {
+          "key": "related_student_uid",
+          "label": "关联学生",
+          "type": "relation",
+          "relationResource": "students",
+          "relationLabelField": "name",
+          "maxLength": 128,
+          "group": "关联",
+          "placeholder": "搜索并选择关联学生",
+          "help": "搜索并关联一条关联学生记录；清空后将解除当前关联。"
+        },
+        {
+          "key": "allow_comments",
+          "label": "允许评论或留言入口",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "group": "发布",
+          "placeholder": "设置允许评论或留言入口",
+          "help": "控制“允许评论或留言入口”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "key": "published_at",
+          "label": "发布时间",
+          "type": "datetime",
+          "group": "发布",
+          "placeholder": "请选择发布时间的日期和时间",
+          "help": "请选择发布时间；时间按本地时区录入并统一存储。"
+        },
+        {
+          "key": "visibility",
+          "label": "可见性",
+          "type": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "public"
+            },
+            {
+              "value": "authenticated",
+              "label": "authenticated"
+            },
+            {
+              "value": "staff",
+              "label": "staff"
+            },
+            {
+              "value": "owner",
+              "label": "owner"
+            },
+            {
+              "value": "hidden",
+              "label": "hidden"
+            }
+          ],
+          "required": true,
+          "default": "hidden",
+          "group": "发布",
+          "help": "只有“公开”且已到发布时间的新闻才会出现在前台。",
+          "placeholder": "请选择可见性"
+        },
+        {
+          "key": "is_featured",
+          "label": "精选",
+          "type": "boolean",
+          "options": [
+            {
+              "value": 1,
+              "label": "是"
+            },
+            {
+              "value": 0,
+              "label": "否"
+            }
+          ],
+          "default": 0,
+          "group": "发布",
+          "placeholder": "设置精选",
+          "help": "控制“精选”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "key": "sort_order",
+          "label": "排序",
+          "type": "integer",
+          "min": -1000000,
+          "max": 1000000,
+          "default": 0,
+          "group": "发布",
+          "placeholder": "请输入排序",
+          "help": "填写排序的整数值；允许范围 -1000000 至 1000000。"
+        }
+      ],
+      "batch": [
+        "visibility",
+        "is_featured",
+        "allow_comments",
+        "sort_order"
+      ],
+      "invalidate": [
+        "public:news",
+        "public:home",
+        "public:translations",
+        "public:media"
+      ]
+    }
+  },
+  "content": [
+    {
+      "module": "profiles",
+      "table": "profiles",
+      "path": "/admin/profiles",
+      "title": "教师与团队",
+      "singularTitle": "团队成员",
+      "description": "维护教师、研究人员和团队成员资料。",
+      "primaryField": "name",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "identity",
+          "label": "身份与归属"
+        },
+        {
+          "id": "contact",
+          "label": "联系方式"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "links",
+          "label": "外部链接"
+        },
+        {
+          "id": "media",
+          "label": "媒体资源"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "name",
+          "label": "中文姓名",
+          "kind": "text",
+          "group": "basic",
+          "required": true,
+          "maxLength": 200,
+          "placeholder": "请输入中文姓名",
+          "help": "填写中文姓名；此项必填，最多 200 个字符。"
+        },
+        {
+          "name": "name_en",
+          "label": "英文姓名",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "maxLength": 200,
+          "placeholder": "请输入英文姓名",
+          "help": "填写英文姓名；此项可选，最多 200 个字符。"
+        },
+        {
+          "name": "role",
+          "label": "团队角色",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入团队角色",
+          "help": "填写团队角色；此项可选。"
+        },
+        {
+          "name": "title",
+          "label": "职称或头衔",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入职称或头衔",
+          "help": "填写职称或头衔；此项可选。"
+        },
+        {
+          "name": "organization",
+          "label": "单位",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入单位",
+          "help": "填写单位；此项可选。"
+        },
+        {
+          "name": "lab",
+          "label": "实验室/团队",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入实验室/团队",
+          "help": "填写实验室/团队；此项可选。"
+        },
+        {
+          "name": "email",
+          "label": "邮箱",
+          "kind": "email",
+          "group": "contact",
+          "nullable": true,
+          "placeholder": "例如：name@example.com",
+          "help": "填写可用的邮箱地址；此项可选。"
+        },
+        {
+          "name": "phone",
+          "label": "电话",
+          "kind": "text",
+          "group": "contact",
+          "nullable": true,
+          "placeholder": "请输入电话",
+          "help": "填写电话；此项可选。"
+        },
+        {
+          "name": "office",
+          "label": "办公室",
+          "kind": "text",
+          "group": "contact",
+          "nullable": true,
+          "placeholder": "请输入办公室",
+          "help": "填写办公室；此项可选。"
+        },
+        {
+          "name": "contact_visibility",
+          "label": "联系方式可见性",
+          "kind": "select",
+          "group": "contact",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "placeholder": "请选择联系方式可见性",
+          "help": "请选择联系方式可见性；此项必填。"
+        },
+        {
+          "name": "bio",
+          "label": "中文简介",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 7,
+          "placeholder": "请输入中文简介",
+          "help": "填写中文简介；此项可选。"
+        },
+        {
+          "name": "bio_en",
+          "label": "英文简介",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 7,
+          "placeholder": "请输入英文简介",
+          "help": "填写英文简介；此项可选。"
+        },
+        {
+          "name": "education",
+          "label": "教育经历",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 5,
+          "placeholder": "请输入教育经历",
+          "help": "填写教育经历；此项可选。"
+        },
+        {
+          "name": "experience",
+          "label": "工作/科研经历",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 5,
+          "placeholder": "请输入工作/科研经历",
+          "help": "填写工作/科研经历；此项可选。"
+        },
+        {
+          "name": "recruiting",
+          "label": "招生说明",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 5,
+          "placeholder": "请输入招生说明",
+          "help": "填写招生说明；此项可选。"
+        },
+        {
+          "name": "orcid",
+          "label": "ORCID",
+          "kind": "text",
+          "group": "links",
+          "nullable": true,
+          "placeholder": "0000-0000-0000-0000",
+          "help": "填写ORCID；此项可选。"
+        },
+        {
+          "name": "personal_homepage",
+          "label": "个人主页",
+          "kind": "url",
+          "group": "links",
+          "nullable": true,
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "name": "google_scholar",
+          "label": "Google Scholar",
+          "kind": "url",
+          "group": "links",
+          "nullable": true,
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "name": "dblp",
+          "label": "DBLP",
+          "kind": "url",
+          "group": "links",
+          "nullable": true,
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "name": "github",
+          "label": "GitHub",
+          "kind": "url",
+          "group": "links",
+          "nullable": true,
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "name": "cnki",
+          "label": "CNKI",
+          "kind": "url",
+          "group": "links",
+          "nullable": true,
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "name": "orcid_value",
+          "label": "ORCID显示数值",
+          "kind": "integer",
+          "group": "links",
+          "nullable": true,
+          "min": 0,
+          "help": "选填；与对应平台链接一起显示，0也会显示。",
+          "placeholder": "请输入ORCID显示数值"
+        },
+        {
+          "name": "personal_homepage_value",
+          "label": "个人主页显示数值",
+          "kind": "integer",
+          "group": "links",
+          "nullable": true,
+          "min": 0,
+          "help": "选填；与对应平台链接一起显示，0也会显示。",
+          "placeholder": "请输入个人主页显示数值"
+        },
+        {
+          "name": "google_scholar_value",
+          "label": "Google Scholar显示数值",
+          "kind": "integer",
+          "group": "links",
+          "nullable": true,
+          "min": 0,
+          "help": "选填；与对应平台链接一起显示，0也会显示。",
+          "placeholder": "请输入Google Scholar显示数值"
+        },
+        {
+          "name": "dblp_value",
+          "label": "DBLP显示数值",
+          "kind": "integer",
+          "group": "links",
+          "nullable": true,
+          "min": 0,
+          "help": "选填；与对应平台链接一起显示，0也会显示。",
+          "placeholder": "请输入DBLP显示数值"
+        },
+        {
+          "name": "github_value",
+          "label": "GitHub显示数值",
+          "kind": "integer",
+          "group": "links",
+          "nullable": true,
+          "min": 0,
+          "help": "选填；与对应平台链接一起显示，0也会显示。",
+          "placeholder": "请输入GitHub显示数值"
+        },
+        {
+          "name": "cnki_value",
+          "label": "CNKI显示数值",
+          "kind": "integer",
+          "group": "links",
+          "nullable": true,
+          "min": 0,
+          "help": "选填；与对应平台链接一起显示，0也会显示。",
+          "placeholder": "请输入CNKI显示数值"
+        },
+        {
+          "name": "avatar_key",
+          "label": "头像媒体 Key",
+          "kind": "media",
+          "group": "media",
+          "nullable": true,
+          "help": "当前阶段可直接填写媒体 object_key；媒体选择器将在专项阶段接入。",
+          "placeholder": "请选择或填写头像媒体 Key"
+        },
+        {
+          "name": "is_active",
+          "label": "启用成员",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": true,
+          "placeholder": "设置启用成员",
+          "help": "控制“启用成员”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "visibility",
+          "label": "内容可见性",
+          "kind": "select",
+          "group": "display",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "help": "决定该记录可被哪些访问者查看。",
+          "placeholder": "请选择内容可见性"
+        },
+        {
+          "name": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": false,
+          "placeholder": "设置首页精选",
+          "help": "控制“首页精选”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "sort_order",
+          "label": "人工排序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "help": "数值越小越靠前。",
+          "placeholder": "请输入人工排序"
+        }
+      ],
+      "columns": [
+        {
+          "field": "avatar_key",
+          "label": "照片",
+          "kind": "image",
+          "width": 68,
+          "sortable": false,
+          "filterable": false,
+          "resizable": false,
+          "media": {
+            "purpose": "avatar",
+            "altField": "name",
+            "width": 72,
+            "height": 72,
+            "fallback": "initials"
+          }
+        },
+        {
+          "field": "name",
+          "label": "姓名",
+          "kind": "text",
+          "primary": true,
+          "minWidth": 145
+        },
+        {
+          "field": "role",
+          "label": "角色",
+          "kind": "text",
+          "minWidth": 100
+        },
+        {
+          "field": "title",
+          "label": "职称",
+          "kind": "text",
+          "minWidth": 110
+        },
+        {
+          "field": "organization",
+          "label": "单位",
+          "kind": "text",
+          "minWidth": 180
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "visibility",
+          "width": 110
+        },
+        {
+          "field": "is_active",
+          "label": "启用",
+          "kind": "boolean",
+          "width": 86
+        },
+        {
+          "field": "is_featured",
+          "label": "精选",
+          "kind": "boolean",
+          "width": 84
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "role",
+          "label": "团队角色",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "organization",
+          "label": "单位",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        },
+        {
+          "field": "is_active",
+          "label": "启用状态",
+          "kind": "boolean",
+          "options": [
+            {
+              "value": "true",
+              "label": "是"
+            },
+            {
+              "value": "false",
+              "label": "否"
+            }
+          ]
+        },
+        {
+          "field": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "options": [
+            {
+              "value": "true",
+              "label": "是"
+            },
+            {
+              "value": "false",
+              "label": "否"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "sort_order",
+          "label": "人工排序",
+          "direction": "asc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "name",
+          "label": "姓名",
+          "direction": "asc"
+        },
+        {
+          "field": "created_at",
+          "label": "创建时间",
+          "direction": "desc"
+        }
+      ],
+      "defaultSort": {
+        "field": "sort_order",
+        "label": "人工排序",
+        "direction": "asc"
+      },
+      "batchFields": [
+        "visibility",
+        "is_active",
+        "is_featured",
+        "sort_order"
+      ]
+    },
+    {
+      "module": "research_interests",
+      "table": "research_interests",
+      "path": "/admin/research",
+      "title": "研究方向",
+      "singularTitle": "研究方向",
+      "description": "维护研究主题、中英文说明、可见性和排序。",
+      "primaryField": "name",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "name",
+          "label": "中文名称",
+          "kind": "text",
+          "group": "basic",
+          "required": true,
+          "placeholder": "请输入中文名称",
+          "help": "填写中文名称；此项必填。"
+        },
+        {
+          "name": "name_en",
+          "label": "英文名称",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入英文名称",
+          "help": "填写英文名称；此项可选。"
+        },
+        {
+          "name": "description",
+          "label": "方向说明",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 7,
+          "placeholder": "请输入方向说明",
+          "help": "填写方向说明；此项可选。"
+        },
+        {
+          "name": "visibility",
+          "label": "可见性",
+          "kind": "select",
+          "group": "display",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "placeholder": "请选择可见性",
+          "help": "请选择可见性；此项必填。"
+        },
+        {
+          "name": "sort_order",
+          "label": "人工排序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "placeholder": "请输入人工排序",
+          "help": "填写人工排序的数值；此项必填。"
+        }
+      ],
+      "columns": [
+        {
+          "field": "name",
+          "label": "方向名称",
+          "kind": "text",
+          "primary": true,
+          "minWidth": 220
+        },
+        {
+          "field": "name_en",
+          "label": "英文名称",
+          "kind": "text",
+          "minWidth": 180
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "visibility",
+          "width": 110
+        },
+        {
+          "field": "sort_order",
+          "label": "排序",
+          "kind": "integer",
+          "width": 78
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "sort_order",
+          "label": "人工排序",
+          "direction": "asc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "name",
+          "label": "名称",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "sort_order",
+        "label": "人工排序",
+        "direction": "asc"
+      },
+      "batchFields": [
+        "visibility",
+        "sort_order"
+      ]
+    },
+    {
+      "module": "publications",
+      "table": "publications",
+      "path": "/admin/publications",
+      "title": "论文",
+      "singularTitle": "论文",
+      "description": "维护论文元数据、引用格式、PDF、索引信息和展示标签。",
+      "primaryField": "title",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "publication",
+          "label": "出版信息"
+        },
+        {
+          "id": "citation",
+          "label": "引用格式"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "media",
+          "label": "媒体资源"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "title",
+          "label": "论文题名",
+          "kind": "textarea",
+          "group": "basic",
+          "required": true,
+          "rows": 3,
+          "placeholder": "请输入论文题名",
+          "help": "填写论文题名；此项必填。"
+        },
+        {
+          "name": "source_citation",
+          "label": "原始引用文本",
+          "kind": "textarea",
+          "group": "basic",
+          "nullable": true,
+          "rows": 4,
+          "placeholder": "请输入原始引用文本",
+          "help": "填写原始引用文本；此项可选。"
+        },
+        {
+          "name": "authors",
+          "label": "作者列表",
+          "kind": "textarea",
+          "group": "basic",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入作者列表",
+          "help": "填写作者列表；此项可选。"
+        },
+        {
+          "name": "venue",
+          "label": "期刊或会议",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入期刊或会议",
+          "help": "填写期刊或会议；此项可选。"
+        },
+        {
+          "name": "year",
+          "label": "年份",
+          "kind": "integer",
+          "group": "publication",
+          "nullable": true,
+          "min": 1,
+          "max": 9999,
+          "placeholder": "请输入年份",
+          "help": "填写年份的数值；此项可选；允许范围1 至 9999。"
+        },
+        {
+          "name": "volume",
+          "label": "卷号",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入卷号",
+          "help": "填写卷号；此项可选。"
+        },
+        {
+          "name": "issue",
+          "label": "期号",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入期号",
+          "help": "填写期号；此项可选。"
+        },
+        {
+          "name": "pages",
+          "label": "页码/文章号",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入页码/文章号",
+          "help": "填写页码/文章号；此项可选。"
+        },
+        {
+          "name": "doi",
+          "label": "DOI",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入DOI",
+          "help": "填写DOI；此项可选。"
+        },
+        {
+          "name": "url",
+          "label": "外部链接",
+          "kind": "url",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "name": "publication_type",
+          "label": "论文类型",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入论文类型",
+          "help": "填写论文类型；此项可选。"
+        },
+        {
+          "name": "author_role",
+          "label": "作者角色",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入作者角色",
+          "help": "填写作者角色；此项可选。"
+        },
+        {
+          "name": "corresponding_authors",
+          "label": "通讯作者",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入通讯作者",
+          "help": "填写通讯作者；此项可选。"
+        },
+        {
+          "name": "index_type",
+          "label": "收录/索引类型",
+          "kind": "text",
+          "group": "publication",
+          "nullable": true,
+          "placeholder": "请输入收录/索引类型",
+          "help": "填写收录/索引类型；此项可选。"
+        },
+        {
+          "name": "display_tags",
+          "label": "展示标签",
+          "kind": "textarea",
+          "group": "publication",
+          "nullable": true,
+          "rows": 2,
+          "placeholder": "请输入展示标签",
+          "help": "填写展示标签；此项可选。"
+        },
+        {
+          "name": "citation_gbt",
+          "label": "GB/T 引用",
+          "kind": "textarea",
+          "group": "citation",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入GB/T 引用",
+          "help": "填写GB/T 引用；此项可选。"
+        },
+        {
+          "name": "highlight_gbt",
+          "label": "GB/T 高亮文本",
+          "kind": "text",
+          "group": "citation",
+          "nullable": true,
+          "placeholder": "请输入GB/T 高亮文本",
+          "help": "填写GB/T 高亮文本；此项可选。"
+        },
+        {
+          "name": "citation_elsevier",
+          "label": "Elsevier 引用",
+          "kind": "textarea",
+          "group": "citation",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入Elsevier 引用",
+          "help": "填写Elsevier 引用；此项可选。"
+        },
+        {
+          "name": "highlight_elsevier",
+          "label": "Elsevier 高亮文本",
+          "kind": "text",
+          "group": "citation",
+          "nullable": true,
+          "placeholder": "请输入Elsevier 高亮文本",
+          "help": "填写Elsevier 高亮文本；此项可选。"
+        },
+        {
+          "name": "citation_apa",
+          "label": "APA 引用",
+          "kind": "textarea",
+          "group": "citation",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入APA 引用",
+          "help": "填写APA 引用；此项可选。"
+        },
+        {
+          "name": "highlight_apa",
+          "label": "APA 高亮文本",
+          "kind": "text",
+          "group": "citation",
+          "nullable": true,
+          "placeholder": "请输入APA 高亮文本",
+          "help": "填写APA 高亮文本；此项可选。"
+        },
+        {
+          "name": "citation_ieee",
+          "label": "IEEE 引用",
+          "kind": "textarea",
+          "group": "citation",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入IEEE 引用",
+          "help": "填写IEEE 引用；此项可选。"
+        },
+        {
+          "name": "highlight_ieee",
+          "label": "IEEE 高亮文本",
+          "kind": "text",
+          "group": "citation",
+          "nullable": true,
+          "placeholder": "请输入IEEE 高亮文本",
+          "help": "填写IEEE 高亮文本；此项可选。"
+        },
+        {
+          "name": "bibtex",
+          "label": "BibTeX",
+          "kind": "textarea",
+          "group": "citation",
+          "nullable": true,
+          "preserveWhitespace": true,
+          "rows": 8,
+          "placeholder": "请输入BibTeX",
+          "help": "填写BibTeX；此项可选。"
+        },
+        {
+          "name": "abstract",
+          "label": "摘要",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 8,
+          "placeholder": "请输入摘要",
+          "help": "填写摘要；此项可选。"
+        },
+        {
+          "name": "keywords",
+          "label": "关键词",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入关键词",
+          "help": "填写关键词；此项可选。"
+        },
+        {
+          "name": "pdf_key",
+          "label": "PDF 媒体 Key",
+          "kind": "media",
+          "group": "media",
+          "nullable": true,
+          "placeholder": "请选择或填写PDF 媒体 Key",
+          "help": "从媒体库选择PDF 媒体 Key，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "name": "pdf_visibility",
+          "label": "PDF 可见性",
+          "kind": "select",
+          "group": "media",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "placeholder": "请选择PDF 可见性",
+          "help": "请选择PDF 可见性；此项必填。"
+        },
+        {
+          "name": "visibility",
+          "label": "内容可见性",
+          "kind": "select",
+          "group": "display",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "help": "决定该记录可被哪些访问者查看。",
+          "placeholder": "请选择内容可见性"
+        },
+        {
+          "name": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": false,
+          "placeholder": "设置首页精选",
+          "help": "控制“首页精选”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "sort_order",
+          "label": "人工排序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "help": "数值越小越靠前。",
+          "placeholder": "请输入人工排序"
+        }
+      ],
+      "columns": [
+        {
+          "field": "title",
+          "label": "论文题名",
+          "kind": "long-text",
+          "primary": true,
+          "minWidth": 300
+        },
+        {
+          "field": "authors",
+          "label": "作者",
+          "kind": "long-text",
+          "minWidth": 220
+        },
+        {
+          "field": "year",
+          "label": "年份",
+          "kind": "integer",
+          "width": 78
+        },
+        {
+          "field": "venue",
+          "label": "期刊/会议",
+          "kind": "text",
+          "minWidth": 180
+        },
+        {
+          "field": "publication_type",
+          "label": "类型",
+          "kind": "text",
+          "width": 100
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "visibility",
+          "width": 110
+        },
+        {
+          "field": "is_featured",
+          "label": "精选",
+          "kind": "boolean",
+          "width": 84
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "year",
+          "label": "年份",
+          "kind": "integer",
+          "dynamic": true
+        },
+        {
+          "field": "publication_type",
+          "label": "论文类型",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "index_type",
+          "label": "收录类型",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        },
+        {
+          "field": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "options": [
+            {
+              "value": "true",
+              "label": "是"
+            },
+            {
+              "value": "false",
+              "label": "否"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "year",
+          "label": "年份（新到旧）",
+          "direction": "desc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "sort_order",
+          "label": "人工排序",
+          "direction": "asc"
+        },
+        {
+          "field": "title",
+          "label": "题名",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "year",
+        "label": "年份（新到旧）",
+        "direction": "desc"
+      },
+      "batchFields": [
+        "visibility",
+        "pdf_visibility",
+        "is_featured",
+        "sort_order"
+      ]
+    },
+    {
+      "module": "projects",
+      "table": "projects",
+      "path": "/admin/projects",
+      "title": "项目",
+      "singularTitle": "项目",
+      "description": "维护项目来源、基金、承担角色、成员、周期和经费。",
+      "primaryField": "name",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "identity",
+          "label": "身份与归属"
+        },
+        {
+          "id": "schedule",
+          "label": "时间与状态"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "name",
+          "label": "项目名称",
+          "kind": "textarea",
+          "group": "basic",
+          "required": true,
+          "rows": 3,
+          "placeholder": "请输入项目名称",
+          "help": "填写项目名称；此项必填。"
+        },
+        {
+          "name": "source",
+          "label": "项目来源",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入项目来源",
+          "help": "填写项目来源；此项可选。"
+        },
+        {
+          "name": "fund_name",
+          "label": "基金/计划名称",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入基金/计划名称",
+          "help": "填写基金/计划名称；此项可选。"
+        },
+        {
+          "name": "project_number",
+          "label": "项目编号",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入项目编号",
+          "help": "填写项目编号；此项可选。"
+        },
+        {
+          "name": "project_role",
+          "label": "承担角色",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入承担角色",
+          "help": "填写承担角色；此项可选。"
+        },
+        {
+          "name": "principal",
+          "label": "负责人",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入负责人",
+          "help": "填写负责人；此项可选。"
+        },
+        {
+          "name": "members",
+          "label": "项目成员",
+          "kind": "textarea",
+          "group": "identity",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入项目成员",
+          "help": "填写项目成员；此项可选。"
+        },
+        {
+          "name": "start_date",
+          "label": "开始日期",
+          "kind": "date",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请选择开始日期",
+          "help": "请选择开始日期；日期按本地时区保存。"
+        },
+        {
+          "name": "end_date",
+          "label": "结束日期",
+          "kind": "date",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请选择结束日期",
+          "help": "请选择结束日期；日期按本地时区保存。"
+        },
+        {
+          "name": "status",
+          "label": "项目状态",
+          "kind": "text",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请输入项目状态",
+          "help": "填写项目状态；此项可选。"
+        },
+        {
+          "name": "amount",
+          "label": "经费金额（万元）",
+          "kind": "decimal",
+          "group": "schedule",
+          "nullable": true,
+          "help": "按人民币万元填写；英文前台自动乘以10,000显示CNY。",
+          "placeholder": "请输入经费金额（万元）"
+        },
+        {
+          "name": "summary",
+          "label": "项目简介",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 8,
+          "placeholder": "请输入项目简介",
+          "help": "填写项目简介；此项可选。"
+        },
+        {
+          "name": "visibility",
+          "label": "内容可见性",
+          "kind": "select",
+          "group": "display",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "help": "决定该记录可被哪些访问者查看。",
+          "placeholder": "请选择内容可见性"
+        },
+        {
+          "name": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": false,
+          "placeholder": "设置首页精选",
+          "help": "控制“首页精选”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "sort_order",
+          "label": "人工排序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "help": "数值越小越靠前。",
+          "placeholder": "请输入人工排序"
+        }
+      ],
+      "columns": [
+        {
+          "field": "name",
+          "label": "项目名称",
+          "kind": "long-text",
+          "primary": true,
+          "minWidth": 280
+        },
+        {
+          "field": "principal",
+          "label": "负责人",
+          "kind": "text",
+          "minWidth": 110
+        },
+        {
+          "field": "source",
+          "label": "来源",
+          "kind": "text",
+          "minWidth": 135
+        },
+        {
+          "field": "project_role",
+          "label": "承担角色",
+          "kind": "text",
+          "minWidth": 106
+        },
+        {
+          "field": "status",
+          "label": "状态",
+          "kind": "status",
+          "width": 104
+        },
+        {
+          "field": "start_date",
+          "label": "开始日期",
+          "kind": "date",
+          "width": 112
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "visibility",
+          "width": 110
+        },
+        {
+          "field": "is_featured",
+          "label": "精选",
+          "kind": "boolean",
+          "width": 84
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "source",
+          "label": "项目来源",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "status",
+          "label": "项目状态",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        },
+        {
+          "field": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "options": [
+            {
+              "value": "true",
+              "label": "是"
+            },
+            {
+              "value": "false",
+              "label": "否"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "start_date",
+          "label": "开始日期（新到旧）",
+          "direction": "desc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "sort_order",
+          "label": "人工排序",
+          "direction": "asc"
+        },
+        {
+          "field": "name",
+          "label": "项目名称",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "start_date",
+        "label": "开始日期（新到旧）",
+        "direction": "desc"
+      },
+      "batchFields": [
+        "visibility",
+        "is_featured",
+        "sort_order"
+      ]
+    },
+    {
+      "module": "patents",
+      "table": "patents",
+      "path": "/admin/patents",
+      "title": "专利与软件著作",
+      "singularTitle": "专利/软著",
+      "description": "维护申请、授权、发明人、法律状态和证书材料。",
+      "primaryField": "name",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "identity",
+          "label": "身份与归属"
+        },
+        {
+          "id": "schedule",
+          "label": "时间与状态"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "media",
+          "label": "媒体资源"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "name",
+          "label": "名称",
+          "kind": "textarea",
+          "group": "basic",
+          "required": true,
+          "rows": 3,
+          "placeholder": "请输入名称",
+          "help": "填写名称；此项必填。"
+        },
+        {
+          "name": "country",
+          "label": "国家或地区",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入国家或地区",
+          "help": "填写国家或地区；此项可选。"
+        },
+        {
+          "name": "patent_type",
+          "label": "类型",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入类型",
+          "help": "填写类型；此项可选。"
+        },
+        {
+          "name": "application_number",
+          "label": "申请号",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入申请号",
+          "help": "填写申请号；此项可选。"
+        },
+        {
+          "name": "grant_number",
+          "label": "授权号",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入授权号",
+          "help": "填写授权号；此项可选。"
+        },
+        {
+          "name": "inventors",
+          "label": "发明人/作者",
+          "kind": "textarea",
+          "group": "identity",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入发明人/作者",
+          "help": "填写发明人/作者；此项可选。"
+        },
+        {
+          "name": "owner",
+          "label": "权利人",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入权利人",
+          "help": "填写权利人；此项可选。"
+        },
+        {
+          "name": "application_date",
+          "label": "申请日期",
+          "kind": "date",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请选择申请日期",
+          "help": "请选择申请日期；日期按本地时区保存。"
+        },
+        {
+          "name": "grant_date",
+          "label": "授权日期",
+          "kind": "date",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请选择授权日期",
+          "help": "请选择授权日期；日期按本地时区保存。"
+        },
+        {
+          "name": "legal_status",
+          "label": "法律状态",
+          "kind": "text",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请输入法律状态",
+          "help": "填写法律状态；此项可选。"
+        },
+        {
+          "name": "summary",
+          "label": "简介",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 7,
+          "placeholder": "请输入简介",
+          "help": "填写简介；此项可选。"
+        },
+        {
+          "name": "certificate_key",
+          "label": "证书媒体 Key",
+          "kind": "media",
+          "group": "media",
+          "nullable": true,
+          "placeholder": "请选择或填写证书媒体 Key",
+          "help": "从媒体库选择证书媒体 Key，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "name": "visibility",
+          "label": "内容可见性",
+          "kind": "select",
+          "group": "display",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "help": "决定该记录可被哪些访问者查看。",
+          "placeholder": "请选择内容可见性"
+        },
+        {
+          "name": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": false,
+          "placeholder": "设置首页精选",
+          "help": "控制“首页精选”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "sort_order",
+          "label": "人工排序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "help": "数值越小越靠前。",
+          "placeholder": "请输入人工排序"
+        }
+      ],
+      "columns": [
+        {
+          "field": "name",
+          "label": "名称",
+          "kind": "long-text",
+          "primary": true,
+          "minWidth": 280
+        },
+        {
+          "field": "inventors",
+          "label": "发明人/作者",
+          "kind": "long-text",
+          "minWidth": 190
+        },
+        {
+          "field": "patent_type",
+          "label": "类型",
+          "kind": "text",
+          "width": 108
+        },
+        {
+          "field": "country",
+          "label": "国家/地区",
+          "kind": "text",
+          "width": 96
+        },
+        {
+          "field": "application_number",
+          "label": "申请号",
+          "kind": "text",
+          "minWidth": 140
+        },
+        {
+          "field": "legal_status",
+          "label": "法律状态",
+          "kind": "status",
+          "width": 110
+        },
+        {
+          "field": "grant_date",
+          "label": "授权日期",
+          "kind": "date",
+          "width": 112
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "visibility",
+          "width": 110
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "country",
+          "label": "国家或地区",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "patent_type",
+          "label": "类型",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "legal_status",
+          "label": "法律状态",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "grant_date",
+          "label": "授权日期（新到旧）",
+          "direction": "desc"
+        },
+        {
+          "field": "application_date",
+          "label": "申请日期（新到旧）",
+          "direction": "desc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "sort_order",
+          "label": "人工排序",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "grant_date",
+        "label": "授权日期（新到旧）",
+        "direction": "desc"
+      },
+      "batchFields": [
+        "visibility",
+        "is_featured",
+        "sort_order"
+      ]
+    },
+    {
+      "module": "students",
+      "table": "students",
+      "path": "/admin/students",
+      "title": "学生",
+      "singularTitle": "学生",
+      "description": "维护培养层次、分类、方向、状态、获奖和毕业去向。",
+      "primaryField": "name",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "identity",
+          "label": "身份与归属"
+        },
+        {
+          "id": "contact",
+          "label": "联系方式"
+        },
+        {
+          "id": "schedule",
+          "label": "时间与状态"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "media",
+          "label": "媒体资源"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "name",
+          "label": "中文姓名",
+          "kind": "text",
+          "group": "basic",
+          "required": true,
+          "placeholder": "请输入中文姓名",
+          "help": "填写中文姓名；此项必填。"
+        },
+        {
+          "name": "name_en",
+          "label": "英文姓名",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入英文姓名",
+          "help": "填写英文姓名；此项可选。"
+        },
+        {
+          "name": "student_id",
+          "label": "学号",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入学号",
+          "help": "填写学号；此项可选。"
+        },
+        {
+          "name": "degree",
+          "label": "培养层次",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入培养层次",
+          "help": "填写培养层次；此项可选。"
+        },
+        {
+          "name": "category",
+          "label": "分类",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入分类",
+          "help": "填写分类；此项可选。"
+        },
+        {
+          "name": "grade",
+          "label": "年级",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入年级",
+          "help": "填写年级；此项可选。"
+        },
+        {
+          "name": "direction",
+          "label": "研究方向",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入研究方向",
+          "help": "填写研究方向；此项可选。"
+        },
+        {
+          "name": "status",
+          "label": "状态",
+          "kind": "text",
+          "group": "identity",
+          "nullable": true,
+          "placeholder": "请输入状态",
+          "help": "填写状态；此项可选。"
+        },
+        {
+          "name": "email",
+          "label": "邮箱",
+          "kind": "email",
+          "group": "contact",
+          "nullable": true,
+          "placeholder": "例如：name@example.com",
+          "help": "填写可用的邮箱地址；此项可选。"
+        },
+        {
+          "name": "homepage",
+          "label": "个人主页",
+          "kind": "url",
+          "group": "contact",
+          "nullable": true,
+          "placeholder": "例如：https://example.com",
+          "help": "填写完整的 HTTPS 地址；此项可选。"
+        },
+        {
+          "name": "contact_visibility",
+          "label": "联系方式可见性",
+          "kind": "select",
+          "group": "contact",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "placeholder": "请选择联系方式可见性",
+          "help": "请选择联系方式可见性；此项必填。"
+        },
+        {
+          "name": "enrollment_date",
+          "label": "入学日期",
+          "kind": "date",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请选择入学日期",
+          "help": "请选择入学日期；日期按本地时区保存。"
+        },
+        {
+          "name": "graduation_date",
+          "label": "毕业日期",
+          "kind": "date",
+          "group": "schedule",
+          "nullable": true,
+          "placeholder": "请选择毕业日期",
+          "help": "请选择毕业日期；日期按本地时区保存。"
+        },
+        {
+          "name": "destination",
+          "label": "毕业去向",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 3,
+          "placeholder": "请输入毕业去向",
+          "help": "填写毕业去向；此项可选。"
+        },
+        {
+          "name": "awards",
+          "label": "获奖情况",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 4,
+          "placeholder": "请输入获奖情况",
+          "help": "填写获奖情况；此项可选。"
+        },
+        {
+          "name": "bio",
+          "label": "简介",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 6,
+          "placeholder": "请输入简介",
+          "help": "填写简介；此项可选。"
+        },
+        {
+          "name": "avatar_key",
+          "label": "头像媒体 Key",
+          "kind": "media",
+          "group": "media",
+          "nullable": true,
+          "placeholder": "请选择或填写头像媒体 Key",
+          "help": "从媒体库选择头像媒体 Key，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "name": "visibility",
+          "label": "内容可见性",
+          "kind": "select",
+          "group": "display",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "help": "决定该记录可被哪些访问者查看。",
+          "placeholder": "请选择内容可见性"
+        },
+        {
+          "name": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": false,
+          "placeholder": "设置首页精选",
+          "help": "控制“首页精选”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "sort_order",
+          "label": "人工排序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "help": "数值越小越靠前。",
+          "placeholder": "请输入人工排序"
+        }
+      ],
+      "columns": [
+        {
+          "field": "avatar_key",
+          "label": "照片",
+          "kind": "image",
+          "width": 68,
+          "sortable": false,
+          "filterable": false,
+          "resizable": false,
+          "media": {
+            "purpose": "avatar",
+            "altField": "name",
+            "width": 72,
+            "height": 72,
+            "fallback": "initials"
+          }
+        },
+        {
+          "field": "name",
+          "label": "姓名",
+          "kind": "text",
+          "primary": true,
+          "minWidth": 140
+        },
+        {
+          "field": "degree",
+          "label": "培养层次",
+          "kind": "text",
+          "width": 100
+        },
+        {
+          "field": "category",
+          "label": "分类",
+          "kind": "text",
+          "width": 100
+        },
+        {
+          "field": "grade",
+          "label": "年级",
+          "kind": "text",
+          "width": 78
+        },
+        {
+          "field": "direction",
+          "label": "研究方向",
+          "kind": "text",
+          "minWidth": 150
+        },
+        {
+          "field": "destination",
+          "label": "毕业去向",
+          "kind": "long-text",
+          "minWidth": 190
+        },
+        {
+          "field": "status",
+          "label": "状态",
+          "kind": "status",
+          "width": 100
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "visibility",
+          "width": 110
+        },
+        {
+          "field": "is_featured",
+          "label": "精选",
+          "kind": "boolean",
+          "width": 84
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "degree",
+          "label": "培养层次",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "category",
+          "label": "分类",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "grade",
+          "label": "年级",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "direction",
+          "label": "研究方向",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "status",
+          "label": "状态",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "visibility",
+          "label": "可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "sort_order",
+          "label": "人工排序",
+          "direction": "asc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "grade",
+          "label": "年级",
+          "direction": "desc"
+        },
+        {
+          "field": "name",
+          "label": "姓名",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "sort_order",
+        "label": "人工排序",
+        "direction": "asc"
+      },
+      "batchFields": [
+        "visibility",
+        "contact_visibility",
+        "is_featured",
+        "sort_order"
+      ]
+    },
+    {
+      "module": "student_category_displays",
+      "table": "student_category_displays",
+      "path": "/admin/student-categories",
+      "title": "学生分类显示",
+      "singularTitle": "学生分类规则",
+      "description": "维护学生分组标签、关键词、启停和排序。",
+      "primaryField": "label",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "key",
+          "label": "分类 Key",
+          "kind": "text",
+          "group": "basic",
+          "required": true,
+          "help": "仅使用小写字母、数字、短横线或下划线。",
+          "placeholder": "请输入分类 Key"
+        },
+        {
+          "name": "label",
+          "label": "中文标签",
+          "kind": "text",
+          "group": "basic",
+          "required": true,
+          "placeholder": "请输入中文标签",
+          "help": "填写中文标签；此项必填。"
+        },
+        {
+          "name": "label_en",
+          "label": "英文标签",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入英文标签",
+          "help": "填写英文标签；此项可选。"
+        },
+        {
+          "name": "keywords",
+          "label": "匹配关键词",
+          "kind": "textarea",
+          "group": "basic",
+          "nullable": true,
+          "rows": 4,
+          "help": "可使用逗号、分号或换行分隔。",
+          "placeholder": "请输入匹配关键词"
+        },
+        {
+          "name": "enabled",
+          "label": "启用",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": true,
+          "placeholder": "设置启用",
+          "help": "控制“启用”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "display_order",
+          "label": "显示顺序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "placeholder": "请输入显示顺序",
+          "help": "填写显示顺序的数值；此项必填。"
+        }
+      ],
+      "columns": [
+        {
+          "field": "label",
+          "label": "中文标签",
+          "kind": "text",
+          "primary": true,
+          "minWidth": 150
+        },
+        {
+          "field": "key",
+          "label": "Key",
+          "kind": "text",
+          "minWidth": 130
+        },
+        {
+          "field": "label_en",
+          "label": "英文标签",
+          "kind": "text",
+          "minWidth": 150
+        },
+        {
+          "field": "enabled",
+          "label": "启用",
+          "kind": "boolean",
+          "width": 84
+        },
+        {
+          "field": "display_order",
+          "label": "显示顺序",
+          "kind": "integer",
+          "width": 96
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "enabled",
+          "label": "启用状态",
+          "kind": "boolean",
+          "options": [
+            {
+              "value": "true",
+              "label": "是"
+            },
+            {
+              "value": "false",
+              "label": "否"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "display_order",
+          "label": "显示顺序",
+          "direction": "asc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "label",
+          "label": "中文标签",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "display_order",
+        "label": "显示顺序",
+        "direction": "asc"
+      },
+      "batchFields": [
+        "enabled",
+        "display_order"
+      ],
+      "uniqueFields": [
+        "key"
+      ]
+    },
+    {
+      "module": "courses",
+      "table": "courses",
+      "path": "/admin/courses",
+      "title": "课程",
+      "singularTitle": "课程",
+      "description": "维护课程学期、授课对象、简介、材料和参考资料。",
+      "primaryField": "name",
+      "canCreate": true,
+      "canDelete": true,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "media",
+          "label": "媒体资源"
+        },
+        {
+          "id": "display",
+          "label": "展示与权限"
+        }
+      ],
+      "fields": [
+        {
+          "name": "name",
+          "label": "课程名称",
+          "kind": "text",
+          "group": "basic",
+          "required": true,
+          "placeholder": "请输入课程名称",
+          "help": "填写课程名称；此项必填。"
+        },
+        {
+          "name": "semester",
+          "label": "开课学期",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入开课学期",
+          "help": "填写开课学期；此项可选。"
+        },
+        {
+          "name": "audience",
+          "label": "授课对象",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "placeholder": "请输入授课对象",
+          "help": "填写授课对象；此项可选。"
+        },
+        {
+          "name": "summary",
+          "label": "课程简介",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 7,
+          "placeholder": "请输入课程简介",
+          "help": "填写课程简介；此项可选。"
+        },
+        {
+          "name": "references_text",
+          "label": "参考资料",
+          "kind": "textarea",
+          "group": "content",
+          "nullable": true,
+          "rows": 6,
+          "placeholder": "请输入参考资料",
+          "help": "填写参考资料；此项可选。"
+        },
+        {
+          "name": "syllabus_key",
+          "label": "教学大纲媒体 Key",
+          "kind": "media",
+          "group": "media",
+          "nullable": true,
+          "placeholder": "请选择或填写教学大纲媒体 Key",
+          "help": "从媒体库选择教学大纲媒体 Key，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "name": "material_key",
+          "label": "课程材料媒体 Key",
+          "kind": "media",
+          "group": "media",
+          "nullable": true,
+          "placeholder": "请选择或填写课程材料媒体 Key",
+          "help": "从媒体库选择课程材料媒体 Key，系统将保存受管理媒体的 object key。"
+        },
+        {
+          "name": "material_visibility",
+          "label": "材料可见性",
+          "kind": "select",
+          "group": "media",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "placeholder": "请选择材料可见性",
+          "help": "请选择材料可见性；此项必填。"
+        },
+        {
+          "name": "visibility",
+          "label": "内容可见性",
+          "kind": "select",
+          "group": "display",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "help": "决定该记录可被哪些访问者查看。",
+          "placeholder": "请选择内容可见性"
+        },
+        {
+          "name": "is_featured",
+          "label": "首页精选",
+          "kind": "boolean",
+          "group": "display",
+          "required": true,
+          "defaultValue": false,
+          "placeholder": "设置首页精选",
+          "help": "控制“首页精选”是否启用，保存后立即按当前状态生效。"
+        },
+        {
+          "name": "sort_order",
+          "label": "人工排序",
+          "kind": "integer",
+          "group": "display",
+          "required": true,
+          "defaultValue": 0,
+          "help": "数值越小越靠前。",
+          "placeholder": "请输入人工排序"
+        }
+      ],
+      "columns": [
+        {
+          "field": "name",
+          "label": "课程名称",
+          "kind": "text",
+          "primary": true,
+          "minWidth": 200
+        },
+        {
+          "field": "semester",
+          "label": "学期",
+          "kind": "text",
+          "width": 110
+        },
+        {
+          "field": "audience",
+          "label": "授课对象",
+          "kind": "text",
+          "minWidth": 140
+        },
+        {
+          "field": "summary",
+          "label": "课程简介",
+          "kind": "long-text",
+          "minWidth": 210
+        },
+        {
+          "field": "visibility",
+          "label": "课程可见性",
+          "kind": "visibility",
+          "width": 120
+        },
+        {
+          "field": "material_visibility",
+          "label": "材料可见性",
+          "kind": "visibility",
+          "width": 120
+        },
+        {
+          "field": "is_featured",
+          "label": "精选",
+          "kind": "boolean",
+          "width": 84
+        },
+        {
+          "field": "updated_at",
+          "label": "更新时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "semester",
+          "label": "学期",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "audience",
+          "label": "授课对象",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "visibility",
+          "label": "课程可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        },
+        {
+          "field": "material_visibility",
+          "label": "材料可见性",
+          "kind": "select",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "semester",
+          "label": "学期（新到旧）",
+          "direction": "desc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近更新",
+          "direction": "desc"
+        },
+        {
+          "field": "sort_order",
+          "label": "人工排序",
+          "direction": "asc"
+        },
+        {
+          "field": "name",
+          "label": "课程名称",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "semester",
+        "label": "学期（新到旧）",
+        "direction": "desc"
+      },
+      "batchFields": [
+        "visibility",
+        "material_visibility",
+        "is_featured",
+        "sort_order"
+      ]
+    },
+    {
+      "module": "messages",
+      "table": "messages",
+      "path": "/admin/messages",
+      "title": "联系留言",
+      "singularTitle": "留言",
+      "description": "查看访客原始留言并维护处理状态；原始内容保持只读。",
+      "primaryField": "subject",
+      "canCreate": false,
+      "canDelete": false,
+      "groups": [
+        {
+          "id": "basic",
+          "label": "基本信息"
+        },
+        {
+          "id": "content",
+          "label": "内容"
+        },
+        {
+          "id": "media",
+          "label": "媒体资源"
+        },
+        {
+          "id": "processing",
+          "label": "处理状态"
+        }
+      ],
+      "fields": [
+        {
+          "name": "name",
+          "label": "留言人姓名",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "readOnly": true,
+          "placeholder": "请输入留言人姓名",
+          "help": "留言人姓名由系统维护，仅用于查看。"
+        },
+        {
+          "name": "email",
+          "label": "留言人邮箱",
+          "kind": "email",
+          "group": "basic",
+          "nullable": true,
+          "readOnly": true,
+          "placeholder": "例如：name@example.com",
+          "help": "留言人邮箱由系统维护，仅用于查看。"
+        },
+        {
+          "name": "message_type",
+          "label": "留言类型",
+          "kind": "text",
+          "group": "basic",
+          "nullable": true,
+          "readOnly": true,
+          "placeholder": "请输入留言类型",
+          "help": "留言类型由系统维护，仅用于查看。"
+        },
+        {
+          "name": "subject",
+          "label": "主题",
+          "kind": "textarea",
+          "group": "basic",
+          "nullable": true,
+          "readOnly": true,
+          "rows": 2,
+          "placeholder": "请输入主题",
+          "help": "主题由系统维护，仅用于查看。"
+        },
+        {
+          "name": "content",
+          "label": "留言正文",
+          "kind": "textarea",
+          "group": "content",
+          "required": true,
+          "readOnly": true,
+          "rows": 12,
+          "placeholder": "请输入留言正文",
+          "help": "留言正文由系统维护，仅用于查看。"
+        },
+        {
+          "name": "attachment_key",
+          "label": "附件媒体 Key",
+          "kind": "media",
+          "group": "media",
+          "nullable": true,
+          "readOnly": true,
+          "placeholder": "请选择或填写附件媒体 Key",
+          "help": "附件媒体 Key由系统维护，仅用于查看。"
+        },
+        {
+          "name": "status",
+          "label": "处理状态",
+          "kind": "select",
+          "group": "processing",
+          "required": true,
+          "defaultValue": "new",
+          "options": [
+            {
+              "value": "new",
+              "label": "新留言"
+            },
+            {
+              "value": "read",
+              "label": "已读"
+            },
+            {
+              "value": "replied",
+              "label": "已回复"
+            },
+            {
+              "value": "archived",
+              "label": "已归档"
+            }
+          ],
+          "placeholder": "请选择处理状态",
+          "help": "请选择处理状态；此项必填。"
+        },
+        {
+          "name": "visibility",
+          "label": "记录可见性",
+          "kind": "select",
+          "group": "processing",
+          "required": true,
+          "defaultValue": "hidden",
+          "options": [
+            {
+              "value": "public",
+              "label": "公开"
+            },
+            {
+              "value": "authenticated",
+              "label": "登录用户"
+            },
+            {
+              "value": "staff",
+              "label": "工作人员"
+            },
+            {
+              "value": "owner",
+              "label": "所有者"
+            },
+            {
+              "value": "hidden",
+              "label": "隐藏"
+            }
+          ],
+          "readOnly": true,
+          "placeholder": "请选择记录可见性",
+          "help": "记录可见性由系统维护，仅用于查看。"
+        }
+      ],
+      "columns": [
+        {
+          "field": "subject",
+          "label": "主题",
+          "kind": "long-text",
+          "primary": true,
+          "minWidth": 220
+        },
+        {
+          "field": "content",
+          "label": "留言内容",
+          "kind": "long-text",
+          "minWidth": 240
+        },
+        {
+          "field": "name",
+          "label": "留言人",
+          "kind": "text",
+          "width": 105
+        },
+        {
+          "field": "email",
+          "label": "邮箱",
+          "kind": "text",
+          "minWidth": 180
+        },
+        {
+          "field": "message_type",
+          "label": "类型",
+          "kind": "text",
+          "width": 100
+        },
+        {
+          "field": "status",
+          "label": "状态",
+          "kind": "status",
+          "width": 100
+        },
+        {
+          "field": "created_at",
+          "label": "提交时间",
+          "kind": "datetime",
+          "width": 160
+        }
+      ],
+      "filters": [
+        {
+          "field": "message_type",
+          "label": "留言类型",
+          "kind": "select",
+          "dynamic": true
+        },
+        {
+          "field": "status",
+          "label": "处理状态",
+          "kind": "select",
+          "options": [
+            {
+              "value": "new",
+              "label": "新留言"
+            },
+            {
+              "value": "read",
+              "label": "已读"
+            },
+            {
+              "value": "replied",
+              "label": "已回复"
+            },
+            {
+              "value": "archived",
+              "label": "已归档"
+            }
+          ]
+        }
+      ],
+      "sorts": [
+        {
+          "field": "created_at",
+          "label": "提交时间（新到旧）",
+          "direction": "desc"
+        },
+        {
+          "field": "updated_at",
+          "label": "最近处理",
+          "direction": "desc"
+        },
+        {
+          "field": "status",
+          "label": "处理状态",
+          "direction": "asc"
+        }
+      ],
+      "defaultSort": {
+        "field": "created_at",
+        "label": "提交时间（新到旧）",
+        "direction": "desc"
+      },
+      "batchFields": [
+        "status"
+      ]
+    }
+  ]
+}

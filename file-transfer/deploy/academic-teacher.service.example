@@ -1,0 +1,27 @@
+# Optional replacement for a teacher service not already supervised.
+# Do not run this alongside the existing teacher service on the same port.
+[Unit]
+Description=Academic teacher site with optional transfer module
+After=network.target file-transfer.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=academic
+Group=academic
+WorkingDirectory=/srv/academic/file-transfer
+Environment=NODE_ENV=production
+# Keep existing teacher environment/configuration and secrets under its own control.
+# The helper reads only the tool's dedicated bridge key at runtime.
+ExecStart=/usr/bin/node /srv/academic/file-transfer/scripts/teacher.mjs start /srv/academic/academic-cms
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

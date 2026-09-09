@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.stage26-http.json",
+  "compilerOptions": { "noEmit": true },
+  "include": [
+    "tests/types/offline-runtime.d.ts",
+    "tests/types/stage3-http-runtime.d.ts",
+    "server/types/h3.d.ts",
+    "db/contracts.ts", "db/query.ts", "db/errors.ts", "db/statement.ts", "db/codec.ts", "db/catalog.ts", "db/models.ts", "db/schema-types.ts", "db/context.ts", "db/repository.ts", "db/read-plans.ts",
+    "db/adapters/sqlite.ts", "db/adapters/d1.ts",
+    "shared/enums/*.ts", "shared/contracts/*.ts", "shared/utils/*.ts", "shared/admin/*.ts",
+    "server/security/*.ts", "server/audit/*.ts", "server/cache/*.ts", "server/media/object-key.ts", "server/media/errors.ts",
+    "server/services/auth/*.ts", "server/services/admin/*.ts",
+    "server/utils/database.ts", "server/utils/auth-runtime.ts", "server/utils/auth-http.ts", "server/utils/auth-guard.ts", "server/utils/bounded-json.ts", "server/utils/admin-http.ts", "server/utils/admin-read-handler.ts", "server/utils/admin-write-handler.ts", "server/utils/admin-handler.ts", "server/utils/admin-content-handler.ts",
+    "server/routes/api/v1/admin/**/*.ts"
+  ]
+}

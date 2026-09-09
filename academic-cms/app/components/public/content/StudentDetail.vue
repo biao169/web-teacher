@@ -1,0 +1,14 @@
+<script setup lang="ts">
+import CopyRecordButton from './CopyRecordButton.vue'
+import { ExternalLink, Mail } from '@lucide/vue'
+import type { PublicStudentDetailViewModel } from '~~/shared/contracts/public-content'
+import { mediaSurnameFallback } from '~/utils/media-fallback'
+const props = defineProps<{ model: PublicStudentDetailViewModel }>()
+const facts = computed(() => [
+  { label: props.model.locale === 'zh' ? '学号' : 'Student ID', value: props.model.item.studentId }, { label: props.model.locale === 'zh' ? '培养层次' : 'Degree', value: props.model.item.degree },
+  { label: props.model.locale === 'zh' ? '分类' : 'Category', value: props.model.item.categoryKey || props.model.item.category }, { label: props.model.locale === 'zh' ? '年级' : 'Grade', value: props.model.item.grade },
+  { label: props.model.locale === 'zh' ? '研究方向' : 'Research direction', value: props.model.item.direction }, { label: props.model.locale === 'zh' ? '状态' : 'Status', value: props.model.item.status },
+  { label: props.model.locale === 'zh' ? '入学日期' : 'Enrollment date', value: props.model.item.enrollmentDate }, { label: props.model.locale === 'zh' ? '毕业日期' : 'Graduation date', value: props.model.item.graduationDate },
+])
+</script>
+<template><div><PublicContentPageHero :meta="model.meta" :locale="model.locale" hide-description /><section class="public-content-section"><div class="public-container public-detail-layout"><aside class="public-profile-aside"><PublicMediaImage :media="model.item.avatar" :initials="model.item.name" :fallback-text="mediaSurnameFallback(model.item.name)" aspect="portrait" eager priority /><div class="public-tag-list"><PublicUiBadge v-if="model.item.degree" tone="accent">{{ model.item.degree }}</PublicUiBadge><PublicUiBadge v-if="model.item.status" tone="outline">{{ model.item.status }}</PublicUiBadge></div><a v-if="model.item.email" :href="`mailto:${model.item.email}`" class="public-inline-contact"><Mail :size="16" aria-hidden="true" />{{ model.item.email }}</a><a v-if="model.item.homepage" :href="model.item.homepage" target="_blank" rel="noopener noreferrer" class="public-inline-contact">{{ model.locale === 'zh' ? '个人主页' : 'Homepage' }}<ExternalLink :size="15" aria-hidden="true" /></a></aside><main class="public-detail-main"><CopyRecordButton module="students" :locale="model.locale" :uid="model.item.uid" :label="model.item.name" text /><PublicContentFactGrid :items="facts" /><PublicContentLongText :title="model.locale === 'zh' ? '个人简介' : 'Biography'" :text="model.item.biography" id="student-biography" /><PublicContentLongText :title="model.locale === 'zh' ? '获奖情况' : 'Awards'" :text="model.item.awards" id="student-awards" /><PublicContentLongText :title="model.locale === 'zh' ? '毕业去向' : 'Destination'" :text="model.item.destination" id="student-destination" /></main></div></section></div></template>

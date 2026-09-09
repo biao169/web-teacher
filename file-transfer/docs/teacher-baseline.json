@@ -1,0 +1,21 @@
+{
+  "archive": "academic-cms-frontend-round6-source.zip",
+  "archiveSha256": "62e20f322e6dfdb444c196361209a2bae6dd48b35d0160fb083fae0a095ee70a",
+  "sourceFiles": 1993,
+  "protectedDocuments": {
+    "01_site_overview.md": "1f608d2f1d6218b9a97e42cb7457795fbefde19f23b93944649da1940514b2dd",
+    "02_database_schema.md": "bfb66c781814322df5b09ffc9ff34df31a83b8fb40f9a0164498128fdf62e7d2",
+    "03_frontend_requirements.md": "038c88bf2ee80aa10754f3b497b27d72f39917eaaddecb1588e4d0a74fcb2f2d",
+    "04_admin_requirements.md": "19f4106b5f7c7301584f9f3d83c8aa6f6ea8e1946126ac20a92bc33a95bde228"
+  },
+  "teacherModified": false,
+  "sourceInventoryDigest": "0605d5be85c5676beea61f3c4287725ffd7e83aba35fb1c4c69496167f79de8c",
+  "changedFiles": [],
+  "integrationCandidates": {
+    "nuxt.config.ts": "7f5e310bbb1b5dbcb028d49fe2f37d61606125c425739c9e1a0428e1518c9b16",
+    "app/components/admin/Sidebar.vue": "e42857b99a5531673264a647127128661d4aad942c11114e691613f18e0fd8de",
+    "app/layouts/public.vue": "bff52891d6b00ef7a9a1f0026ba735e0720ee7a317d15d69460748eda29b6c8c",
+    "shared/utils/public-path.ts": "f3b2646319d811558876c1c6f375488d2bf6c3424653246ee1955c8170b6f887",
+    "server/utils/auth-runtime.ts": "c837f1d713e6f7fea5f79e6824fdf2a0182382839687858666ba4c370c5923e0"
+  }
+}

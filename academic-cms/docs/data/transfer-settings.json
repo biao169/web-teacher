@@ -1,0 +1,584 @@
+{
+  "sections": [
+    {
+      "id": "general",
+      "zh": "开放与说明",
+      "en": "Availability",
+      "fields": [
+        {
+          "key": "enabled",
+          "zh": "允许开放传输（链路完成后生效）",
+          "en": "Enable transfers when available",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "key": "noticeZh",
+          "zh": "中文停用说明",
+          "en": "Disabled message · Chinese",
+          "type": "text",
+          "value": "文件快传正在准备中。",
+          "max": 500
+        },
+        {
+          "key": "noticeEn",
+          "zh": "英文停用说明",
+          "en": "Disabled message · English",
+          "type": "text",
+          "value": "File transfer is being prepared.",
+          "max": 500
+        }
+      ]
+    },
+    {
+      "id": "links",
+      "zh": "链路与速率",
+      "en": "Connections & speed",
+      "fields": [
+        {
+          "key": "lanNetworks",
+          "zh": "已核验的局域网 IPv4 网段（每行一个，如 192.168.1.0/24）",
+          "en": "Verified LAN IPv4 ranges (one per line, e.g. 192.168.1.0/24)",
+          "type": "text",
+          "value": "",
+          "max": 1000
+        },
+        {
+          "key": "lanVerified",
+          "zh": "确认：上述网段间文件路由已核验不经过 VPN；变更网络后须重新核验",
+          "en": "Confirmed: routes within these ranges bypass VPN; recheck after network changes",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "key": "lanEnabled",
+          "zh": "局域网直连：同网更快，双方在线",
+          "en": "LAN direct: faster nearby, both online",
+          "type": "boolean",
+          "value": true
+        },
+        {
+          "key": "wanEnabled",
+          "zh": "广域网直连：双方在线，尝试直接连接",
+          "en": "Internet direct: both online",
+          "type": "boolean",
+          "value": true
+        },
+        {
+          "key": "relayEnabled",
+          "zh": "中继：直连失败时接力，计入出口流量",
+          "en": "Relay: fallback, uses metered traffic",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "key": "shareEnabled",
+          "zh": "临时分享：可稍后领取，占用服务器空间",
+          "en": "Temporary sharing: receive later, uses storage",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "key": "lanRateKbps",
+          "zh": "局域网速率上限 · Kbit/s（留空不限速）",
+          "en": "LAN rate · Kbit/s (empty: unlimited)",
+          "type": "integer",
+          "value": null,
+          "min": 1,
+          "max": 1000000000,
+          "nullable": true
+        },
+        {
+          "key": "wanRateKbps",
+          "zh": "其他链路速率上限 · Kbit/s（留空不限速）",
+          "en": "Other connections · Kbit/s (empty: unlimited)",
+          "type": "integer",
+          "value": 10000,
+          "min": 1,
+          "max": 1000000000,
+          "nullable": true
+        },
+        {
+          "key": "wanNetworks",
+          "zh": "允许远程直连的公网 IPv4 范围（每行 CIDR）",
+          "en": "Allowed public IPv4 ranges for internet direct (CIDR per line)",
+          "type": "text",
+          "value": "",
+          "max": 1000
+        },
+        {
+          "key": "wanVerified",
+          "zh": "已核验上述直连范围绕开受限 VPN",
+          "en": "Verified these direct ranges bypass the limited VPN",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "key": "stunUrls",
+          "zh": "STUN 地址（可选，每行一个）",
+          "en": "STUN URLs (optional, one per line)",
+          "type": "text",
+          "value": "",
+          "max": 1000
+        },
+        {
+          "key": "serverVpnPath",
+          "zh": "服务器文件链路的 VPN 路径",
+          "en": "VPN route for server file traffic",
+          "type": "select",
+          "value": "unknown",
+          "options": [
+            [
+              "unknown",
+              "尚未确认",
+              "Unknown"
+            ],
+            [
+              "confirmed-vpn",
+              "经过受限 VPN",
+              "Through limited VPN"
+            ],
+            [
+              "confirmed-outside-vpn",
+              "绕开受限 VPN",
+              "Outside limited VPN"
+            ]
+          ]
+        },
+        {
+          "key": "serverOutsideVerified",
+          "zh": "已核验服务器及教师代理链路绕开受限出口",
+          "en": "Verified server and teacher proxy paths bypass the limited exit",
+          "type": "boolean",
+          "value": false
+        }
+      ]
+    },
+    {
+      "id": "personal",
+      "zh": "个人额度与匿名共享额度",
+      "en": "Personal & shared guest allowance",
+      "fields": [
+        {
+          "key": "personalTimeZone",
+          "zh": "个人额度重置时区",
+          "en": "Personal allowance reset timezone",
+          "type": "timezone",
+          "value": "Asia/Shanghai",
+          "max": 100
+        },
+        {
+          "key": "guestDailyBytes",
+          "zh": "所有匿名访客每日合计 · GB（留空不限制）",
+          "en": "All guests daily total · GB (empty: unlimited)",
+          "type": "bytes",
+          "value": null,
+          "nullable": true
+        },
+        {
+          "key": "guestMonthlyBytes",
+          "zh": "所有匿名访客每月合计 · GB（留空不限制）",
+          "en": "All guests monthly total · GB (empty: unlimited)",
+          "type": "bytes",
+          "value": null,
+          "nullable": true
+        },
+        {
+          "key": "guestConcurrency",
+          "zh": "所有匿名访客同时任务数",
+          "en": "Concurrent tasks across all guests",
+          "type": "integer",
+          "value": 10,
+          "min": 1,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "vpn",
+      "zh": "VPN 流量防护",
+      "en": "VPN traffic budget",
+      "fields": [
+        {
+          "key": "vpnBudgetUnit",
+          "zh": "流量显示与输入单位",
+          "en": "Traffic display and input unit",
+          "type": "select",
+          "value": "GB",
+          "options": [
+            [
+              "GB",
+              "GB · 十亿字节",
+              "GB · 10⁹ bytes"
+            ],
+            [
+              "GiB",
+              "GiB · 2³⁰ 字节",
+              "GiB · 2³⁰ bytes"
+            ]
+          ]
+        },
+        {
+          "key": "vpnProtectionMode",
+          "zh": "额度保护模式",
+          "en": "Budget protection mode",
+          "type": "select",
+          "value": "strict",
+          "options": [
+            [
+              "strict",
+              "严格：没有出口断流能力不放行",
+              "Strict: require an enforced exit cap"
+            ],
+            [
+              "estimate",
+              "估算：轮询统计与保守预留",
+              "Estimated: polling and conservative reservations"
+            ]
+          ]
+        },
+        {
+          "key": "vpnMeterSource",
+          "zh": "出口统计来源",
+          "en": "Exit usage source",
+          "type": "select",
+          "value": "off",
+          "options": [
+            [
+              "off",
+              "尚未接入",
+              "Not connected"
+            ],
+            [
+              "interface",
+              "本机网卡（Linux / Windows）",
+              "Local interface (Linux / Windows)"
+            ],
+            [
+              "snapshot",
+              "外部账单／网关快照",
+              "External billing / gateway snapshot"
+            ]
+          ]
+        },
+        {
+          "key": "vpnInterface",
+          "zh": "出口网卡完整名称（本机采集时填写）",
+          "en": "Exact exit interface name (local collection)",
+          "type": "text",
+          "value": "",
+          "max": 200
+        },
+        {
+          "key": "vpnSourceId",
+          "zh": "出口／账户标识（须与快照一致）",
+          "en": "Exit / account ID (must match snapshot)",
+          "type": "text",
+          "value": "vpn-main",
+          "max": 100
+        },
+        {
+          "key": "vpnScopeVerified",
+          "zh": "已核验：统计覆盖该 VPN 账户的教师站、快传及其他共用流量",
+          "en": "Verified: the source covers website, transfers and other traffic sharing this VPN account",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "key": "vpnPollSeconds",
+          "zh": "采集间隔 · 秒",
+          "en": "Polling interval · seconds",
+          "type": "integer",
+          "value": 10,
+          "min": 2,
+          "max": 60
+        },
+        {
+          "key": "vpnStaleSeconds",
+          "zh": "统计失联判定 · 秒",
+          "en": "Stale sample threshold · seconds",
+          "type": "integer",
+          "value": 30,
+          "min": 6,
+          "max": 300
+        },
+        {
+          "key": "vpnOverheadPercent",
+          "zh": "受控传输协议开销预留 · %",
+          "en": "Controlled transfer overhead reserve · %",
+          "type": "integer",
+          "value": 10,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "vpnGuard",
+          "zh": "启用 VPN 额度保护",
+          "en": "Enable VPN budget guard",
+          "type": "boolean",
+          "value": true
+        },
+        {
+          "key": "vpnDailyBytes",
+          "zh": "每日流量额度 · GB（留空：未配置）",
+          "en": "Daily traffic · GB (empty: unconfigured)",
+          "type": "bytes",
+          "value": null,
+          "nullable": true
+        },
+        {
+          "key": "vpnMonthlyBytes",
+          "zh": "每月流量额度 · GB（留空：未配置）",
+          "en": "Monthly traffic · GB (empty: unconfigured)",
+          "type": "bytes",
+          "value": null,
+          "nullable": true
+        },
+        {
+          "key": "vpnReserveBytes",
+          "zh": "预留流量 · GB",
+          "en": "Reserved traffic · GB",
+          "type": "bytes",
+          "value": "1000000000"
+        },
+        {
+          "key": "vpnWarningPercent",
+          "zh": "剩余流量提醒阈值 · %",
+          "en": "Warn at remaining budget · %",
+          "type": "integer",
+          "value": 20,
+          "min": 1,
+          "max": 99
+        },
+        {
+          "key": "vpnTimeZone",
+          "zh": "额度重置时区（如 Asia/Shanghai）",
+          "en": "Reset timezone (e.g. Asia/Shanghai)",
+          "type": "timezone",
+          "value": "Asia/Shanghai",
+          "max": 100
+        },
+        {
+          "key": "vpnBilling",
+          "zh": "VPN 计费方向",
+          "en": "VPN billing direction",
+          "type": "select",
+          "value": "both",
+          "options": [
+            [
+              "both",
+              "上传 + 下载",
+              "Upload + download"
+            ],
+            [
+              "outbound",
+              "仅上传出口",
+              "Outbound only"
+            ],
+            [
+              "inbound",
+              "仅下载入口",
+              "Inbound only"
+            ]
+          ]
+        },
+        {
+          "key": "vpnUnknownPath",
+          "zh": "无法确认是否经过 VPN 的路径",
+          "en": "Unknown VPN route",
+          "type": "select",
+          "value": "block",
+          "options": [
+            [
+              "block",
+              "禁用该路径",
+              "Block path"
+            ],
+            [
+              "meter",
+              "按 VPN 流量保守计量",
+              "Meter as VPN traffic"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "temporary",
+      "zh": "临时文件",
+      "en": "Temporary files",
+      "fields": [
+        {
+          "key": "temporaryHours",
+          "zh": "默认保存时长 · 小时",
+          "en": "Default lifetime · hours",
+          "type": "integer",
+          "value": 24,
+          "min": 1,
+          "max": 720
+        },
+        {
+          "key": "temporaryMaxDownloads",
+          "zh": "默认最多下载次数",
+          "en": "Default download limit",
+          "type": "integer",
+          "value": 1,
+          "min": 1,
+          "max": 10000
+        },
+        {
+          "key": "temporaryStorageBytes",
+          "zh": "临时存储总量 · GB",
+          "en": "Temporary storage cap · GB",
+          "type": "bytes",
+          "value": "10000000000"
+        },
+        {
+          "key": "temporaryCleanupMinutes",
+          "zh": "到期清理检查间隔 · 分钟",
+          "en": "Expiry cleanup interval · minutes",
+          "type": "integer",
+          "value": 15,
+          "min": 1,
+          "max": 1440
+        }
+      ]
+    },
+    {
+      "id": "records",
+      "zh": "记录与维护",
+      "en": "Records & maintenance",
+      "fields": [
+        {
+          "key": "recoveryHours",
+          "zh": "中断任务恢复期限 · 小时",
+          "en": "Recovery window · hours",
+          "type": "integer",
+          "value": 24,
+          "min": 1,
+          "max": 72
+        },
+        {
+          "key": "checkpointMiB",
+          "zh": "检查点最小间隔 · MiB",
+          "en": "Minimum checkpoint interval · MiB",
+          "type": "integer",
+          "value": 4,
+          "min": 1,
+          "max": 16
+        },
+        {
+          "key": "automaticRetries",
+          "zh": "连接中断自动重试次数",
+          "en": "Automatic connection retries",
+          "type": "integer",
+          "value": 3,
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "recordTransfers",
+          "zh": "记录传输元信息（不记录文件正文）",
+          "en": "Record transfer metadata (no file contents)",
+          "type": "boolean",
+          "value": true
+        },
+        {
+          "key": "recordRetentionDays",
+          "zh": "传输记录保留天数",
+          "en": "Transfer record retention · days",
+          "type": "integer",
+          "value": 30,
+          "min": 1,
+          "max": 365
+        }
+      ]
+    }
+  ],
+  "policy_fields": [
+    {
+      "key": "send",
+      "zh": "允许发送",
+      "en": "Allow sending",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "receive",
+      "zh": "允许接收",
+      "en": "Allow receiving",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "lanRateKbps",
+      "zh": "局域网速率 · Kbit/s（留空继承）",
+      "en": "LAN rate · Kbit/s (empty: inherit)",
+      "type": "integer",
+      "value": null,
+      "min": 1,
+      "max": 1000000000,
+      "nullable": true
+    },
+    {
+      "key": "wanRateKbps",
+      "zh": "其他链路速率 · Kbit/s（留空继承）",
+      "en": "Other rate · Kbit/s (empty: inherit)",
+      "type": "integer",
+      "value": null,
+      "min": 1,
+      "max": 1000000000,
+      "nullable": true
+    },
+    {
+      "key": "maxFileBytes",
+      "zh": "单文件上限 · GB（留空不限制）",
+      "en": "Per file · GB (empty: unlimited)",
+      "type": "bytes",
+      "value": null,
+      "nullable": true
+    },
+    {
+      "key": "maxTaskBytes",
+      "zh": "单任务上限 · GB（留空不限制）",
+      "en": "Per task · GB (empty: unlimited)",
+      "type": "bytes",
+      "value": null,
+      "nullable": true
+    },
+    {
+      "key": "dailyBytes",
+      "zh": "个人每日总量 · GB（留空不限制）",
+      "en": "Daily per person · GB (empty: unlimited)",
+      "type": "bytes",
+      "value": null,
+      "nullable": true
+    },
+    {
+      "key": "monthlyBytes",
+      "zh": "个人每月总量 · GB（留空不限制）",
+      "en": "Monthly per person · GB (empty: unlimited)",
+      "type": "bytes",
+      "value": null,
+      "nullable": true
+    },
+    {
+      "key": "maxFiles",
+      "zh": "每任务文件数量上限",
+      "en": "Files per task",
+      "type": "integer",
+      "value": 1000,
+      "min": 1,
+      "max": 100000
+    },
+    {
+      "key": "concurrency",
+      "zh": "同时传输任务数",
+      "en": "Concurrent tasks",
+      "type": "integer",
+      "value": 2,
+      "min": 1,
+      "max": 32
+    }
+  ]
+}

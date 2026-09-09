@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.database.json",
+  "compilerOptions": {
+    "types": [
+      "node",
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-plugin/types"
+    ],
+    "allowJs": true,
+    "checkJs": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "db/**/*.ts",
+    "tests/contracts/**/*.ts",
+    "tests/native/**/*.ts",
+    "tests/workerd/**/*.ts",
+    "vitest.database.config.ts",
+    "vitest.workerd.config.ts",
+    "drizzle.config.ts",
+    "scripts/auth/bootstrap-admin.ts"
+  ],
+  "exclude": []
+}

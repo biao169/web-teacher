@@ -1,0 +1,12 @@
+import type { FileBundle, ManifestEntry, ReadHandle, FileOptions } from '../../shared/files';
+export function emptyBundle(): FileBundle;
+export function collectFiles(files: Iterable<File>, options?: FileOptions & { directory?: boolean }): FileBundle;
+export function collectFilesAsync(files: Iterable<File>, options?: FileOptions & { directory?: boolean }): Promise<FileBundle>;
+export function collectHandle(handle: ReadHandle, options?: FileOptions): Promise<FileBundle>;
+export function collectLegacy(entry: unknown, options?: FileOptions): Promise<FileBundle>;
+export function mergeAll(bundles: FileBundle[]): FileBundle;
+export function mergeBundles(existing: FileBundle, incoming: FileBundle): FileBundle;
+export function removePath(bundle: FileBundle, path: string): FileBundle;
+export function captureDrop(dataTransfer: DataTransfer | null): unknown;
+export function collectDrop(captured: unknown, options?: FileOptions): Promise<FileBundle>;
+export function readEntry(bundle: FileBundle, entry: ManifestEntry, signal?: AbortSignal): AsyncIterable<Uint8Array>;

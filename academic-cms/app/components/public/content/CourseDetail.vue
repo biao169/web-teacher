@@ -1,0 +1,7 @@
+<script setup lang="ts">
+import CopyRecordButton from './CopyRecordButton.vue'
+import type { PublicCourseDetailViewModel } from '~~/shared/contracts/public-content'
+const props = defineProps<{ model: PublicCourseDetailViewModel }>()
+const facts = computed(() => [{ label: props.model.locale === 'zh' ? '学期' : 'Semester', value: props.model.item.semester }, { label: props.model.locale === 'zh' ? '授课对象' : 'Audience', value: props.model.item.audience }])
+</script>
+<template><div><PublicContentPageHero :meta="model.meta" :locale="model.locale" hide-description /><section class="public-content-section"><div class="public-container public-detail-layout public-detail-layout--wide"><main class="public-detail-main"><CopyRecordButton module="courses" :locale="model.locale" :uid="model.item.uid" :label="model.item.name" text /><PublicContentFactGrid :items="facts" /><PublicContentLongText :title="model.locale === 'zh' ? '课程简介' : 'Course summary'" :text="model.item.summary" id="course-summary" /><PublicContentLongText :title="model.locale === 'zh' ? '参考资料' : 'References'" :text="model.item.references" id="course-references" /></main><aside class="public-detail-aside"><PublicContentMediaLink :media="model.item.syllabus" :label="model.locale === 'zh' ? '教学大纲' : 'Syllabus'" /><PublicContentMediaLink :media="model.item.material" :label="model.locale === 'zh' ? '课程材料' : 'Course materials'" /></aside></div></section></div></template>

@@ -1,0 +1,211 @@
+/* FRONTEND TYPOGRAPHY: edit fonts, sizes, weights and line heights only here.
+   rem values below assume the browser's default 16px root; browser zoom remains available. */
+@layer base {
+ .public-body {
+  --public-font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  --public-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --public-text-body: 1rem; /* Standard: 16px */
+  --public-text-meta: .875rem; /* 14px */
+  --public-text-control: .9375rem; /* 15px */
+  --public-text-title: 1.125rem; /* 18px; compact row titles use body size */
+  --public-text-page: 1.5rem; /* 24px */
+  --public-text-hero: 1.875rem; /* 30px */
+  --public-text-stat: 1.5rem;
+  --public-text-sup: .75em;
+  --public-weight-normal: 400; --public-weight-medium: 500;
+  --public-weight-emphasis: 600; --public-weight-strong: 600;
+  --public-leading-body: 1.7; --public-leading-heading: 1.4; --public-leading-controls: 1.45;
+ }
+ .public-body[data-reading='comfortable'] {
+  --public-text-body: 1.125rem; --public-text-meta: .9375rem; --public-text-control: 1rem;
+  --public-text-title: 1.25rem; --public-text-page: 1.625rem;
+  --public-text-hero: 2rem; --public-text-stat: 1.625rem;
+ }
+ .public-body[data-reading='large'] {
+  --public-text-body: 1.25rem; --public-text-meta: 1rem; --public-text-control: 1.0625rem;
+  --public-text-title: 1.375rem; --public-text-page: 1.75rem;
+  --public-text-hero: 2.125rem; --public-text-stat: 1.75rem;
+ }
+ .public-body :where(h1,h2,h3,h4) {font-family:var(--public-font-ui);font-weight:var(--public-weight-emphasis);line-height:var(--public-leading-heading)}
+ .public-body :where(h1) {font-size:var(--public-text-page)}
+ .public-body :where(h2,h3,h4) {font-size:var(--public-text-title)}
+ .public-body :where(small) {font-size:var(--public-text-meta)}
+ .public-body :where(strong,b) {font-weight:var(--public-weight-emphasis)}
+}
+
+@layer components {
+ .public-body { font-family: var(--public-font-ui); font-size: var(--public-text-body); line-height: var(--public-leading-body); }
+ .public-body button,
+  .public-body input,
+  .public-body textarea,
+  .public-body select { font: inherit; }
+ .public-skip-link,
+ .public-form-links a { font-weight: var(--public-weight-emphasis); }
+ .public-brand__mark { font-family: var(--public-font-ui); font-size: var(--public-text-title); font-weight: var(--public-weight-strong); }
+ .public-brand__copy { line-height: var(--public-leading-heading); }
+ .public-brand__copy strong,
+ .public-hero__eyebrow,
+ .public-eyebrow,
+ .public-text-link,
+ .public-record-card__eyebrow,
+ .public-auth-heading > span,
+ .public-form-submit, .public-form-action { font-size: var(--public-text-meta); font-weight: var(--public-weight-strong); }
+ .public-brand__copy small,
+ .public-contact-list a, .public-contact-list span, .public-academic-links a, .public-inline-contact,
+ .public-fact-grid dd,
+ .public-account-summary dd { font-size: var(--public-text-meta); font-weight: var(--public-weight-normal); }
+ .public-nav__link,
+ .public-icon-link, .public-language-link,
+ .public-home-metrics dt,
+ .public-profile-card__meta,
+ .public-publication__venue,
+ .public-tag-list span,
+ .public-footer__nav a,
+ .public-back-to-top,
+ .public-error-back,
+ .public-breadcrumbs ol,
+ .public-result-summary,
+ .public-search button,
+ .public-filter-reset, .public-page-size,
+ .public-record-venue,
+ .public-record-card__links a,
+ .public-pagination__direction,
+ .public-pagination__pages a,
+ .public-fact-grid dt,
+ .public-citation-tabs button,
+ .public-citation-box button,
+ .public-related-links a,
+ .public-field,
+ .public-account-summary dt { font-size: var(--public-text-meta); font-weight: var(--public-weight-medium); }
+ .public-hero h1 { font-family: var(--public-font-ui); font-size: var(--public-text-hero); font-weight: var(--public-weight-medium); line-height: var(--public-leading-heading); }
+ .public-lead,
+ .public-section-description,
+ .public-detail-lead,
+ .public-rich-content { font-size: var(--public-text-body); line-height: var(--public-leading-body); }
+ .public-button { font-size: var(--public-text-control); font-weight: var(--public-weight-medium); line-height: var(--public-leading-heading); }
+ .public-home-metrics dd { font-family: var(--public-font-ui); font-size: var(--public-text-stat); font-weight: var(--public-weight-emphasis); line-height: var(--public-leading-heading); }
+ .public-profile-card__body h2,
+ .public-research-grid h3,
+ .public-project-card h3,
+ .public-news-card h3,
+ .public-person-card h2, .public-record-card h2, .public-record-tile h2, .public-course-card h2, .public-news-card h2,
+ .public-detail-section h2 { font-family: var(--public-font-ui); font-size: var(--public-text-title); line-height: var(--public-leading-heading); }
+ .public-profile-card__body > p:not(.public-eyebrow):not(.public-profile-card__meta),
+ .public-research-grid p,
+ .public-project-card > p,
+ .public-footer__identity p,
+ .public-page-hero__description,
+ .public-card-summary,
+ .public-detail-aside > p,
+ .public-form-status { font-size: var(--public-text-meta); line-height: var(--public-leading-body); }
+ .public-media__initials { font-family: var(--public-font-ui); font-size: var(--public-text-title); font-weight: var(--public-weight-emphasis); }
+ .public-section-heading h2 { font-family: var(--public-font-ui); font-size: var(--public-text-page); font-weight: var(--public-weight-medium); line-height: var(--public-leading-heading); }
+ .public-badge { font-size: var(--public-text-meta); font-weight: var(--public-weight-normal); line-height: var(--public-leading-heading); }
+ .public-research-card__index { font-family: var(--public-font-ui); font-size: var(--public-text-meta); font-weight: var(--public-weight-emphasis); }
+ .public-publication h3 { font-family: var(--public-font-ui); font-size: var(--public-text-title); font-weight: var(--public-weight-emphasis); line-height: var(--public-leading-heading); }
+ .public-publication__authors,
+ .public-project-card dl div,
+ .public-news-card time,
+ .public-empty-state p,
+ .public-footer__legal,
+ .public-card-meta,
+ .public-record-authors,
+ .public-record-tile dl div,
+ .public-profile-aside > p,
+ .public-document-link small,
+ .public-article-meta time,
+ .public-comments-note,
+ .public-form-links,
+ .public-form-toggle { font-size: var(--public-text-meta); }
+ .public-footer__identity strong { font-family: var(--public-font-ui); font-size: var(--public-text-title); }
+ .public-error-code { font-family: var(--public-font-ui); font-size: var(--public-text-meta); font-weight: var(--public-weight-strong); }
+ .public-error-card h1,
+ .public-page-hero h1,
+ .public-auth-heading h1 { font-family: var(--public-font-ui); font-size: var(--public-text-page); line-height: var(--public-leading-heading); }
+ .public-error-card > p:not(.public-error-code),
+ .public-long-text,
+ .public-citation-box p,
+ .public-auth-heading p { line-height: var(--public-leading-body); }
+ .public-hero h1 { font-size: var(--public-text-hero); }
+ .public-highlighted-text mark,
+ .public-citation-box mark { font-weight: var(--public-weight-strong); }
+ .public-highlighted-text sup { font-size: var(--public-text-sup); font-weight: var(--public-weight-strong); }
+ .public-code-block, .public-rich-content pre { font-family: var(--public-font-mono); font-size: var(--public-text-meta); line-height: var(--public-leading-body); }
+ .public-rich-content h2, .public-rich-content h3 { font-family: var(--public-font-ui); line-height: var(--public-leading-heading); }
+ .public-rich-content h2 { font-size: var(--public-text-page); }
+ .public-rich-content h3,
+ .public-related-links h2 { font-size: var(--public-text-title); }
+ .public-field input, .public-field textarea, .public-field select { font: inherit; font-weight: var(--public-weight-normal); line-height: var(--public-leading-heading); }
+ .public-field small { font-size: var(--public-text-meta); font-weight: var(--public-weight-normal); line-height: var(--public-leading-body); }
+ .public-form-status small { font-family: var(--public-font-mono); font-size: var(--public-text-meta); }
+ .public-account-summary dd small { font-weight: var(--public-weight-normal); }
+
+ /* Shared navigation and controls; no page-specific size sets. */
+ .public-navigation-link,.public-reading-controls button,.public-header__actions {
+  font-family:var(--public-font-ui);font-size:var(--public-text-control);font-weight:var(--public-weight-medium);line-height:var(--public-leading-controls);
+ }
+ .public-brand__copy strong {font-size:var(--public-text-body);font-weight:var(--public-weight-emphasis)}
+ .public-brand__copy small {font-size:var(--public-text-meta);letter-spacing:0;text-transform:none}
+ .public-field input,.public-field textarea,.public-field select,.public-search input {font-size:var(--public-text-body);font-weight:var(--public-weight-normal)}
+ .public-rich-html,.public-citation-box p {font-family:var(--public-font-ui);font-size:var(--public-text-body);line-height:var(--public-leading-body)}
+ .public-rich-html h2 {font-size:var(--public-text-page)}
+ .public-rich-html h3,.public-rich-html h4 {font-size:var(--public-text-title)}
+ .public-rich-html code {font-family:var(--public-font-mono)}
+ .public-highlighted-text mark,.public-citation-box mark {font-weight:var(--public-weight-emphasis);text-decoration:underline;text-underline-offset:.18em}
+}
+
+@layer components {
+ .public-compact-record__title {font-size:var(--public-text-body);font-weight:var(--public-weight-emphasis);line-height:var(--public-leading-body)}
+ .public-project-name,.public-publication-line,.public-compact-record__summary {font-size:var(--public-text-body);font-weight:var(--public-weight-normal);line-height:var(--public-leading-body)}
+ .public-project-funding {font-size:var(--public-text-body);line-height:var(--public-leading-body)}
+ .public-compact-record__meta,.public-record-tags,.public-compact-record__links,.public-record-number,.public-filter-current,.public-filter-status,.public-filter-option-pages {font-size:var(--public-text-meta);line-height:var(--public-leading-controls)}
+ .public-filter-option-list {font-size:var(--public-text-control);line-height:var(--public-leading-controls)}
+ .public-record-tags {font-weight:var(--public-weight-normal)}
+}
+
+@layer components {
+ .public-selection-toolbar,.public-selection-toolbar button {font-size:var(--public-text-meta);line-height:var(--public-leading-controls)}
+ .public-selection-dialog {font-family:var(--public-font-ui);font-size:var(--public-text-body);line-height:var(--public-leading-body)}
+ .public-selection-dialog__header h2 {font-size:var(--public-text-title);line-height:var(--public-leading-heading)}
+}
+
+@layer components {
+ .public-citation-text,.public-citation-identifier {font-family:var(--public-font-ui);font-size:var(--public-text-body);line-height:var(--public-leading-body);font-weight:var(--public-weight-normal)}
+ .public-citation-text mark {font-weight:var(--public-weight-emphasis)}
+ .public-citation-control legend,.public-citation-options label,.public-citation-missing,.public-citation-feedback,.public-citation-status {font-family:var(--public-font-ui);font-size:var(--public-text-meta);line-height:var(--public-leading-controls)}
+}
+
+@layer components {
+ .public-load-more,.public-load-more button,.public-copy-record,.public-copy-dialog button,.public-copy-actions button,.public-copy-number-option {font-family:var(--public-font-ui);font-size:var(--public-text-meta);line-height:var(--public-leading-controls);font-weight:var(--public-weight-normal)}
+ .public-copy-preview {font-family:var(--public-font-ui);font-size:var(--public-text-body);line-height:var(--public-leading-body);font-weight:var(--public-weight-normal)}
+}
+
+@layer components {
+ .public-home-profile h1 {font-family:var(--public-font-ui);font-size:var(--public-text-page);line-height:var(--public-leading-heading);font-weight:var(--public-weight-strong)}
+ .public-home-profile__biography {font-size:var(--public-text-body);line-height:var(--public-leading-body);font-weight:var(--public-weight-normal)}
+ .public-home-profile__meta,.public-home-profile__contact,.public-detail-return {font-size:var(--public-text-meta);line-height:var(--public-leading-controls)}
+}
+
+/* One control type scale for search, filtering, selection and form actions. */
+@layer components {
+ .public-search button,.public-search input,.public-filter-option-search input,.public-filter-trigger,.public-page-size select,
+ .public-filter-popup button,.public-filter-reset,.public-selection-toolbar button,
+ .public-load-more button,.public-copy-dialog button,.public-copy-actions button,
+ .public-citation-options label,.public-form-submit,.public-form-action {
+  font-size:var(--public-text-control);font-weight:var(--public-weight-medium);line-height:var(--public-leading-controls);
+ }
+}
+@media (pointer:coarse) {
+ @layer components {
+  .public-search input,.public-filter-trigger,.public-page-size select,
+  .public-filter-option-search input {font-size:max(1rem,var(--public-text-control))}
+ }
+}
+
+@layer components {
+ .public-research-tag__name {font-family:var(--public-font-ui);font-size:var(--public-text-body);font-weight:var(--public-weight-normal);line-height:var(--public-leading-controls)}
+}
+
+@layer components {
+ .public-copy-feedback,.public-copy-feedback button,.public-copy-number-option {font-family:var(--public-font-ui);font-size:var(--public-text-meta);line-height:var(--public-leading-controls);font-weight:var(--public-weight-normal)}
+}

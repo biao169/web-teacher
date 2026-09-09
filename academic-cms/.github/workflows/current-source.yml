@@ -1,0 +1,40 @@
+name: Current source build and production browser checks
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: current-source-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  current-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - name: Activate pinned package manager
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.19.0 --activate
+      - name: Require a real committed lockfile
+        run: |
+          test -s pnpm-lock.yaml || { echo 'Generate and review pnpm-lock.yaml with a real install first.'; exit 1; }
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install real Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify existing source, not absent planned features
+        run: pnpm acceptance:current
+      - name: Retain actual diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-source-validation
+          path: reports/stage10b/
+          if-no-files-found: warn

@@ -1,121 +1,36 @@
-# 教师个人/团队网站双平台版本
+# 教师网站＋文件快传
 
-这个项目是不使用 Flask 的轻量 Python 网站骨架，目标是：
+| 根目录项目 | 用法 |
+| --- | --- |
+| `Tweb.sh` | Ubuntu/Debian 生产部署与终端管理 |
+| `Ubuntu-Debian部署说明.md` | 无需预先克隆的一句安装命令、分支选择、管理员初始化、更新恢复 |
+| `Cloudflare部署教程.md` | 教师网站 Workers＋D1＋R2 部署与初始化；说明快传边界 |
+| `academic-cms/` | 教师网站源码 |
+| `file-transfer/` | 快传源码，部署时可选启用 |
+| `test-examples/` | 演示、专用启动器、测试和测试记录；停止示例服务后可整目录删除 |
 
-- 前期部署到 Cloudflare Workers，可正常维护和展示网站。
-- 后期可导出 JSON/CSV/YAML/Excel/ZIP，再快速迁移到 Ubuntu。
-- 共享核心代码，Cloudflare 和 Ubuntu 只保留薄适配层。
-- 前台展示教师照片、团队成员照片、论文、项目、专利、学生、课程和动态。
-- 后台可配置导航栏、首页按钮、栏目内容和排序。
+## 服务器一句命令安装
 
-
-## Ubuntu/Debian 一键部署
-
-公开仓库可在 Ubuntu/Debian 服务器上用一行命令部署：
-
-```bash
-tmp=$(mktemp) && curl -fsSL https://raw.githubusercontent.com/biao169/web-teacher/main/deploy/ubuntu/install.sh -o "$tmp" && chmod +x "$tmp" && "$tmp"
-```
-
-脚本会提示输入域名、内部监听端口、安装目录和仓库地址；域名留空时默认使用服务器 IP。部署完成后，首次访问 `/admin/setup` 初始化高级管理员账号。
-
-常用维护命令：
+本包根目录内容上传到当前 GitHub 仓库后，可用下面命令安装。服务器无需手动 git clone：
 
 ```bash
-web-teacher status
-web-teacher logs
-web-teacher restart
-web-teacher paths
-web-teacher pull-code
-web-teacher update
-web-teacher backup
-web-teacher reset-data
-web-teacher uninstall
+bash -c 'set -e; f=$(mktemp); trap '\''rm -f "$f"'\'' EXIT; curl -fL --proto "=https" --tlsv1.2 "https://raw.githubusercontent.com/biao169/web-teacher/web-vue/Tweb.sh" -o "$f"; bash -n "$f"; sudo bash "$f" install'
 ```
 
-重复运行部署脚本时会检测历史残留，默认 `keep` 会保留数据库、媒体文件和密钥；需要清空数据时可选择 `reset` 或运行 `web-teacher reset-data`，删除类操作都会要求输入确认文本。
+脚本自动检查依赖并交互安装；询问源码仓库、分支（默认 web-vue，可手动输入其他分支）、快传开关、端口、域名以及首位高级管理员用户名和两次密码。私有仓库和其他 Git 平台见部署说明；使用其他分支时替换 Raw 链接中的分支，并在安装提示中填写对应分支。
 
-该一行命令可以在任意当前目录运行；脚本内部会自动进入安装目录执行初始化与更新命令。
+安装后输入四字符命令即可进入菜单（注意大小写）：
 
-脚本会在安装系统包之前检测公网 `80/443` 端口：端口空闲时安装并配置 Nginx；检测到 Caddy 时不再安装 Nginx，而是询问是否写入 `/etc/caddy/sites/web-teacher.caddy` 并让 Caddy 继续负责 HTTPS；检测到其他程序占用时会输出 Caddy/Nginx 示例，不会擅自停止已有服务。可用 `web-teacher nginx-test` 查看公网端口监听，用 `web-teacher caddy-example` 查看 Caddy 配置示例。
-
-## 本地 Ubuntu 风格开发
-
-```powershell
-D:\Python\Miniconda\envs\py312\python.exe -m pip install -r requirements.txt
-D:\Python\Miniconda\envs\py312\python.exe -m tools.init_db
-D:\Python\Miniconda\envs\py312\python.exe -m tools.serve_ubuntu
+```bash
+Tweb
 ```
 
-访问 `http://127.0.0.1:8000`。
+普通用户需要 sudo 权限，会按系统策略提示密码。管理员初始化已包含在首次安装中；中断后可 `Tweb bootstrap` 继续，不能用它覆盖已有管理员。启用快传时可同时授权快传管理权限。
 
-首次部署默认只初始化空数据库，不自动填充示例数据。
+## 本地示例
 
-如需本地演示基础示例内容：
+Windows 双击 `test-examples/02_demo_both.cmd`；Linux 执行 `bash test-examples/run.sh demo`。仅教师示例用 `03_demo_teacher.cmd` 或 `bash test-examples/run.sh teacher`。所有新建示例数据/依赖位于 `test-examples/runtime/`。
 
-```powershell
-D:\Python\Miniconda\envs\py312\python.exe -m tools.init_db --seed
-```
+删除 `test-examples/` 不影响根目录 `Tweb.sh`、两个应用的源码和生产数据。两个应用内部原有的开发回归测试、迁移文件及辅助初始化实现保留，避免破坏现有构建脚本；它们不自动生成或加载示例数据。生产部署不依赖 `test-examples/`，不自动导入演示账号。
 
-填充更完整的示例内容：
-
-```powershell
-D:\Python\Miniconda\envs\py312\python.exe -m tools.seed_examples
-```
-
-如果只想快速预览，也可以不安装 Uvicorn，直接运行标准库开发服务器：
-
-```powershell
-D:\Python\Miniconda\envs\py312\python.exe -m tools.dev_server --port 8003
-```
-
-## 导出迁移包
-
-```powershell
-D:\Python\Miniconda\envs\py312\python.exe -m tools.export_bundle --site-url http://127.0.0.1:8000
-```
-
-导出包包含：
-
-- `manifest.json`
-- `content/*.json`
-- `tabular/*.csv`
-- `tabular/all_tables.xlsx`
-- `yaml/*.yaml`
-- `media/media_manifest.*`
-
-## 导入迁移包
-
-```powershell
-D:\Python\Miniconda\envs\py312\python.exe -m tools.import_bundle exports\teacher-site-export-YYYYMMDD-HHMMSS.zip --db data\site.sqlite3
-```
-
-## Cloudflare Workers
-
-Cloudflare 侧使用：
-
-- Python Workers
-- Workers Static Assets
-- D1
-- R2
-
-初始化资源：
-
-```powershell
-npx wrangler d1 create teacher_site
-npx wrangler r2 bucket create teacher-site-media
-npx wrangler d1 migrations apply teacher_site --remote
-```
-
-把 D1 返回的 `database_id` 写入 `wrangler.toml` 后部署：
-
-```powershell
-uv run pywrangler deploy
-```
-
-## 低 CPU 设计约束
-
-- 页面请求只做小范围 SQL 查询和字符串渲染。
-- 列表默认最多读取 300-500 条。
-- Excel、图片压缩、完整备份等高 CPU 工作放在本地或 Ubuntu 工具中。
-- Cloudflare 请求路径只做轻量 CRUD、导航读取、页面渲染和 R2/Static Assets 分发。
+Cloudflare 教师站可部署到 Workers；当前快传依赖常驻 Node、SQLite 和本地磁盘，不支持直接迁入 Workers。若需要教师＋快传共用导航/登录，使用本包 Ubuntu/Debian 同机部署；可以另外将 Cloudflare 用作该站的 DNS/反向代理入口。

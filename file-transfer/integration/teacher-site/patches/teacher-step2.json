@@ -1,0 +1,49 @@
+{
+  "version": 3,
+  "files": [
+    {
+      "path": "nuxt.config.ts",
+      "baselineSha256": "7f5e310bbb1b5dbcb028d49fe2f37d61606125c425739c9e1a0428e1518c9b16",
+      "integratedSha256": "03d1dec1b9d2d545b2ba9d7d9f6a23afb9d743d3dc2f703c6ceb206ca325120f",
+      "blocks": [
+        {
+          "before": "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: ['@nuxt/eslint', 'nuxt-security'],\n\n  security: {\n",
+          "after": "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: ['@nuxt/eslint', 'nuxt-security',\n    // File transfer is optional; when disabled the sibling module is not imported.\n    ...(process.env.FT_TEACHER_MODULE_ENABLED === 'true'\n      ? [[new URL('../file-transfer/integration/teacher-site/module.mjs', import.meta.url).href, { enabled: true }] as [string, { enabled: boolean }]] : []),\n  ],\n\n  security: {\n",
+          "previous": [
+            "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: ['@nuxt/eslint', 'nuxt-security',\n    // File transfer is optional; when disabled the sibling module is not imported.\n    ...(process.env.FT_TEACHER_MODULE_ENABLED === 'true'\n      ? [[fileURLToPath(new URL('../file-transfer/integration/teacher-site/module.mjs', import.meta.url)), { enabled: true }] as [string, { enabled: boolean }]] : []),\n  ],\n\n  security: {\n"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "app/components/public/SiteHeader.vue",
+      "baselineSha256": "e0481a7c81d593775707a47256632f37b8114b4b4abed47950fc7ae032bb1ec5",
+      "integratedSha256": "dabe17205e52c1702f6f3962aacb2c71177fbf7cf5451990d1699f5f490f9c57",
+      "blocks": [
+        {
+          "before": "defineEmits<{ 'update:readingMode': [value: PublicReadingMode] }>()\nconst route = useRoute()\nconst auth = useAuthSession()\nconst user = computed(() => auth.session.value.authenticated ? auth.session.value.user : null)\n",
+          "after": "defineEmits<{ 'update:readingMode': [value: PublicReadingMode] }>()\nconst route = useRoute()\nconst transferExtension = computed(() => ((useRuntimeConfig().public as Record<string, unknown>).fileTransfer as { enabled?: boolean } | undefined)?.enabled ? resolveComponent('FileTransferNavEntry') : null)\nconst auth = useAuthSession()\nconst user = computed(() => auth.session.value.authenticated ? auth.session.value.user : null)\n"
+        },
+        {
+          "before": "        <nav class=\"public-nav\" :aria-label=\"labels.nav\">\n          <NavigationLink v-for=\"item in navigation\" :key=\"item.uid\" :link=\"item\" />\n        </nav>\n      </div>\n",
+          "after": "        <nav class=\"public-nav\" :aria-label=\"labels.nav\">\n          <NavigationLink v-for=\"item in navigation\" :key=\"item.uid\" :link=\"item\" />\n          <component :is=\"transferExtension\" v-if=\"transferExtension\" :navigation=\"navigation\" :locale=\"locale\" />\n        </nav>\n      </div>\n"
+        }
+      ]
+    },
+    {
+      "path": "app/components/admin/Sidebar.vue",
+      "baselineSha256": "e42857b99a5531673264a647127128661d4aad942c11114e691613f18e0fd8de",
+      "integratedSha256": "3f9acf90bd082e64b27745b18066a54ac1bb59efa04cbb884e8d5fb67581a1d4",
+      "blocks": [
+        {
+          "before": "defineProps<{ groups: readonly AdminNavigationGroup[]; collapsed?: boolean; mobile?: boolean }>()\nconst emit = defineEmits<{ navigate: []; toggle: [] }>()\n</script>\n<template>\n",
+          "after": "defineProps<{ groups: readonly AdminNavigationGroup[]; collapsed?: boolean; mobile?: boolean }>()\nconst emit = defineEmits<{ navigate: []; toggle: [] }>()\nconst transferExtension = computed(() => ((useRuntimeConfig().public as Record<string, unknown>).fileTransfer as { enabled?: boolean } | undefined)?.enabled ? resolveComponent('FileTransferAdminEntry') : null)\n</script>\n<template>\n"
+        },
+        {
+          "before": "    <AdminBrand :collapsed=\"collapsed\" />\n    <AdminSidebarNavigation :groups=\"groups\" :collapsed=\"collapsed\" @navigate=\"emit('navigate')\" />\n    <button v-if=\"!mobile\" class=\"admin-sidebar__collapse\" type=\"button\" :aria-label=\"collapsed ? '展开后台侧栏' : '折叠后台侧栏'\" @click=\"emit('toggle')\">\n      <PanelLeftOpen v-if=\"collapsed\" :size=\"18\" aria-hidden=\"true\" /><PanelLeftClose v-else :size=\"18\" aria-hidden=\"true\" /><span v-if=\"!collapsed\">折叠侧栏</span>\n",
+          "after": "    <AdminBrand :collapsed=\"collapsed\" />\n    <AdminSidebarNavigation :groups=\"groups\" :collapsed=\"collapsed\" @navigate=\"emit('navigate')\" />\n    <component :is=\"transferExtension\" v-if=\"transferExtension\" :collapsed=\"collapsed\" @navigate=\"emit('navigate')\" />\n    <button v-if=\"!mobile\" class=\"admin-sidebar__collapse\" type=\"button\" :aria-label=\"collapsed ? '展开后台侧栏' : '折叠后台侧栏'\" @click=\"emit('toggle')\">\n      <PanelLeftOpen v-if=\"collapsed\" :size=\"18\" aria-hidden=\"true\" /><PanelLeftClose v-else :size=\"18\" aria-hidden=\"true\" /><span v-if=\"!collapsed\">折叠侧栏</span>\n"
+        }
+      ]
+    }
+  ]
+}
