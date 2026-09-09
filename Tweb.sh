@@ -33,7 +33,7 @@ inspect() {
   echo '不读取 VPN 私钥、不修改路由/防火墙。网卡计数≠供应商账单；日/月额度及物理出口须在快传后台人工核验。'
 }
 prerequisites() {
-  for cmd in git rsync curl xz openssl gcc make g++ python3; do
+  for cmd in git rsync curl xz openssl gcc make g++ python3 useradd; do
     command -v "$cmd" >/dev/null || die "缺少 $cmd；可先从菜单选择安装依赖。"
   done
   command -v node >/dev/null || die '请先安装依赖';
@@ -43,7 +43,7 @@ prerequisites() {
 toolchain() {
   confirm '将 apt 安装系统依赖，并在专用目录安装 Node 24.19.0 / pnpm 11.19.0，不替换系统 Node。'
   apt-get update
-  apt-get install -y ca-certificates curl git rsync xz-utils build-essential python3 openssl iproute2 util-linux
+  apt-get install -y ca-certificates curl git rsync xz-utils build-essential python3 openssl iproute2 util-linux passwd
   local arch temp archive
   case $(uname -m) in x86_64) arch=x64;; aarch64) arch=arm64;; *) die '仅提供 x64 / arm64 自动安装';; esac
   temp=$(mktemp -d "$BASE/node-download.XXXXXX")
