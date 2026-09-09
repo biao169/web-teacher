@@ -5,7 +5,8 @@ umask 077
 BASE=/opt/academic-suite
 APP=$BASE/app
 CONF=/etc/academic-suite
-USER_NAME=academic-suite
+USER_NAME=${TWEB_SERVICE_USER:-nobody}
+GROUP_NAME=${TWEB_SERVICE_GROUP:-nogroup}
 export PATH=/opt/academic-suite/runtime/bin:/usr/local/bin:/usr/bin:/bin
 SELF=$(readlink -f "${BASH_SOURCE[0]}")
 die() { echo "[失败] $*" >&2; exit 1; }
@@ -33,7 +34,7 @@ inspect() {
   echo '不读取 VPN 私钥、不修改路由/防火墙。网卡计数≠供应商账单；日/月额度及物理出口须在快传后台人工核验。'
 }
 prerequisites() {
-  for cmd in git rsync curl xz openssl gcc make g++ python3 useradd; do
+  for cmd in git rsync curl xz openssl gcc make g++ python3; do
     command -v "$cmd" >/dev/null || die "缺少 $cmd；可先从菜单选择安装依赖。"
   done
   command -v node >/dev/null || die '请先安装依赖';
@@ -43,7 +44,7 @@ prerequisites() {
 toolchain() {
   confirm '将 apt 安装系统依赖，并在专用目录安装 Node 24.19.0 / pnpm 11.19.0，不替换系统 Node。'
   apt-get update
-  apt-get install -y ca-certificates curl git rsync xz-utils build-essential python3 openssl iproute2 util-linux passwd
+  apt-get install -y ca-certificates curl git rsync xz-utils build-essential python3 openssl iproute2 util-linux
   local arch temp archive
   case $(uname -m) in x86_64) arch=x64;; aarch64) arch=arm64;; *) die '仅提供 x64 / arm64 自动安装';; esac
   temp=$(mktemp -d "$BASE/node-download.XXXXXX")
@@ -70,7 +71,7 @@ save_config() {
   printf 'REPO=%q\nBRANCH=%q\nTRANSFER=%q\nPORT=%q\nORIGIN=%q\n' "$REPO" "$BRANCH" "$TRANSFER" "$PORT" "$ORIGIN" > "$temp"
   chmod 600 "$temp"; mv "$temp" "$CONF/settings.sh"
 }
-as_app() { runuser -u "$USER_NAME" -- env PATH="$PATH" "$@"; }
+as_app() { runuser -u "$USER_NAME" -- env HOME="$BASE/service-home" PATH="$PATH" "$@"; }
 cms() { (cd "$APP/academic-cms"; as_app node --env-file="$CONF/site.env" "$@"); }
 ft() { (cd "$APP/file-transfer"; as_app node "$@"); }
 stop_services() {
@@ -121,7 +122,7 @@ copy_source() {
       "$STAGE/repo/$component/" "$APP/$component/"
   done
   git -C "$STAGE/repo" rev-parse HEAD > "$APP/REVISION"
-  chown -R "$USER_NAME:$USER_NAME" "$APP"
+  chown -R "$USER_NAME:$GROUP_NAME" "$APP"
 }
 install_dependencies() {
   (cd "$APP/academic-cms"; as_app pnpm install --frozen-lockfile)
@@ -149,11 +150,11 @@ configure_env() {
     "NUXT_PUBLIC_SITE_URL=$ORIGIN" "NUXT_CACHE_ORIGIN=$ORIGIN" \
     "NUXT_MEDIA_ROOT=$APP/academic-cms/media" 'NITRO_HOST=127.0.0.1' "NITRO_PORT=$PORT" \
     "FT_TEACHER_MODULE_ENABLED=$TRANSFER" > "$CONF/site.env"
-  chown root:"$USER_NAME" "$CONF/site.env"; chmod 640 "$CONF/site.env"
+  chown root:"$GROUP_NAME" "$CONF/site.env"; chmod 640 "$CONF/site.env"
 }
 set_transfer_env() {
   sed -i "s/^FT_TEACHER_MODULE_ENABLED=.*/FT_TEACHER_MODULE_ENABLED=$TRANSFER/" "$CONF/site.env"
-  chown root:"$USER_NAME" "$CONF/site.env"; chmod 640 "$CONF/site.env"
+  chown root:"$GROUP_NAME" "$CONF/site.env"; chmod 640 "$CONF/site.env"
 }
 migrate() {
   cms scripts/db/migrate.mjs
@@ -176,7 +177,7 @@ StartLimitBurst=5
 [Service]
 Type=simple
 User=$USER_NAME
-Group=$USER_NAME
+Group=$GROUP_NAME
 WorkingDirectory=$APP/academic-cms
 EnvironmentFile=$CONF/site.env
 Environment=PATH=$PATH
@@ -212,7 +213,7 @@ StartLimitBurst=5
 [Service]
 Type=simple
 User=$USER_NAME
-Group=$USER_NAME
+Group=$GROUP_NAME
 WorkingDirectory=$APP/file-transfer
 Environment=PATH=$PATH
 ExecStartPre=$(command -v node) $APP/file-transfer/scripts/maintenance.mjs unlock-stale
@@ -296,11 +297,12 @@ for(const port of [Number(process.argv[2]),...(process.argv[3]==='true'?[8787]:[
 }
 JS
   checkout_source
-  confirm '将安装专用账号、systemd 服务和快捷命令；不会自动修改 Nginx/VPN/防火墙。'
-  if id "$USER_NAME" >/dev/null 2>&1; then die '专用账号已存在，拒绝接管'; fi
+  confirm '将使用系统已有低权限账号运行服务，并安装 systemd 服务和快捷命令；不会自动修改 Nginx/VPN/防火墙。'
+  id "$USER_NAME" >/dev/null 2>&1 || die "缺少运行账号 $USER_NAME；可用 TWEB_SERVICE_USER 指定现有非 root 用户。"
+  getent group "$GROUP_NAME" >/dev/null 2>&1 || die "缺少运行用户组 $GROUP_NAME；可用 TWEB_SERVICE_GROUP 指定现有组。"
+  [[ $(id -u "$USER_NAME") != 0 ]] || die '运行账号不能是 root'
   # Linux service account is separate from the website database administrator.
-  useradd --system --home-dir "$BASE/service-home" --create-home --shell /usr/sbin/nologin "$USER_NAME"
-  chmod 755 "$BASE"; mkdir -p "$CONF"; chown root:"$USER_NAME" "$CONF"; chmod 750 "$CONF"
+  chmod 755 "$BASE"; mkdir -p "$BASE/service-home" "$CONF"; chown "$USER_NAME:$GROUP_NAME" "$BASE/service-home"; chmod 750 "$BASE/service-home"; chown root:"$GROUP_NAME" "$CONF"; chmod 750 "$CONF"
   save_config; copy_source; configure_env
   install -m 755 "$SELF" "$BASE/Tweb.sh"
   install_shortcut

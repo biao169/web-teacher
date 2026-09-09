@@ -34,7 +34,7 @@ Tweb logs     # 最近100行日志
 - Ubuntu/Debian，systemd，sudo/root，支持 x86_64/arm64 的专用运行时自动安装；需能访问 Git、Node 官方站和 npm registry。
 - 当前源码要求 Node **>=24.19.0 <25**，pnpm **11.19.0**，以本包 package.json/锁文件为准。自动安装使用 Node 官方 HTTPS 下载及 SHA-256 校验；无法下载指定版本时停止，不静默换大版本。
 - 建议至少 4GB 内存构建并预留磁盘；备份需**完整现有目录空间＋至少1GiB余量**，依赖与生产构建也需要额外空间。完整备份包含依赖，体积可能较大。
-- 使用全新的固定目录 `/opt/academic-suite`，不会自动接管旧 Python/PM2/容器部署，也不覆盖已占用的同名服务或专用账号。已有生产数据迁入需另行审核迁移，不能把初始化当数据导入。
+- 使用全新的固定目录 `/opt/academic-suite`，不会自动接管旧 Python/PM2/容器部署，也不覆盖已占用的同名服务。服务默认复用系统已有 `nobody:nogroup`，不额外创建 Linux 账号；已有生产数据迁入需另行审核迁移，不能把初始化当数据导入。
 - 教师仅监听 `127.0.0.1:8005`（可选端口），快传仅监听 `127.0.0.1:8787`。输入真实 HTTPS 源地址，配置既有 Nginx/Caddy 的 TLS 反代后才能从远端正常登录。程序启动成功不代表域名/TLS已配置。
 
 ## 更新与管理模式
@@ -60,7 +60,7 @@ Tweb logs     # 最近100行日志
 
 ## 数据、安全与恢复
 
-正式教师数据位于 `/opt/academic-suite/app/academic-cms/data`、媒体位于 `academic-cms/media`；快传数据与签名密钥位于 `file-transfer/storage`；私有快传配置 `file-transfer/config.local.json`。这些目录不从 Git 覆盖；快传存储使用真实目录，不能改为符号链接。全局管理设置在 `/etc/academic-suite/settings.sh`（root-only），应用环境在 `site.env`（root写、服务账号读）。
+正式教师数据位于 `/opt/academic-suite/app/academic-cms/data`、媒体位于 `academic-cms/media`；快传数据与签名密钥位于 `file-transfer/storage`；私有快传配置 `file-transfer/config.local.json`。这些目录不从 Git 覆盖；快传存储使用真实目录，不能改为符号链接。全局管理设置在 `/etc/academic-suite/settings.sh`（root-only），应用环境在 `site.env`（root写、低权限服务账号读）。
 
 首次安装自动执行结构迁移，再询问数据库（网站）高级管理员用户名、密码和确认密码（至少6位）。脚本通过现有 BootstrapService 写入数据库，生成正确密码哈希并授予网站全模块管理权限；不是普通注册账号，也不是 VPN 或 Linux 系统账号。无需手工写 SQL、复制密码哈希或默认账号密码。成功后移除 bootstrap token，密码不写入脚本/环境文件。
 
@@ -68,7 +68,7 @@ Tweb logs     # 最近100行日志
 
 若安装中途停在创建管理员前，执行 `Tweb bootstrap` 可继续交互初始化；已创建管理员时，原有保护拒绝重复初始化，不覆盖账号或密码。若密码确认输入失败，可重新执行该命令。其他高级管理员由现有高级管理员在网站后台创建/分配权限；此初始化命令不是忘记密码的重置后门。快传授权失败时可执行 `Tweb grant` 并输入创建时显示的 UID 重试。
 
-三个密钥分别随机生成。服务以专用非 root 账号执行，设置私有临时目录、禁止提权、日志交给 journal。依赖安装和应用构建也使用专用账号；请只部署自己审核过的仓库。
+三个密钥分别随机生成。服务默认以系统已有 `nobody:nogroup` 非 root 账号执行，设置私有临时目录、禁止提权、日志交给 journal。依赖安装和应用构建也使用该低权限账号；请只部署自己审核过的仓库。
 
 备份在 `/opt/academic-suite/backups/时间-PID`，包含源码、依赖、生产输出、双方数据库和上传、密钥、配置，属于敏感资料。请自行异地加密备份与制定保留策略，脚本不自动删除旧备份。恢复选目录名，会保留恢复前状态在 `/opt/academic-suite/retired-*`，**恢复后不自动启动**。校对数据与 VPN 额度后 `Tweb start`。
 

@@ -17,7 +17,7 @@
 bash -c 'set -e; f=$(mktemp); trap '\''rm -f "$f"'\'' EXIT; curl -fL --proto "=https" --tlsv1.2 "https://raw.githubusercontent.com/biao169/web-teacher/web-vue/Tweb.sh" -o "$f"; bash -n "$f"; sudo bash "$f" install'
 ```
 
-脚本自动检查依赖并交互安装；询问源码仓库、分支（默认 web-vue，可手动输入其他分支）、快传开关、端口、域名以及数据库（网站）高级管理员用户名和两次密码；该账号与 VPN/系统账号无关。私有仓库和其他 Git 平台见部署说明；使用其他分支时替换 Raw 链接中的分支，并在安装提示中填写对应分支。
+脚本自动检查依赖并交互安装；服务默认复用系统已有 `nobody:nogroup`，不额外创建 Linux 账号；随后询问源码仓库、分支（默认 web-vue，可手动输入其他分支）、快传开关、端口、域名以及数据库（网站）高级管理员用户名和两次密码；该账号与 VPN/系统账号无关。私有仓库和其他 Git 平台见部署说明；使用其他分支时替换 Raw 链接中的分支，并在安装提示中填写对应分支。
 
 安装后输入四字符命令即可进入菜单（注意大小写）：
 
