@@ -8,8 +8,9 @@
       "blocks": [
         {
           "before": "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: ['@nuxt/eslint', 'nuxt-security'],\n\n  security: {\n",
-          "after": "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: ['@nuxt/eslint', 'nuxt-security',\n    // File transfer is optional; when disabled the sibling module is not imported.\n    ...(process.env.FT_TEACHER_MODULE_ENABLED === 'true'\n      ? [[new URL('../file-transfer/integration/teacher-site/module.mjs', import.meta.url).href, { enabled: true }] as [string, { enabled: boolean }]] : []),\n  ],\n\n  security: {\n",
+          "after": "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: [\n    ...(process.env.NODE_ENV === 'production' ? [] : ['@nuxt/eslint']),\n    'nuxt-security',\n    // File transfer is optional; when disabled the sibling module is not imported.\n    ...(process.env.FT_TEACHER_MODULE_ENABLED === 'true'\n      ? [[new URL('../file-transfer/integration/teacher-site/module.mjs', import.meta.url).href, { enabled: true }] as [string, { enabled: boolean }]] : []),\n  ],\n\n  security: {\n",
           "previous": [
+            "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: ['@nuxt/eslint', 'nuxt-security',\n    // File transfer is optional; when disabled the sibling module is not imported.\n    ...(process.env.FT_TEACHER_MODULE_ENABLED === 'true'\n      ? [[new URL('../file-transfer/integration/teacher-site/module.mjs', import.meta.url).href, { enabled: true }] as [string, { enabled: boolean }]] : []),\n  ],\n\n  security: {\n",
             "  devtools: { enabled: process.env.NODE_ENV !== 'production' },\n\n  modules: ['@nuxt/eslint', 'nuxt-security',\n    // File transfer is optional; when disabled the sibling module is not imported.\n    ...(process.env.FT_TEACHER_MODULE_ENABLED === 'true'\n      ? [[fileURLToPath(new URL('../file-transfer/integration/teacher-site/module.mjs', import.meta.url)), { enabled: true }] as [string, { enabled: boolean }]] : []),\n  ],\n\n  security: {\n"
           ]
         }

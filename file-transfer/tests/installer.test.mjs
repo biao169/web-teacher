@@ -30,6 +30,15 @@ test('an incompatible teacher file stops the entire patch without partial writes
   assert.throws(() => integrateTeacher(root, 'apply'), /尚未修改/u);
   assert.equal(readFileSync(join(root, patch.files[0].path), 'utf8'), first);
 });
+test('installer accepts the current production module integration as already applied', t => {
+  const root = teacherFixture(t);
+  const first = patch.files[0];
+  for (const item of patch.files) {
+    const path = join(root, item.path);
+    writeFileSync(path, item === first ? first.blocks[0].after : item.blocks.map(block => block.after).join('\n// local customization\n'));
+  }
+  assert.equal(integrateTeacher(root, 'apply').written, false);
+});
 test('installer upgrades the previous Windows path integration to a file URL and stays repeatable', t => {
   const root = teacherFixture(t);
   const first = patch.files[0];
