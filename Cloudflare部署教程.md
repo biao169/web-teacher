@@ -24,6 +24,8 @@ pnpm exec wrangler login
 pnpm exec wrangler whoami
 ```
 
+这里必须使用完整依赖安装，包含 `wrangler`、Workers 类型和 Cloudflare 构建工具；不要使用 Ubuntu/Debian 的 `--prod` 瘦身安装。
+
 `web-vue` 可替换为实际分支，如 `release/cloudflare`。本机无需运行 Ubuntu 的 Tweb，也不要在 Workers 中使用 systemd、SQLite 本机路径或 Python 开发服务器。没有浏览器的 CI 环境可配置自己账号的 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，按 D1/R2/Workers 资源所需权限授权，不要提交凭据到 Git。
 
 ## 3. 创建数据库和媒体桶

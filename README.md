@@ -17,7 +17,7 @@
 bash -c 'set -e; f=$(mktemp); trap '\''rm -f "$f"'\'' EXIT; curl -fL --proto "=https" --tlsv1.2 "https://raw.githubusercontent.com/biao169/web-teacher/web-vue/Tweb.sh" -o "$f"; bash -n "$f"; sudo bash "$f" install'
 ```
 
-脚本自动检查依赖并交互安装；服务默认复用系统已有 `nobody:nogroup`，不额外创建 Linux 账号；随后询问源码仓库、分支（默认 web-vue，可手动输入其他分支）、快传开关、端口、域名以及数据库（网站）高级管理员用户名和两次密码；该账号与 VPN/系统账号无关。私有仓库和其他 Git 平台见部署说明；使用其他分支时替换 Raw 链接中的分支，并在安装提示中填写对应分支。
+脚本自动检查依赖并交互安装；Ubuntu/Debian 目标只安装生产/构建必需依赖，不安装 Cloudflare CLI 与测试工具；服务默认复用系统已有 `nobody:nogroup`，不额外创建 Linux 账号；随后询问源码仓库、分支（默认 web-vue，可手动输入其他分支）、快传开关、端口、域名以及数据库（网站）高级管理员用户名和两次密码；该账号与 VPN/系统账号无关。私有仓库和其他 Git 平台见部署说明；使用其他分支时替换 Raw 链接中的分支，并在安装提示中填写对应分支。
 
 安装后输入四字符命令即可进入菜单（注意大小写）：
 
@@ -33,4 +33,4 @@ Windows 双击 `test-examples/02_demo_both.cmd`；Linux 执行 `bash test-exampl
 
 删除 `test-examples/` 不影响根目录 `Tweb.sh`、两个应用的源码和生产数据。两个应用内部原有的开发回归测试、迁移文件及辅助初始化实现保留，避免破坏现有构建脚本；它们不自动生成或加载示例数据。生产部署不依赖 `test-examples/`，不自动导入演示账号。
 
-Cloudflare 教师站可部署到 Workers；当前快传依赖常驻 Node、SQLite 和本地磁盘，不支持直接迁入 Workers。若需要教师＋快传共用导航/登录，使用本包 Ubuntu/Debian 同机部署；可以另外将 Cloudflare 用作该站的 DNS/反向代理入口。
+Cloudflare 教师站可部署到 Workers；该路径需要完整依赖，包括 Wrangler、Workers 类型和 Cloudflare 构建工具。当前快传依赖常驻 Node、SQLite 和本地磁盘，不支持直接迁入 Workers。若需要教师＋快传共用导航/登录，使用本包 Ubuntu/Debian 同机部署；可以另外将 Cloudflare 用作该站的 DNS/反向代理入口。

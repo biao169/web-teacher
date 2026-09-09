@@ -42,6 +42,7 @@ prerequisites() {
   [[ $(pnpm --version) == 11.19.0 ]] || die '需要 pnpm 11.19.0'
 }
 ensure_build_swap() {
+  command -v swapon >/dev/null && command -v mkswap >/dev/null || { echo '[内存] 未找到 swapon/mkswap，跳过自动部署 Swap。'; return; }
   local total swap
   total=$(awk '/^(MemTotal|SwapTotal):/ {n+=$2} END {print n+0}' /proc/meminfo)
   (( total >= 2097152 )) && return
@@ -57,7 +58,7 @@ ensure_build_swap() {
 }
 remove_build_swap() {
   local swap=$BASE/build.swap
-  swapon --show=NAME | grep -Fxq "$swap" && swapoff "$swap"
+  if command -v swapon >/dev/null; then swapon --show=NAME | grep -Fxq "$swap" && swapoff "$swap"; fi
   rm -f -- "$swap"
 }
 toolchain() {
@@ -219,6 +220,7 @@ fix_permissions() {
 }
 install_dependencies() {
   ensure_build_swap
+  # Ubuntu/Debian target: install production/build runtime only. Cloudflare deploys use the docs and full deps.
   (cd "$APP/academic-cms"; as_app pnpm install --prod --frozen-lockfile --child-concurrency=1 --network-concurrency=1)
   (cd "$APP/file-transfer"; as_app pnpm install --prod --frozen-lockfile --child-concurrency=1 --network-concurrency=1)
 }
