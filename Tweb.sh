@@ -80,6 +80,76 @@ stop_services() {
     if [[ $(systemctl show "$unit" -p LoadState --value) != not-found ]]; then systemctl stop "$unit"; fi
   done
 }
+installed_or_partial() {
+  [[ -e $APP || -e $CONF/settings.sh || -d $CONF || -e /etc/systemd/system/academic-teacher.service || -e /etc/systemd/system/academic-transfer.service ]]
+}
+safe_remove() {
+  local target=$1
+  [[ -e $target || -L $target ]] || { echo "[跳过] $target 不存在"; return; }
+  case "$target" in
+    "$APP"|"$APP"/*|"$CONF"|"$CONF"/*|"$BASE/backups"|"$BASE/backups"/*) ;;
+    *) die "拒绝删除非本站路径：$target";;
+  esac
+  rm -rf --one-file-system -- "$target"
+  echo "[删除] $target"
+}
+delete_paths() {
+  local label=$1; shift
+  confirm "将停止服务并删除：$label。"
+  stop_services
+  local target
+  for target in "$@"; do safe_remove "$target"; done
+  if [[ -d $APP ]]; then fix_permissions; fi
+  echo '[完成] 已删除。需要重新建库时执行 Tweb database；需要新管理员时执行 Tweb bootstrap。'
+}
+purge_install() {
+  confirm '将停止服务，并删除本站 systemd 服务、快捷命令、应用目录、配置、数据库、媒体、快传数据；保留 Node 运行时。'
+  stop_services || true
+  systemctl disable academic-teacher.service academic-transfer.service >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/academic-teacher.service /etc/systemd/system/academic-transfer.service
+  systemctl daemon-reload || true
+  if [[ -L /usr/local/bin/Tweb && $(readlink /usr/local/bin/Tweb) == "$BASE/Tweb.sh" ]]; then rm -f /usr/local/bin/Tweb; fi
+  safe_remove "$APP"
+  safe_remove "$CONF"
+  echo '[完成] 已删除全部安装与数据；可重新执行 install。'
+}
+cleanup_menu() {
+  printf '%s\n' '1 删除教师数据库  2 删除媒体文件  3 删除快传数据  4 删除备份' \
+    '5 删除全部数据（数据库/媒体/快传/备份）  6 删除全部安装与数据' \
+    '0 返回'
+  local choice
+  read -r -p '请选择: ' choice
+  case $choice in
+    1) delete_paths '教师数据库' "$APP/academic-cms/data";;
+    2) delete_paths '媒体文件' "$APP/academic-cms/media";;
+    3) delete_paths '快传数据' "$APP/file-transfer/storage";;
+    4) delete_paths '备份' "$BASE/backups"; mkdir -p "$BASE/backups";;
+    5) delete_paths '全部数据（数据库/媒体/快传/备份）' "$APP/academic-cms/data" "$APP/academic-cms/media" "$APP/file-transfer/storage" "$BASE/backups"; mkdir -p "$BASE/backups";;
+    6) purge_install;;
+    0) return;;
+    *) die '无效选项';;
+  esac
+}
+existing_install_menu() {
+  echo '[提示] 检测到已有安装或未完成安装，进入管理菜单。'
+  printf '%s\n' '1 完整更新  2 保留数据重装/重建  3 状态  4 日志' \
+    '5 停止  6 启动  7 创建网站高级管理员  8 数据清理/删除' \
+    '0 退出'
+  local choice
+  read -r -p '请选择: ' choice
+  case $choice in
+    1) update_site full;;
+    2) update_site rebuild;;
+    3) systemctl --no-pager status academic-teacher.service academic-transfer.service;;
+    4) journalctl -u academic-teacher.service -u academic-transfer.service -n 100 --no-pager;;
+    5) stop_services;;
+    6) load_config; start_services;;
+    7) load_config; bootstrap;;
+    8) cleanup_menu;;
+    0) return;;
+    *) die '无效选项';;
+  esac
+}
 backup_stopped() {
   local dest=$BASE/backups/$(date -u +%Y%m%dT%H%M%SZ)-$$
   local needed available
@@ -278,7 +348,7 @@ bootstrap() {
   echo "教师登录：$ORIGIN/zh/login；后台：$ORIGIN/admin；快传后台：$ORIGIN/transfer-admin/"
 }
 install_site() {
-  [[ ! -e $APP && ! -e $CONF/settings.sh ]] || die '已有安装/未完成安装，请使用更新或重装；不会覆盖成新站'
+  if installed_or_partial; then existing_install_menu; return; fi
   if ! (prerequisites) >/dev/null 2>&1; then toolchain; fi
   inspect
   [[ ! -e /usr/local/bin/Tweb && ! -L /usr/local/bin/Tweb ]] || die 'Tweb 已存在，拒绝覆盖'
@@ -379,7 +449,7 @@ EOF
 }
 main() {
   if [[ ${1:-} == --help ]]; then
-    echo '用法: Tweb [menu|install|deps|inspect|source|database|full|rebuild|backup|restore|toggle|bootstrap|grant|start|stop|status|logs|nginx]'; return
+    echo '用法: Tweb [menu|install|deps|inspect|source|database|full|rebuild|backup|restore|toggle|bootstrap|grant|start|stop|status|logs|nginx|clean|purge]'; return
   fi
   if [[ $EUID != 0 ]]; then exec sudo bash "$SELF" "$@"; fi
   require_root; platform
@@ -396,14 +466,15 @@ main() {
       '5 保留数据重装/重建  6 备份  7 恢复  8 启停快传组件' \
       '9 状态  10 日志  11 网络/VPN检测  12 安装依赖' \
       '13 启动  14 停止  15 创建网站高级管理员  16 快传管理员授权' \
-      '17 Nginx配置示例  0 退出（操作完成后重新 Tweb 进入）'
+      '17 Nginx配置示例  18 数据清理/删除  0 退出（操作完成后重新 Tweb 进入）'
     read -r -p '请选择: ' action
-    case $action in 1) action=install;;2) action=source;;3) action=database;;4) action=full;;5) action=rebuild;;6) action=backup;;7) action=restore;;8) action=toggle;;9) action=status;;10) action=logs;;11) action=inspect;;12) action=deps;;13) action=start;;14) action=stop;;15) action=bootstrap;;16) action=grant;;17) action=nginx;;0) return;;*) die '无效选项';;esac
+    case $action in 1) action=install;;2) action=source;;3) action=database;;4) action=full;;5) action=rebuild;;6) action=backup;;7) action=restore;;8) action=toggle;;9) action=status;;10) action=logs;;11) action=inspect;;12) action=deps;;13) action=start;;14) action=stop;;15) action=bootstrap;;16) action=grant;;17) action=nginx;;18) action=clean;;0) return;;*) die '无效选项';;esac
   fi
   case $action in
     install) install_site;; deps) toolchain;; inspect) inspect;;
     source|database|full|rebuild) update_site "$action";;
     backup) backup;; restore) restore;; toggle) toggle;;
+    clean) cleanup_menu;; purge) purge_install;;
     start) load_config; start_services;; stop) load_config; stop_services;;
     status) systemctl --no-pager status academic-teacher.service academic-transfer.service;;
     logs) journalctl -u academic-teacher.service -u academic-transfer.service -n 100 --no-pager;;
