@@ -1,0 +1,186 @@
+/* Homepage only. Keep the site's palette, reading controls and other pages intact. */
+.public-home--cards .public-home-grid {
+  display: grid;
+  gap: clamp(1rem, 2vw, 1.75rem);
+  padding-block: clamp(1.25rem, 3vw, 2.25rem) 3rem;
+}
+
+/* Existing sections retain their components; only the outer container owns width. */
+.public-home--cards .public-home-profile,
+.public-home--cards .public-home-section {
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.public-home--cards :is(.public-home-profile, .public-home-section) > .public-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.public-home--cards .public-home-profile__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.6fr) minmax(15rem, 1fr);
+  align-items: start;
+  gap: clamp(1rem, 2vw, 1.75rem);
+}
+
+.public-home--cards .public-home-profile__layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.public-home--cards :is(
+  .public-home-profile__body,
+  .public-home-profile__details,
+  .public-home-profile__empty,
+  .public-home-section
+) {
+  min-width: 0;
+  height: 100%;
+  padding: clamp(1rem, 2vw, 1.75rem);
+  border: 1px solid var(--public-line);
+  border-radius: var(--public-radius-lg);
+  background: var(--public-surface);
+  box-shadow: var(--public-shadow-sm);
+}
+
+.public-home--cards .public-home-profile__intro {
+  display: grid;
+  grid-template-columns: clamp(10rem, 18vw, 14.5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(1rem, 2vw, 1.75rem);
+}
+
+.public-home--cards .public-home-profile__photo {
+  float: none;
+  width: 100%;
+  margin: 0;
+}
+
+.public-home--cards .public-home-profile__photo .public-media {
+  aspect-ratio: 2 / 3;
+  border: 0;
+  border-radius: var(--public-radius-sm);
+  background: transparent;
+  box-shadow: none;
+}
+
+.public-home--cards .public-home-profile__organization {
+  margin: 0 0 .65rem;
+  color: var(--public-muted);
+}
+
+.public-home--cards .public-home-profile__meta {
+  margin: .8rem 0 0;
+  color: var(--public-accent-strong);
+}
+
+.public-home--cards .public-home-profile__biography {
+  display: block;
+  margin: 1.5rem 0 0;
+  max-height: none;
+  overflow: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  -webkit-line-clamp: unset;
+}
+
+.public-home--cards .public-home-profile__details h2 {
+  margin: 0 0 1rem;
+  font-size: var(--public-text-title);
+}
+
+.public-home--cards .public-home-profile__contact {
+  display: grid;
+  gap: .85rem;
+  margin: 0;
+}
+
+.public-home--cards .public-home-profile__contact :is(a, span) {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.public-home--cards .public-home-profile__contact svg {
+  margin-top: .25em;
+}
+
+.public-home--cards .public-home-profile__details .public-profile-links {
+  display: grid;
+  gap: .6rem;
+  margin-top: 1rem;
+}
+
+.public-home--cards .public-home-profile__details .public-profile-links a {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+/* Keep backend-controlled homepage shortcut buttons, separate from the header. */
+.public-home--cards .public-home-shortcuts {
+  margin-top: 1rem;
+  padding-top: .85rem;
+}
+
+.public-home--cards .public-home-updates {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(1rem, 2vw, 1.75rem);
+  min-width: 0;
+}
+
+.public-home--cards .public-home-updates--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.public-home--cards .public-home-section .public-section-heading {
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.public-home--cards .public-home-research {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.public-home--cards .public-home-research__card {
+  padding: .35rem .8rem;
+  border-radius: 999px;
+  background: var(--public-accent-soft);
+  box-shadow: none;
+}
+
+.public-home--cards .public-home-research__card::before {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  .public-home--cards .public-home-profile__layout,
+  .public-home--cards .public-home-updates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .public-home--cards .public-home-profile__intro {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .public-home--cards .public-home-profile__photo {
+    width: min(10rem, 100%);
+  }
+
+  .public-home--cards .public-home-profile__biography {
+    margin-top: 1rem;
+  }
+}

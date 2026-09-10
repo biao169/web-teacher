@@ -7,11 +7,17 @@ defineEmits<{ retry: [] }>()
 </script>
 
 <template>
-  <div class="public-home pub:min-h-screen">
-    <PublicHomeHero :model="model" />
-    <PublicHomeResearch :model="model" />
-    <PublicHomePublications :model="model" :citations="citations" :citation-status="citationStatus" :citation-error="citationError" @retry="$emit('retry')" />
-    <PublicHomeProjects :model="model" />
-    <PublicHomeNews :model="model" />
+  <div class="public-home public-home--cards pub:min-h-screen">
+    <div class="public-container public-home-grid">
+      <PublicHomeHero :model="model" />
+      <PublicHomeResearch :model="model" />
+      <div v-if="model.publications.length || model.news.length" class="public-home-updates" :class="{ 'public-home-updates--single': !model.publications.length || !model.news.length }">
+        <PublicHomePublications :model="model" :citations="citations" :citation-status="citationStatus" :citation-error="citationError" @retry="$emit('retry')" />
+        <PublicHomeNews :model="model" />
+      </div>
+      <PublicHomeProjects :model="model" />
+    </div>
   </div>
 </template>
+
+<style src="../../../assets/public/home.css"></style>

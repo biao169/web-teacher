@@ -644,9 +644,9 @@
  .public-compact-record[data-selected] {border-color:var(--public-accent);box-shadow:0 0 0 1px var(--public-accent-soft)}
  .public-compact-record__rail {display:flex;flex-direction:column;align-items:center;gap:.125rem;min-width:2rem;color:var(--public-muted);padding-top:.15rem}
  .public-record-number {font-variant-numeric:tabular-nums;white-space:nowrap}
- .public-record-select {display:grid;place-items:center;width:2rem;min-height:2rem;border-radius:var(--public-radius-sm);cursor:pointer;user-select:none;-webkit-user-select:none}
+ .public-record-select {display:grid;place-items:center;width:1.2rem;min-height:1.2rem;border-radius:var(--public-radius-sm);cursor:pointer;user-select:none;-webkit-user-select:none}
  .public-record-select:hover {background:var(--public-accent-soft)}
- .public-record-select:focus-within {outline:2px solid var(--public-focus);outline-offset:2px}
+ /* .public-record-select:focus-within {outline:2px solid var(--public-focus);outline-offset:2px} */
  .public-compact-record__body {display:flex;flex-direction:column;gap:.25rem;min-width:0;overflow-wrap:anywhere}
  .public-compact-record__body :where(p,h2) {margin:0}
  .public-compact-record__heading {display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem .6rem;min-width:0}
@@ -842,7 +842,7 @@
  .public-body :where(input,textarea)::placeholder {color:var(--public-muted);opacity:1}
  .public-navigation-link,.public-icon-link,.public-reading-controls button {transition:background-color .16s ease,color .16s ease}
  .public-icon-link {min-width:2.25rem}
- .public-copy-record {min-width:2rem;min-height:2rem}
+ .public-copy-record {min-width:1rem;min-height:1rem}
  .public-selection-dialog,.public-filter-panel,.public-citation-box {box-shadow:none}
 }
 @media (forced-colors:active) {
@@ -898,7 +898,7 @@
  .public-home-research__card:focus-visible {outline:2px solid var(--public-focus);outline-offset:3px}
 }
 
-@layer components { .public-body input[type="checkbox"] { width:1rem;height:1rem;flex:none;accent-color:var(--public-accent-strong); } }
+@layer components { .public-body input[type="checkbox"] { width:.9rem;height:.9rem;flex:none;accent-color:var(--public-accent-strong); } }
 
 /* News feedback is opened on demand, using the shared contact form. */
 .public-news-messages { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--public-line); }
