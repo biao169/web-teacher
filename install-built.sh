@@ -20,6 +20,7 @@ BACKUPS=$BASE/backups
 ENV_FILE=$APP/.env
 STATE_FILE=$CONF/install.env
 UNIT=/etc/systemd/system/$SERVICE.service
+DEPS_STAMP=$CONF/deps.sha256
 
 log(){ printf '[%s] %s\n' "$NAME" "$*"; }
 die(){ printf '[%s] 失败: %s\n' "$NAME" "$*" >&2; exit 1; }
@@ -27,6 +28,8 @@ need_root(){ [[ ${EUID:-$(id -u)} -eq 0 ]] || exec sudo bash "$0" "$@"; }
 ask(){ local p=$1 d=$2 v; read -r -p "$p [$d]: " v; printf '%s' "${v:-$d}"; }
 secret(){ node -e 'console.log(require("crypto").randomBytes(32).toString("base64url"))'; }
 confirm(){ local p=$1 v; read -r -p "$p 输入 YES 确认: " v; [[ $v == YES ]] || die '已取消'; }
+env_get(){ local k=$1; awk -F= -v k="$k" '$1==k{print substr($0,index($0,"=")+1); exit}' "$ENV_FILE" 2>/dev/null | sed "s/^'//;s/'$//;s/^\"//;s/\"$//"; }
+env_line(){ printf '%s=%q\n' "$1" "$2"; }
 
 safe_rm(){
   local p=$1
@@ -86,13 +89,24 @@ cleanup_previous_attempts(){
 
 system_deps(){
   repair_var_dirs
+  local pkgs=(ca-certificates curl git rsync xz-utils build-essential python3) missing=() p
+  for p in "${pkgs[@]}"; do
+    dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q 'install ok installed' || missing+=("$p")
+  done
+  if (( ${#missing[@]} == 0 )); then
+    log '系统依赖已存在，跳过 apt 安装'
+    return
+  fi
   apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git rsync xz-utils build-essential python3
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
 }
 
 node_runtime(){
   export PATH="$RUNTIME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-  if [[ -x $RUNTIME/bin/node ]] && "$RUNTIME/bin/node" -e "let [a,b]=process.versions.node.split('.').map(Number);process.exit(a===24&&b>=19?0:1)" 2>/dev/null; then
+  if [[ -x $RUNTIME/bin/node && -x $RUNTIME/bin/pnpm ]] \
+    && "$RUNTIME/bin/node" -e "process.exit(process.versions.node==='$NODE_VERSION'?0:1)" 2>/dev/null \
+    && [[ $("$RUNTIME/bin/pnpm" --version 2>/dev/null) == "$PNPM_VERSION" ]]; then
+    log "Node $NODE_VERSION / pnpm $PNPM_VERSION 已存在，跳过运行时安装"
     return
   fi
   mkdir -p "$TMP"
@@ -111,6 +125,7 @@ node_runtime(){
   safe_rm "$RUNTIME" 2>/dev/null || true
   mv "$RUNTIME.new" "$RUNTIME"
   "$RUNTIME/bin/npm" install -g --prefix "$RUNTIME" "pnpm@$PNPM_VERSION"
+  safe_rm "$DEPS_STAMP" 2>/dev/null || true
 }
 
 fetch_code(){
@@ -129,25 +144,24 @@ copy_code(){
 }
 
 write_env(){
-  [[ -f $ENV_FILE ]] && . "$ENV_FILE"
   local auth boot media
-  auth=${NUXT_AUTH_SECRET:-$(secret)}
-  boot=${NUXT_AUTH_BOOTSTRAP_TOKEN:-$(secret)}
-  media=${NUXT_MEDIA_GRANT_SECRET:-$(secret)}
-  cat > "$ENV_FILE" <<EOF
-CMS_DATABASE_PATH=data/site.sqlite3
-NUXT_PUBLIC_SITE_NAME=Academic CMS
-NUXT_PUBLIC_SITE_URL=$SITE_URL
-NUXT_AUTH_SECRET=$auth
-NUXT_AUTH_BOOTSTRAP_TOKEN=$boot
-NUXT_AUTH_TRUSTED_ORIGINS=$SITE_URL
-NUXT_AUTH_SECURE_COOKIES=true
-NUXT_MEDIA_GRANT_SECRET=$media
-NUXT_MEDIA_ROUTE_BASE=/media
-NUXT_MEDIA_ROOT=media
-NUXT_STATIC_MEDIA_ROOT=public
-NUXT_CACHE_ORIGIN=$SITE_URL
-EOF
+  auth=$(env_get NUXT_AUTH_SECRET); auth=${auth:-$(secret)}
+  boot=$(env_get NUXT_AUTH_BOOTSTRAP_TOKEN); boot=${boot:-$(secret)}
+  media=$(env_get NUXT_MEDIA_GRANT_SECRET); media=${media:-$(secret)}
+  {
+    env_line CMS_DATABASE_PATH data/site.sqlite3
+    env_line NUXT_PUBLIC_SITE_NAME 'Academic CMS'
+    env_line NUXT_PUBLIC_SITE_URL "$SITE_URL"
+    env_line NUXT_AUTH_SECRET "$auth"
+    env_line NUXT_AUTH_BOOTSTRAP_TOKEN "$boot"
+    env_line NUXT_AUTH_TRUSTED_ORIGINS "$SITE_URL"
+    env_line NUXT_AUTH_SECURE_COOKIES true
+    env_line NUXT_MEDIA_GRANT_SECRET "$media"
+    env_line NUXT_MEDIA_ROUTE_BASE /media
+    env_line NUXT_MEDIA_ROOT media
+    env_line NUXT_STATIC_MEDIA_ROOT public
+    env_line NUXT_CACHE_ORIGIN "$SITE_URL"
+  } > "$ENV_FILE"
   chmod 600 "$ENV_FILE"
 }
 
@@ -159,7 +173,24 @@ app_env(){
   set +a
 }
 
-app_deps(){ cd "$APP"; pnpm install --prod --frozen-lockfile --child-concurrency=1 --network-concurrency=1; }
+deps_fingerprint(){
+  cd "$APP"
+  { "$RUNTIME/bin/node" -v; "$RUNTIME/bin/pnpm" --version; sha256sum package.json pnpm-lock.yaml; } 2>/dev/null | sha256sum | awk '{print $1}'
+}
+
+app_deps(){
+  cd "$APP"
+  mkdir -p "$CONF"
+  local current saved
+  current=$(deps_fingerprint)
+  saved=$(cat "$DEPS_STAMP" 2>/dev/null || true)
+  if [[ -d node_modules && -n $current && $current == "$saved" ]]; then
+    log '项目依赖未变化，跳过 pnpm install'
+    return
+  fi
+  pnpm install --prod --frozen-lockfile --child-concurrency=1 --network-concurrency=1
+  deps_fingerprint > "$DEPS_STAMP"
+}
 db_migrate(){ cd "$APP"; app_env; pnpm run db:migrate:sqlite; }
 
 bootstrap_admin(){
