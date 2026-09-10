@@ -1,0 +1,1 @@
+new TextEncoder;function e(e){for(let t=0;t<e.length;t+=1){let n=e.charCodeAt(t);if(n>=55296&&n<=56319){let n=e.charCodeAt(t+1);if(!(n>=56320&&n<=57343))return!0;t+=1}else if(n>=56320&&n<=57343)return!0}return!1}export{e as t};

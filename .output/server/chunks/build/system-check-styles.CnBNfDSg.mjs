@@ -1,0 +1,1 @@
+const a=[".capabilities[data-v-2b21bde5]{gap:1rem;display:grid}.capabilities>header[data-v-2b21bde5]{justify-content:space-between;align-items:flex-start;gap:1rem;display:flex}.capabilities h1[data-v-2b21bde5],.capabilities p[data-v-2b21bde5]{margin:0}.capabilities p[data-v-2b21bde5]{color:var(--el-text-color-secondary);margin-top:.35rem}"];export{a as default};

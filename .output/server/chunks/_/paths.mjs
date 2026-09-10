@@ -1,0 +1,1 @@
+import{z as t}from"./nitro.mjs";function safeAdminReturnPath(n,a="/admin"){const i="/admin"===a||a.startsWith("/admin/")?a:"/admin",m=t(n,i);return"/admin"===m||m.startsWith("/admin/")?m:i}export{safeAdminReturnPath as s};

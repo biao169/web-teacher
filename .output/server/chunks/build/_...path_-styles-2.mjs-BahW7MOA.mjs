@@ -1,0 +1,1 @@
+var a=".admin-pagination[data-v-c01fe05c]{color:var(--admin-muted);justify-content:space-between;align-items:center;gap:1rem;padding-top:.85rem;font-size:.75rem;display:flex}@media (max-width:720px){.admin-pagination[data-v-c01fe05c]{flex-direction:column;align-items:flex-start;overflow-x:auto}}";export{a as L};

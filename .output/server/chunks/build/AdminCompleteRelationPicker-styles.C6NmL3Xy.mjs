@@ -1,0 +1,1 @@
+const a=[".admin-relation-toolbar[data-v-7809b259]{grid-template-columns:minmax(12rem,1fr) auto;gap:.75rem;margin-bottom:1rem;display:grid}@media (max-width:640px){.admin-relation-toolbar[data-v-7809b259]{grid-template-columns:1fr}}"];export{a as default};

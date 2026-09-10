@@ -1,0 +1,1 @@
+var e=".admin-form-alert[data-v-3877b2ef]{margin-bottom:1rem}.news-rich-sections[data-v-3877b2ef]{gap:1rem;display:grid}.news-rich-overview[data-v-3877b2ef],.news-rich-content[data-v-3877b2ef] .rich-editor{margin-top:1rem}";export{e as A};

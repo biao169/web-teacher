@@ -1,0 +1,1 @@
+import{n as e}from"./CHOVJ9Fb.js";import{C as t,U as n,p as r}from"./CkxaEjTY.js";import{t as i}from"./CNs_Ozdc.js";import{t as a}from"./DjWUFbtk.js";var o=t({__name:`index`,setup(t){return i({layout:`admin`}),e({title:`媒体库 · 后台`}),(e,t)=>(n(),r(a,{mode:`library`}))}});export{o as default};

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "project": "academic-cms",
+  "target": "ubuntu",
+  "nitroPreset": "node-server",
+  "runtimeKind": "node",
+  "appVersion": "0.1.0",
+  "builtAt": "2026-09-10T07:53:50.992Z"
+}

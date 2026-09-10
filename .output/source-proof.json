@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "sourceDigest": "b1fbd403a55f952fa406a930f09c4857a8f8584ee37b866bccdf01d83da40716",
+  "sourceFiles": 867,
+  "node": "v24.19.0",
+  "packageManager": "pnpm@11.19.0"
+}

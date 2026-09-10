@@ -1,0 +1,1 @@
+import{n as e}from"./CHOVJ9Fb.js";import{C as t,U as n,p as r}from"./CkxaEjTY.js";import{t as i}from"./DHrTAk7S.js";import{t as a}from"./CNs_Ozdc.js";var o=t({__name:`index`,setup(t){return a({layout:`admin`}),e({title:`论文 DOI 元数据 - 网站后台`}),(e,t)=>(n(),r(i,{"initial-kind":`doi`}))}});export{o as default};

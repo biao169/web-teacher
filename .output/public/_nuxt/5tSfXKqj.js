@@ -1,0 +1,1 @@
+import{i as e}from"./CHOVJ9Fb.js";import{C as t,U as n,p as r}from"./CkxaEjTY.js";import{t as i}from"./CNs_Ozdc.js";import{t as a}from"./COiW7we0.js";var o=t({__name:`setup`,setup(t){return i({layout:!1}),e({robots:`noindex, nofollow`,title:`Initialize administrator`}),(e,t)=>(n(),r(a,{locale:`en`}))}});export{o as default};

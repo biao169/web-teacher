@@ -1,0 +1,1 @@
+import{$t as e,C as t,U as n,h as r,q as i}from"./CkxaEjTY.js";var a=Object.assign(t({__name:`Badge`,props:{tone:{default:`neutral`}},setup(t){return(a,o)=>(n(),r(`span`,{class:e([`public-badge`,`public-badge--${t.tone}`])},[i(a.$slots,`default`)],2))}}),{__name:`PublicUiBadge`});export{a as t};

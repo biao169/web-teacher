@@ -1,0 +1,1 @@
+import{i as e}from"./CHOVJ9Fb.js";import{C as t,U as n,p as r}from"./CkxaEjTY.js";import{t as i}from"./CNs_Ozdc.js";import{t as a}from"./COiW7we0.js";var o=t({__name:`setup`,setup(t){return i({layout:!1}),e({robots:`noindex, nofollow`,title:`初始化管理员`}),(e,t)=>(n(),r(a,{locale:`zh`}))}});export{o as default};
