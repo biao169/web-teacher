@@ -5,11 +5,11 @@ umask 077
 BASE=/opt/file-transfer
 ETC=/etc/file-transfer
 SERVICE=file-transfer
-REPO=''; BRANCH=web-vue; SUBDIR=auto; MODE=install; BRANCH_EXPLICIT=no
+REPO=''; BRANCH=web-vue-nuxt; SUBDIR=auto; MODE=install; BRANCH_EXPLICIT=no
 NODE_VERSION=24.19.0
 PNPM_VERSION=11.19.0
 usage(){ cat <<'TXT'
-Usage: install.sh --repo https://github.com/biao169/web-teacher.git [--branch web-vue] [--subdir file-transfer|.] [--mode install|update|menu]
+Usage: install.sh --repo https://github.com/biao169/web-teacher.git [--branch web-vue-nuxt] [--subdir file-transfer|.] [--mode install|update|menu]
 Terminal menu after installation: Fweb
 Updates preserve storage and configuration, and take a stopped-service backup.
 TXT

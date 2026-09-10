@@ -4,15 +4,15 @@
 
 ## Git 首次启动命令
 
-先由仓库维护者将**本压缩包解压后的根目录内容**提交到自己的 Git 仓库。仓库根目录必须直接有 `academic-cms`、`file-transfer`、`Tweb.sh`。服务器使用者无需事先克隆仓库。下面以当前 GitHub 公开仓库为例，默认示例分支为 `web-vue`；需要时可手动替换为其他分支：
+先由仓库维护者将**本压缩包解压后的根目录内容**提交到自己的 Git 仓库。仓库根目录必须直接有 `academic-cms`、`file-transfer`、`Tweb.sh`。服务器使用者无需事先克隆仓库。下面以当前 GitHub 公开仓库为例，默认示例分支为 `web-vue-nuxt`；需要时可手动替换为其他分支：
 
 ```bash
-bash -c 'set -e; f=$(mktemp); trap '\''rm -f "$f"'\'' EXIT; curl -fL --proto "=https" --tlsv1.2 "https://raw.githubusercontent.com/biao169/web-teacher/web-vue/Tweb.sh" -o "$f"; bash -n "$f"; sudo bash "$f" install'
+bash -c 'set -e; f=$(mktemp); trap '\''rm -f "$f"'\'' EXIT; curl -fL --proto "=https" --tlsv1.2 "https://raw.githubusercontent.com/biao169/web-teacher/web-vue-nuxt/Tweb.sh" -o "$f"; bash -n "$f"; sudo bash "$f" install'
 ```
 
 这是一句完整终端命令：先完整下载脚本到临时文件，成功后进行 Bash 语法检查，再运行交互安装；网络失败不会执行半截脚本，交互输入仍来自终端，不使用 `curl | bash` 占用标准输入。临时文件退出时自动清理。机器须已有 Bash、curl 和 sudo（root可将 sudo 去掉）；没有 curl 时先 `sudo apt-get update && sudo apt-get install -y curl ca-certificates`。
 
-安装会检测缺少的依赖，并征询安装；然后询问 Git 仓库地址、源码分支（默认 web-vue，可手动输入其他分支）、快传开关、端口、HTTPS地址、数据库（网站）高级管理员用户名和两次密码。Raw URL 的分支是**部署脚本版本**，安装时填写的分支是**源码版本**，推荐一致；如用 `release/test`，Raw 地址写对应实际 Raw 文件链接，安装时也输入 `release/test`。后续更新保留上次成功选用的源码分支，不存在的分支在停机前失败。
+安装会检测缺少的依赖，并征询安装；然后询问 Git 仓库地址、源码分支（默认 web-vue-nuxt，可手动输入其他分支）、快传开关、端口、HTTPS地址、数据库（网站）高级管理员用户名和两次密码。Raw URL 的分支是**部署脚本版本**，安装时填写的分支是**源码版本**，推荐一致；如用 `release/test`，Raw 地址写对应实际 Raw 文件链接，安装时也输入 `release/test`。后续更新保留上次成功选用的源码分支，不存在的分支在停机前失败。
 
 GitLab/Gitea 等同理：将命令中的 HTTPS 地址替换为该平台给出的 `Tweb.sh` 原始文件链接。私有仓库可将部署脚本单独放在可信且可访问的 HTTPS 地址，实际源码通过已配置的 Git 凭据拉取；不能把需要登录的 HTML 页面当作 Raw 脚本地址。本包示例已使用当前远程仓库地址；如换仓库或换分支，请同步替换 Raw 脚本地址和安装时填写的源码仓库/分支。
 

@@ -4,10 +4,10 @@
 
 ## 一行启动
 
-当前完整仓库中快传工具位于 `file-transfer/`，默认示例分支为 `web-vue`。分支可按实际情况替换：
+当前完整仓库中快传工具位于 `file-transfer/`，默认示例分支为 `web-vue-nuxt`。分支可按实际情况替换：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/biao169/web-teacher/web-vue/file-transfer/install.sh | sudo bash -s -- --repo https://github.com/biao169/web-teacher.git --branch web-vue --subdir file-transfer
+curl -fsSL https://raw.githubusercontent.com/biao169/web-teacher/web-vue-nuxt/file-transfer/install.sh | sudo bash -s -- --repo https://github.com/biao169/web-teacher.git --branch web-vue-nuxt --subdir file-transfer
 ```
 
 不必先 git clone。脚本交互从 `/dev/tty` 读取，因此管道执行也能输入域名、管理员名称和密码。Git 克隆支持自定义 HTTPS 地址；私有仓库使用服务器 root 账号已配置的 Git credential helper，不把令牌写进 URL。

@@ -17,7 +17,7 @@
 在有 Node >=24.19.0 <25 和 pnpm 11.19.0 的开发电脑执行。下面 Shell 环境命令适用于 Linux/macOS/WSL；Windows PowerShell 的环境变量写法在第5节列出。
 
 ```bash
-git clone --single-branch --branch web-vue https://github.com/biao169/web-teacher.git academic-suite
+git clone --single-branch --branch web-vue-nuxt https://github.com/biao169/web-teacher.git academic-suite
 cd academic-suite/academic-cms
 pnpm install --frozen-lockfile
 pnpm exec wrangler login
@@ -26,7 +26,7 @@ pnpm exec wrangler whoami
 
 这里必须使用完整依赖安装，包含 `wrangler`、Workers 类型和 Cloudflare 构建工具；不要使用 Ubuntu/Debian 的 `--prod` 瘦身安装。
 
-`web-vue` 可替换为实际分支，如 `release/cloudflare`。本机无需运行 Ubuntu 的 Tweb，也不要在 Workers 中使用 systemd、SQLite 本机路径或 Python 开发服务器。没有浏览器的 CI 环境可配置自己账号的 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，按 D1/R2/Workers 资源所需权限授权，不要提交凭据到 Git。
+`web-vue-nuxt` 可替换为实际分支，如 `release/cloudflare`。本机无需运行 Ubuntu 的 Tweb，也不要在 Workers 中使用 systemd、SQLite 本机路径或 Python 开发服务器。没有浏览器的 CI 环境可配置自己账号的 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，按 D1/R2/Workers 资源所需权限授权，不要提交凭据到 Git。
 
 ## 3. 创建数据库和媒体桶
 

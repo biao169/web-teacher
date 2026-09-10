@@ -380,7 +380,7 @@ install_site() {
     [[ $(systemctl show "$name.service" -p LoadState --value) == not-found ]] || die "$name.service 已存在，拒绝覆盖其他部署"
   done
   ask 'Git 仓库地址（请先将本包根目录上传到你的仓库）' 'https://github.com/biao169/web-teacher.git' REPO
-  ask 'Git 分支' web-vue BRANCH
+  ask 'Git 分支' web-vue-nuxt BRANCH
   ask '启用文件快传？true/false' false TRANSFER
   [[ $TRANSFER == true || $TRANSFER == false ]] || die '请输入 true 或 false'
   ask '教师服务回环端口' 8005 PORT
