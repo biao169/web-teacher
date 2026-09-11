@@ -21,6 +21,7 @@ ENV_FILE=$APP/.env
 STATE_FILE=$CONF/install.env
 UNIT=/etc/systemd/system/$SERVICE.service
 DEPS_STAMP=$CONF/deps.sha256
+SERVER_DEPS_STAMP=$CONF/server-deps.sha256
 
 log(){ printf '[%s] %s\n' "$NAME" "$*"; }
 die(){ printf '[%s] 失败: %s\n' "$NAME" "$*" >&2; exit 1; }
@@ -126,6 +127,7 @@ node_runtime(){
   mv "$RUNTIME.new" "$RUNTIME"
   "$RUNTIME/bin/npm" install -g --prefix "$RUNTIME" "pnpm@$PNPM_VERSION"
   safe_rm "$DEPS_STAMP" 2>/dev/null || true
+  safe_rm "$SERVER_DEPS_STAMP" 2>/dev/null || true
 }
 
 fetch_code(){
@@ -178,7 +180,12 @@ deps_fingerprint(){
   { "$RUNTIME/bin/node" -v; "$RUNTIME/bin/pnpm" --version; sha256sum package.json pnpm-lock.yaml; } 2>/dev/null | sha256sum | awk '{print $1}'
 }
 
-app_deps(){
+server_deps_fingerprint(){
+  cd "$APP/.output/server"
+  { "$RUNTIME/bin/node" -v; "$RUNTIME/bin/npm" -v; sha256sum package.json; } 2>/dev/null | sha256sum | awk '{print $1}'
+}
+
+project_deps(){
   cd "$APP"
   mkdir -p "$CONF"
   local current saved
@@ -188,9 +195,35 @@ app_deps(){
     log '项目依赖未变化，跳过 pnpm install'
     return
   fi
+  if [[ -f node_modules/.modules.yaml && -n $current && -z $saved ]]; then
+    log '项目依赖已存在，记录指纹并跳过 pnpm install'
+    printf '%s\n' "$current" > "$DEPS_STAMP"
+    return
+  fi
   pnpm install --prod --frozen-lockfile --child-concurrency=1 --network-concurrency=1
   deps_fingerprint > "$DEPS_STAMP"
 }
+
+server_deps(){
+  cd "$APP/.output/server"
+  mkdir -p "$CONF"
+  local current saved
+  current=$(server_deps_fingerprint)
+  saved=$(cat "$SERVER_DEPS_STAMP" 2>/dev/null || true)
+  if [[ -d node_modules && -n $current && $current == "$saved" ]]; then
+    log '运行产物依赖未变化，跳过 npm install'
+    return
+  fi
+  if [[ -d node_modules && -n $current && -z $saved ]]; then
+    log '运行产物依赖已存在，记录指纹并跳过 npm install'
+    printf '%s\n' "$current" > "$SERVER_DEPS_STAMP"
+    return
+  fi
+  "$RUNTIME/bin/npm" install --omit=dev --no-audit --no-fund
+  server_deps_fingerprint > "$SERVER_DEPS_STAMP"
+}
+
+app_deps(){ project_deps; server_deps; }
 db_migrate(){ cd "$APP"; app_env; pnpm run db:migrate:sqlite; }
 
 bootstrap_admin(){
