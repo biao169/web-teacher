@@ -90,6 +90,13 @@ def write(path, text, mode=0o644):
         temp.write_text(text,encoding='utf-8');temp.chmod(mode);os.replace(temp,path)
     finally: temp.unlink(missing_ok=True)
 
+def chmod_tree(root, dir_mode, file_mode):
+    if not root.exists(): return
+    for path in (root, *root.rglob('*')):
+        if path.is_symlink(): continue
+        if path.is_dir(): path.chmod(dir_mode)
+        elif path.is_file(): path.chmod(0o755 if path.stat().st_mode & 0o111 else file_mode)
+
 
 def confirm(token, supplied):
     if supplied==token:return
@@ -144,6 +151,21 @@ class Manager:
         if release.parent!=self.l.base/'releases':raise ValueError('current 指向管理范围外')
         return release
 
+    def fix_permissions(self, release=None):
+        for p in (self.l.base,self.l.data,self.l.config): owned(p)
+        (self.l.base/'releases').mkdir(exist_ok=True)
+        for p in (self.l.data/'database',self.l.data/'cache',self.l.data/'media',self.l.base/'transfer-data/files',self.l.base/'transfer-data/cache'):
+            p.mkdir(parents=True,exist_ok=True)
+        self.run(['chown','-R',f'{USER}:{USER}',self.l.data,self.l.base/'transfer-data'])
+        chmod_tree(self.l.data,0o700,0o600);chmod_tree(self.l.base/'transfer-data',0o700,0o600)
+        for p in (self.l.config,self.l.config/'storage.toml',self.l.config/'teacher-site.env'):
+            if p.exists(): self.run(['chown',f'root:{USER}',p])
+        if self.l.config.exists(): self.l.config.chmod(0o750)
+        for p in (self.l.config/'storage.toml',self.l.config/'teacher-site.env'):
+            if p.exists(): p.chmod(0o640)
+        if release is None and self.l.current.is_symlink(): release=self.release()
+        if release is not None and release.exists(): chmod_tree(release,0o755,0o644)
+
     def fetch(self, repo, branch):
         repository(repo);branch_name(branch)
         release=self.l.base/'releases'/uuid.uuid4().hex
@@ -169,6 +191,7 @@ class Manager:
 
     def db(self, release, mode):
         # Reset and init both reuse the native schema, lock and admin prompt.
+        self.fix_permissions(release)
         env=['env','-i','PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','PYTHONUTF8=1','PYTHONDONTWRITEBYTECODE=1',f'TEACHER_CONFIG={self.l.config}/storage.toml']
         prefix=['runuser','-u',USER,'--',*env,release/'.venv/bin/python']
         if mode=='reset':self.run([*prefix,'-m','backend.cli','reset-data','--include-transfer'],cwd=release)
@@ -185,6 +208,7 @@ class Manager:
         raise RuntimeError('健康检查失败；使用 tweb logs 检查')
 
     def start(self):
+        self.fix_permissions()
         self.run(['systemctl','start',SERVICE]);self.healthy()
 
     def generate(self, release, state):
@@ -270,9 +294,6 @@ location / {{
             self.run(['useradd','--system','--user-group','--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',USER])
             state['user_created']=True;self.save(state)
             (self.l.base/'releases').mkdir()
-            for p in (self.l.data/'cache',self.l.data/'media',self.l.base/'transfer-data/files',self.l.base/'transfer-data/cache'):p.mkdir(parents=True)
-            self.run(['chown','-R',f'{USER}:{USER}',self.l.data,self.l.base/'transfer-data'])
-            self.l.data.chmod(0o700);(self.l.base/'transfer-data').chmod(0o700)
             release,commit=self.fetch(args.repo,args.branch)
             self.prepare(release,args.python);self.switch(release)
             self.generate(release,state)

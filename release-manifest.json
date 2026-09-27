@@ -590,8 +590,8 @@
       "sha256": "a6b667d4cad59cd7645330f926442bd530752ec379072a4aea3a4a84e08a98ab"
     },
     "deploy/linux/tweb.py": {
-      "bytes": 23290,
-      "sha256": "e41e31159f7d5e20aa939a444684e0279f7d41e3c898d1fda6d9aea4428d5b51"
+      "bytes": 24396,
+      "sha256": "e24d5289228c208d9905df92e983318082e06fca18a2f56d61dfde0c2311e187"
     },
     "deploy/shared/bootstrap.py": {
       "bytes": 1763,
@@ -3310,8 +3310,8 @@
       "sha256": "422ad04cdf82bab1cfc1d23573a96d5c64b8e4d1f835e8ccf0a28dcad95cfa20"
     },
     "tests/test_linux_manager_v76.py": {
-      "bytes": 8574,
-      "sha256": "acf3c84374b6d0c361dc71bb4b9a152c41a2c9ef8964beaae5b7ad81c9f3c71c"
+      "bytes": 8800,
+      "sha256": "58d2d74c0e2c6fd13a64399ca170cc8a551dd9fc8e972737b07433c610fe61f5"
     },
     "tests/test_linux_process_v77.py": {
       "bytes": 6318,

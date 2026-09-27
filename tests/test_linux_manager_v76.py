@@ -51,6 +51,9 @@ def test_install_permissions_paths_and_no_second_service(managed):
     assert m.load()['phase']=='ready'
     assert m.l.command.stat().st_mode & 0o777==0o755
     assert m.l.data.stat().st_mode & 0o777==0o700
+    assert (m.l.data/'database').is_dir()
+    assert (m.l.base/'transfer-data').stat().st_mode & 0o777==0o700
+    assert any(e[:2]==['chown','-R'] and str(m.l.data) in e and str(m.l.base/'transfer-data') in e for e in events)
     assert m.l.state.stat().st_mode & 0o777==0o600
     storage=(m.l.config/'storage.toml').read_text()
     assert f'{m.l.base}/transfer-data/files' in storage
