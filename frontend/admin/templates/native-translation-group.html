@@ -1,0 +1,12 @@
+{% extends 'admin/layout.html' %}
+{% block content %}
+<section class="panel translation-review" data-translation-review data-group="{{ group_uid }}" data-csrf="{{ csrf }}" data-owner="{{ principal.uid }}" data-nav-stamp="{{ nav_stamp }}">
+<div class="native-title"><h1>来源与译文版本</h1><button type="button" class="btn btn-outline-secondary btn-sm" data-review-back>返回列表</button></div>
+<p class="native-muted">同一原文按语言和格式合并显示，来源及历史记录仍分别保留。人工译文有差异时，请先选一个版本，再填入指定的待译来源；也可以保留各来源版本。</p>
+<details open class="translation-original"><summary>原文快照 · {{ listing.anchor.source_lang }} → {{ listing.anchor.target_lang }}</summary><pre>{{ listing.anchor.source_text }}</pre></details>
+{% if can_edit %}<div class="translation-choice" role="status" data-version-choice>尚未选用版本。已有译文和人工记录不会被覆盖。</div>{% endif %}
+<div data-review-feedback role="status" aria-live="polite"></div>
+<div data-review-panel>{% include 'admin/native-translation-group-panel.html' %}</div>
+<noscript><p>可通过来源链接或“编辑此记录”逐条核对；快速选用版本需要启用 JavaScript。</p></noscript>
+</section>
+{% endblock %}

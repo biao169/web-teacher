@@ -1,0 +1,12 @@
+{% set en=lang=='en' %}{% set registering=auth_mode=='register' %}
+<section data-auth-content data-auth-mode="{{ auth_mode }}" data-lang="{{ lang }}"><p class="auth-eyebrow">{{ 'Welcome' if en else '欢迎访问' }}</p><h1 id="auth-title">{{ ('Create an account' if registering else 'Sign in') if en else ('注册账号' if registering else '账号登录') }}</h1><p class="auth-description">{{ ('Create an account to use member features.' if registering else 'Use your website account to continue.') if en else ('创建账号，使用网站会员功能。' if registering else '使用网站账号登录，继续当前操作。') }}</p>
+{% if not registering or auth_allowed %}<form method="post" action="/auth/{{ auth_mode }}" data-auth-form>
+<input type="hidden" name="challenge" value="{{ auth_challenge }}"><input type="hidden" name="lang" value="{{ lang }}"><input type="hidden" name="next" value="{{ auth_next }}">
+<label for="auth-username">{{ 'Username' if en else '账号' }}<input class="form-control" id="auth-username" name="username" autocomplete="username" maxlength="{{ 64 if registering else 150 }}"{% if registering %} minlength="3" pattern="[A-Za-z0-9_.\-]{3,64}"{% endif %} value="{{ auth_username }}" required></label>
+{% if registering %}<p class="auth-help">{{ '3–64 letters, numbers, dots, underscores or hyphens.' if en else '3—64位字母、数字、点、下划线或短横线。' }}</p>{% endif %}
+<label for="auth-password">{{ 'Password' if en else '密码' }}<input class="form-control" id="auth-password" name="password" type="password" autocomplete="{{ 'new-password' if registering else 'current-password' }}" maxlength="128"{% if registering %} minlength="6"{% endif %} required></label>
+{% if registering %}<label for="auth-email">{{ 'Email (optional)' if en else '邮箱（选填）' }}<input class="form-control" id="auth-email" name="email" type="email" autocomplete="email" maxlength="254" value="{{ auth_email }}"></label>{% endif %}
+<button type="submit" class="btn btn-primary auth-submit">{{ ('Create account' if registering else 'Sign in') if en else ('注册账号' if registering else '登录') }}</button>
+</form>{% endif %}
+<p class="auth-feedback" data-auth-feedback role="status" aria-live="polite" tabindex="-1">{{ auth_message }}</p>
+<div class="auth-links">{% if registering or auth_allowed %}<a data-auth-switch href="{{ auth_switch }}">{{ ('Already registered? Sign in' if registering else 'Create an account') if en else ('已有账号？前往登录' if registering else '注册新账号') }}</a>{% else %}<span>{{ 'Registration is currently closed.' if en else '当前未开放注册。' }}</span>{% endif %}<a href="/{{ lang }}">{{ 'Back to website' if en else '返回网站' }}</a></div></section>

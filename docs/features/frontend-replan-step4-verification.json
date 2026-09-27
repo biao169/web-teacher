@@ -1,0 +1,33 @@
+{
+  "version": "0.15.56",
+  "based_on": "0.15.55",
+  "step": "Frontend replan step 4",
+  "python_http_tests": {
+    "passed": 324,
+    "failed": 0
+  },
+  "simulated_dom_tests": {
+    "passed": 119,
+    "failed": 0
+  },
+  "added_tests": {
+    "python_http": 17,
+    "simulated_dom": 9
+  },
+  "windows_browser": "not_run; manual acceptance required",
+  "production_deployment": false,
+  "user_data_written": false,
+  "database_migration_added": false,
+  "worker": {
+    "prepared": true,
+    "deployed": false,
+    "all_public_templates_match": true,
+    "changed_public_assets_and_read_modules_match": true
+  },
+  "protected_changed": [
+    "backend/app/native/public_data.py",
+    "backend/app/native/content.py"
+  ],
+  "protected_unchanged": 507,
+  "protected_added": []
+}

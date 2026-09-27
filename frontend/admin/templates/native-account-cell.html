@@ -1,0 +1,21 @@
+{# Account list cells use readable names/states without changing native filter values. #}
+{% macro account_cell(table,col,row,model,principal) %}
+{% if table=='auth_users' and col=='role_uid' %}
+  {% set role=model.roles.get(row.role_uid) %}
+  <span class="native-cell" title="{{ role.name if role else '受限角色' }}">{% if role %}<a href="/admin/auth_roles?f.uid={{ row.role_uid|urlencode }}">{{ role.name }}</a>{% if not role.is_active %} <span class="native-account-state is-warning">○ 角色停用</span>{% endif %}{% else %}🔒 受限角色{% endif %}</span>
+{% elif table=='auth_users' and col=='status' %}
+  {% set state=model.states.get(row.status,('未知状态','warning')) %}<span class="native-account-state is-{{ state[1] }}" title="{{ state[0] }}">{{ state[0] }}</span>
+{% elif col=='visibility' %}
+  <span class="native-cell">{{ model.scope_labels.get(row.visibility,row.visibility) }}</span>
+{% elif col=='visibility_scopes' %}
+  {% set values=model.scopes.get(row.uid,[]) %}<span class="native-cell" title="{{ values|join('、') if values else '无可见范围' }}">{{ values|join('、') if values else '无可见范围' }}</span>
+{% elif col=='is_system' %}
+  <span class="native-account-state {{ 'is-info' if row.is_system else '' }}">{{ '🔒 系统角色' if row.is_system else '自定义角色' }}</span>
+{% elif col=='is_active' and row.is_system %}
+  <span class="native-account-state is-success" title="系统管理角色始终启用">🔒 已启用</span>
+{% elif col=='__members' %}
+  {% if principal.permissions.get('auth_users',{}).get('can_view') %}<a href="/admin/auth_users?f.role_uid={{ row.uid|urlencode }}" title="查看有权访问的该角色用户">{{ model.members.get(row.uid,0) }} 人 ↗</a>{% else %}<span class="native-muted">🔒 受限</span>{% endif %}
+{% elif col=='__permissions' %}
+  {% set grants=model.grants.get(row.uid,{}) %}<span class="native-cell" title="角色授予的模块和操作数量；实际访问仍检查范围与状态">{{ grants.get('modules',0) }} 个模块 · {{ grants.get('actions',0) }} 项操作</span>
+{% endif %}
+{% endmacro %}

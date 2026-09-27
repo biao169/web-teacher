@@ -1,0 +1,22 @@
+{
+  "version": "0.15.62",
+  "baseline": "0.15.61",
+  "python_full": {
+    "passed": 373,
+    "failed": 0
+  },
+  "python_supplement": {
+    "passed": 8,
+    "failed": 0,
+    "additional_unique": 3
+  },
+  "python_unique_with_pass_evidence": 376,
+  "simulated_dom": {
+    "passed": 146,
+    "failed": 0
+  },
+  "windows_browser": "manual_acceptance_required",
+  "local_worker_prepare": "passed_not_deployed",
+  "new_migration": false,
+  "school_fields": "not_added_requires_separate_scope_approval"
+}

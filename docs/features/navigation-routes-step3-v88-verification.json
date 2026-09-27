@@ -1,0 +1,24 @@
+{
+  "version": "0.15.88",
+  "python": {
+    "passed": 178,
+    "runs": [
+      {
+        "passed": 59,
+        "log": "navigation-routes-step3-v88-foundation.log"
+      },
+      {
+        "passed": 119,
+        "log": "navigation-routes-step3-v88-python.log"
+      }
+    ]
+  },
+  "simulated_dom": {
+    "passed": 77,
+    "log": "navigation-routes-step3-v88-dom.log"
+  },
+  "limitations": [
+    "No Windows real-browser visual verification",
+    "Cached translation search is step 4"
+  ]
+}

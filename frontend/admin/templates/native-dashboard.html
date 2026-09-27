@@ -1,0 +1,8 @@
+{% extends 'admin/layout.html' %}
+{% block content %}
+<div class="native-title"><div><h1>功能概览</h1><p class="native-muted">按分类查看当前账号可访问的功能与记录数量。</p></div></div>
+{% for group in dashboard_groups %}<section class="native-overview-group" aria-labelledby="overview-{{ group.key }}"><h2 id="overview-{{ group.key }}">{{ group.label }}</h2><div class="native-dashboard">
+{% for entry in group.entries %}<a class="panel" href="{{ entry.url }}"><span>{{ entry.label }}</span><strong>{{ entry.count }}</strong><small>查看与管理 →</small></a>{% endfor %}
+</div></section>{% else %}<section class="panel native-preview-panel"><p>当前角色尚未获得内容管理权限。需要进入后台功能时，请联系管理员分配相应角色。</p><a class="btn btn-outline-primary" href="/auth/password">账户安全</a></section>{% endfor %}
+<form class="native-overview-signout" method="post" action="/auth/logout"><input type="hidden" name="_csrf" value="{{ csrf }}"><button class="btn btn-outline-secondary btn-sm">退出登录</button></form>
+{% endblock %}

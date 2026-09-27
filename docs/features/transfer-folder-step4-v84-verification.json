@@ -1,0 +1,16 @@
+{
+  "version": "0.15.84",
+  "python_passed": 104,
+  "node_passed": 75,
+  "real_browser_tested": false,
+  "real_two_device_network_tested": false,
+  "scope": [
+    "LAN folder stream",
+    "online relay folder stream",
+    "cached folder regression"
+  ],
+  "manifest_bytes_per_task": 2097152,
+  "manifest_bytes_per_process": 8388608,
+  "relay_file_block_bytes_per_room": 1048576,
+  "rss_hard_limit": false
+}

@@ -1,0 +1,8 @@
+{# Media and trash share the native list; changing tabs only changes the status filter. #}
+<nav class="native-media-tabs" aria-label="媒体范围">
+{% for value,text in [('active','媒体库'),('trash','回收站'),('','全部')] %}
+<a class="btn btn-sm {{ 'btn-primary' if query.get('f.status')==value else 'btn-outline-secondary' }}" href="/admin/media_assets?f.status={{ value }}" {% if query.get('f.status')==value %}aria-current="page"{% endif %}>{{ text }} <span>{{ media_counts.get(value,0) if value else media_counts.values()|sum }}</span></a>
+{% endfor %}
+<a class="btn btn-sm btn-outline-primary" href="/admin/media/audit" title="核对媒体目录、收录未登记文件及清理到期回收站">↻ 目录核对与清理</a>
+<span class="native-muted">回收保留文件，可恢复；被引用的文件受到保护。</span>
+</nav>

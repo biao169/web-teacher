@@ -1,0 +1,28 @@
+{
+  "version": "0.15.78",
+  "cmd_files": [
+    "deploy/windows/add-demo-data.cmd",
+    "deploy/windows/add-frontend-examples.cmd",
+    "deploy/windows/launch.cmd",
+    "deploy/windows/local.example.cmd",
+    "deploy/windows/rebuild.cmd",
+    "deploy/windows/start-existing.cmd",
+    "deploy/windows/start-normal.cmd",
+    "deploy/windows/start-transfer.cmd",
+    "deploy/windows/start.cmd",
+    "deploy/windows/test.cmd"
+  ],
+  "shell_files": [
+    "install.sh",
+    "start-transfer.sh",
+    "start.sh"
+  ],
+  "platform_regression_passed": 6,
+  "shell_syntax": "passed",
+  "full_suite_this_revision": "not_rerun; script relocation and documentation only",
+  "previous_v77": {
+    "python": 528,
+    "simulated_dom": 188
+  },
+  "real_windows_and_remote_server": "pending"
+}

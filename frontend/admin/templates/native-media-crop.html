@@ -1,0 +1,19 @@
+{# A shared image editor, layered over the chooser; no content fields or network writes. #}
+<dialog class="native-media-crop" data-media-crop aria-labelledby="crop-title">
+<header class="media-picker-header"><h2 id="crop-title">编辑图片</h2><button type="button" class="btn btn-outline-secondary btn-sm" data-crop-close aria-label="关闭图片编辑">×</button></header>
+<div class="media-crop-body">
+<p class="media-crop-status" data-crop-status role="status" aria-live="polite">正在读取图片…</p>
+<div class="media-crop-tools">
+<label>裁剪比例<select class="form-select form-select-sm" data-crop-ratio><option value="free">自由比例</option><option value="original">原图比例</option><option value="1">1 : 1</option><option value="1.3333333333333333">4 : 3</option><option value="0.75">3 : 4</option><option value="1.7777777777777777">16 : 9</option><option value="0.5625">9 : 16</option><option value="custom">自定义</option></select></label>
+<div class="media-crop-custom" data-crop-custom hidden><label>比例宽<input type="number" class="form-control form-control-sm" min="1" max="10000" value="4" data-crop-ratio-w></label><span>:</span><label>比例高<input type="number" class="form-control form-control-sm" min="1" max="10000" value="3" data-crop-ratio-h></label><button type="button" class="btn btn-outline-secondary btn-sm" data-crop-apply-ratio>应用比例</button></div>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-crop-undo title="撤销选点或上次裁剪区域">↶ 撤销</button><button type="button" class="btn btn-outline-secondary btn-sm" data-crop-reset title="恢复自由比例、全图区域及初始视图">↺ 重置全部</button>
+</div>
+<p id="crop-instructions" class="native-muted">依次点击两个角确定区域；拖动移动视图，滚轮或双指缩放。键盘方向键移动视图，+ / − 缩放，Home 适配。</p>
+<div class="media-crop-stage"><canvas data-crop-canvas tabindex="0" aria-label="图片裁剪画布，可用下方数值区域精确框选" aria-describedby="crop-instructions"></canvas></div>
+<div class="media-crop-tools media-crop-view"><button type="button" class="btn btn-outline-secondary btn-sm" data-crop-fit>适配视图</button><label>视图缩放<input type="range" min="25" max="800" value="100" data-crop-zoom aria-label="视图缩放比例"></label><output data-crop-zoom-value>100%</output><span class="native-muted" data-crop-size></span></div>
+<details class="media-crop-numbers"><summary>精确区域（原图像素）</summary><div class="media-crop-tools"><label>X<input type="number" class="form-control form-control-sm" min="0" step="any" data-crop-x></label><label>Y<input type="number" class="form-control form-control-sm" min="0" step="any" data-crop-y></label><label>宽<input type="number" class="form-control form-control-sm" min="1" step="any" data-crop-w></label><label>高<input type="number" class="form-control form-control-sm" min="1" step="any" data-crop-h></label><button type="button" class="btn btn-outline-secondary btn-sm" data-crop-apply-rect>应用数值区域</button></div></details>
+<div class="media-crop-tools media-crop-output"><label>输出长边（像素）<input class="form-control form-control-sm" type="number" min="64" max="4096" step="1" data-crop-edge></label><label>输出格式<select class="form-select form-select-sm" data-crop-format></select></label><output data-crop-output></output></div>
+<p class="native-muted">新文件保留原图。动图仅处理第一帧；PNG保留透明区域，JPEG将透明区域填白。生成后还需上传、确认选择并保存内容。</p>
+</div>
+<footer class="media-picker-footer"><small class="native-muted">缩放与拖动只影响视图</small><div><button type="button" class="btn btn-primary btn-sm" data-crop-confirm disabled>生成裁剪图片</button><button type="button" class="btn btn-outline-secondary btn-sm" data-crop-close>取消</button></div></footer>
+</dialog>

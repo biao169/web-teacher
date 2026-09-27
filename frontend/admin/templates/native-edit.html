@@ -1,0 +1,61 @@
+{% extends 'admin/layout.html' %}
+{% from 'admin/native-fields.html' import control %}
+{% from 'admin/native-help.html' import hint %}
+{% block metadata %}{{ super() }}{% if table=='publications' %}<link rel="stylesheet" href="/assets/admin/css/native-publication-editor.css?v=0.15.25">{% endif %}{% endblock %}
+{% block footer_class %}native-editor-footer{% endblock %}
+{% block content %}
+<div class="native-title"><h1>{{ page_title }}</h1>{% if specs.values()|selectattr('history')|list %}<a class="btn btn-outline-secondary btn-sm" href="/admin/translation/suggestions?module={{ table }}" target="_blank" rel="noopener" title="在新标签页查看已保存字段的常见写法，当前编辑保留">↗ 历史词库</a>{% endif %}</div>
+{% if account_ui %}{% include 'admin/native-account-tabs.html' %}{% endif %}
+{% if table=='global_settings' %}<p class="native-muted">全局服务读取最早创建的一条配置；新增第二条不会自动切换生效配置。</p>{% endif %}
+{# Page-only ordering: keep the server field registry and every non-paper editor unchanged. #}
+{% if table=='publications' %}
+{% set paper_order=['fields-source_citation','tool-metadata','fields-title','fields-venue','fields-publication_type','fields-citation_gbt','fields-pdf_key','fields-visibility'] %}
+{% set ordered=namespace(items=[]) %}{% for id in paper_order %}{% for item in sections %}{% if item.id==id %}{% set ordered.items=ordered.items+[item] %}{% endif %}{% endfor %}{% endfor %}
+{% for item in sections %}{% if item.id not in paper_order %}{% set ordered.items=ordered.items+[item] %}{% endif %}{% endfor %}
+{% set sections=ordered.items %}
+{% endif %}
+{# The directory and sections consume the same ordered registry, including helper panels. #}
+<nav class="native-section-nav" aria-label="编辑区快速跳转">{% for s in sections %}<a href="#{{ s.id }}">{{ s.label }}</a>{% endfor %}</nav>
+{% if base %}<p class="native-scope">🔒 固定范围：{% include 'admin/native-fixed-scope.html' %}。保存后仍须满足这些条件。</p>{% endif %}
+<form id="native-editor" method="post" action="/admin/{{ table }}/save" data-editor-table="{{ table }}" {% if account_ui %}class="native-account-editor" data-account-editor{% elif table=='publications' %}class="native-publication-editor" data-inline-metadata{% endif %}>
+<input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="_uid" value="{{ row.uid or '' }}"><input type="hidden" name="_stamp" value="{{ row.updated_at or '' }}"><input type="hidden" name="_nav" value="{{ nav }}"><input type="hidden" name="_nav_stamp" value="{{ nav_stamp }}">
+{% if table=='publications' %}<noscript><p class="native-muted">自动补全、引用生成和撤销需要JavaScript；仍可手动填写并保存。</p></noscript>{% endif %}
+<p class="native-feedback native-save-feedback" data-save-feedback role="alert" tabindex="-1" hidden></p>
+{% for s in sections %}
+<section class="panel native-editor-section" id="{{ s.id }}" aria-labelledby="{{ s.id }}-heading">{% if table=='publications' and 'citation_gbt' in s.get('fields',[]) %}
+<div class="paper-section-heading"><h2 id="{{ s.id }}-heading">{{ s.label }}</h2><div class="paper-heading-actions"><button type="button" class="btn btn-outline-primary btn-sm" data-generate-citations data-profile-names='{{ citation_profiles|tojson }}' title="按当前论文信息一键更新五种引用，包括已保护项；原值会保留在各输入框下方供撤销">↻ 更新全部引用</button><button type="button" class="btn btn-outline-secondary btn-sm" data-extract-profile title="重新提取首页精选排序最前的公开、启用教师的中英文姓名">提取首页教师</button></div></div>
+<div class="paper-profile"><label for="paper-profile-name">中文姓名</label><input id="paper-profile-name" aria-describedby="paper-profile-help" class="form-control form-control-sm" readonly value="{{ citation_profile.name }}" placeholder="暂无首页精选教师"><label for="paper-profile-name-en">英文姓名</label><input id="paper-profile-name-en" aria-describedby="paper-profile-help" class="form-control form-control-sm" readonly value="{{ citation_profile.name_en }}" placeholder="尚未填写英文姓名"></div>
+<p id="paper-profile-help" class="native-muted" data-profile-feedback role="status">{{ '英文来源：教师资料' if citation_profile.english_source=='manual' else '英文来源：当前有效译文' if citation_profile.english_source=='translation' else '英文姓名缺失；可在教师资料中填写后点击“提取首页教师”。' }} · 按对应引用格式匹配姓名。</p>
+<p data-citation-feedback role="status" class="native-muted"></p>
+{% else %}<h2 id="{{ s.id }}-heading">{{ '原文与译文' if table=='translation_cache' and s.kind=='fields' else s.label }}</h2>{% endif %}
+{% if s.kind=='fields' %}
+  {% if table=='translation_cache' and 'translated_text' in s.fields %}
+  {% include 'admin/native-translation-comparison.html' %}
+  {% elif table=='publications' and 'citation_gbt' in s.fields %}
+  {% include 'admin/native-publication-citations.html' %}
+  {% else %}<div class="native-fields">{% for field in s.fields %}{% if table=='publications' %}{% set spec=dict(specs[field]) %}{% if field in ['publication_type','index_type','display_tags','keywords','author_role','corresponding_authors'] %}{% set spec=dict(spec,wide=false,rows=1) %}{% elif field in ['title','authors'] %}{% set spec=dict(spec,rows=2) %}{% endif %}{{ control(field,spec,row.get(field),choices,json_dump) }}{% else %}{{ control(field,specs[field],row.get(field),choices,json_dump) }}{% endif %}{% endfor %}</div>{% endif %}
+  {% if table=='site_settings' and 'footer_text' in s.fields %}{% include 'admin/native-footer-help.html' %}{% endif %}
+  {% if table=='publications' and 'source_citation' in s.fields %}{% include 'admin/native-citation-parser.html' %}{% endif %}
+{% elif s.kind=='navigation' %}
+  {% include 'admin/native-navigation.html' %}
+{% elif s.kind=='metadata' %}
+  {% include 'admin/native-metadata.html' %}
+{% elif s.kind=='password' %}
+  {% include 'admin/native-account-password.html' %}
+{% elif s.kind=='sessions' %}
+  {{ sessions_html|safe }}
+{% elif s.kind=='permissions' %}
+  {% include 'admin/native-permissions.html' %}
+{% elif s.kind=='matches' %}
+  {% include 'admin/native-student-category.html' %}
+{% elif s.kind=='translation' %}
+  {% include 'admin/native-translation-tools.html' %}
+{% elif s.kind=='source' %}
+  {% include 'admin/native-translation-source.html' %}
+{% elif s.kind=='secrets' %}
+  <p>留空保留原值，密钥不会回显。翻译服务的部署环境密钥优先。</p><div class="native-fields">{% for key in secret_fields %}<label class="native-field">{{ label(table,key) }}<input class="form-control form-control-sm" type="password" name="_secret_{{ key }}" autocomplete="new-password" aria-describedby="help-secret-{{ key }}" maxlength="{{ 4096 if key in secret_help else 8192 }}">{{ hint('help-secret-'+key,secret_help.get(key,'当前仅保存，此服务的执行器尚未接入。最多8192字符；留空保留原值，不回显密钥。')) }}</label>{% endfor %}</div>
+{% endif %}
+</section>
+{% endfor %}
+</form>{% endblock %}
+{% block workspace_footer %}<span data-save-status role="status">整条记录统一保存</span><div class="native-footer-actions"><button class="btn btn-primary btn-sm" form="native-editor" name="_action" value="return">✓ 保存并返回</button><button class="btn btn-outline-primary btn-sm" form="native-editor" name="_action" value="save">保存</button><a class="btn btn-outline-secondary btn-sm" href="{{ '/admin/n/'+nav if nav else '/admin/'+table }}{% if table=='media_assets' and not nav %}?f.status={{ row.status }}{% endif %}">返回列表</a></div>{% endblock %}

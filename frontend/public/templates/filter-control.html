@@ -1,0 +1,8 @@
+{% from 'public/card-icons.html' import icon %}
+{% set current=query.get('f.'~facet.field,'') %}{% set label=facet.label_en if lang=='en' else facet.label %}
+{% if facet['values'] or current %}<div class="person-facet" data-person-facet data-field="{{ facet.field }}" data-page="1" data-facet-label="{{ label }}">
+<label class="visually-hidden" for="filter-{{ facet.field }}">{{ label }}</label>
+<select name="f.{{ facet.field }}" id="filter-{{ facet.field }}" aria-label="{{ label }}"><option value="">{{ label }} · {{ 'All' if lang=='en' else '全部' }}</option>{% if current and current not in facet['values'] %}<option value="{{ current }}" selected>{{ facet.labels.get(current, current|project_role(lang) if table=='projects' and facet.field=='project_role' else current) if lang=='en' else current }}</option>{% endif %}{% for value in facet['values'] %}<option value="{{ value }}"{% if current==value %} selected{% endif %}>{{ facet.labels.get(value, value|project_role(lang) if table=='projects' and facet.field=='project_role' else value) if lang=='en' else value }}</option>{% endfor %}</select>
+<button type="button" class="facet-trigger" data-facet-trigger hidden aria-haspopup="listbox" aria-expanded="false"><span class="facet-width-sample" aria-hidden="true">{{ label }} · {{ 'All' if lang=='en' else '全部' }}</span><span class="facet-current" aria-hidden="true"></span>{{ icon('chevron-down') }}</button>
+{% if facet.has_more %}<button type="button" class="btn btn-sm btn-link" data-facet-more hidden>{{ 'More options' if lang=='en' else '更多选项' }}</button>{% endif %}
+</div>{% endif %}

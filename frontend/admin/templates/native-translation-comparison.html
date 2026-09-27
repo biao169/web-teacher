@@ -1,0 +1,8 @@
+<p class="native-muted" data-translation-record>原文 {{ row.source_lang }} → {{ row.target_lang }} · {{ {'pending':'待翻译','success':'已完成','failed':'上次失败'}.get(row.status,row.status) }} · {{ '人工维护' if row.is_manual else '自动翻译' }}{% if row.provider %} · {{ row.provider }}{% endif %}</p>
+<p class="native-source-status" data-source-status>{{ translation_source.message }}</p>
+<div class="native-translation-pair">
+<div class="native-source-original"><label id="translation-source-heading">原文 <small class="native-muted">此条译文对应的已保存内容</small></label><div class="native-source-text" tabindex="0" role="region" aria-labelledby="translation-source-heading">{{ translation_source.text or '（原文为空）' }}</div>
+{% if translation_source.format in ['html','markdown'] %}<details><summary>查看原始{{ 'HTML' if translation_source.format=='html' else 'Markdown' }}文本</summary><pre class="native-source-text">{{ row.source_text }}</pre></details>{% endif %}</div>
+{{ control('translated_text',dict(specs.translated_text,wide=false,rows=12),row.get('translated_text'),choices,json_dump) }}
+</div>
+{% if row.error_message %}<p class="native-feedback">{{ row.error_message }}</p>{% endif %}

@@ -1,0 +1,13 @@
+{% macro translation_cell(col,row) %}
+{% if col=='__sources' %}<div class="translation-source-list" tabindex="0" aria-label="来源记录，可上下滚动">
+{% for source in row.source_items %}<span class="translation-source-item">{% if source.url %}<a href="{{ source.url }}" target="_blank" rel="noopener noreferrer" title="{{ source.action }} · {{ source.field_label }}">{{ source.module_label }} · {{ source.title }}</a>{% else %}{{ source.title }}{% endif %}<small>{{ source.field_label }}</small></span>{% endfor %}
+<a href="{{ row.group_url }}">{{ '当前显示前20个 · ' if row.sources>20 else '' }}{{ row.sources }} 个来源 · {{ row.records }} 条记录 ›</a></div>
+{% elif col=='status' %}<div class="translation-state-list">{% if row.manual_versions>1 %}<strong class="translation-conflict">人工版本有差异</strong>{% endif %}<span>待译 {{ row.pending }} · 成功 {{ row.success }}{% if row.failed %} · 失败 {{ row.failed }}{% endif %}</span>{% if row.manual_count %}<small>含 {{ row.manual_count }} 条人工记录</small>{% endif %}</div>
+{% elif col=='__format' %}{{ row.format_label }}
+{% elif col=='is_manual' %}{{ '有' if row.is_manual else '无' }}
+{% elif col=='is_current' %}{{ '有' if row.is_current else '无' }}
+{% elif col=='source_text' %}<div class="translation-source-item translation-source-text"><span class="native-cell" tabindex="0" title="{{ row.source_text }}">{{ row.source_text }}</span><small>{{ row.format_label }} · {{ row.source_lang }} → {{ row.target_lang }}</small></div>
+{% elif col=='translated_text' and row.manual_versions>1 %}<span class="translation-conflict">请核对各来源的人工译文</span>
+{% elif col=='translated_text' and not row.translated_text %}<span class="native-muted">当前范围暂无可共享译文</span>
+{% else %}<span class="native-cell" tabindex="0" title="{{ row[col]|admin_datetime if col.endswith('_at') else (row[col] or '—') }}">{{ row[col]|admin_datetime if col.endswith('_at') else (row[col] or '—') }}</span>{% endif %}
+{% endmacro %}

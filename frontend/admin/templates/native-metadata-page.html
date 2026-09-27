@@ -1,0 +1,9 @@
+{% extends 'admin/layout.html' %}
+{% block content %}
+<div class="native-title"><h1>论文元数据检索</h1><a class="btn btn-outline-secondary btn-sm" href="/admin/publications">返回论文列表</a></div>
+<section class="panel native-metadata-standalone native-preview-panel" data-metadata-standalone>
+{% include 'admin/native-metadata-query.html' %}
+<p class="native-muted">此页只检索和查看；正式录入请从论文编辑页面查询并核对回填。</p>
+<dl class="native-metadata-details" data-metadata-details hidden></dl>
+</section>
+{% endblock %}

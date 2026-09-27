@@ -1,0 +1,9 @@
+{
+  "version": "0.15.82",
+  "python_passed": 50,
+  "node_passed": 57,
+  "scope": "folder unified cached task and sender",
+  "real_browser_tested": false,
+  "folder_receiver_implemented": false,
+  "folder_live_modes_implemented": false
+}

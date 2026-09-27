@@ -1,0 +1,102 @@
+{
+  "version": "0.15.57",
+  "environment": "isolated SQLite; not the user database",
+  "first_import": {
+    "version": "frontend-130-v1",
+    "before": {
+      "students": {
+        "total": 30,
+        "existing": 0,
+        "missing": 30
+      },
+      "publications": {
+        "total": 100,
+        "existing": 0,
+        "missing": 100
+      }
+    },
+    "created": 130,
+    "kept": 0,
+    "failed": 0,
+    "media_created": 4,
+    "unprocessed": 0,
+    "groups": {
+      "students": {
+        "created": 30,
+        "kept": 0,
+        "failed": 0
+      },
+      "publications": {
+        "created": 100,
+        "kept": 0,
+        "failed": 0
+      }
+    },
+    "after": {
+      "students": {
+        "total": 30,
+        "existing": 30,
+        "missing": 0
+      },
+      "publications": {
+        "total": 100,
+        "existing": 100,
+        "missing": 0
+      }
+    },
+    "complete": true
+  },
+  "repeat_import": {
+    "version": "frontend-130-v1",
+    "before": {
+      "students": {
+        "total": 30,
+        "existing": 30,
+        "missing": 0
+      },
+      "publications": {
+        "total": 100,
+        "existing": 100,
+        "missing": 0
+      }
+    },
+    "created": 0,
+    "kept": 130,
+    "failed": 0,
+    "media_created": 0,
+    "unprocessed": 0,
+    "groups": {
+      "students": {
+        "created": 0,
+        "kept": 30,
+        "failed": 0
+      },
+      "publications": {
+        "created": 0,
+        "kept": 100,
+        "failed": 0
+      }
+    },
+    "after": {
+      "students": {
+        "total": 30,
+        "existing": 30,
+        "missing": 0
+      },
+      "publications": {
+        "total": 100,
+        "existing": 100,
+        "missing": 0
+      }
+    },
+    "complete": true
+  },
+  "persisted_rows": {
+    "students": 30,
+    "publications": 100,
+    "media_assets": 4
+  },
+  "site_settings_and_student_rules_preserved": true,
+  "live_user_database_modified": false,
+  "runtime_data_in_release": false
+}

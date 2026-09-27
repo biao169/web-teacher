@@ -1,0 +1,116 @@
+Python regression:
+........................................................................ [100%]
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+72 passed, 1 warning in 21.77s
+
+Python receive recheck after lease fencing change:
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 1 warning in 3.34s
+
+Node / simulated DOM:
+(node:14) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ settings saves weekly and custom rules; pending save locks inputs and updates revision (152.448894ms)
+✔ version conflict preserves draft and revision (30.310166ms)
+✔ invalid rules cannot save and cancellation keeps the rule (36.151888ms)
+✔ rule removal stays local until explicit save (24.293289ms)
+(node:15) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ paged manifest validates counts, hierarchy, offsets and portable paths (5.78719ms)
+✔ directory sink splits a chunk across files, closes complete files and preserves empty entries (4.603495ms)
+✔ existing directory and same-name file are never overwritten (4.414749ms)
+✔ unexpected entry inside fresh root stops without overwriting (3.692411ms)
+✔ pause and lost ACK resume without rewriting saved file bytes (6.626156ms)
+✔ cancel aborts current temporary file and retains completed files (2.626953ms)
+✔ empty root and trailing empty entries complete without network data (2.674795ms)
+✔ failed final close never acknowledges and requires explicit cancel (3.49321ms)
+✔ controller chooses directory in click gesture and resumes lost ACK with the same session (459.605195ms)
+✔ unsupported directory writer explains limitation without creating a receive session (32.339397ms)
+(node:16) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ one task for 205 files, paged manifests, reuses chunk stream (12.74696ms)
+✔ bounded virtual file slices across original file boundaries (1.724481ms)
+✔ resume verifies stored paths and hashes, never creates another task (10.905051ms)
+✔ mismatching manifest blocks chunks (1.80316ms)
+✔ empty directory seals without trying single-file upload (1.306982ms)
+✔ stop between manifest batches preserves one task for continuation (4.384515ms)
+✔ folder send UI creates one visible link, disables replacement during send, and keeps resume record (398.23042ms)
+(node:22) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ directory handles retain hierarchy, same basenames and empty directories without reading content (4.972241ms)
+✔ compatible directory input preserves relative paths and reports empty-directory limitation (2.200299ms)
+✔ portable paths reject traversal, absolute paths, separators, reserved names and collisions (1.753445ms)
+✔ limits, safe integer totals, permission errors and cancellation reject partial manifests (2.335163ms)
+✔ legacy drag reader drains all batches and preserves empty directory (1.414974ms)
+✔ drag handles are captured synchronously and a single file is rejected (1.28637ms)
+✔ UI pages directory preview, stores only local manifest and never creates transport tasks (214.303263ms)
+✔ UI cancellation discards a late picker result (54.081678ms)
+✔ tree ordering keeps descendants next to their parent (1.815379ms)
+(node:23) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ multi-block direct transfer reuses sink ACK and closes before completion (805.855512ms)
+✔ corrupt data does not write, acknowledge or close destination (5.430172ms)
+✔ oversized frames and flooded queues close instead of accumulating (5.754201ms)
+✔ slow DataChannel buffer blocks next send; close rejects pending read (22.367073ms)
+✔ wrong ACK and false final save never claim completion (3.040396ms)
+✔ selected ICE route is reported without claiming physical LAN or exposing addresses (1.632993ms)
+✔ disk close failure cannot send saved message (2.600153ms)
+✔ unsupported UI disables direct controls and keeps cached panels (315.937042ms)
+✔ file picker stays single while status polling continues; cancellation clears the room (30.419531ms)
+(node:29) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ receive accepts only same-origin exact capability path (3.480039ms)
+✔ new upload creates once and sends exact consecutive chunks (4.084632ms)
+✔ resume verifies prefix before any write; wrong content does not upload (1.986156ms)
+✔ completed checkpoint recovers a lost final response without writing (2.75142ms)
+✔ unknown write result is never automatically retried (1.60411ms)
+✔ pause keeps current task and avoids the next chunk (1.49835ms)
+✔ invalid or over-limit file does not reserve a task (1.564855ms)
+✔ expired checkpoint and malformed offset stop safely (1.905084ms)
+✔ switching panels retains file input and progress nodes; anonymous view does not request APIs (438.299618ms)
+✔ integrated transfer prefixes requests and rejects legacy or external share paths (2.438338ms)
+✔ paged resume checks all pages before any upload (1.423207ms)
+✔ changed recovery snapshot and repeated cursor refuse writes (1.121612ms)
+(node:35) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ slow sink and ACK independently fence the next read (7.416489ms)
+✔ lost ACK response resumes ACK without writing the block twice (4.478816ms)
+✔ corruption and oversized block never write or acknowledge (1.647946ms)
+✔ pause stops before another read and does not claim final disk save (1.941018ms)
+✔ unsupported browser keeps native download without starting a receive session (426.59434ms)
+(node:79) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ relay sender waits for receiver ACK before reading next file block (2.709007ms)
+✔ uncertain upload is not replayed; resume consults receiver checkpoint (1.423147ms)
+✔ quota waiting and pause never read a file block (0.849491ms)
+✔ binary reader rejects declared/actual overflow and truncated content (1.370728ms)
+✔ unsupported receive UI keeps sending and cached receive available (338.974777ms)
+(node:85) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mode changes preserve all files, progress and receive fields without transport calls (108.210075ms)
+✔ send/receive filter applies across all modes and leaves shared cancellation controls visible (45.091145ms)
+✔ tabs support arrows, wrapping, Home/End and matching accessible panels (32.548383ms)
+✔ hidden mode feedback remains available, escaped, and can reopen its workspace (31.258847ms)
+✔ legacy cached-only mode remains usable and does not offer absent transports (22.059178ms)
+(node:96) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ storage status is on-demand, escaped, and distinguishes disabled maintenance (324.541573ms)
+ℹ tests 67
+ℹ suites 0
+ℹ pass 67
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1323.993068

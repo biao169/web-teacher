@@ -1,0 +1,24 @@
+{% from 'admin/native-help.html' import hint %}
+{# All rows stay in one form; filtering only hides rows and never drops their saved permissions. #}
+{% set locked=row.get('is_system',False) %}
+{% if not locked %}<input type="hidden" name="_permissions_present" value="1">{% endif %}
+<div class="native-permissions" data-permissions {% if locked %}data-readonly{% endif %}>
+<div class="native-permission-intro"><div><strong>先选择可进入的功能，再分配操作</strong><p>保存后，使用此角色的账号在下一次请求时立即按新权限校验。</p></div><span class="native-permission-badge">{{ '系统角色 · 只读' if locked else '自定义角色' }}</span></div>
+<div class="native-permission-tools">
+<label class="visually-hidden" for="permission-group">功能分类</label><select id="permission-group" class="form-select form-select-sm" data-permission-group aria-describedby="help-permission-filter"><option value="">全部分类</option>{% for group in permission_groups %}<option value="{{ group.key }}">{{ group.label }}</option>{% endfor %}</select>
+<label class="visually-hidden" for="permission-search">筛选模块</label><input id="permission-search" class="form-control form-control-sm" type="search" maxlength="100" placeholder="筛选模块名称" data-permission-search data-enter-button="permission-search-apply">
+<button type="button" id="permission-search-apply" class="btn btn-outline-secondary btn-sm" data-permission-filter>筛选</button>
+{% if not locked %}<button type="button" class="btn btn-outline-primary btn-sm" data-permission-bulk="all" title="勾选当前显示模块的所有操作，不修改其他模块">✓ 全选当前</button><button type="button" class="btn btn-outline-secondary btn-sm" data-permission-bulk="none" title="清除当前显示模块的操作，不修改其他模块">清除当前</button><button type="button" class="btn btn-outline-secondary btn-sm" data-permission-undo disabled title="撤销最近一次批量或关闭入口的修改；保留之后的手工更改">↶ 撤销修改</button>{% endif %}
+</div>
+{{ hint('help-permission-filter','按功能分类缩小显示范围，可与模块名称搜索组合；筛选不会修改或丢失其他模块的权限。') }}
+<p class="native-permission-summary" data-permission-summary role="status" aria-live="polite"></p>
+{% if locked %}<p class="native-muted">🔒 系统角色权限只读，当前勾选表示已保存的授权。</p>{% else %}<p class="native-muted">关闭“允许进入”会一并清除该行的操作权限，可撤销。批量授予操作时自动开启进入权限；筛选隐藏的模块保持原选择。账号授权的写入仍仅限系统管理员。</p>{% endif %}
+{{ hint('help-permission-row','每行对应一个功能；勾选后统一保存才生效。行全选只更改当前行，列全选只更改当前显示模块。') }}
+<div class="native-permission-scroll" tabindex="0" role="region" aria-label="模块权限矩阵，可横向与纵向滚动">
+<table class="table table-sm native-permission-table"><thead><tr><th scope="col">功能模块</th>{% for action,title in account_actions.items() %}<th scope="col"><label>{{ title }}{% if not locked %}<input type="checkbox" class="form-check-input" aria-describedby="help-permission-{{ action }}" data-permission-column="{{ action }}" aria-label="当前显示模块的{{ title }}权限全选" title="勾选或取消当前显示模块的{{ title }}权限">{% endif %}</label>{{ hint('help-permission-'+action,{'view':'允许进入该功能并读取列表与记录；关闭后不能执行该模块操作。','create':'允许创建新记录。','edit':'允许修改已有记录。','delete':'允许删除已授权记录。','export':'允许导出有权查看的数据。'}[action]) }}</th>{% endfor %}</tr></thead>
+<tbody>{% for group in permission_groups %}<tr class="native-permission-group-heading" data-permission-heading="{{ group.key }}"><th colspan="6" scope="rowgroup">{{ group.label }} <small>{{ group.modules|length }} 个模块</small></th></tr>{% for key,title in group.modules %}<tr data-permission-row data-module="{{ key }}" data-group="{{ group.key }}" data-module-label="{{ title }}"><th scope="row"><label>{% if not locked %}<input type="checkbox" class="form-check-input" data-permission-row-all aria-describedby="help-permission-row" aria-label="{{ title }}全部操作" title="勾选或取消此模块的全部操作">{% endif %}<span>{{ title }}</span></label></th>{% for action,name in account_actions.items() %}<td><input type="checkbox" class="form-check-input" aria-describedby="help-permission-{{ action }} help-permission-row" data-permission="{{ action }}" name="_permission_{{ key }}:{{ action }}" value="1" aria-label="{{ title }} {{ name }}" title="{{ title }}：{{ name }}" {% if role_permissions.get(key,{}).get('can_'+action) %}checked{% endif %} {% if locked %}disabled{% endif %}></td>{% endfor %}</tr>{% endfor %}{% endfor %}</tbody></table>
+<p class="native-muted" data-permission-empty hidden>没有匹配的模块；清空搜索可显示全部。</p>
+</div>
+<details class="native-permission-changes" data-permission-changes hidden><summary data-permission-change-summary>待保存的权限变更</summary><ul data-permission-change-list></ul></details>
+<p class="native-feedback" data-permission-invalid role="alert" hidden></p>
+</div>

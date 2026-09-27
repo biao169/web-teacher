@@ -1,0 +1,237 @@
+/* Back-office visual source of truth. Layout files consume these tokens only. */
+.section-admin {
+ --page:#f2f6f3;--surface:#ffffff;--ink:#18352a;--muted:#4d6258;--line:#b9ccc1;
+ --accent:#205c43;--accent-soft:#e5f0e9;--danger:#a32632;--danger-soft:#fff0f1;
+ --warning:#725000;--warning-soft:#fff5d6;--info:#175b91;
+ --admin-font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+ --admin-base-size:14px;--admin-line-height:1.5;
+ --admin-color-eaf0e9:#eaf0e9;
+ --admin-color-fbfdfb:#fbfdfb;
+ --admin-color-f8faf7:#f8faf7;
+ --admin-color-163f2720:#163f2720;
+ --admin-color-f4f6f3:#f4f6f3;
+ --admin-color-f3f8f7:#f3f8f7;
+ --admin-color-23634a:var(--accent);
+ --admin-color-e7f2eb:var(--accent-soft);
+ --admin-color-223d30:var(--ink);
+ --admin-color-586d61:var(--muted);
+ --admin-color-d8e5dc:var(--line);
+ --admin-color-surface:var(--surface);
+ --admin-color-page:var(--page);
+ --admin-color-f8fbf9:#f8fbf9;
+ --admin-color-4c6557:var(--muted);
+ --admin-color-edf4ef:#edf4ef;
+ --admin-color-deeee3:#deeee3;
+ --admin-color-1e5b40:var(--accent);
+ --admin-color-36835a:#36835a;
+ --admin-color-234d3210:#234d3210;
+ --admin-color-102e2380:#102e2380;
+ --admin-color-18392726:#18392726;
+ --admin-color-153d2420:#153d2420;
+ --admin-color-success:var(--accent);
+ --admin-font-size-_7rem:.7rem;
+ --admin-font-weight-400:400;
+ --admin-font-size-_75rem:.75rem;
+ --admin-font-size-_9rem:.9rem;
+ --admin-line-height-1_8:1.8;
+ --admin-font-size-1_85rem:1.85rem;
+ --admin-font-size-_8rem:.8rem;
+ --admin-font-size-1rem:1rem;
+ --admin-font-weight-600:600;
+ --admin-font-weight-500:500;
+ --admin-font-size-_85rem:.85rem;
+ --admin-font-weight-650:650;
+ --admin-font-size-16px:16px;
+ --admin-font-weight-700:700;
+ --admin-font-size-11px:11px;
+ --admin-font-size-12px:12px;
+ --admin-font-size-14px:14px;
+ --admin-font-size-20px:20px;
+ --admin-font-size-13px:13px;
+ --admin-font:14px;
+ --admin-small:12px;
+ --admin-title:20px;
+ --admin-section:16px;
+
+ /* Shared workspace/list spacing: mobile changes tokens, never individual page templates. */
+ --admin-preview-inset:20px;--admin-preview-gap:16px;
+ --admin-main-inset:12px;--admin-bar-inset:12px;
+ --admin-list-inset:12px;--admin-list-block-inset:8px;--admin-block-gap:8px;
+ --admin-column-menu-width:280px;
+ --admin-cell-inset:10px;--admin-cell-block-inset:5px;--admin-check-inset:8px;
+ --admin-motion-duration:160ms;--admin-motion-easing:ease-out;
+ --admin-focus-width:2px;--admin-focus-offset:2px;
+ --admin-hover-shadow:inset 0 0 0 1px currentColor;
+ --admin-pressed-shadow:inset 0 0 0 2px currentColor;
+
+ --bs-body-color:var(--ink);--bs-body-bg:var(--page);--bs-link-color:var(--accent);
+ font-family:var(--admin-font-family);font-size:var(--admin-base-size);line-height:var(--admin-line-height);color:var(--ink);background:var(--page);
+}
+/* Public reading-size preference must not change administrator rem typography. */
+html:has(body.section-admin){font-size:16px}
+.section-admin input,.section-admin select,.section-admin textarea,.section-admin button{font-family:inherit}
+.section-admin .btn-primary{--bs-btn-bg:var(--accent);--bs-btn-border-color:var(--accent);--bs-btn-color:var(--surface);--bs-btn-hover-bg:var(--ink);--bs-btn-hover-border-color:var(--ink);--bs-btn-active-bg:var(--ink);--bs-btn-disabled-bg:var(--muted)}
+.section-admin .btn-outline-secondary{--bs-btn-color:var(--ink);--bs-btn-border-color:var(--line);--bs-btn-hover-color:var(--ink);--bs-btn-hover-bg:var(--accent-soft);--bs-btn-hover-border-color:var(--accent)}
+/* Keep outlined primary labels readable when Bootstrap states meet shared button backgrounds. */
+.section-admin .btn-outline-primary{--bs-btn-color:var(--accent);--bs-btn-border-color:var(--line);--bs-btn-hover-color:var(--ink);--bs-btn-hover-bg:var(--accent-soft);--bs-btn-hover-border-color:var(--accent);--bs-btn-active-color:var(--ink);--bs-btn-active-bg:var(--accent-soft);--bs-btn-active-border-color:var(--accent);color:var(--accent);background:var(--surface);border-color:var(--line)}
+.section-admin .btn-outline-primary:is(:hover,:focus-visible,:active,.active){color:var(--ink);background:var(--accent-soft);border-color:var(--accent)}
+.section-admin .btn-danger{--bs-btn-bg:var(--danger);--bs-btn-border-color:var(--danger);--bs-btn-color:var(--surface)}
+.section-admin [data-ui-state=success]{color:var(--accent)}
+.section-admin [data-ui-state=warning]{color:var(--warning)}
+.section-admin [data-ui-state=error]{color:var(--danger)}
+.section-admin [data-ui-state=info]{color:var(--info)}
+.section-admin .admin-state{display:inline-flex;align-items:center;gap:.3em;font-size:var(--admin-base-size)}
+/* State glyphs supplement existing labels; meaning never depends on color alone. */
+.section-admin{--admin-icon-success:"✓ ";--admin-icon-warning:"! ";--admin-icon-error:"× ";--admin-icon-info:"ⓘ ";--admin-disabled-opacity:.65}
+.section-admin .save-status[data-state=saved]::before{content:var(--admin-icon-success)}
+.section-admin .save-status[data-state=dirty]::before{content:var(--admin-icon-warning)}
+.section-admin .save-status[data-state=error]::before{content:var(--admin-icon-error)}
+.section-admin button:disabled{opacity:var(--admin-disabled-opacity);cursor:not-allowed}
+
+.section-admin :where(a,button,input,select,textarea,summary):focus-visible{outline:var(--admin-focus-width) solid var(--accent);outline-offset:var(--admin-focus-offset)}
+.section-admin h1,.section-admin h2,.section-admin h3{line-height:var(--admin-line-height)}
+/* Bootstrap pagination uses the same administrator palette. */
+.section-admin .pagination{--bs-pagination-color:var(--ink);--bs-pagination-bg:var(--surface);--bs-pagination-border-color:var(--line);--bs-pagination-active-bg:var(--accent);--bs-pagination-active-border-color:var(--accent);--bs-pagination-active-color:var(--surface);--bs-pagination-hover-bg:var(--accent-soft);--bs-pagination-hover-color:var(--ink);--bs-pagination-focus-color:var(--ink);--bs-pagination-focus-bg:var(--accent-soft);--bs-pagination-disabled-color:var(--muted);--bs-pagination-disabled-bg:var(--page)}
+/* Destructive actions use text/icon plus red, including hover/focus/pressed feedback. */
+.section-admin .btn-outline-danger{--bs-btn-color:var(--danger);--bs-btn-border-color:var(--danger);--bs-btn-hover-bg:var(--danger);--bs-btn-hover-border-color:var(--danger);--bs-btn-hover-color:var(--surface);--bs-btn-active-bg:var(--danger);--bs-btn-active-color:var(--surface)}
+.section-admin input[type=checkbox]{accent-color:var(--accent)}
+
+/* Shared native page typography and accessible state colors. */
+.section-admin .native-title h1,.section-admin .workspace-content>h1{font-size:20px;font-weight:700}
+.section-admin .native-editor-section h2,.section-admin .panel>h2{font-size:16px;font-weight:650}
+.section-admin .btn-sm{font-size:var(--admin-small)}
+.section-admin .ql-container,.section-admin .ql-toolbar{font-family:var(--admin-font-family);font-size:var(--admin-base-size)}
+.section-admin .ql-editor{color:var(--ink)}
+
+.section-admin>main h1{font-size:24px}.section-admin>main h2{font-size:18px}
+
+/* Publication helper typography and semantic state colors share the administrator palette. */
+.section-admin .native-citation-protection,.section-admin .native-metadata-row small,.section-admin .native-metadata-value::before{font-size:var(--admin-small)}
+.section-admin .native-metadata-row small,.section-admin .native-metadata-value::before{color:var(--muted)}
+.section-admin .native-metadata-row>label{font-weight:var(--admin-font-weight-600)}
+
+/* History option and helper checkbox styling is controlled by administrator tokens. */
+.section-admin .native-history-popup{font-family:var(--admin-font-family);font-size:var(--admin-base-size)}
+.section-admin .native-history-popup button{font-size:var(--admin-base-size);font-family:var(--admin-font-family)}
+.section-admin .form-check-input:checked,.section-admin .form-check-input:indeterminate{background-color:var(--accent);border-color:var(--accent)}
+
+/* Media type, status and metadata typography supplement labels with semantic colors. */
+.section-admin .native-media-thumb,.section-admin .native-media-state{font-size:var(--admin-small)}
+.section-admin .native-media-meta dt{color:var(--muted);font-weight:var(--admin-font-weight-500)}
+.section-admin .native-media-state{color:var(--accent);background:var(--accent-soft)}
+.section-admin .native-media-state.is-trash{color:var(--warning);background:var(--warning-soft)}
+.section-admin .native-sessions [data-state=warning]{color:var(--warning);background:var(--warning-soft)}
+.section-admin .native-sessions [data-state=error]{color:var(--danger);background:var(--danger-soft)}
+
+/* Media field previews and preflight dialogs inherit the administrator typography. */
+.section-admin{--admin-dialog-backdrop:rgba(15,23,42,.55)}
+.section-admin .native-media-field-preview,.section-admin .native-audit-dialog{font-family:var(--admin-font-family);font-size:var(--admin-base-size)}
+.section-admin .native-media-field-preview small{font-size:var(--admin-small)}
+
+/* The chooser is rendered in the admin shell and inherits its single typography palette. */
+.section-admin .native-media-picker{font-family:var(--admin-font-family);font-size:var(--admin-base-size)}
+.section-admin .media-picker-header h2{font-size:var(--admin-title);font-weight:var(--admin-font-weight-600)}
+.section-admin .media-picker-pick,.section-admin .media-picker-query :is(input,select,button){font-size:var(--admin-base-size);font-family:var(--admin-font-family)}
+.section-admin .media-picker-pick small,.section-admin .media-picker-detail{font-size:var(--admin-small);color:var(--muted)}
+.section-admin .media-picker-pick strong{font-weight:var(--admin-font-weight-600)}
+/* Crop canvas colors are read from this theme; all editor typography shares admin tokens. */
+.section-admin{--crop-checker:#e7ece9;--crop-mask:rgba(12,25,19,.58);--crop-outline:#ffffff;--crop-grid:rgba(255,255,255,.65);--crop-anchor:#ffe075;--crop-export-bg:#ffffff}
+.section-admin .native-media-crop{font-family:var(--admin-font-family);font-size:var(--admin-base-size)}
+.section-admin .native-media-crop h2{font-size:var(--admin-title);font-weight:var(--admin-font-weight-600)}
+.section-admin .media-crop-tools :is(input,select),.section-admin .media-crop-numbers{font-size:var(--admin-base-size);font-family:var(--admin-font-family)}
+.section-admin .media-crop-tools label{color:var(--ink)}
+.section-admin .media-crop-tools input[type=range]{accent-color:var(--accent)}
+/* Account and permission pages consume the same administrator typography and semantic colors. */
+.section-admin .native-account-editor,.section-admin .native-account-tabs{font-family:var(--admin-font-family);font-size:var(--admin-base-size)}
+.section-admin .native-permission-table,.section-admin .native-scope-choices{font-size:var(--admin-base-size)}
+.section-admin .native-permission-table th{font-weight:var(--admin-font-weight-600)}
+.section-admin .native-permission-summary,.section-admin .native-account-state{font-size:var(--admin-small)}
+.section-admin .native-account-state.is-success{color:var(--accent);background:var(--accent-soft)}
+.section-admin .native-account-state.is-warning{color:var(--warning);background:var(--warning-soft)}
+.section-admin .native-account-state.is-error{color:var(--danger);background:var(--danger-soft)}
+.section-admin .native-message-state{font-size:var(--admin-small);color:var(--ink);background:var(--page)}
+.section-admin .native-message-state[data-state=warning]{color:var(--warning);background:var(--warning-soft)}
+.section-admin .native-message-state[data-state=success]{color:var(--accent);background:var(--accent-soft)}
+.section-admin .native-message-state[data-state=info]{color:var(--info);background:var(--page)}
+.section-admin .native-record-grid dt{font-weight:var(--admin-font-weight-600)}
+.section-admin .native-account-state.is-info{color:var(--info);background:var(--page)}
+.section-admin .native-scope-choices>label:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.section-admin .native-permission-table input:disabled{opacity:1}
+
+/* Matrix outlines keep unselected actions discernible; state colors use the same tokens. */
+.section-admin .native-permission-table .form-check-input:not(:checked):not(:indeterminate){border-color:var(--muted)}
+
+/* Scholarly helper visual parameters remain centralized with the rest of the administrator UI. */
+.section-admin .native-metadata-candidate strong{font-size:var(--admin-base-size);font-weight:var(--admin-font-weight-600)}
+.section-admin .native-metadata-candidate p,.section-admin .native-metadata-attempts,.section-admin .native-provider-env{font-size:var(--admin-small);color:var(--muted)}
+.section-admin .native-metadata-candidate:has(button[aria-pressed=true]){border-color:var(--accent);background:var(--accent-soft)}
+.section-admin .native-metadata-attempts [data-ui-state=success]{color:var(--accent)}
+.section-admin .native-metadata-attempts [data-ui-state=warning]{color:var(--warning)}
+
+/* Paint-only feedback preserves measured action columns, row heights and fixed bars. */
+.section-admin :where(a[href],button,summary,input[type=checkbox],input[type=radio],select){
+ transition-property:color,background-color,border-color,box-shadow,opacity;
+ transition-duration:var(--admin-motion-duration);transition-timing-function:var(--admin-motion-easing);
+}
+.section-admin summary{cursor:pointer}
+.section-admin a[href]:not(.btn){text-underline-offset:.2em}
+@media(hover:hover){
+ .section-admin :where(button,.btn,.page-link,summary,.workspace-icon,.native-section-nav a):not(:disabled,[aria-disabled=true],.disabled):hover{box-shadow:var(--admin-hover-shadow)}
+ .section-admin :where(.workspace-icon,.native-section-nav a,summary):not(:disabled,[aria-disabled=true]):hover{background:var(--accent-soft);color:var(--ink);border-color:var(--accent)}
+ .section-admin a[href]:not(.btn):hover{text-decoration:underline}
+}
+.section-admin :where(button,.btn,.page-link,summary,.workspace-icon,.native-section-nav a):not(:disabled,[aria-disabled=true],.disabled):active{box-shadow:var(--admin-pressed-shadow)}
+.section-admin :where(button,.btn,.page-link,summary):is(:disabled,[aria-disabled=true],.disabled){opacity:var(--admin-disabled-opacity);cursor:not-allowed;box-shadow:none}
+/* Consume existing request state; no extra requests, timers or artificial loading state. */
+.section-admin [aria-busy=true],.section-admin:has(#native-editor[aria-busy=true]) .native-editor-footer button:disabled{cursor:progress}
+@media(max-width:767px){
+ .section-admin{--admin-main-inset:8px;--admin-bar-inset:8px;--admin-list-inset:8px;--admin-cell-inset:8px}
+}
+@media(prefers-reduced-motion:reduce){
+ .section-admin{--admin-motion-duration:0ms}
+ .section-admin :where(a[href],button,summary,input,select,textarea){animation:none;scroll-behavior:auto}
+}
+
+/* Fixed notice appearance shares the administrator palette and typography. */
+.section-admin{--admin-notice-width:420px;--admin-notice-inset:12px;--admin-notice-top:68px;--admin-notice-gap:8px;--admin-notice-radius:8px;--admin-notice-shadow:0 4px 18px var(--admin-color-18392726);--admin-notice-close-size:30px}
+.section-admin .admin-notice{font-family:var(--admin-font-family);font-size:var(--admin-base-size);line-height:var(--admin-line-height);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--info);border-radius:var(--admin-notice-radius);box-shadow:var(--admin-notice-shadow);opacity:1}
+.section-admin .admin-notice[data-state=success]{border-left-color:var(--accent);background:var(--accent-soft)}
+.section-admin .admin-notice[data-state=error]{border-left-color:var(--danger);background:var(--danger-soft)}
+.section-admin .admin-notice[data-state=warning]{border-left-color:var(--warning);background:var(--warning-soft)}
+.section-admin .admin-notice-icon{color:var(--info);font-weight:var(--admin-font-weight-700)}
+.section-admin .admin-notice[data-state=success] .admin-notice-icon{color:var(--accent)}
+.section-admin .admin-notice[data-state=error] .admin-notice-icon{color:var(--danger)}
+.section-admin .admin-notice[data-state=warning] .admin-notice-icon{color:var(--warning)}
+.section-admin .admin-notice-close{color:var(--ink);background:transparent;border:0;border-radius:var(--admin-notice-radius);font-size:var(--admin-title);transition:background-color var(--admin-motion-duration) var(--admin-motion-easing)}
+.section-admin .admin-notice-close:hover{background:var(--line)}
+@media(max-width:767px){.section-admin{--admin-notice-inset:8px;--admin-notice-close-size:40px}}
+
+/* Compact explanations and navigation samples use the same administrator palette. */
+.section-admin{--admin-help-size:12px;--admin-help-line-height:1.45;--admin-help-gap:3px}
+.section-admin .native-field-help{font-size:var(--admin-help-size);line-height:var(--admin-help-line-height);color:var(--muted);font-weight:var(--admin-font-weight-400)}
+.section-admin .native-field-rules{color:var(--muted)}
+.section-admin [data-nav-style=primary]{background:var(--accent-soft);color:var(--accent)}
+.section-admin [data-nav-style=secondary]{box-shadow:inset 0 0 0 1px var(--line)}
+.section-admin .workspace-menu a[aria-current=page]{color:var(--accent);background:var(--accent-soft);box-shadow:inset 3px 0 var(--accent)}
+
+/* Batch UI shares the existing accessible palette and type scale. */
+.section-admin .native-batch legend{font-size:var(--admin-section);font-weight:var(--admin-font-weight-650)}
+.section-admin .native-batch progress{accent-color:var(--accent)}
+.section-admin :is(.native-batch,[data-editor-table=translation_cache]) .btn-outline-warning{--bs-btn-color:var(--warning);--bs-btn-border-color:var(--warning);--bs-btn-hover-color:var(--ink);--bs-btn-hover-bg:var(--warning-soft);--bs-btn-hover-border-color:var(--warning);--bs-btn-active-color:var(--ink);--bs-btn-active-bg:var(--warning-soft);--bs-btn-active-border-color:var(--warning);color:var(--warning)}
+/* News editing typography and interactive states belong to the same administrator theme. */
+.section-admin{--admin-body-line:1.7;--admin-body-h2:1.5em;--admin-body-h3:1.25em;--admin-body-h4:1.1em}
+.section-admin :is(.news-body,.native-richtext-host .ql-editor){font-family:var(--admin-font-family);font-size:var(--admin-base-size);line-height:var(--admin-body-line);color:var(--ink)}
+.section-admin :is(.news-body,.native-richtext-host .ql-editor) h2{font-size:var(--admin-body-h2)}
+.section-admin :is(.news-body,.native-richtext-host .ql-editor) h3{font-size:var(--admin-body-h3)}
+.section-admin :is(.news-body,.native-richtext-host .ql-editor) h4{font-size:var(--admin-body-h4)}
+.section-admin .native-richtext-image-tools{display:flex;flex-wrap:wrap;gap:.5rem;padding:.6rem;border:1px solid var(--line);border-radius:.4rem;margin:.5rem 0}
+.section-admin .native-richtext-image-tools legend{float:none;width:auto;font:inherit;color:var(--muted);margin:0}
+.section-admin .native-richtext-image-tools label{flex:1;min-width:160px}.section-admin .native-richtext-preview{border:1px solid var(--line);border-radius:.5rem;background:var(--surface);padding:.8rem;margin:.6rem 0}
+.section-admin .ql-toolbar .native-richtext-command{width:auto;padding:0 .5em;font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:.3rem;margin:0 .15em}
+.section-admin .ql-toolbar .native-richtext-command:hover{background:var(--accent-soft);color:var(--accent)}
+.section-admin .ql-header .ql-picker-label::before,.section-admin .ql-header .ql-picker-item::before{content:'正文';font-size:var(--admin-base-size)}
+.section-admin .ql-header :is(.ql-picker-label,.ql-picker-item)[data-value='2']::before{content:'二级标题';font-size:var(--admin-base-size)}
+.section-admin .ql-header :is(.ql-picker-label,.ql-picker-item)[data-value='3']::before{content:'三级标题';font-size:var(--admin-base-size)}
+.section-admin .ql-header :is(.ql-picker-label,.ql-picker-item)[data-value='4']::before{content:'四级标题';font-size:var(--admin-base-size)}
+.section-admin .ql-tooltip::before{content:'链接：'}.section-admin .ql-tooltip[data-mode='link']::before{content:'输入链接：'}
+.section-admin .ql-tooltip a.ql-action::after{content:'编辑'}.section-admin .ql-tooltip a.ql-remove::before{content:'移除'}.section-admin .ql-tooltip.ql-editing a.ql-action::after{content:'确定'}

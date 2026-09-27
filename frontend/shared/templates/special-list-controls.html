@@ -1,0 +1,5 @@
+{# Native GET size controls remain usable without JavaScript. Enhancement moves only this form. #}
+<form class="list-page-size" method="get" action="{{ special_list.base }}" data-special-size="{{ special_list.key }}">
+{% for key,value in special_list.state.items() if key not in ['page','page_size'] %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+<label>每页 <select class="form-select" name="page_size" aria-label="每页条数">{% for size in [10,20,50,100] %}<option value="{{ size }}" {% if pagination.page_size==size %}selected{% endif %}>{{ size }} 条</option>{% endfor %}</select></label><button class="btn btn-outline-secondary btn-sm">应用</button></form>
+{% include 'shared/list-pagination.html' %}

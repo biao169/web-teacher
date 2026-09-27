@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="zh"><head><meta name="transfer-base" content="{{ transfer_base|default('') }}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>文件快传</title><link rel="stylesheet" href="/assets/shared/vendor/bootstrap.min.css"><link rel="stylesheet" href="/assets/admin/css/admin-theme.css"><link rel="stylesheet" href="/transfer-static/native.css?v=0.15.67"><script type="module" src="/transfer-static/native.js?v=0.15.97"></script><link rel="stylesheet" href="/assets/admin/css/native-source-navigation.css?v=0.15.27"></head>
+<body class="section-admin"><main class="container py-4" data-csrf="{{ csrf }}" data-user="{{ user_key|default('') }}">
+<header class="d-flex justify-content-between mb-4"><div><p class="text-secondary mb-1">教师网站 · 文件快传</p><h1>文件快传</h1></div><a class="btn btn-outline-secondary align-self-start" href="{{ transfer_base|default('') }}/login">返回登录入口</a></header>
+{% include 'management.html' %}
+</main></body></html>

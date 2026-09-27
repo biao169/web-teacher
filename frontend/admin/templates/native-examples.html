@@ -1,0 +1,17 @@
+{% extends 'admin/layout.html' %}
+{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-examples.js?v=0.15.31"></script><link rel="stylesheet" href="/assets/admin/css/native-examples.css?v=0.15.31">{% endblock %}
+{% block content %}
+<div class="native-title"><h1>示例中心</h1><a href="/admin/data_tools" class="btn btn-outline-secondary btn-sm">返回数据与备份</a></div>
+<section class="panel native-editor-section" data-examples data-csrf="{{ csrf }}" data-initial="{{ examples|tojson|forceescape }}">
+<p>添加完整的教学演示资料，先看效果，再参考填写。所有人物、项目和成果均为虚构示例。</p>
+<p class="native-muted">仅补充所选新版示例的缺失记录，已有内容保持当前状态。删除过的新版示例可通过再次添加补回；普通启动不会添加。角色不会分配给现有账号，示例账号默认停用且没有通用密码。网站示例配置不启用，全局设置保持当前值。</p>
+<div class="native-helper-actions"><button type="button" class="btn btn-outline-secondary btn-sm" data-example-select="all">全选可添加组</button><button type="button" class="btn btn-outline-secondary btn-sm" data-example-select="none">清空选择</button><button type="button" class="btn btn-primary btn-sm" data-example-run disabled>添加所选示例</button><button type="button" class="btn btn-outline-warning btn-sm" data-example-stop disabled>暂停添加</button><button type="button" class="btn btn-outline-secondary btn-sm" data-example-refresh>刷新统计</button></div>
+<p role="status" aria-live="polite" data-example-status>选择示例组后明确添加；打开本页不会写入数据。</p><progress data-example-progress value="0" max="1" aria-label="本次添加进度"></progress>
+<div class="example-grid">
+{% for group in examples.groups %}<section class="example-card" data-example-card="{{ group.id }}"><label><input type="checkbox" class="form-check-input" name="example-group" value="{{ group.id }}" {% if group.allowed %}checked{% else %}disabled{% endif %}> <strong>{{ group.title }}</strong></label><p><span data-example-count="{{ group.id }}">{{ group.existing if group.existing is not none else '—' }}</span> / {{ group.total }} 项已有记录</p>{% if group.dependencies %}<p class="native-muted">先添加：{{ group.dependencies|join('、') }}</p>{% endif %}{% if not group.allowed %}<p class="native-feedback">{{ group.reason }}</p>{% endif %}<a href="{{ group.href }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">打开功能 ↗</a></section>{% endfor %}
+</div><div data-example-errors role="alert"></div>
+<p class="native-muted">每项分别保存，可以暂停或重新打开。已有记录会跳过；引用媒体或来源已被修改、回收时，请先核对相应功能。翻译示例由人工编写，添加不调用外部服务。新增数据实际占用存储，产生真实操作日志。</p>
+</section>
+<section class="panel native-editor-section"><h2>联动操作与配置</h2><div class="example-grid">{% for item in examples.scenarios %}<section class="example-card"><h3>{{ item.title }}</h3><p>{{ item.text }}</p><a class="btn btn-outline-secondary btn-sm" href="{{ item.href }}" target="_blank" rel="noopener">打开操作 ↗</a></section>{% endfor %}</div></section>
+<noscript><p class="alert alert-warning">添加示例需要启用JavaScript；各功能入口仍可使用。</p></noscript>
+{% endblock %}

@@ -1,0 +1,15 @@
+{# Configuration editing is separate from authorized data preview; everything stays in one form. #}
+<div data-navigation-editor>
+<script type="application/json" data-navigation-config>{{ navigation_editor|tojson }}</script>
+<div class="native-nav-toolbar"><label for="nav-route-preset">前台界面</label><select id="nav-route-preset" class="form-select form-select-sm"><option value="">选择前台页面</option>{% for preset in navigation_editor.presets if not preset.value.startswith('/admin') %}<option value="{{ preset.value }}">{{ preset.label }}</option>{% endfor %}</select><button type="button" class="btn btn-outline-secondary btn-sm" data-nav-apply-anchor title="将锚点写入当前站内路径，保留独立锚点字段"># 应用页面锚点</button></div>
+<p class="native-muted" data-nav-guidance aria-live="polite"></p>
+<div class="native-nav-sample" data-nav-sample aria-label="后台入口外观预览"><svg class="icon" width="20" height="20" aria-hidden="true"><use href="/assets/shared/icons.svg#file"></use></svg><span data-nav-sample-title>入口外观预览</span><small>仅示意，不跳转</small></div>
+<div class="native-nav-toolbar"><label for="nav-admin-target">后台界面</label><select id="nav-admin-target" class="form-select form-select-sm"><option value="">选择后台内容模块</option>{% for key,info in navigation_editor.modules.items() %}<option value="{{ key }}" {% if key==navigation_editor.table and row.location=="admin-sidebar" %}selected{% endif %}>{{ info.label }}</option>{% endfor %}</select><button type="button" class="btn btn-outline-primary btn-sm" data-nav-add title="添加一个必须同时满足的固定条件">＋ 添加条件</button><button type="button" class="btn btn-outline-secondary btn-sm" data-nav-reset title="恢复打开页面时的目标、条件、位置和入口标识；保留其他字段">↶ 重置筛选草稿</button></div>
+<select id="nav-target" hidden aria-hidden="true"><option value=""></option>{% for key,info in navigation_editor.modules.items() %}<option value="{{ key }}" {% if key==navigation_editor.table %}selected{% endif %}>{{ info.label }}</option>{% endfor %}</select>
+<div data-nav-conditions class="native-nav-conditions"></div>
+<p class="native-muted" data-nav-description>条件之间为“同时满足”。没有条件时显示该模块中您有权查看的全部记录。条件修改只更新草稿，需统一保存。</p>
+<div class="native-nav-toolbar"><button type="button" class="btn btn-outline-primary btn-sm" data-nav-preview title="预览当前条件，不保存导航">⌕ 预览结果</button><label class="native-match-size">每页 <select class="form-select form-select-sm" data-nav-size aria-label="每页预览记录数">{% for n in [10,20,50,100] %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select> 条</label></div>
+<p data-nav-feedback class="native-feedback" data-ui-state="{{ 'error' if navigation_editor.error else 'info' }}" role="status" aria-live="polite">{{ navigation_editor.error or '选择目标或修改条件后自动预览；已有条件也可直接点击预览。' }}</p>
+<div data-nav-results></div><p class="native-muted" data-nav-pending>保存后，前台固定按钮使用 /en/n/英文标识 或 /zh/n/英文标识；搜索、重置及分页始终保留固定范围。</p>
+<noscript><p>可视化条件编辑和预览需要JavaScript；仍可在下方填写完整路径并保存。</p></noscript>
+</div>

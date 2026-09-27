@@ -1,0 +1,11 @@
+{% extends 'public/layout.html' %}
+{% block metadata %}{{ super() }}{% if public_table=='news' and detail %}<link rel="stylesheet" href="/assets/shared/css/news-body.css?v=0.15.43"><script type="module" src="/assets/shared/js/news-reader.js?v=0.15.63"></script>{% endif %}{% endblock %}
+{% block public_content %}<main class="container pb-5" id="main">
+{% if not public_table %}{% include 'public/home.html' %}
+{% elif detail %}{% set table=public_table %}{% set row=detail %}{% if table=='profiles' %}{% include 'public/person-detail.html' %}{% else %}{% include 'public/content-detail.html' %}{% endif %}
+{% else %}{% set table=public_table %}{% set rows=data[table] %}<h1 class="visually-hidden">{{ modules[table] }}</h1>
+{% if not home_mode %}{% include 'public/person-tools.html' %}{% if pages.query.get('f.uid') %}<p class="public-focus-note">{{ 'Showing a linked entry.' if lang=='en' else '正在显示旧链接对应的条目。' }} <a href="{{ public_list_path }}">{{ 'View all entries' if lang=='en' else '查看全部条目' }}</a></p>{% endif %}{% endif %}
+<section class="public-stream public-list-stream" data-public-stream data-query-id="{{ pages.query_id }}" data-endpoint="{{ public_list_path }}"{% if public_scope %} data-nav="{{ public_scope.slug }}" data-nav-stamp="{{ public_scope.stamp }}"{% endif %}{% if table not in ['profiles','students'] and not home_mode %} data-public-content{% endif %} data-table="{{ table }}" data-lang="{{ lang }}" data-home="{{ '1' if home_mode else '0' }}" data-page="{{ pages.page }}" data-total="{{ pages.total }}" data-next="{{ pages.next_url }}">
+<div class="academic-card-list" data-stream-items>{% include 'public/list-rows.html' %}</div>
+{% include 'public/stream-controls.html' %}
+</section>{% endif %}</main>{% endblock %}

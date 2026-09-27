@@ -1,0 +1,41 @@
+/* Home module layout; faculty panels use faculty.css; visual tokens use public-theme.css. */
+body.section-public .home-view-all{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:32px;text-decoration:none;white-space:nowrap}
+body.section-public .home-module-grid{display:grid;align-items:start;gap:24px;margin-top:28px;min-width:0;}
+body.section-public .home-module-grid-primary{grid-template-columns:minmax(0,3fr) minmax(0,2fr);}
+body.section-public .home-module-grid-secondary{grid-template-columns:repeat(3,minmax(0,1fr));padding-top:24px;border-top:1px solid var(--line);}
+body.section-public .home-module-grid-secondary[data-module-count="2"]{grid-template-columns:repeat(2,minmax(0,1fr));}
+body.section-public .home-module-grid[data-module-count="1"]{grid-template-columns:minmax(0,1fr);}
+body.section-public .home-module-grid>.academic-home-section{min-width:0;margin:0;}
+body.section-public .home-module-grid .academic-section-head{gap:12px;margin-bottom:10px;align-items:center;}
+body.section-public .home-module-grid .academic-section-head h2{font-size:var(--public-font-size-19);line-height:var(--public-line-height-4);}
+body.section-public .home-module-grid-secondary .academic-section-head h2{font-size:var(--public-font-size-13);}
+body.section-public .home-module-grid .academic-card-list{gap:8px;}
+body.section-public .home-card{padding:12px 14px;gap:12px;align-items:center;min-width:0;border-radius:9px;grid-template-columns:minmax(0,1fr);}
+body.section-public .home-card .academic-card-copy{padding:0;min-width:0;}
+body.section-public .home-card h3{font-size:var(--public-font-size-33);line-height:var(--public-line-height-13);margin:0 0 4px;}
+body.section-public .home-card p{font-size:var(--public-font-size-31);line-height:var(--public-line-height-1);margin:3px 0 0;}
+body.section-public .home-card .academic-meta{font-size:var(--public-font-size-35);}
+body.section-public .home-card.academic-card-with-media{grid-template-columns:88px minmax(0,1fr);padding:12px 14px;}
+body.section-public .home-card .academic-card-media{width:88px;height:80px;min-height:0;display:grid;place-items:center;justify-self:start;align-self:center;}
+body.section-public .home-card .academic-card-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:var(--public-color-2);border:0;border-radius:5px;}
+body.section-public .home-module-grid-secondary .home-card{background:var(--public-color-2);border:0;border-radius:0;padding:10px 0;box-shadow:none;}
+body.section-public .home-module-grid-secondary .home-card+.home-card{border-top:1px solid var(--line);}
+body.section-public .home-module-grid-secondary .academic-card-list{gap:0;}
+body.section-public .home-module-grid .public-stream-controls{padding:10px 0 0;gap:5px 10px;font-size:var(--public-font-size-36);align-items:center;}
+body.section-public .home-module-grid .public-stream-controls .btn{font-size:var(--public-font-size-4);min-height:32px;padding:3px 9px;}
+@media (max-width:1099px) {
+body.section-public .home-module-grid{gap:20px;}
+body.section-public .home-module-grid-secondary{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:767px) {
+body.section-public .home-module-grid-primary,body.section-public .home-module-grid-secondary,body.section-public .home-module-grid-secondary[data-module-count="2"]{grid-template-columns:minmax(0,1fr);}
+body.section-public .home-module-grid{gap:24px;margin-top:24px;}
+body.section-public .home-module-grid-secondary{padding-top:22px;}
+body.section-public .home-view-all{min-height:40px;}
+}
+@media (max-width:575px) {
+body.section-public .home-card.academic-card-with-media{grid-template-columns:68px minmax(0,1fr);padding:11px;gap:10px;}
+body.section-public .home-card .academic-card-media{width:68px;height:76px;}
+}
+body.section-public .home-card .publication-citation{font-size:var(--public-font-size-14);line-height:var(--public-line-height-6);margin:0;}
+body.section-public .home-card .content-facts,body.section-public .home-card .person-facts{font-size:var(--public-font-size-31);gap:3px 10px;}

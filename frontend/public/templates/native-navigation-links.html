@@ -1,0 +1,2 @@
+{% from 'shared/macros.html' import icon %}
+{% for item in links %}<a class="{{ item.classes }}" href="{{ item.url }}" data-navigation-id="{{ item.uid }}">{% if item.icon is defined and item.icon in ['file','user','book','search'] %}{{ icon(item.icon) }}{% endif %}<span>{{ item.title }}</span></a>{% endfor %}

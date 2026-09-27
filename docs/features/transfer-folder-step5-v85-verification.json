@@ -1,0 +1,24 @@
+{
+  "version": "0.15.85",
+  "python_passed": 129,
+  "python_suites": {
+    "transfer_regression": 104,
+    "new_language_and_shared_auth_home": 25
+  },
+  "node_passed": 86,
+  "node_suites": {
+    "transfer": 81,
+    "public_shell": 5
+  },
+  "fixture_create_compare_and_mismatch": "passed",
+  "real_windows_browser_tested": false,
+  "real_two_device_network_tested": false,
+  "real_visual_layout_tested": false,
+  "language_switch_preserves_workspace": true,
+  "catalog_shared_between_python_and_javascript": true,
+  "protocol_or_quota_changes": false,
+  "notes": [
+    "Node uses simulated DOM, file handles and transports, not a real browser.",
+    "Windows and physical LAN/WAN acceptance remains manual; see step5 guide."
+  ]
+}

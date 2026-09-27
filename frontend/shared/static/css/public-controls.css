@@ -1,0 +1,13 @@
+/* Shared public control geometry; all visual values use public-theme.css. */
+body.section-public :is(.public-icon,.person-icon){display:inline-grid;place-items:center;width:32px;height:32px;min-width:32px;flex:0 0 32px;padding:0;border:0;border-radius:8px;background:var(--public-control-bg);color:var(--public-accent);text-decoration:none;cursor:pointer;vertical-align:middle;transition:background .15s,box-shadow .15s}
+body.section-public :is(.public-icon,.person-icon):hover{background:var(--public-accent-soft)}
+body.section-public :is(.public-icon,.person-icon):focus-visible{outline:2px solid var(--public-accent);outline-offset:3px}
+body.section-public .public-media{display:grid;place-items:center;position:relative;overflow:hidden;border:0;background:var(--public-control-bg);border-radius:8px;min-width:0}
+body.section-public .public-media img{width:100%;height:100%;object-fit:contain;border:0;background:var(--public-control-bg)}
+body.section-public .public-media [data-media-fallback]{display:grid;place-items:center;width:100%;height:100%;font-size:var(--public-placeholder-size);font-weight:var(--public-placeholder-weight);color:var(--public-accent);line-height:var(--public-placeholder-line);user-select:none}
+body.section-public .public-media [hidden]{display:none!important}
+body.section-public .public-top-marker{position:absolute;top:400px;left:0;width:1px;height:1px;pointer-events:none}
+body.section-public .public-back-top{position:fixed;right:max(20px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom));width:42px;height:42px;min-width:42px;border-radius:50%;background:var(--public-surface);box-shadow:var(--public-control-shadow);z-index:40}
+body.section-public .public-back-top[hidden]{display:none!important}
+@media(pointer:coarse){body.section-public :is(.public-icon,.person-icon){width:40px;height:40px;min-width:40px;flex-basis:40px}}
+@media(prefers-reduced-motion:reduce){body.section-public :is(.public-icon,.person-icon){transition:none}}

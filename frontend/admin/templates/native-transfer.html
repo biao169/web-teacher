@@ -1,0 +1,13 @@
+{% extends 'admin/layout.html' %}
+{% block metadata %}{{ super() }}{% if transfer_content is defined %}<meta name="transfer-base" content="/transfer"><link rel="stylesheet" href="/assets/admin/css/native-transfer.css?v=0.15.97"><script type="module" src="/transfer-static/native.js?v=0.15.97"></script>{% endif %}{% endblock %}
+{% block content %}
+<section class="transfer-admin" data-transfer-admin data-csrf="{{ csrf }}">
+<div class="native-title transfer-admin-heading"><div><h1>文件快传管理</h1><p class="text-secondary">与教师网站共用账号、数据库和端口；设置与任务操作按当前权限执行。</p></div>{% if transfer_url %}<a class="btn btn-outline-primary" href="{{ transfer_url }}/">前台发送与接收 ↗</a>{% endif %}</div>
+{% if transfer_content is defined %}
+<nav class="transfer-admin-sections" aria-label="快传管理分区">{% if transfer_manager %}<a href="#transfer-controls">工具与额度</a><a href="#transfer-usage">流量用量</a><a href="#transfer-storage">磁盘状态</a>{% endif %}<a href="#transfer-tasks">{{ '全站任务' if transfer_manager else '我的任务' }}</a>{% if transfer_manager %}<a href="#transfer-cache">缓存清理</a>{% endif %}</nav>
+{% if not transfer_manager %}<p class="alert alert-info">当前仅显示自己的任务。工具设置、全站任务与缓存管理需要文件快传的查看、编辑和删除权限。</p>{% endif %}
+{{ transfer_content|safe }}
+{% elif transfer_url %}<p>此部署仍使用外部文件快传服务。</p><a href="{{ transfer_url }}/admin" class="btn btn-primary">打开外部快传管理</a>
+{% else %}<p>当前部署未接入文件快传。</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,20 @@
+/* Shared error controls stay beside the preview; the original file and draft remain intact. */
+.section-admin .native-preview-feedback{display:flex;flex-direction:column;gap:6px;margin:6px 0;font-size:var(--admin-small,13px);overflow-wrap:anywhere;color:var(--text-muted,#586579)}
+.section-admin .native-preview-feedback[hidden],.section-admin [data-preview-bound][hidden]{display:none!important}
+.section-admin .native-preview-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.section-admin .native-preview-actions .btn{font-size:inherit;padding:3px 7px;white-space:nowrap}
+.section-admin .native-media-thumb-wrap{min-width:68px;max-width:210px}
+.section-admin .native-media-thumb-wrap [data-preview-message]{max-width:190px;white-space:normal}
+.section-admin .media-picker-card>.native-preview-feedback{padding:0 8px 6px}
+.section-admin .native-media-field-preview .native-preview-feedback{max-width:100%;text-align:left}
+.section-admin [data-preview-state=loading]{cursor:progress}
+.section-admin .native-preview-feedback.is-compact{align-items:center;margin:0}
+.section-admin .native-preview-feedback.is-compact>[data-preview-message],.section-admin .native-preview-feedback.is-compact>.native-preview-actions{display:none}
+.section-admin [data-preview-details]{padding:3px 4px;font-size:var(--admin-small,13px);white-space:nowrap}
+.native-preview-dialog{width:min(440px,calc(100vw - 24px));max-height:calc(100vh - 24px);padding:20px;border:1px solid var(--line,#c8d2dc);border-radius:12px;background:var(--surface,#fff);color:var(--ink,#243446);box-shadow:0 12px 40px #0003;overflow:auto}
+.native-preview-dialog::backdrop{background:#102b3b66}
+.native-preview-dialog h2{font-size:18px;margin:0 0 10px}.native-preview-dialog p{overflow-wrap:anywhere;white-space:normal}
+/* Keep the error action in the frozen file-name cell, where sticky columns cannot cover it. */
+.section-admin .native-preview-feedback.is-compact{display:none}
+.section-admin .native-preview-mobile{display:block;font-size:var(--admin-small,12px);padding:2px 5px;margin-top:4px;max-width:100%}
+.section-admin .native-preview-mobile[hidden]{display:none!important}

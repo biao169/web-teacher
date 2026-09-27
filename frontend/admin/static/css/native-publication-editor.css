@@ -1,0 +1,36 @@
+/* Paper editor only. Shared theme tokens and controls retain their normal behavior elsewhere. */
+.native-publication-editor .native-editor-section{padding:16px;margin-bottom:14px}
+.native-publication-editor .native-editor-section h2{margin:0 0 12px}
+.native-publication-editor .native-fields{gap:12px 16px}
+.native-publication-editor .native-field{min-width:0;scroll-margin-top:100px}
+.native-publication-editor textarea{resize:vertical}
+.native-publication-editor #fields-publication_type .native-fields{grid-template-columns:repeat(4,minmax(0,1fr))}
+.native-publication-editor #fields-venue .native-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.native-publication-editor #fields-venue .native-field:has([name=venue]),.native-publication-editor #fields-venue .native-field:has([name=url]){grid-column:span 2}
+.native-publication-editor #fields-publication_type textarea{min-height:32px}
+.native-publication-editor .paper-section-heading,.native-publication-editor .paper-heading-actions,.native-publication-editor .paper-field-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.native-publication-editor .paper-section-heading{justify-content:space-between;margin-bottom:12px}
+.native-publication-editor .paper-section-heading h2{margin:0}
+.native-publication-editor .paper-profile{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.native-publication-editor .paper-profile label{margin:0;white-space:nowrap}
+.native-publication-editor .paper-profile input{width:210px;max-width:100%;color:var(--accent);background:var(--page)}
+.native-publication-editor .paper-citation-groups{display:grid;gap:12px}
+.native-publication-editor .paper-citation-group{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface)}
+.native-publication-editor .paper-citation-pair{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px}
+.native-publication-editor .paper-highlight{min-width:0}
+.native-publication-editor .paper-field-heading{justify-content:space-between;margin-bottom:5px;min-height:29px}
+.native-publication-editor .paper-field-heading label{margin:0;font-weight:var(--admin-font-weight-600)}
+.native-publication-editor .paper-field-heading button{white-space:nowrap}
+.native-publication-editor .paper-inline-change{margin-top:8px;padding:8px 10px;background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:4px;font-size:var(--admin-small)}
+.native-publication-editor .paper-inline-change header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.native-publication-editor .paper-inline-change pre{margin:6px 0 0;font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;max-height:130px;overflow:auto}
+.native-publication-editor .paper-inline-change p{margin:5px 0 0;color:var(--muted)}
+.native-publication-editor .paper-change-links{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.native-publication-editor [data-citation-feedback]{min-height:1.4em;margin:8px 0}
+.native-publication-editor [data-highlight-feedback]:empty{display:none}
+@media(max-width:1000px){.native-publication-editor #fields-publication_type .native-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.native-publication-editor .paper-citation-pair{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:640px){.native-publication-editor .native-editor-section{padding:12px}.native-publication-editor #fields-venue .native-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.native-publication-editor #fields-venue .native-field:has([name=venue]),.native-publication-editor #fields-venue .native-field:has([name=url]){grid-column:1/-1}.native-publication-editor .paper-heading-actions{width:100%}.native-publication-editor .paper-heading-actions button{flex:1}.native-publication-editor .paper-citation-group{padding:10px}.native-publication-editor .paper-inline-change .btn{min-height:32px}}
+@media(max-width:380px){.native-publication-editor #fields-publication_type .native-fields{grid-template-columns:minmax(0,1fr)}}
+
+.native-publication-editor .paper-citation-pair>.native-field>label{display:flex;align-items:center;min-height:36px}
+.native-publication-editor .paper-field-heading{min-height:36px}

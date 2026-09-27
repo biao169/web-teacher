@@ -1,0 +1,30 @@
+{# Shared first-paint/refresh fragment; helper controls never become account form fields. #}
+{% from 'admin/native-pagination.html' import pager %}
+<div class="native-sessions" data-sessions data-sort-default="created_at" data-direction-default="desc" data-endpoint="{{ endpoint }}" data-account-stamp="{{ sessions.account_stamp }}" data-nav="{{ nav }}" data-nav-stamp="{{ nav_stamp }}" data-self="{{ '1' if sessions.self else '0' }}">
+<p class="native-muted" id="sessions-help">仅管理主站登录。撤销立即生效，不会保存或清空当前账号草稿；当前浏览器会话受保护。时间为 UTC，活动会话在闲置30分钟或登录12小时后失效；账号、角色停用也会阻止访问。</p>
+<div class="native-query native-session-query" role="group" aria-label="会话搜索与筛选">
+<label for="sessions-query">编号</label><input id="sessions-query" class="form-control form-control-sm" type="search" maxlength="128" value="{{ sessions.query.q }}" placeholder="搜索会话编号" data-session-query="q" aria-describedby="sessions-help" title="按会话编号包含的文字搜索；不读取登录令牌">
+<label for="sessions-state">状态</label><select id="sessions-state" class="form-select form-select-sm" data-session-query="state" title="按活动、过期或撤销状态筛选"><option value="all" {% if sessions.query.state=='all' %}selected{% endif %}>全部状态</option>{% for value,label in sessions.states.items() %}<option value="{{ value }}" {% if sessions.query.state==value %}selected{% endif %}>{{ label }}（{{ sessions.counts[value] }}）</option>{% endfor %}</select>
+<label for="sessions-sort">排序</label><select id="sessions-sort" class="form-select form-select-sm" data-session-query="sort" title="选择会话列表排序依据">{% for value,label in [('created_at','登录时间'),('last_seen_at','最近活动'),('expires_at','最晚失效')] %}<option value="{{ value }}" {% if sessions.query.sort==value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select class="form-select form-select-sm" data-session-query="direction" aria-label="会话排序方向" title="时间从新到旧或从旧到新"><option value="desc" {% if sessions.query.direction=='desc' %}selected{% endif %}>从新到旧</option><option value="asc" {% if sessions.query.direction=='asc' %}selected{% endif %}>从旧到新</option></select>
+<button type="button" class="btn btn-outline-primary btn-sm" data-session-refresh title="刷新本区会话列表，保留账号未保存的输入">↻ 刷新</button>
+</div>
+<div class="native-toolbar" role="group" aria-label="会话批量操作">
+<span data-session-selected role="status">已选 0 条</span><button type="button" class="btn btn-outline-danger btn-sm" data-session-revoke="selected" disabled title="撤销本页勾选的活动会话；不包含当前浏览器">⊘ 撤销所选</button>
+<button type="button" class="btn btn-outline-danger btn-sm" data-session-revoke="others" {% if sessions.counts.active <= (1 if sessions.self else 0) %}disabled{% endif %} title="处理该账号在执行时的全部活动会话，跨越所有筛选和页码；当前浏览器保持登录">⊘ {{ '撤销其他活动会话' if sessions.self else '撤销全部活动会话' }}</button>
+<div class="native-toolbar-end"><label for="sessions-size">每页</label><select id="sessions-size" class="form-select form-select-sm" data-session-query="size" title="每页显示会话数量">{% for size in [10,20,50,100] %}<option value="{{ size }}" {% if sessions.size==size %}selected{% endif %}>{{ size }} 条</option>{% endfor %}</select></div>
+</div>
+<div class="native-session-scroll" tabindex="0" role="region" aria-label="登录会话列表，可水平滚动">
+<table class="native-session-table table table-sm"><thead><tr><th><input type="checkbox" class="form-check-input" data-session-all aria-label="选择本页可撤销会话" title="仅选择本页活动会话；切换筛选或分页后清空选择"></th><th><span class="native-column-heading"><button type="button" data-column-popup="uid" data-filter-key="q" data-kind="text" data-label="会话编号" title="筛选：会话编号">会话编号</button></span></th><th><span class="native-column-heading"><button type="button" data-column-popup="state" data-filter-key="state" data-filter-empty="all" data-options='{{ sessions.states.keys()|list|tojson }}' data-option-labels='{{ sessions.states|tojson }}' data-label="状态" title="筛选：会话状态">状态 / 原因</button></span></th>{% for value,text in [('created_at','登录时间'),('last_seen_at','最近活动'),('expires_at','失效时间')] %}<th><span class="native-column-heading"><span>{{ text }}</span><button type="button" data-column-sort="{{ value }}" data-sort-default="desc" data-label="{{ text }}{{ '（最晚期限）' if value=='expires_at' }}" title="排序：{{ text }}">↕</button></span></th>{% endfor %}<th>操作</th></tr></thead><tbody>
+{% for row in sessions.rows %}
+<tr data-session-id="{{ row.uid }}"><td><input type="checkbox" class="form-check-input" data-session-pick="{{ row.uid }}" aria-label="选择会话 {{ row.uid }}" {% if row.current or row.state!='active' %}disabled{% endif %}></td>
+<th scope="row"><span class="native-session-id" title="{{ row.uid }}">{{ row.uid }}</span>{% if row.current %}<small class="native-muted">● 当前浏览器</small>{% endif %}</th>
+<td><span class="native-media-state" data-state="{{ 'success' if row.state=='active' else ('warning' if row.state=='expired' else 'error') }}">{{ sessions.states[row.state] }}</span>{% if row.reason %}<small class="native-muted" title="{{ row.reason }}{% if row.revoked_at %} · {{ row.revoked_at|admin_datetime }} UTC{% endif %}">{{ row.reason }}</small>{% endif %}</td>
+<td>{{ row.created_at|admin_datetime }}</td><td>{{ row.last_seen_at|admin_datetime }}</td>
+<td><span title="闲置截止：{{ row.idle_expires_at|admin_datetime }} UTC；最晚失效：{{ row.expires_at|admin_datetime }} UTC">{{ (row.revoked_at or row.effective_expires_at)|admin_datetime }}</span><small class="native-muted">{{ '撤销于' if row.revoked_at else '闲置或最长有效期' }}</small></td>
+<td>{% if row.state=='active' and not row.current %}<button type="button" class="btn btn-outline-danger btn-sm" data-session-one="{{ row.uid }}" title="立即撤销此会话，下次请求需重新登录">⊘ 撤销</button>{% elif row.current %}<span class="native-muted" title="保留当前浏览器；需要退出时请使用页面右上角退出登录">已保护</span>{% else %}<span class="native-muted" title="已失效会话保留历史，无需再次撤销">已失效</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7">没有符合条件的会话。可以切换状态或清除编号搜索。</td></tr>{% endfor %}
+</tbody></table></div>
+{{ pager(sessions,page_url,numbers=sessions.page_numbers,unit='条') }}
+<p class="native-muted">仅展示会话编号和时间，不展示登录令牌、设备指纹或虚构的设备/IP。过期及撤销记录保留供查询；独立快传已有会话和任务在快传管理中控制。</p>
+</div>

@@ -1,0 +1,6 @@
+{% from 'admin/native-pagination.html' import pager %}
+{# Only bounded summary fields reach this escaped read-only result partial. #}
+{% if listing.total %}
+<div class="native-table-scroll" tabindex="0" aria-label="固定筛选预览，可横向滚动"><table class="table table-sm native-match-table"><thead><tr>{% for field in columns %}<th scope="col">{{ labels[field] }}</th>{% endfor %}</tr></thead><tbody>{% for item in listing.rows %}<tr>{% for field in columns %}<td><span class="native-cell" tabindex="0" title="{{ item[field]|admin_datetime if field.endswith('_at') else (item[field] if item[field] is not none else '—') }}">{{ item[field]|admin_datetime if field.endswith('_at') else (item[field] if item[field] is not none else '—') }}</span></td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+{{ pager(listing,numbers=listing.page_numbers,preview=true) }}
+{% else %}<p>当前固定条件下没有可查看的记录。</p>{% endif %}

@@ -1,0 +1,8 @@
+{% from 'admin/native-pagination.html' import pager %}
+{# The same escaped partial renders initial saved rules and read-only draft responses. #}
+{% if matches.total %}
+<div class="native-table-scroll" tabindex="0" aria-label="匹配学生名单，可横向滚动"><table class="table table-sm native-match-table"><thead><tr>{% for title in ['姓名','学位','分类','年级','研究方向','状态'] %}<th scope="col">{{ title }}</th>{% endfor %}{% if matches.can_edit %}<th scope="col">操作</th>{% endif %}</tr></thead><tbody>
+{% for student in matches.rows %}<tr>{% for field in ['name','degree','category','grade','direction','status'] %}<td><span class="native-cell" tabindex="0" title="{{ student[field] or '—' }}">{{ student[field] or '—' }}</span></td>{% endfor %}{% if matches.can_edit %}<td><a class="btn btn-outline-primary btn-sm" href="/admin/students/{{ student.uid }}/edit" target="_blank" rel="noopener" title="在新页面编辑学生，保留当前分类草稿">✎ 编辑</a></td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>
+{{ pager(matches,numbers=matches.page_numbers,preview=true,unit='人') }}
+{% else %}<p class="native-match-empty">{{ '当前关键词未匹配到可查看的学生。' if matches.keywords else '尚未设置关键词，当前匹配 0 人。填写关键词后即可预览。' }}</p>{% endif %}

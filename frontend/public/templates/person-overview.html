@@ -1,0 +1,6 @@
+{% from 'public/person-media.html' import avatar %}
+{% set connection %}{% include 'public/person-connections.html' %}{% endset %}
+<div class="faculty-overview{% if not connection|trim %} faculty-overview-single{% endif %}">
+<section class="faculty-panel faculty-intro"><div class="faculty-intro-top">{{ avatar(row,lang,media_map,'faculty-portrait',180 if not person_detail|default(false) else 160, true) }}{% with identity_heading='h1',identity_link=not person_detail|default(false) %}{% include 'public/person-identity.html' %}{% endwith %}</div>
+{% if not person_detail|default(false) %}{% set bio=row.get('bio_en') if lang=='en' and row.get('bio_en') else row.get('bio') %}{% if bio %}<p class="faculty-home-bio">{{ bio }}</p>{% endif %}{% if row.get('recruiting') %}<section class="faculty-home-recruiting" aria-labelledby="home-recruiting"><h2 id="home-recruiting">{{ 'Recruitment' if lang=='en' else '招生信息' }}</h2><p data-copy-field>{{ row.recruiting }}</p></section>{% endif %}{% endif %}</section>
+{% if connection|trim %}<div class="faculty-panel faculty-contact-panel">{{ connection }}</div>{% endif %}</div>

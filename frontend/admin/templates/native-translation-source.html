@@ -1,0 +1,2 @@
+{% if translation_source.available %}<div class="native-source-card"><div><small class="native-muted">{{ translation_source.module_label }} · {{ translation_source.field_label }}</small><br><strong>{{ translation_source.title }}</strong></div><a class="btn btn-outline-primary btn-sm" href="{{ translation_source.url }}" target="_blank" rel="noopener noreferrer" title="在新标签页打开来源，保留当前译文草稿">↗ {{ translation_source.action }}</a></div>
+{% else %}<p class="native-muted">{{ translation_source.message }}</p>{% endif %}

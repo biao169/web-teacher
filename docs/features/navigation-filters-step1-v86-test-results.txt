@@ -1,0 +1,89 @@
+v86 new filters and corrected v53 regression:
+...................................................                      [100%]
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+51 passed, 1 warning in 10.55s
+
+Initial related regression (one subsequently corrected stale assertion):
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+.................................................................F...... [ 72%]
+........................................................................ [ 96%]
+...........                                                              [100%]
+=================================== FAILURES ===================================
+___ test_home_contacts_follow_visibility_but_safe_academic_links_are_public ____
+
+fixture = (<starlette.testclient.TestClient object at 0x7f253966a9f0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '37dfedbf4477169edc5c08dfdb1801f050804693eecdd35f20d8e45eaa91c5ee'}))
+
+    def test_home_contacts_follow_visibility_but_safe_academic_links_are_public(fixture):
+        c,r=fixture
+        uid=add(r,'profiles','Teacher contact',is_active=1,is_featured=1,office='Office 305',phone='123-456',email='contact@example.invalid',contact_visibility='public',github='https://example.invalid/github',google_scholar='https://example.invalid/scholar')
+        c.cookies.clear();html=c.get('/zh').text
+        for text in ('Office 305','123-456','contact@example.invalid','https://example.invalid/github'):assert text in html
+        run(r.sql.batch([("UPDATE profiles SET contact_visibility='hidden' WHERE uid=?",(uid,))]))
+        for path in ('/zh','/zh/profiles','/zh/profiles/'+uid):
+            html=c.get(path).text
+>           for text in ('Office 305','123-456','contact@example.invalid'):assert text not in html
+E           assert 'Office 305' not in '<!doctype h...body></html>'
+E             
+E             'Office 305' is contained here:
+E             ?           ^^^^^^^^^^^^^
+E               pan><span>Office 305</span></p><p data-copy-field><span class="person-label">邮箱：</span><span><a href="mailto:contact%40example.invalid">contact@example.invalid</a></span></p></div><div class="faculty-links"><h2 class="faculty-contact-heading">学术与社交</h2>
+E             ?           ^^^^^^^^^^^^^^^^^^^^^^^
+E               
+E               ...
+E             
+E             ...Full output truncated (17 lines hidden), use '-vv' to show
+
+tests/test_public_replan_v53.py:42: AssertionError
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_public_replan_v53.py::test_home_contacts_follow_visibility_but_safe_academic_links_are_public
+1 failed, 298 passed, 1 warning in 99.10s (0:01:39)
+
+Unchanged v85 confirms the stale assertion:
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_home_contacts_follow_visibility_but_safe_academic_links_are_public ____
+
+fixture = (<starlette.testclient.TestClient object at 0x7fd4e8790fb0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '7d8a3eead76b281f85dc8218273b245af3f06a1ce4c2d6cb1df29689609c7ee5'}))
+
+    def test_home_contacts_follow_visibility_but_safe_academic_links_are_public(fixture):
+        c,r=fixture
+        uid=add(r,'profiles','Teacher contact',is_active=1,is_featured=1,office='Office 305',phone='123-456',email='contact@example.invalid',contact_visibility='public',github='https://example.invalid/github',google_scholar='https://example.invalid/scholar')
+        c.cookies.clear();html=c.get('/zh').text
+        for text in ('Office 305','123-456','contact@example.invalid','https://example.invalid/github'):assert text in html
+        run(r.sql.batch([("UPDATE profiles SET contact_visibility='hidden' WHERE uid=?",(uid,))]))
+        for path in ('/zh','/zh/profiles','/zh/profiles/'+uid):
+            html=c.get(path).text
+>           for text in ('Office 305','123-456','contact@example.invalid'):assert text not in html
+E           assert 'Office 305' not in '<!doctype h...body></html>'
+E             
+E             'Office 305' is contained here:
+E             ?           ^^^^^^^^^^^^^
+E               pan><span>Office 305</span></p><p data-copy-field><span class="person-label">邮箱：</span><span><a href="mailto:contact%40example.invalid">contact@example.invalid</a></span></p></div><div class="faculty-links"><h2 class="faculty-contact-heading">学术与社交</h2>
+E             ?           ^^^^^^^^^^^^^^^^^^^^^^^
+E               
+E               ...
+E             
+E             ...Full output truncated (17 lines hidden), use '-vv' to show
+
+tests/test_public_replan_v53.py:42: AssertionError
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_public_replan_v53.py::test_home_contacts_follow_visibility_but_safe_academic_links_are_public
+1 failed, 1 warning in 0.69s

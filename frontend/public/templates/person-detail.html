@@ -1,0 +1,7 @@
+{% from 'public/card-icons.html' import icon %}{% set person_detail=true %}
+<article class="person-detail faculty-detail my-4" data-person-detail data-record-id="{{ row.uid }}" data-lang="{{ lang }}" data-table="{{ table }}">
+<div class="person-detail-tools"><a href="{{ public_back_url|default(public_list_path|default('/'~lang~'/'~table)) }}" data-person-back{% if public_back_url is defined %} data-return-resolved{% endif %}>← {{ 'Back to list' if lang=='en' else '返回列表' }}</a><button type="button" class="public-icon" data-person-copy-detail hidden aria-label="{{ 'Copy entry' if lang=='en' else '复制当前条目' }}" title="{{ 'Copy entry' if lang=='en' else '复制当前条目' }}">{{ icon('copy') }}</button><span data-person-tool-status role="status" aria-live="polite"></span></div>
+{% include 'public/person-overview.html' %}
+<div class="faculty-detail-sections">
+{% for field,zh,en in [('bio','个人简介','Biography'),('education','教育经历','Education'),('experience','工作经历','Experience'),('recruiting','招生信息','Recruitment')] %}{% set value=row.get('bio_en') if field=='bio' and lang=='en' and row.get('bio_en') else row.get(field) %}{% if value %}<section class="faculty-section faculty-section-{{ field }}" aria-labelledby="section-{{ field }}"><h2 id="section-{{ field }}">{{ en if lang=='en' else zh }}</h2><div class="faculty-section-text" data-copy-field{% if field=='bio' %} data-person-biography{% endif %}>{{ value }}</div></section>{% endif %}{% endfor %}
+</div></article>

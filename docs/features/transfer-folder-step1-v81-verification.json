@@ -1,0 +1,10 @@
+{
+  "version": "0.15.81",
+  "python_transfer_tests": 27,
+  "simulated_transfer_tests": 50,
+  "folder_tests_included": 9,
+  "folder_sending": "not_implemented_step2",
+  "directory_receiving": "not_implemented_step3",
+  "real_browser": "not_run",
+  "backend_and_schema_changed": false
+}

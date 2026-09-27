@@ -1,0 +1,29 @@
+# Merge only into this site's configuration. Never replace existing sites.
+# Replace domain and source path; Python listens on 127.0.0.1:8003.
+teacher.example.com {
+    encode zstd gzip
+    handle_path /assets/public/* {
+        root * /opt/teacher-site/frontend/public/static
+        file_server
+    }
+    handle_path /assets/admin/* {
+        root * /opt/teacher-site/frontend/admin/static
+        file_server
+    }
+    handle_path /assets/shared/* {
+        root * /opt/teacher-site/frontend/shared/static
+        file_server
+    }
+    # Online relay: bounded POST bodies; do not add request_buffers/response_buffers.
+    handle /transfer/api/relay/* {
+        request_body {
+            max_size 1048576
+        }
+        reverse_proxy 127.0.0.1:8003 {
+            flush_interval 10ms
+        }
+    }
+    handle {
+        reverse_proxy 127.0.0.1:8003
+    }
+}

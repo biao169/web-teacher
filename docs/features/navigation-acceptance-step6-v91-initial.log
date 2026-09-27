@@ -1,0 +1,547 @@
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 31%]
+..............................................................FFFFF..... [ 41%]
+..........................F.............F..............F................ [ 52%]
+...............FF..F....FF.............................................. [ 62%]
+........................................................................ [ 72%]
+........................................................................ [ 83%]
+........................................................................ [ 93%]
+...........................................                              [100%]
+=================================== FAILURES ===================================
+_ test_old_details_redirect_to_exact_public_card_even_after_first_page[students] _
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab21bb00>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '56386cb8026cb9ffa91967d608063a5da8e0cb3158d69689b5751b98bdbc4f4d'}))
+table = 'students'
+
+    @pytest.mark.parametrize('table',['students','publications','projects','patents','research_interests'])
+    def test_old_details_redirect_to_exact_public_card_even_after_first_page(fixture,table):
+        c,r=fixture
+        for i in range(12):uid=add(r,table,'Entry'+str(i),sort_order=i)
+        for lang in ['zh','en']:
+            response=c.get(f'/{lang}/{table}/{uid}?from=https://bad.example',follow_redirects=False)
+            assert response.status_code==303
+>           assert response.headers['location']==f'/{lang}/{table}?f.uid={uid}#record-{uid}'
+E           AssertionError: assert '/zh/students...ce018d6f07fe2' == '/zh/students...ce018d6f07fe2'
+E             
+E             - /zh/students?f.uid=c9a235576e4beba92a9ce018d6f07fe2#record-c9a235576e4beba92a9ce018d6f07fe2
+E             + /zh/students?s=eyJmLnVpZCI6ImM5YTIzNTU3NmU0YmViYTkyYTljZTAxOGQ2ZjA3ZmUyIn0#record-c9a235576e4beba92a9ce018d6f07fe2
+
+tests/test_public_cards_v55.py:41: AssertionError
+_ test_old_details_redirect_to_exact_public_card_even_after_first_page[publications] _
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab6c9100>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': 'ac817f64a87581fd2955cdd3c1caa6d10465bcdfae0206c1cf911e0ba673b586'}))
+table = 'publications'
+
+    @pytest.mark.parametrize('table',['students','publications','projects','patents','research_interests'])
+    def test_old_details_redirect_to_exact_public_card_even_after_first_page(fixture,table):
+        c,r=fixture
+        for i in range(12):uid=add(r,table,'Entry'+str(i),sort_order=i)
+        for lang in ['zh','en']:
+            response=c.get(f'/{lang}/{table}/{uid}?from=https://bad.example',follow_redirects=False)
+            assert response.status_code==303
+>           assert response.headers['location']==f'/{lang}/{table}?f.uid={uid}#record-{uid}'
+E           AssertionError: assert '/zh/publicat...999a6f80999fc' == '/zh/publicat...999a6f80999fc'
+E             
+E             - /zh/publications?f.uid=aeb3d1b7108ef85c86c999a6f80999fc#record-aeb3d1b7108ef85c86c999a6f80999fc
+E             + /zh/publications?s=eyJmLnVpZCI6ImFlYjNkMWI3MTA4ZWY4NWM4NmM5OTlhNmY4MDk5OWZjIn0#record-aeb3d1b7108ef85c86c999a6f80999fc
+
+tests/test_public_cards_v55.py:41: AssertionError
+_ test_old_details_redirect_to_exact_public_card_even_after_first_page[projects] _
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab5ab7a0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': 'e03802c8d9415434ddb7044bf43daae69e12c49e6ce37f2af99160cdc40b9e05'}))
+table = 'projects'
+
+    @pytest.mark.parametrize('table',['students','publications','projects','patents','research_interests'])
+    def test_old_details_redirect_to_exact_public_card_even_after_first_page(fixture,table):
+        c,r=fixture
+        for i in range(12):uid=add(r,table,'Entry'+str(i),sort_order=i)
+        for lang in ['zh','en']:
+            response=c.get(f'/{lang}/{table}/{uid}?from=https://bad.example',follow_redirects=False)
+            assert response.status_code==303
+>           assert response.headers['location']==f'/{lang}/{table}?f.uid={uid}#record-{uid}'
+E           AssertionError: assert '/zh/projects...febbee042a0f0' == '/zh/projects...febbee042a0f0'
+E             
+E             - /zh/projects?f.uid=44d48e0f71658601570febbee042a0f0#record-44d48e0f71658601570febbee042a0f0
+E             + /zh/projects?s=eyJmLnVpZCI6IjQ0ZDQ4ZTBmNzE2NTg2MDE1NzBmZWJiZWUwNDJhMGYwIn0#record-44d48e0f71658601570febbee042a0f0
+
+tests/test_public_cards_v55.py:41: AssertionError
+_ test_old_details_redirect_to_exact_public_card_even_after_first_page[patents] _
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab49bf20>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': 'e36686dafbecb29766512d8cfb2f4e61bfe735a9052ff5efd69ec1b7effb0baa'}))
+table = 'patents'
+
+    @pytest.mark.parametrize('table',['students','publications','projects','patents','research_interests'])
+    def test_old_details_redirect_to_exact_public_card_even_after_first_page(fixture,table):
+        c,r=fixture
+        for i in range(12):uid=add(r,table,'Entry'+str(i),sort_order=i)
+        for lang in ['zh','en']:
+            response=c.get(f'/{lang}/{table}/{uid}?from=https://bad.example',follow_redirects=False)
+            assert response.status_code==303
+>           assert response.headers['location']==f'/{lang}/{table}?f.uid={uid}#record-{uid}'
+E           AssertionError: assert '/zh/patents?...5ab5b02b5fda6' == '/zh/patents?...5ab5b02b5fda6'
+E             
+E             - /zh/patents?f.uid=bdcfb821f6026301aef5ab5b02b5fda6#record-bdcfb821f6026301aef5ab5b02b5fda6
+E             + /zh/patents?s=eyJmLnVpZCI6ImJkY2ZiODIxZjYwMjYzMDFhZWY1YWI1YjAyYjVmZGE2In0#record-bdcfb821f6026301aef5ab5b02b5fda6
+
+tests/test_public_cards_v55.py:41: AssertionError
+_ test_old_details_redirect_to_exact_public_card_even_after_first_page[research_interests] _
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab7366c0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': 'ed245c392e150e517771a3b27d547743483504225c11acfbd127ed659847b0da'}))
+table = 'research_interests'
+
+    @pytest.mark.parametrize('table',['students','publications','projects','patents','research_interests'])
+    def test_old_details_redirect_to_exact_public_card_even_after_first_page(fixture,table):
+        c,r=fixture
+        for i in range(12):uid=add(r,table,'Entry'+str(i),sort_order=i)
+        for lang in ['zh','en']:
+            response=c.get(f'/{lang}/{table}/{uid}?from=https://bad.example',follow_redirects=False)
+            assert response.status_code==303
+>           assert response.headers['location']==f'/{lang}/{table}?f.uid={uid}#record-{uid}'
+E           AssertionError: assert '/zh/research...cd961b023cf9b' == '/zh/research...cd961b023cf9b'
+E             
+E             - /zh/research_interests?f.uid=2cf2611aaa4aa54d91bcd961b023cf9b#record-2cf2611aaa4aa54d91bcd961b023cf9b
+E             + /zh/research_interests?s=eyJmLnVpZCI6IjJjZjI2MTFhYWE0YWE1NGQ5MWJjZDk2MWIwMjNjZjliIn0#record-2cf2611aaa4aa54d91bcd961b023cf9b
+
+tests/test_public_cards_v55.py:41: AssertionError
+_______ test_news_new_tab_centered_cover_richtext_and_publication_scope ________
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab55f710>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '9034ca7469a24bab71fe9ee26c69ea8f9441e8ed3f15ccfb18da88ac644149e4'}))
+
+    def test_news_new_tab_centered_cover_richtext_and_publication_scope(fixture):
+        c,r=fixture
+        run(r.sql.batch([("INSERT INTO media_assets(uid,object_key,title,mime_type,size,status) VALUES (?,?,?,?,?,?)",('cover49','cover49.jpg','Cover','image/jpeg',12,'active'))]))
+        uid=add(r,'news','NEWS49',cover_key='cover49.jpg',content='<p>First paragraph</p><p><strong>Second paragraph</strong></p>',content_format='html',category='Updates')
+        html=c.get('/zh/news').text;links=DOM(html).find('a',href='/zh/news/'+uid)
+>       assert len(links)==2 and all(a.get('target')=='_blank' for a in links)
+E       assert (0 == 2)
+E        +  where 0 = len([])
+
+tests/test_public_content_v49.py:50: AssertionError
+______ test_projection_still_bounded_and_project_summary_remains_excluded ______
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ac9565d0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '4baf0d46aded4a454f2eda0d04e80d18050591ccbadf96d5200fcdf3fd3e3f73'}))
+
+    def test_projection_still_bounded_and_project_summary_remains_excluded(fixture):
+        c,r=fixture
+        for i in range(21):add(r,'projects',f'Project{i:02}',source='Public source',fund_name='Plan',summary='NEVER_SHOW_SUMMARY')
+        first=run(public_listing(r,'projects',{'size':100}))
+        assert len(first['rows'])==20 and first['size']==20 and all('summary' not in row for row in first['rows'])
+        response=c.get('/zh/projects?f.source=Public source&size=20',headers={'X-Public-Fragment':'1'}).json()
+        assert len(DOM(response['html']).find('article',**{'data-person-card':None}))==20
+>       assert 'f.source=Public+source' in response['next_url'] and 'NEVER_SHOW_SUMMARY' not in response['html']
+E       AssertionError: assert ('f.source=Public+source' in '/zh/projects?size=20&sort=sort_order&direction=asc&page=2&s=eyJmLnNvdXJjZSI6IlB1YmxpYyBzb3VyY2UifQ')
+
+tests/test_public_content_v50.py:98: AssertionError
+______ test_hero_buttons_only_from_navigation_and_empty_sections_omitted _______
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab3d1a30>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': 'a810d7f659daa981f688b554b878b2d90a8ee67e26892d45d53f11629bec3606'}))
+
+    def test_hero_buttons_only_from_navigation_and_empty_sections_omitted(fixture):
+        c,r=fixture;uid=add(r,'profiles','Teacher',is_active=1,is_featured=1)
+        for title,enabled,visibility in [('HERO_OK',1,'public'),('HERO_DISABLED',0,'public'),('HERO_PRIVATE',1,'hidden')]:
+            run(r.content.save('navigation_items',r.p,{'title':title,'path':'/zh/projects','location':'hero','enabled':enabled,'visibility':visibility}))
+        c.cookies.clear();page=c.get('/zh').text
+        assert 'HERO_OK' in page and 'HERO_DISABLED' not in page and 'HERO_PRIVATE' not in page
+>       assert 'home-profile-link' not in page and len(DOM(page).find('a',href='/zh/profiles/'+uid))==1
+E       assert ('home-profile-link' not in '<!doctype h...body></html>'
+E         
+E         'home-profile-link' is contained here:
+E         ? ---
+E           ody></html> and 0 == 1)
+E        +  where 0 = len([])
+E        +    where [] = find('a', href=('/zh/profiles/' + '629f6d9cf84cbf18771496e1d1039435'))
+E        +      where find = <test_public_home_step2.DOM object at 0x7fc4ab653c20>.find
+E        +        where <test_public_home_step2.DOM object at 0x7fc4ab653c20> = DOM('<!doctype html>\n<html lang="zh" data-reading="standard" data-theme="green">\n<head>\n<meta charset="utf-8"><meta nam...og>\n<footer class="site-footer container native-site-footer" aria-label="网站页脚"><p>教师个人网站</p></footer>\n</body></html>')
+
+tests/test_public_faculty_v59.py:49: AssertionError
+_________________________ test_news_links_open_new_tab _________________________
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab401880>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': 'e6684916423cf6339246ba4cd0e3d90d8ae832f811ba8ab628c21119d30cfd9c'}))
+
+    def test_news_links_open_new_tab(fixture):
+        c,r=fixture;uid=add(r,'news','news-demo',is_featured=1)
+        matches=DOM(c.get('/zh').text).find('a',href='/zh/news/'+uid)
+>       assert len(matches)==2 and all(a.get('target')=='_blank' and a.get('rel')=='noopener noreferrer' for a in matches)
+E       assert (0 == 2)
+E        +  where 0 = len([])
+
+tests/test_public_home_step2.py:72: AssertionError
+__________________ test_manual_english_faculty_and_english_ui __________________
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab2e4b90>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': 'f2012624a3d65bd6df4b249b1da81742d6ef5070ef49adf71f81df5cf82f1481'}))
+
+    def test_manual_english_faculty_and_english_ui(fixture):
+        c,r=fixture;uid=add(r,'profiles','中文姓名',name_en='English Name',bio='中文介绍',bio_en='English biography',is_active=1,is_featured=1)
+        configure(r,site_name='中文网站',site_name_en='English site')
+        page=c.get('/en').text
+        assert 'English Name' in page and 'English biography' in page and 'English site' in page
+        assert 'Faculty profile' not in page and 'Main navigation' in page
+>       assert DOM(page).find('a',href='/en/profiles/'+uid)
+E       assert []
+E        +  where [] = find('a', href=('/en/profiles/' + 'a4c9d51521916bb2bb39763b79e69c05'))
+E        +    where find = <test_public_home_step2.DOM object at 0x7fc4aa82b8f0>.find
+E        +      where <test_public_home_step2.DOM object at 0x7fc4aa82b8f0> = DOM('<!doctype html>\n<html lang="en" data-reading="standard" data-theme="green">\n<head>\n<meta charset="utf-8"><meta nam...class="site-footer container native-site-footer" aria-label="Site footer"><p>English site</p></footer>\n</body></html>')
+
+tests/test_public_home_step2.py:80: AssertionError
+_______ test_language_fallback_preserves_module_and_linked_record_filter _______
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab62dfa0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '7208f95b5468603af906ccbffe9cdc5b5aeae26b6fafa1c56740d7d36dd4dd21'}))
+
+    def test_language_fallback_preserves_module_and_linked_record_filter(fixture):
+        c,r=fixture;uid=add(r,'publications','Paper name',is_featured=1)
+        page=c.get('/zh/publications/'+uid).text
+>       assert DOM(page).find('a',href='/en/publications?f.uid='+uid)
+E       assert []
+E        +  where [] = find('a', href=('/en/publications?f.uid=' + 'c4d54324a2fcd14a0fd6a02e5d35d77d'))
+E        +    where find = <test_public_home_step2.DOM object at 0x7fc4ab21d280>.find
+E        +      where <test_public_home_step2.DOM object at 0x7fc4ab21d280> = DOM('<!doctype html>\n<html lang="zh" data-reading="standard" data-theme="green">\n<head>\n<meta charset="utf-8"><meta nam...og>\n<footer class="site-footer container native-site-footer" aria-label="网站页脚"><p>教师个人网站</p></footer>\n</body></html>')
+
+tests/test_public_home_step2.py:104: AssertionError
+___ test_portrait_precedes_text_contacts_omit_empty_boxes_and_no_hidden_info ___
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab65fcb0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '9590c26af4bac7f651174ef500e313d13650d0cd9a35cf4d25958e020dbd84bf'}))
+
+    def test_portrait_precedes_text_contacts_omit_empty_boxes_and_no_hidden_info(fixture):
+        c,r=fixture;key=image_asset(r,'home-portrait')
+        uid=add(r,'profiles','Home teacher',is_featured=1,is_active=1,avatar_key=key,bio='Public introduction',education='NO_EDUCATION',office='NO_OFFICE',contact_visibility='hidden')
+        page=c.get('/zh').text
+        assert page.index('class="faculty-portrait public-media"')<page.index('class="faculty-identity"')
+        assert 'faculty-contact-panel' in page and 'NO_OFFICE' in page and 'NO_EDUCATION' not in page
+>       assert len(DOM(page).find('a',href='/zh/profiles/'+uid))==1
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = find('a', href=('/zh/profiles/' + 'd630eb97240b3a666223509964087839'))
+E        +      where find = <test_public_home_step2.DOM object at 0x7fc4acacdf70>.find
+E        +        where <test_public_home_step2.DOM object at 0x7fc4acacdf70> = DOM('<!doctype html>\n<html lang="zh" data-reading="standard" data-theme="green">\n<head>\n<meta charset="utf-8"><meta nam...og>\n<footer class="site-footer container native-site-footer" aria-label="网站页脚"><p>教师个人网站</p></footer>\n</body></html>')
+
+tests/test_public_home_v54.py:42: AssertionError
+_____ test_home_news_cover_is_left_and_links_are_same_tab_policy_as_before _____
+
+fixture = (<starlette.testclient.TestClient object at 0x7fc4ab6b85c0>, namespace(metadata_credentials={'openalex': '', 'semantic...henticated', 'staff', 'owner', 'hidden'], 'csrf': '40fb7371ee2805db1c42e142825638cfec55509624ea13b256064a5189ee141f'}))
+
+    def test_home_news_cover_is_left_and_links_are_same_tab_policy_as_before(fixture):
+        c,r=fixture;key=image_asset(r,'home-news-cover')
+        uid=add(r,'news','HOME_NEWS',is_featured=1,cover_key=key)
+        html=c.get('/zh').text;article=html.split('data-record-id="'+uid+'"')[1].split('</article>')[0]
+        assert article.index('class="academic-card-media public-media"')<article.index('class="academic-card-copy"')
+        links=DOM(article).find('a',href='/zh/news/'+uid)
+>       assert len(links)==2 and all(x.get('target')=='_blank' and x.get('rel')=='noopener noreferrer' for x in links)
+E       assert (0 == 2)
+E        +  where 0 = len([])
+
+tests/test_public_home_v54.py:53: AssertionError
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_public_cards_v55.py::test_old_details_redirect_to_exact_public_card_even_after_first_page[students]
+FAILED tests/test_public_cards_v55.py::test_old_details_redirect_to_exact_public_card_even_after_first_page[publications]
+FAILED tests/test_public_cards_v55.py::test_old_details_redirect_to_exact_public_card_even_after_first_page[projects]
+FAILED tests/test_public_cards_v55.py::test_old_details_redirect_to_exact_public_card_even_after_first_page[patents]
+FAILED tests/test_public_cards_v55.py::test_old_details_redirect_to_exact_public_card_even_after_first_page[research_interests]
+FAILED tests/test_public_content_v49.py::test_news_new_tab_centered_cover_richtext_and_publication_scope
+FAILED tests/test_public_content_v50.py::test_projection_still_bounded_and_project_summary_remains_excluded
+FAILED tests/test_public_faculty_v59.py::test_hero_buttons_only_from_navigation_and_empty_sections_omitted
+FAILED tests/test_public_home_step2.py::test_news_links_open_new_tab - assert...
+FAILED tests/test_public_home_step2.py::test_manual_english_faculty_and_english_ui
+FAILED tests/test_public_home_step2.py::test_language_fallback_preserves_module_and_linked_record_filter
+FAILED tests/test_public_home_v54.py::test_portrait_precedes_text_contacts_omit_empty_boxes_and_no_hidden_info
+FAILED tests/test_public_home_v54.py::test_home_news_cover_is_left_and_links_are_same_tab_policy_as_before
+13 failed, 678 passed, 1 warning in 247.98s (0:04:07)
+✔ dialog requests fresh form with current return path and restores focus on close (90.59985ms)
+✔ failed submission cannot double-submit, retains server account field and clears password (27.308314ms)
+✔ registration success switches to login inside the same dialog (15.895878ms)
+✔ closing pending read aborts it and does not inject a late form (16.67661ms)
+✔ one pending submission preserves draft and supports error retry with refreshed token (79.857704ms)
+✔ success stays in page and prevents repeated submission, offers new message link (19.485526ms)
+✔ unexpected response does not clear draft or retry writes (11.654296ms)
+(node:3140) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ arrow toggles asc/desc/asc, keeps independent conditions and resets page (214.265182ms)
+✔ text/boolean filters and clear affect only the selected column (173.085894ms)
+✔ fixed scope is not cleared; Escape closes and restores focus (131.599277ms)
+✔ optional column module failure does not block headers or mutations (164.273533ms)
+✔ optional media module failure is isolated from the list controller (218.022238ms)
+✔ core import failure retains independent headers, HTML search and links (152.069103ms)
+✔ storage and canvas exceptions retain working columns and headers (183.6155ms)
+✔ mount/dispose/remount attaches exactly one action listener (304.11839ms)
+✔ repeated partial refresh retains query, draft, selection, focus, and single handlers (391.98402ms)
+✔ failed follow-up read never replays a successful write; retry is read-only (170.932319ms)
+✔ account deletion confirmation single cancels without a request (88.642579ms)
+✔ account deletion confirmation batch cancels without a request (61.175689ms)
+✔ grouped sidebar collapse, mobile drawer and Escape preserve focus (59.702887ms)
+✔ sidebar remains usable when preference storage is unavailable (56.108184ms)
+✔ grouped navigation retains permission notice and keyboard focus return (53.774835ms)
+✔ media size header edits KB but preserves byte query contract (39.109764ms)
+✔ cancelled permanent deletion sends preflight only (64.345138ms)
+✔ batch permanent deletion preflights every item before confirm, stops on failure (98.234888ms)
+✔ corresponding author markers match complete names and render text safely (28.753747ms)
+✔ metadata draft fills empty correspondence, protects existing value and supports explicit replacement and undo (39.507909ms)
+✔ single translation sends selected target version and keeps current filters (86.208473ms)
+✔ media KB cells use integers and a compact default width (70.502417ms)
+(node:3141) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cached image and idle lazy image do not cause diagnostic requests (110.792828ms)
+✔ 503 retry is bounded to two GET reloads, then leaves manual recovery (37.72556ms)
+✔ readable image retries once here, and successful load cancels pending work (15.54941ms)
+✔ HTTP 401 is not automatically retried (11.565782ms)
+✔ HTTP 403 is not automatically retried (10.500135ms)
+✔ HTTP 404 is not automatically retried (17.640308ms)
+✔ HTTP 409 is not automatically retried (12.798332ms)
+✔ HTTP 413 is not automatically retried (10.364861ms)
+✔ HTTP 429 is not automatically retried (13.713001ms)
+✔ empty, unsupported, redirected and Retry-After responses are not retried (41.149379ms)
+✔ external signed URL is neither diagnosed nor automatically rewritten (12.266229ms)
+✔ diagnostic burst never exceeds two concurrent HEAD requests (20.645516ms)
+✔ dispose cancels retry and stale diagnosis cannot hide a recovered image (23.02893ms)
+(node:3142) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ front target selection retains placement and supports Chinese contains with ASCII stored path (311.300868ms)
+✔ public fields exclude private project data, status is exact and condition removal restores plain link (143.556625ms)
+✔ reset preserves unrelated title and restores initial location and conditions (109.844459ms)
+✔ legacy sidebar sends the original equality payload (94.539857ms)
+✔ stale preview cannot replace newer draft or survive a kind change (87.278171ms)
+✔ switching public contains to sidebar requires an explicit valid operator (102.922164ms)
+✔ preset selection keeps footer placement and reads public target (77.437676ms)
+✔ PDF stays lazy, loads range chunks and watermarks every page as safe noninteractive text (87.006296ms)
+✔ canvas and document limits are retained, offscreen pages restore without duplicating watermark (56.415717ms)
+✔ failed load offers retry without suggesting a forbidden original download (16.21601ms)
+✔ disposing during a pending document prevents late page painting (13.223297ms)
+✔ administrator default markup receives no frontend watermark and retains progress text (10.181034ms)
+(node:3154) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ public author rendering reuses real matcher, highlights only corresponding names, and never inserts markup (59.619624ms)
+✔ citation emphasis preserves every original character, escapes markup, and skips partial names (12.593583ms)
+✔ 100 papers use five serial batches of twenty and retain chosen format and order (169.62229ms)
+✔ single entry follows selected elsevier (21.92135ms)
+✔ single entry follows selected apa (23.337195ms)
+✔ single entry follows selected ieee (16.32502ms)
+✔ single entry follows selected bibtex (13.829968ms)
+✔ one missing citation prevents the entire batch from copying (15.379884ms)
+✔ format changes cancel late results without clearing selection (24.342962ms)
+✔ filter reset cancels a pending read and ignores its response (16.57697ms)
+✔ failed read retains selection, retries without cache and rejects wrong response (23.869087ms)
+✔ denied clipboard exposes correct alternate text for manual copy (23.758881ms)
+✔ no JavaScript retains a native named select and a working GET form (78.738623ms)
+✔ keyboard changes only native filter value; collapsed sizing label stays unchanged (55.703848ms)
+✔ Esc restores focus without committing the active option; only one panel opens (35.431325ms)
+✔ candidate panel fits a narrow short viewport and keeps complete option text (18.59968ms)
+✔ paged candidates preserve value/selection, append safely, announce and keep focus after last page (36.626097ms)
+✔ facet failure stays on same page and retries from popup without clearing current values (23.500872ms)
+✔ changing sort submits from first batch and cancels late candidate/list responses (38.980141ms)
+✔ append preserves checked cards, new cards unchecked, and current result total updates (28.958673ms)
+✔ Tab visits load-more inside panel; leaving or outside focus closes without choosing (29.436213ms)
+✔ top control follows threshold, respects reduced motion and restores visible focus (52.609962ms)
+✔ scroll fallback and history restore work without an observer (9.823054ms)
+✔ images appended by infinite scroll fall back on failure without copyable decoration (11.998335ms)
+✔ controls do nothing on administration pages (13.939122ms)
+✔ public styles reference centralized typography and color values without missing tokens (21.807348ms)
+✔ real fixed-entry page appends without losing selections, switches copy format and cancels on filtering (292.226773ms)
+✔ select loaded, append preserves choices and new rows stay unchecked (80.611442ms)
+✔ copy uses only explicit public fields in current display order (40.143191ms)
+✔ expansion loads only requested entry, caches text and toggles clamp (34.02185ms)
+✔ failed or mismatched detail preserves preview and allows retry (31.290419ms)
+✔ Clipboard denial uses legacy fallback and accurately reports failure (18.978632ms)
+✔ explicit filter submit marks selection reset; automatic append does not (25.107785ms)
+✔ detail links retain filters for back navigation (15.792427ms)
+✔ details copy public fields and restore same-module return URL (24.756315ms)
+✔ details reject cross-origin or different-module return URLs (36.189207ms)
+✔ empty biography is reported without inventing content (19.795404ms)
+✔ group heading appears once across appended batches, selection and copy exclude heading (21.712866ms)
+✔ facet options append safely without changing active filter or selected records (19.630876ms)
+✔ facet failure preserves options and page; retry stays on the same page (18.317975ms)
+✔ batch citations copy selected loaded raw text in list order with zero requests (20.860941ms)
+✔ missing-format cards stop the batch instead of copying fallback (30.324092ms)
+✔ single citation copy works on homepage and appended cards without selection form (18.329217ms)
+✔ short biographies hide expand button and resizing reveals it only on overflow (24.819116ms)
+✔ retained detail copies rich text with paragraph boundaries without reader buttons (21.308105ms)
+✔ 100 fictional gbt citations append without changing selected entries and copy exact stored text (324.28202ms)
+✔ 100 fictional elsevier citations append without changing selected entries and copy exact stored text (212.855135ms)
+✔ 100 fictional apa citations append without changing selected entries and copy exact stored text (202.53005ms)
+✔ 100 fictional ieee citations append without changing selected entries and copy exact stored text (167.670758ms)
+✔ students: short description expands locally and long description lazily loads safely (11.437148ms)
+✔ courses: short description expands locally and long description lazily loads safely (9.599347ms)
+✔ description request is cancelled by filters and late text cannot overwrite the card (8.75907ms)
+✔ news copy excludes PDF controls, loaded text layers and online watermark (9.310932ms)
+✔ scoped teacher expansion preserves fixed-entry path and revision (9.663904ms)
+✔ scoped detail return accepts only its own entry and preserves encoded filters (21.066121ms)
+✔ English facet continuation requests language and scope, and keeps raw values for identical labels (12.156323ms)
+✔ homepage shows one faculty hero and three compact content groups (111.70217ms)
+✔ missing featured faculty uses site introduction (62.392766ms)
+✔ account states protect admin entry in the sample and honor registration scenario (84.050989ms)
+✔ navigation configuration sample removes entries instead of adding fixed fallbacks (49.311978ms)
+✔ teachers numbered ascending, other modules descending (42.127694ms)
+✔ expand updates only the current bio and keeps button focus (28.806904ms)
+✔ search, category, sort and empty states use sample results consistently (37.003786ms)
+✔ selection clears when filters change and mixed select-all is indeterminate (32.034952ms)
+✔ bilingual switch preserves query, selection and focused language control (42.11901ms)
+✔ copy uses ordered public fields, includes corresponding-author mark and excludes tags and actions (23.542606ms)
+✔ clipboard denial provides manual copy with selected text (44.009872ms)
+✔ project cards emphasize source and program, without biography text (31.250089ms)
+✔ news title and detail open in a new tab, direct detail URL renders correct item (46.776624ms)
+✔ transfer panel toggling preserves DOM file input and link without any requests (20.968242ms)
+✔ transfer files survive language rerender and display escaped filenames (50.542584ms)
+✔ untrusted query is escaped and invalid module/sort safely default (36.055366ms)
+✔ viewport button changes preview container without losing list state (19.512387ms)
+✔ native project copy emits one paragraph per card, escaped HTML and no ordinal (86.912464ms)
+✔ partial selection copies only the selected substring, not full fields (20.752197ms)
+✔ cross-card partial selection clips both ends in document order (23.527312ms)
+✔ mixed page selection and non-project selection retain native copy (12.926014ms)
+✔ button copy matches native serialized cards and includes appended selections only (55.967391ms)
+✔ right-column status copies once after main text with no private fields or extra field newlines (38.33958ms)
+✔ Chinese visitor fields serialize as ASCII and retain fixed-entry path (79.553856ms)
+✔ empty controls omit state and cannot carry stale pagination or fixed rules (11.281149ms)
+✔ cross-origin form action does not trigger scripted navigation (14.55449ms)
+✔ language preserves detail, repeated parameters and hash without rewriting external origins (105.881492ms)
+✔ filtered navigation matches only appropriate query state (40.282271ms)
+✔ nonlanguage auth paths retain safe server-rendered fallback (34.504172ms)
+✔ module prefix does not mark a different route active (22.675207ms)
+✔ failed and already-broken branding images hide while site text remains (13.257734ms)
+✔ server-normalized detail language link keeps translated return context (10.994622ms)
+✔ intersection starts one request and carries query filters without changing current URL (114.262602ms)
+✔ appends once per UID, including duplicate rows in the same response (23.853764ms)
+✔ last page removes continuation and disconnects automatic requests (11.705434ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (10.644273ms)
+✔ homepage streams share a one-request queue and keep independent record sets (21.655369ms)
+✔ wrong language/table/page response cannot contaminate current list (13.029008ms)
+✔ cross-origin or backwards continuation is rejected before append (20.784566ms)
+✔ HTML error pages do not replace cards (16.115043ms)
+✔ pagehide aborts active request and clears queued requests (29.717228ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (15.610512ms)
+✔ data-saving preference disables auto preload, keeps explicit click (32.884164ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (13.219877ms)
+✔ five nested homepage modules share one request queue and retain independent rows (27.954127ms)
+✔ fixed-entry stream retains slug and revision on every continuation (12.343205ms)
+✔ fixed-entry stream rejects unscoped continuation and changed revision before append (25.97976ms)
+✔ query identity and next-query mismatch cannot contaminate current stream (19.985931ms)
+(node:3285) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ real Quill image panel persists alignment and bounded geometry across reload (279.350844ms)
+✔ real Quill rejects oversized percentage without changing content (146.109015ms)
+✔ drag and drop uses Firefox caret fallback, preserves attributes and undoes atomically (82.053857ms)
+✔ numeric dimension validator rejects CSS injection (60.000573ms)
+✔ independent window keeps the same editor, pins controls outside scroll and returns draft on Escape (75.667475ms)
+✔ dimension input and unit changes update the real editor immediately without apply (58.014022ms)
+✔ unsupported dialog keeps the inline editor and draft usable (65.283736ms)
+(node:3293) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ settings saves weekly and custom rules; pending save locks inputs and updates revision (186.533094ms)
+✔ version conflict preserves draft and revision (90.296268ms)
+✔ invalid rules cannot save and cancellation keeps the rule (44.535386ms)
+✔ rule removal stays local until explicit save (31.875611ms)
+(node:3301) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ paged manifest validates counts, hierarchy, offsets and portable paths (6.138166ms)
+✔ directory sink splits a chunk across files, closes complete files and preserves empty entries (6.340151ms)
+✔ existing directory and same-name file are never overwritten (4.250691ms)
+✔ unexpected entry inside fresh root stops without overwriting (3.76638ms)
+✔ pause and lost ACK resume without rewriting saved file bytes (5.82783ms)
+✔ cancel aborts current temporary file and retains completed files (3.585046ms)
+✔ empty root and trailing empty entries complete without network data (3.24924ms)
+✔ failed final close never acknowledges and requires explicit cancel (10.683402ms)
+✔ controller chooses directory in click gesture and resumes lost ACK with the same session (539.460574ms)
+✔ unsupported directory writer explains limitation without creating a receive session (56.492929ms)
+(node:3310) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ one task for 205 files, paged manifests, reuses chunk stream (19.366267ms)
+✔ bounded virtual file slices across original file boundaries (4.951627ms)
+✔ resume verifies stored paths and hashes, never creates another task (15.046592ms)
+✔ mismatching manifest blocks chunks (3.834042ms)
+✔ empty directory seals without trying single-file upload (2.432308ms)
+✔ stop between manifest batches preserves one task for continuation (3.443653ms)
+✔ folder send UI creates one visible link, disables replacement during send, and keeps resume record (438.964426ms)
+(node:3311) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ directory handles retain hierarchy, same basenames and empty directories without reading content (7.614864ms)
+✔ compatible directory input preserves relative paths and reports empty-directory limitation (4.335198ms)
+✔ portable paths reject traversal, absolute paths, separators, reserved names and collisions (9.027745ms)
+✔ limits, safe integer totals, permission errors and cancellation reject partial manifests (4.895974ms)
+✔ legacy drag reader drains all batches and preserves empty directory (3.595683ms)
+✔ drag handles are captured synchronously and a single file is rejected (2.966284ms)
+✔ UI pages directory preview, stores only local manifest and never creates transport tasks (256.099113ms)
+✔ UI cancellation discards a late picker result (65.504719ms)
+✔ tree ordering keeps descendants next to their parent (3.137331ms)
+(node:3330) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ language changes retain workspace objects, raw names and nested dynamic status (85.43065ms)
+✔ switch while an operation is pending retains its callback, handle and completion binding (27.00136ms)
+✔ only latest header response wins and no workspace is replaced (16.578534ms)
+✔ failed header refresh reports error in selected language without navigation or data loss (12.674094ms)
+✔ errors retain translatable tokens and server denials have English explanations (17.981568ms)
+✔ catalog covers every literal frontend token and placeholders match (14.247787ms)
+(node:3343) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ multi-block direct transfer reuses sink ACK and closes before completion (810.31901ms)
+✔ corrupt data does not write, acknowledge or close destination (4.510664ms)
+✔ oversized frames and flooded queues close instead of accumulating (9.925983ms)
+✔ slow DataChannel buffer blocks next send; close rejects pending read (26.779634ms)
+✔ wrong ACK and false final save never claim completion (3.909547ms)
+✔ selected ICE route is reported without claiming physical LAN or exposing addresses (2.531839ms)
+✔ disk close failure cannot send saved message (9.569705ms)
+✔ unsupported UI disables direct controls and keeps cached panels (354.739322ms)
+✔ file picker stays single while status polling continues; cancellation clears the room (44.104938ms)
+(node:3349) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ shared adapter snapshots local selection and submits only metadata in bounded pages (8.876426ms)
+✔ LAN folder stream saves files and empty entries before the sender sees completion (21.338852ms)
+✔ online relay aggregate stream shares ACK and folder sink; no file data in metadata (6.613654ms)
+✔ empty root over LAN completes with no binary payload (6.676339ms)
+✔ metadata preflight rejects online memory overflow before creating rooms (25.001385ms)
+✔ cancelled directory preparation does not create a destination folder (4.168026ms)
+✔ lan controller reveals one folder pairing code only after manifest seal (412.611979ms)
+✔ relay controller reveals one folder pairing code only after manifest seal (84.261537ms)
+(node:3363) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ receive accepts only same-origin exact capability path (5.503881ms)
+✔ new upload creates once and sends exact consecutive chunks (4.337802ms)
+✔ resume verifies prefix before any write; wrong content does not upload (6.258438ms)
+✔ completed checkpoint recovers a lost final response without writing (2.613221ms)
+✔ unknown write result is never automatically retried (3.074747ms)
+✔ pause keeps current task and avoids the next chunk (2.883699ms)
+✔ invalid or over-limit file does not reserve a task (3.890738ms)
+✔ expired checkpoint and malformed offset stop safely (3.842625ms)
+✔ switching panels retains file input and progress nodes; anonymous view does not request APIs (437.241109ms)
+✔ integrated transfer prefixes requests and rejects legacy or external share paths (4.418044ms)
+✔ paged resume checks all pages before any upload (2.768736ms)
+✔ changed recovery snapshot and repeated cursor refuse writes (2.415784ms)
+(node:3370) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ slow sink and ACK independently fence the next read (8.873062ms)
+✔ lost ACK response resumes ACK without writing the block twice (3.087526ms)
+✔ corruption and oversized block never write or acknowledge (3.200397ms)
+✔ pause stops before another read and does not claim final disk save (2.370815ms)
+✔ unsupported browser keeps native download without starting a receive session (357.187639ms)
+(node:3382) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ relay sender waits for receiver ACK before reading next file block (4.845347ms)
+✔ uncertain upload is not replayed; resume consults receiver checkpoint (2.70566ms)
+✔ quota waiting and pause never read a file block (2.203283ms)
+✔ binary reader rejects declared/actual overflow and truncated content (6.433382ms)
+✔ unsupported receive UI keeps sending and cached receive available (402.390921ms)
+(node:3391) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mode changes preserve all files, progress and receive fields without transport calls (112.706828ms)
+✔ send/receive filter applies across all modes and leaves shared cancellation controls visible (56.849002ms)
+✔ tabs support arrows, wrapping, Home/End and matching accessible panels (36.938613ms)
+✔ hidden mode feedback remains available, escaped, and can reopen its workspace (34.653887ms)
+✔ legacy cached-only mode remains usable and does not offer absent transports (37.770672ms)
+(node:3399) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ storage status is on-demand, escaped, and distinguishes disabled maintenance (373.462635ms)
+ℹ tests 246
+ℹ suites 0
+ℹ pass 246
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4668.37136
+{
+  "python": "failed",
+  "simulated_dom": "passed",
+  "windows_browser": "manual_acceptance_required"
+}

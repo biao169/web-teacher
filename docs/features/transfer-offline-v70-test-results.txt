@@ -1,0 +1,240 @@
+Full regression
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 45%]
+........................................................................ [ 60%]
+........................................................................ [ 75%]
+........................................................................ [ 90%]
+............................................                             [100%]
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+476 passed, 1 warning in 173.42s (0:02:53)
+✔ dialog requests fresh form with current return path and restores focus on close (124.637197ms)
+✔ failed submission cannot double-submit, retains server account field and clears password (35.422204ms)
+✔ registration success switches to login inside the same dialog (32.42018ms)
+✔ closing pending read aborts it and does not inject a late form (15.136392ms)
+✔ one pending submission preserves draft and supports error retry with refreshed token (82.64369ms)
+✔ success stays in page and prevents repeated submission, offers new message link (32.756948ms)
+✔ unexpected response does not clear draft or retry writes (19.95299ms)
+(node:2216) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ arrow toggles asc/desc/asc, keeps independent conditions and resets page (161.96737ms)
+✔ text/boolean filters and clear affect only the selected column (103.92153ms)
+✔ fixed scope is not cleared; Escape closes and restores focus (100.754762ms)
+✔ optional column module failure does not block headers or mutations (123.423961ms)
+✔ optional media module failure is isolated from the list controller (146.969738ms)
+✔ core import failure retains independent headers, HTML search and links (137.150521ms)
+✔ storage and canvas exceptions retain working columns and headers (136.30217ms)
+✔ mount/dispose/remount attaches exactly one action listener (194.463584ms)
+✔ repeated partial refresh retains query, draft, selection, focus, and single handlers (285.410727ms)
+✔ failed follow-up read never replays a successful write; retry is read-only (145.972082ms)
+✔ account deletion confirmation single cancels without a request (62.583593ms)
+✔ account deletion confirmation batch cancels without a request (54.851605ms)
+✔ grouped sidebar collapse, mobile drawer and Escape preserve focus (40.202278ms)
+✔ sidebar remains usable when preference storage is unavailable (31.732747ms)
+✔ grouped navigation retains permission notice and keyboard focus return (35.201342ms)
+✔ media size header edits KB but preserves byte query contract (28.021295ms)
+✔ cancelled permanent deletion sends preflight only (58.335122ms)
+✔ batch permanent deletion preflights every item before confirm, stops on failure (79.193509ms)
+✔ corresponding author markers match complete names and render text safely (26.431918ms)
+✔ metadata draft fills empty correspondence, protects existing value and supports explicit replacement and undo (36.561092ms)
+✔ single translation sends selected target version and keeps current filters (59.365997ms)
+✔ media KB cells use integers and a compact default width (41.564263ms)
+(node:2222) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cached image and idle lazy image do not cause diagnostic requests (114.662434ms)
+✔ 503 retry is bounded to two GET reloads, then leaves manual recovery (38.002279ms)
+✔ readable image retries once here, and successful load cancels pending work (17.374079ms)
+✔ HTTP 401 is not automatically retried (29.359355ms)
+✔ HTTP 403 is not automatically retried (16.083216ms)
+✔ HTTP 404 is not automatically retried (13.492932ms)
+✔ HTTP 409 is not automatically retried (13.792174ms)
+✔ HTTP 413 is not automatically retried (13.798203ms)
+✔ HTTP 429 is not automatically retried (14.326259ms)
+✔ empty, unsupported, redirected and Retry-After responses are not retried (48.558533ms)
+✔ external signed URL is neither diagnosed nor automatically rewritten (17.628923ms)
+✔ diagnostic burst never exceeds two concurrent HEAD requests (31.328837ms)
+✔ dispose cancels retry and stale diagnosis cannot hide a recovered image (52.15162ms)
+✔ PDF stays lazy, loads range chunks and watermarks every page as safe noninteractive text (81.369547ms)
+✔ canvas and document limits are retained, offscreen pages restore without duplicating watermark (61.158317ms)
+✔ failed load offers retry without suggesting a forbidden original download (18.815454ms)
+✔ disposing during a pending document prevents late page painting (25.582947ms)
+✔ administrator default markup receives no frontend watermark and retains progress text (14.458489ms)
+(node:2224) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ public author rendering reuses real matcher, highlights only corresponding names, and never inserts markup (64.602819ms)
+✔ citation emphasis preserves every original character, escapes markup, and skips partial names (15.182181ms)
+✔ 100 papers use five serial batches of twenty and retain chosen format and order (192.736108ms)
+✔ single entry follows selected elsevier (41.454909ms)
+✔ single entry follows selected apa (20.206464ms)
+✔ single entry follows selected ieee (17.541411ms)
+✔ single entry follows selected bibtex (20.709161ms)
+✔ one missing citation prevents the entire batch from copying (16.705259ms)
+✔ format changes cancel late results without clearing selection (33.611061ms)
+✔ filter reset cancels a pending read and ignores its response (20.792928ms)
+✔ failed read retains selection, retries without cache and rejects wrong response (31.525174ms)
+✔ denied clipboard exposes correct alternate text for manual copy (36.726934ms)
+✔ no JavaScript retains a native named select and a working GET form (74.421257ms)
+✔ keyboard changes only native filter value; collapsed sizing label stays unchanged (55.063505ms)
+✔ Esc restores focus without committing the active option; only one panel opens (33.551862ms)
+✔ candidate panel fits a narrow short viewport and keeps complete option text (38.844219ms)
+✔ paged candidates preserve value/selection, append safely, announce and keep focus after last page (35.360241ms)
+✔ facet failure stays on same page and retries from popup without clearing current values (27.491897ms)
+✔ changing sort submits from first batch and cancels late candidate/list responses (33.843031ms)
+✔ append preserves checked cards, new cards unchecked, and current result total updates (32.109405ms)
+✔ Tab visits load-more inside panel; leaving or outside focus closes without choosing (26.240714ms)
+✔ top control follows threshold, respects reduced motion and restores visible focus (72.472095ms)
+✔ scroll fallback and history restore work without an observer (15.120278ms)
+✔ images appended by infinite scroll fall back on failure without copyable decoration (17.370233ms)
+✔ controls do nothing on administration pages (13.791092ms)
+✔ public styles reference centralized typography and color values without missing tokens (35.129392ms)
+✔ select loaded, append preserves choices and new rows stay unchecked (103.998832ms)
+✔ copy uses only explicit public fields in current display order (29.021445ms)
+✔ expansion loads only requested entry, caches text and toggles clamp (30.975034ms)
+✔ failed or mismatched detail preserves preview and allows retry (20.532616ms)
+✔ Clipboard denial uses legacy fallback and accurately reports failure (21.360254ms)
+✔ explicit filter submit marks selection reset; automatic append does not (19.453847ms)
+✔ detail links retain filters for back navigation (14.867861ms)
+✔ details copy public fields and restore same-module return URL (20.503767ms)
+✔ details reject cross-origin or different-module return URLs (26.002339ms)
+✔ empty biography is reported without inventing content (15.895568ms)
+✔ group heading appears once across appended batches, selection and copy exclude heading (21.397841ms)
+✔ facet options append safely without changing active filter or selected records (22.256026ms)
+✔ facet failure preserves options and page; retry stays on the same page (12.981351ms)
+✔ batch citations copy selected loaded raw text in list order with zero requests (19.693629ms)
+✔ missing-format cards stop the batch instead of copying fallback (20.140363ms)
+✔ single citation copy works on homepage and appended cards without selection form (13.967438ms)
+✔ short biographies hide expand button and resizing reveals it only on overflow (11.474786ms)
+✔ retained detail copies rich text with paragraph boundaries without reader buttons (9.539666ms)
+✔ 100 fictional gbt citations append without changing selected entries and copy exact stored text (193.9297ms)
+✔ 100 fictional elsevier citations append without changing selected entries and copy exact stored text (212.681267ms)
+✔ 100 fictional apa citations append without changing selected entries and copy exact stored text (178.663271ms)
+✔ 100 fictional ieee citations append without changing selected entries and copy exact stored text (150.528338ms)
+✔ students: short description expands locally and long description lazily loads safely (15.341842ms)
+✔ courses: short description expands locally and long description lazily loads safely (10.572083ms)
+✔ description request is cancelled by filters and late text cannot overwrite the card (10.663222ms)
+✔ news copy excludes PDF controls, loaded text layers and online watermark (8.34274ms)
+✔ homepage shows one faculty hero and three compact content groups (115.424865ms)
+✔ missing featured faculty uses site introduction (59.199827ms)
+✔ account states protect admin entry in the sample and honor registration scenario (106.909629ms)
+✔ navigation configuration sample removes entries instead of adding fixed fallbacks (33.870684ms)
+✔ teachers numbered ascending, other modules descending (42.13193ms)
+✔ expand updates only the current bio and keeps button focus (18.457574ms)
+✔ search, category, sort and empty states use sample results consistently (39.289811ms)
+✔ selection clears when filters change and mixed select-all is indeterminate (45.651651ms)
+✔ bilingual switch preserves query, selection and focused language control (45.104996ms)
+✔ copy uses ordered public fields, includes corresponding-author mark and excludes tags and actions (32.939959ms)
+✔ clipboard denial provides manual copy with selected text (56.870743ms)
+✔ project cards emphasize source and program, without biography text (20.88712ms)
+✔ news title and detail open in a new tab, direct detail URL renders correct item (52.684865ms)
+✔ transfer panel toggling preserves DOM file input and link without any requests (25.13142ms)
+✔ transfer files survive language rerender and display escaped filenames (33.030757ms)
+✔ untrusted query is escaped and invalid module/sort safely default (28.835114ms)
+✔ viewport button changes preview container without losing list state (21.425463ms)
+✔ native project copy emits one paragraph per card, escaped HTML and no ordinal (63.853079ms)
+✔ partial selection copies only the selected substring, not full fields (17.824408ms)
+✔ cross-card partial selection clips both ends in document order (16.402908ms)
+✔ mixed page selection and non-project selection retain native copy (10.312172ms)
+✔ button copy matches native serialized cards and includes appended selections only (34.201082ms)
+✔ language preserves detail, repeated parameters and hash without rewriting external origins (99.714656ms)
+✔ filtered navigation matches only appropriate query state (14.92947ms)
+✔ nonlanguage auth paths retain safe server-rendered fallback (13.192187ms)
+✔ module prefix does not mark a different route active (11.737973ms)
+✔ failed and already-broken branding images hide while site text remains (11.984576ms)
+✔ intersection starts one request and carries query filters without changing current URL (67.808268ms)
+✔ appends once per UID, including duplicate rows in the same response (20.153523ms)
+✔ last page removes continuation and disconnects automatic requests (24.305258ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (19.435459ms)
+✔ homepage streams share a one-request queue and keep independent record sets (13.051806ms)
+✔ wrong language/table/page response cannot contaminate current list (22.874965ms)
+✔ cross-origin or backwards continuation is rejected before append (28.937989ms)
+✔ HTML error pages do not replace cards (8.690174ms)
+✔ pagehide aborts active request and clears queued requests (13.899395ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (11.911615ms)
+✔ data-saving preference disables auto preload, keeps explicit click (12.057716ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (18.489743ms)
+✔ five nested homepage modules share one request queue and retain independent rows (17.047346ms)
+(node:2329) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ real Quill image panel persists alignment and bounded geometry across reload (249.792064ms)
+✔ real Quill rejects oversized percentage without changing content (119.432668ms)
+✔ drag and drop uses Firefox caret fallback, preserves attributes and undoes atomically (100.099046ms)
+✔ numeric dimension validator rejects CSS injection (56.392221ms)
+✔ independent window keeps the same editor, pins controls outside scroll and returns draft on Escape (59.609014ms)
+✔ dimension input and unit changes update the real editor immediately without apply (68.459981ms)
+✔ unsupported dialog keeps the inline editor and draft usable (51.86262ms)
+(node:2338) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ settings saves weekly and custom rules; pending save locks inputs and updates revision (190.486218ms)
+✔ version conflict preserves draft and revision (47.461093ms)
+✔ invalid rules cannot save and cancellation keeps the rule (28.623195ms)
+✔ rule removal stays local until explicit save (31.857055ms)
+(node:2346) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ multi-block direct transfer reuses sink ACK and closes before completion (809.739772ms)
+✔ corrupt data does not write, acknowledge or close destination (5.543065ms)
+✔ oversized frames and flooded queues close instead of accumulating (4.825101ms)
+✔ slow DataChannel buffer blocks next send; close rejects pending read (22.491812ms)
+✔ wrong ACK and false final save never claim completion (9.394978ms)
+✔ selected ICE route is reported without claiming physical LAN or exposing addresses (1.541667ms)
+✔ disk close failure cannot send saved message (10.059036ms)
+✔ unsupported UI disables direct controls and keeps cached panels (346.989522ms)
+✔ file picker stays single while status polling continues; cancellation clears the room (25.800194ms)
+(node:2362) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ receive accepts only same-origin exact capability path (2.503718ms)
+✔ new upload creates once and sends exact consecutive chunks (2.409736ms)
+✔ resume verifies prefix before any write; wrong content does not upload (1.565543ms)
+✔ completed checkpoint recovers a lost final response without writing (1.554466ms)
+✔ unknown write result is never automatically retried (1.108533ms)
+✔ pause keeps current task and avoids the next chunk (1.208634ms)
+✔ invalid or over-limit file does not reserve a task (1.17289ms)
+✔ expired checkpoint and malformed offset stop safely (1.341695ms)
+✔ switching panels retains file input and progress nodes; anonymous view does not request APIs (383.527662ms)
+✔ integrated transfer prefixes requests and rejects legacy or external share paths (2.000148ms)
+✔ paged resume checks all pages before any upload (1.383508ms)
+✔ changed recovery snapshot and repeated cursor refuse writes (1.124828ms)
+(node:2370) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ slow sink and ACK independently fence the next read (6.848775ms)
+✔ lost ACK response resumes ACK without writing the block twice (1.996913ms)
+✔ corruption and oversized block never write or acknowledge (1.898926ms)
+✔ pause stops before another read and does not claim final disk save (1.537149ms)
+✔ unsupported browser keeps native download without starting a receive session (375.718853ms)
+(node:2379) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ relay sender waits for receiver ACK before reading next file block (3.971273ms)
+✔ uncertain upload is not replayed; resume consults receiver checkpoint (1.600736ms)
+✔ quota waiting and pause never read a file block (1.286331ms)
+✔ binary reader rejects declared/actual overflow and truncated content (1.446843ms)
+✔ unsupported receive UI keeps sending and cached receive available (390.810933ms)
+(node:2385) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ storage status is on-demand, escaped, and distinguishes disabled maintenance (324.424421ms)
+ℹ tests 182
+ℹ suites 0
+ℹ pass 182
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3739.231585
+{
+  "python": "passed",
+  "simulated_dom": "passed",
+  "windows_browser": "manual_acceptance_required"
+}
+
+Final offline and bounded tests
+...........................                                              [100%]
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+27 passed, 1 warning in 11.27s

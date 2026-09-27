@@ -1,0 +1,46 @@
+--- a/backend/app/native/public_data.py
++++ b/backend/app/native/public_data.py
+@@ -7,8 +7,8 @@
+  'students':('uid','name','name_en','degree','category','grade','direction','status','bio','email','contact_visibility','avatar_key'),
+  'research_interests':('uid','name','name_en','description'),
+  'projects':('uid','name','source','fund_name','principal','project_role','project_number','start_date','end_date','status'),
+- 'publications':('uid','title','authors','venue','year','doi','pdf_key','pdf_visibility'),
+- 'patents':('uid','name','patent_type','legal_status','inventors'),
++ 'publications':('uid','title','authors','venue','year','volume','issue','pages','corresponding_authors','publication_type','author_role','index_type','display_tags','url','doi','pdf_key','pdf_visibility'),
++ 'patents':('uid','name','patent_type','country','application_number','grant_number','application_date','grant_date','legal_status','inventors'),
+  'courses':('uid','name','semester','audience','summary'),
+  'news':('uid','title','category','cover_key','published_at'),
+ }
+@@ -53,7 +53,7 @@
+ 
+ async def public_media_map(r,data):
+     """Only resolve keys referenced by this response, never scan the whole media library."""
+-    keys=sorted({row.get(f) for rows in data.values() for row in rows for f in ('avatar_key','cover_key','pdf_key') if row.get(f)})
++    keys=sorted({row.get(f) for rows in data.values() for row in rows for f in ('avatar_key','cover_key','pdf_key','certificate_key','syllabus_key','material_key') if row.get(f)})
+     result={}
+     for offset in range(0,len(keys),40):
+         batch=keys[offset:offset+40]
+@@ -69,6 +69,14 @@
+ # These fields are public presentation filters, never arbitrary database columns.
+ PEOPLE_FACETS={'profiles':(('title','职称','Title'),('organization','单位','Organization')),
+               'students':(('category','分类','Category'),('degree','学位','Degree'),('grade','年级','Cohort'),('status','状态','Status'),('direction','研究方向','Research interests'))}
++# Reuse the existing public-only facet reader and endpoint for content modules.
++PEOPLE_FACETS.update({
++ 'publications':(('year','年份','Year'),('publication_type','类型','Type'),('venue','期刊 / 会议','Journal / Conference'),('index_type','收录','Index')),
++ 'projects':(('source','来源','Source'),('fund_name','基金 / 计划','Fund / Program'),('status','状态','Status')),
++ 'patents':(('patent_type','类型','Type'),('country','国家 / 地区','Country / Region'),('legal_status','状态','Status')),
++ 'news':(('category','分类','Category'),),
++ 'courses':(('semester','学期','Semester'),('audience','授课对象','Audience')),
++})
+ FACET_BATCH=50
+ 
+ async def people_facet(content,table,field,page=1):
+@@ -78,7 +86,7 @@
+     where,args=content.scope(table,public=True)
+     # DISTINCT happens in SQL across the public scope, not in the current student page.
+     rows=await content.sql.query(f'SELECT DISTINCT "{field}" AS value FROM "{table}" WHERE '+where+f' AND "{field}" IS NOT NULL AND length(trim("{field}"))>0 ORDER BY "{field}" COLLATE NOCASE,"{field}" LIMIT ? OFFSET ?',(*args,FACET_BATCH+1,(page-1)*FACET_BATCH))
+-    return {'table':table,'field':field,'page':page,'values':[row['value'] for row in rows[:FACET_BATCH]],'has_more':len(rows)>FACET_BATCH}
++    return {'table':table,'field':field,'page':page,'values':[str(row['value']) for row in rows[:FACET_BATCH]],'has_more':len(rows)>FACET_BATCH}
+ 
+ async def people_facets(content,table):
+     result=[]

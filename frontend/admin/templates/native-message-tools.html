@@ -1,0 +1,2 @@
+{# Compact message-only helpers live inside the shared list toolbar. #}
+{% if permissions.can_edit %}<label for="message-bulk-status" class="visually-hidden">所选留言处理状态</label><select id="message-bulk-status" data-message-bulk-status class="form-select form-select-sm" title="选择所选留言的新状态；已回复不代表发送邮件">{% for value,text in message_states.items() %}<option value="{{ value }}">{{ text }}</option>{% endfor %}</select><button type="button" class="btn btn-outline-primary btn-sm" data-bulk-message title="逐条核对权限和记录版本后更新；发生冲突停止，保留已成功结果">✓ 更新所选状态</button>{% endif %}

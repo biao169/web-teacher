@@ -1,0 +1,27 @@
+{
+  "version": "0.15.79",
+  "python": {
+    "collected": 532,
+    "initial_passed": 522,
+    "initial_failed": 10,
+    "failure_reason": "old fixture mkdir omitted parents=True after nested database default",
+    "targeted_rerun_passed": 19,
+    "all_initial_failures_resolved": true,
+    "full_rerun": false
+  },
+  "simulated_dom": {
+    "passed": 188
+  },
+  "production_root_data_lifecycle": {
+    "passed": 23,
+    "real_host_systemd": false
+  },
+  "new_requirements": {
+    "passed": 4
+  },
+  "sql_files": [
+    "database/schema.sql"
+  ],
+  "windows_real_execution": "pending",
+  "remote_deployment": "pending"
+}

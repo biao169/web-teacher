@@ -1,0 +1,17 @@
+{% from 'admin/native-help.html' import hint %}
+{# One provider template serves metadata and translation; saved fields keep native names. #}
+{% set family=spec.get('family','metadata') %}
+<input type="hidden" name="_{{ family }}_providers_present" value="1">
+<div class="native-service-tools" data-service-family="{{ family }}" data-recommended='{{ spec.get("recommended",[])|tojson }}'>
+<div class="native-helper-actions"><span data-service-summary>当前生效默认：{{ spec.get('effective_default','') }}；默认只调用此服务</span><button type="button" class="btn btn-outline-secondary btn-sm" data-service-recommend title="把本组默认与启用顺序填入草稿，不修改密钥，需统一保存后生效">↺ 填入推荐设置</button></div>
+<div class="native-provider-config" role="group" aria-label="{{ '翻译' if family=='translation' else '论文' }}服务启用与顺序">
+{% for p in spec.providers %}<div class="native-provider-row" data-service-row="{{ p.id }}">
+<label><input class="form-check-input" type="checkbox" aria-describedby="help-{{ family }}-enabled-{{ p.id }}" title="允许调用{{ p.label }}；取消后不会自动启用" name="_{{ family }}_enabled_{{ p.id }}" value="1" {% if p.enabled %}checked{% endif %}>{{ p.label }}</label>
+<label class="native-provider-order">顺序<input type="number" class="form-control form-control-sm" name="_{{ family }}_order_{{ p.id }}" value="{{ p.position or spec.providers|length }}" min="1" max="{{ spec.providers|length }}" aria-label="{{ p.label }}回退顺序" aria-describedby="help-{{ family }}-order-{{ p.id }}"></label>
+<span class="native-muted">{{ p.credential }}</span>
+<div class="native-service-actions"><button type="button" class="btn btn-outline-primary btn-sm" data-service-test="{{ p.id }}" title="使用当前草稿和已有密钥，只向{{ p.label }}发送固定短样例；不保存配置">↗ 测试连接</button><span data-service-result role="status" aria-live="polite">尚未测试</span></div>
+<details class="native-provider-env"><summary title="查看打开页面时的有效地址、参数和凭据位置">地址与参数</summary><div class="native-service-address">{{ p.endpoint }}</div><p>{{ p.details }}</p>{% if p.env %}<small>部署变量：{{ p.env }}{% if family=='translation' %}；也可在下方服务密钥区填写{% endif %}</small>{% endif %}</details>
+<div class="native-provider-help">{{ hint('help-'+family+'-enabled-'+p.id,'勾选允许调用；保存后生效。') }}{{ hint('help-'+family+'-order-'+p.id,'数字小者优先；同序按排列。') }}</div>
+</div>{% endfor %}</div>
+<small class="native-field-help">“测试连接”使用当前草稿，{{ '发送“你好，世界。”并译为英文' if family=='translation' else '查询题名“machine learning”' }}，不写入业务数据。只在点击后发请求；不同供应商的密钥不能共用。</small>
+</div>

@@ -1,0 +1,17 @@
+{% extends 'admin/layout.html' %}
+{% from 'admin/native-media-parts.html' import preview %}
+{% from 'admin/native-pagination.html' import pager %}
+{% block content %}
+<div class="native-title"><h1>{{ page_title }}</h1><span class="native-media-state {{ 'is-trash' if row.status=='trash' }}">{{ '⌫ 回收站' if row.status=='trash' else '✓ 媒体库' }}</span></div>
+<nav class="native-section-nav" aria-label="媒体区块"><a href="#media-preview">媒体预览</a><a href="#media-usage">使用位置</a></nav>
+<section class="panel native-editor-section" id="media-preview"><h2>{{ row.title or row.object_key }}</h2>
+<dl class="native-media-meta"><div><dt>分类</dt><dd>{{ row.category or '未分类' }}</dd></div><div><dt>类型</dt><dd>{{ row.mime_type or '未知' }}</dd></div><div><dt>大小</dt><dd>{{ '未知（外部文件）' if row.storage_kind=='external' else ('%.1f'|format(row.size/1024)+' KiB') }}</dd></div><div><dt>存储</dt><dd>{{ '外部链接' if row.storage_kind=='external' else row.storage_kind }}</dd></div><div><dt>更新时间</dt><dd>{{ row.updated_at|admin_datetime }}</dd></div><div class="native-wide"><dt>原文件名</dt><dd>{{ row.original_filename or '未记录（历史或外链条目）' }}</dd></div><div class="native-wide"><dt>对象 Key</dt><dd>{{ row.object_key }}</dd></div></dl>
+{{ preview(row) }}
+<a class="btn btn-outline-secondary btn-sm" href="/api/admin/media/{{ row.uid }}/content" target="_blank" rel="noopener noreferrer" title="打开原始文件；外部资源由对方网站控制">↗ 打开文件</a>
+{% if row.storage_kind!='external' %}<a class="btn btn-outline-primary btn-sm" href="/api/admin/media/{{ row.uid }}/content?download=1">⇩ 下载文件</a>{% endif %}
+</section>
+<section class="panel native-editor-section" id="media-usage"><h2>使用位置</h2>
+{% include 'admin/native-media-locations.html' %}
+</section>
+{% endblock %}
+{% block workspace_footer %}<span class="native-muted">预览不改变文件状态</span><div class="native-footer-actions">{% if permissions.can_edit %}<a class="btn btn-primary btn-sm" href="/admin/media_assets/{{ row.uid }}/edit">✎ 编辑信息</a>{% endif %}<a class="btn btn-outline-secondary btn-sm" href="/admin/media_assets?f.status={{ row.status }}">返回{{ '回收站' if row.status=='trash' else '媒体库' }}</a></div>{% endblock %}

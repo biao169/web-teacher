@@ -1,0 +1,10 @@
+{
+  "version": "0.15.83",
+  "python_regression_passed": 72,
+  "python_receive_recheck_passed": 7,
+  "node_passed": 67,
+  "real_browser_tested": false,
+  "scope": "cached folder receive with original hierarchy",
+  "cross_reload_resume": false,
+  "folder_live_modes_implemented": false
+}

@@ -1,0 +1,83 @@
+...........................                                              [100%]
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+27 passed, 1 warning in 3.96s
+
+(node:12) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ settings saves weekly and custom rules; pending save locks inputs and updates revision (130.894831ms)
+✔ version conflict preserves draft and revision (31.051904ms)
+✔ invalid rules cannot save and cancellation keeps the rule (30.936781ms)
+✔ rule removal stays local until explicit save (23.002641ms)
+(node:13) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ directory handles retain hierarchy, same basenames and empty directories without reading content (3.947475ms)
+✔ compatible directory input preserves relative paths and reports empty-directory limitation (1.784673ms)
+✔ portable paths reject traversal, absolute paths, separators, reserved names and collisions (1.644131ms)
+✔ limits, safe integer totals, permission errors and cancellation reject partial manifests (2.294932ms)
+✔ legacy drag reader drains all batches and preserves empty directory (1.291328ms)
+✔ drag handles are captured synchronously and a single file is rejected (1.265689ms)
+✔ UI pages directory preview, stores only local manifest and never creates transport tasks (176.57843ms)
+✔ UI cancellation discards a late picker result (50.090505ms)
+✔ tree ordering keeps descendants next to their parent (1.837652ms)
+(node:14) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ multi-block direct transfer reuses sink ACK and closes before completion (790.475676ms)
+✔ corrupt data does not write, acknowledge or close destination (3.170313ms)
+✔ oversized frames and flooded queues close instead of accumulating (2.728908ms)
+✔ slow DataChannel buffer blocks next send; close rejects pending read (22.013413ms)
+✔ wrong ACK and false final save never claim completion (2.406931ms)
+✔ selected ICE route is reported without claiming physical LAN or exposing addresses (1.605563ms)
+✔ disk close failure cannot send saved message (11.326759ms)
+✔ unsupported UI disables direct controls and keeps cached panels (305.261238ms)
+✔ file picker stays single while status polling continues; cancellation clears the room (38.608579ms)
+(node:18) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ receive accepts only same-origin exact capability path (2.619342ms)
+✔ new upload creates once and sends exact consecutive chunks (2.886015ms)
+✔ resume verifies prefix before any write; wrong content does not upload (1.601206ms)
+✔ completed checkpoint recovers a lost final response without writing (1.304518ms)
+✔ unknown write result is never automatically retried (1.06661ms)
+✔ pause keeps current task and avoids the next chunk (1.052258ms)
+✔ invalid or over-limit file does not reserve a task (1.333742ms)
+✔ expired checkpoint and malformed offset stop safely (1.338299ms)
+✔ switching panels retains file input and progress nodes; anonymous view does not request APIs (407.180088ms)
+✔ integrated transfer prefixes requests and rejects legacy or external share paths (1.913858ms)
+✔ paged resume checks all pages before any upload (1.428285ms)
+✔ changed recovery snapshot and repeated cursor refuse writes (1.475462ms)
+(node:26) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ slow sink and ACK independently fence the next read (4.938611ms)
+✔ lost ACK response resumes ACK without writing the block twice (1.359912ms)
+✔ corruption and oversized block never write or acknowledge (1.249966ms)
+✔ pause stops before another read and does not claim final disk save (1.003614ms)
+✔ unsupported browser keeps native download without starting a receive session (350.279163ms)
+(node:32) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ relay sender waits for receiver ACK before reading next file block (4.027957ms)
+✔ uncertain upload is not replayed; resume consults receiver checkpoint (2.997643ms)
+✔ quota waiting and pause never read a file block (1.346101ms)
+✔ binary reader rejects declared/actual overflow and truncated content (1.883972ms)
+✔ unsupported receive UI keeps sending and cached receive available (376.900913ms)
+(node:33) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ mode changes preserve all files, progress and receive fields without transport calls (122.559444ms)
+✔ send/receive filter applies across all modes and leaves shared cancellation controls visible (51.264606ms)
+✔ tabs support arrows, wrapping, Home/End and matching accessible panels (27.622156ms)
+✔ hidden mode feedback remains available, escaped, and can reopen its workspace (23.589271ms)
+✔ legacy cached-only mode remains usable and does not offer absent transports (18.868418ms)
+(node:73) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ storage status is on-demand, escaped, and distinguishes disabled maintenance (256.100851ms)
+ℹ tests 50
+ℹ suites 0
+ℹ pass 50
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1278.949843

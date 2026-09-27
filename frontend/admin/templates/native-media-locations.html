@@ -1,0 +1,8 @@
+{% from 'admin/native-pagination.html' import pager %}
+{% if usage.protected %}<p class="native-muted">🔒 另有受权限保护的引用，名称和位置不对当前账号显示。</p>{% endif %}
+{% if usage.uncertain %}<p class="native-feedback">存在超过正文长度上限的引用候选，请先核对相关正文；在核对前保护此媒体。</p>{% endif %}
+{% if usage.groups %}
+<nav class="native-media-tabs" aria-label="引用来源">{% for group in usage.groups %}<a class="btn btn-sm {{ 'btn-primary' if locations.source==group.source else 'btn-outline-secondary' }}" href="{{ page_url(1,group.source) }}" {% if locations.source==group.source %}aria-current="page"{% endif %} data-source-page>{{ group.label }} · {{ group.count }}</a>{% endfor %}</nav>
+<div class="native-source-rows">{% for entry in locations.rows %}<div class="native-source-row"><div><strong>{{ entry.title or entry.uid }}</strong><small class="native-muted">{{ entry.module_label }} · {{ entry.field_label }}</small></div><a class="btn btn-outline-primary btn-sm" href="{{ entry.url }}" target="_blank" rel="noopener noreferrer" title="在新标签页打开来源，保留当前页面">↗ {{ entry.action }}</a></div>{% endfor %}</div>
+{{ pager(locations,page_url=page_url,unit='处') }}
+{% elif not usage.used %}<p class="native-muted">○ 暂未使用。选择文件后，还需保存对应内容，才会建立正式引用。</p>{% endif %}

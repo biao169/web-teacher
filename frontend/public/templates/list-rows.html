@@ -1,0 +1,2 @@
+{% for row in rows %}{% set row_index=loop.index0 %}{% if home_mode %}{% include 'public/home-card.html' %}{% elif table in ['profiles','students'] %}{% include 'public/person-card.html' %}{% else %}{% include 'public/content-card.html' %}
+{% endif %}{% else %}<p class="text-secondary public-empty">{{ 'No public content.' if lang=='en' else '暂无公开内容。' }}</p>{% endfor %}

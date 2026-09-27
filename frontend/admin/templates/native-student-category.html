@@ -1,0 +1,15 @@
+{# Rule state reflects the saved record; the roster may separately preview unsaved keywords. #}
+<div data-category-matches data-can-preview="{{ 'true' if can_match else 'false' }}" data-is-saved="{{ 'true' if row.uid else 'false' }}" data-saved-keywords="{{ row.keywords or '' }}">
+<p><span class="native-match-state">{{ ('✓ 已保存规则：已启用' if row.enabled else '○ 已保存规则：未启用') if row.uid else '○ 新分类：尚未保存' }}</span> · 任意关键词命中学位、分类、年级、研究方向或状态即可；不会改写学生原始分类。</p>
+{% if activated %}<p class="native-match-success" role="status">✓ 关键词已保存，分类规则已启用。{% if can_match %}下方名单按已保存规则显示。{% endif %}</p>{% endif %}
+<div class="native-match-toolbar">
+{% if can_match %}<button type="button" class="btn btn-outline-primary btn-sm" data-match-preview title="使用当前输入预览，不保存或启用规则">⌕ 预览匹配</button>{% endif %}
+<button type="submit" class="btn btn-primary btn-sm" name="_action" value="activate" data-success-anchor="tool-matches" title="保存整个编辑表单并启用分类规则">✓ 保存并激活匹配</button>
+{% if can_match %}<label class="native-match-size">每页 <select class="form-select form-select-sm" data-match-size aria-label="每页匹配学生数">{% for n in [10,20,50,100] %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select> 人</label>{% endif %}
+</div>
+{% if can_match %}
+<p class="native-feedback" data-match-feedback data-ui-state="{{ 'error' if match_error else 'info' }}" role="status" aria-live="polite">{{ match_error or ('当前显示已保存关键词的匹配结果；修改关键词后自动预览，保存后才生效。' if row.uid else '填写关键词后自动预览；预览不会保存或启用新分类。') }}</p>
+<div data-match-results>{% if matches %}{% include 'admin/native-student-matches.html' %}{% endif %}</div>
+<noscript><p>自动预览和翻页需要启用 JavaScript；仍可保存规则，刷新查看第一页。</p></noscript>
+{% else %}<p>没有学生查看权限，可维护已授权的分类设置，匹配名单不展示。</p>{% endif %}
+</div>

@@ -1,0 +1,11 @@
+{% from 'admin/native-pagination.html' import pager %}
+<div class="translation-records" data-group-panel="{{ group_uid }}">
+{% for row in listing.rows %}<article class="translation-version" data-version="{{ row.uid }}" data-stamp="{{ row.updated_at }}">
+<div class="translation-version-title"><h2>{{ row.source.module_label }} · {{ row.source.title }}</h2><span>{{ '人工' if row.is_manual else '自动' }} · {{ '当前' if row.is_current else '历史 / 待生效' }} · {{ {'success':'成功','pending':'待译','failed':'失败'}.get(row.status,row.status) }}</span></div>
+<div class="translation-version-meta"><span>{{ row.source.field_label }} · {{ row.updated_at|admin_datetime }}</span>{% if row.source.url %}<a href="{{ row.source.url }}" target="_blank" rel="noopener noreferrer">{{ row.source.action }} ↗</a>{% endif %}{% if can_edit %}<a href="/admin/translation_cache/{{ row.uid }}/edit{% if nav %}?nav={{ nav }}{% endif %}" target="_blank" rel="noopener noreferrer">编辑此记录 ↗</a>{% endif %}</div>
+<pre data-version-text>{{ row.translated_text or '尚无译文' }}</pre>
+{% if row.error_message %}<p class="translation-conflict">{{ row.error_message }}</p>{% endif %}
+{% if can_edit %}<div class="native-helper-actions">{% if row.status=='success' and row.is_current and row.translated_text %}<button type="button" class="btn btn-outline-primary btn-sm" data-version-select>选用此版本</button>{% elif not row.is_manual and not row.translated_text and row.status in ['pending','failed'] %}<button type="button" class="btn btn-primary btn-sm" data-version-apply disabled>填入此待译来源</button>{% endif %}</div>{% endif %}
+</article>{% endfor %}
+{{ pager(listing,page_url=page_url,numbers=listing.numbers) }}
+</div>

@@ -1,0 +1,3 @@
+{% macro fields(row, items, lang) -%}
+{% for field,zh,en in items %}{% if row.get(field) is not none and row.get(field) != '' %}<span class="content-field" data-copy-field><span class="person-label">{{ en if lang=='en' else zh }}：</span>{{ row[field] }}</span>{% endif %}{% endfor %}
+{%- endmacro %}

@@ -1,0 +1,9 @@
+<details class="native-footer-help mt-3 p-3 border rounded"><summary>HTML 页脚示例与按钮设置</summary>
+<p>复制下面代码到“页脚文本”，替换名称和邮箱后保存。示例不会自动写入或覆盖当前内容。</p>
+<textarea class="form-control" rows="12" readonly aria-label="可复制的HTML页脚示例">{{ footer_example }}</textarea>
+<button type="button" class="btn btn-outline-secondary btn-sm" data-copy-value="{{ footer_example }}" data-copy-label="页脚HTML示例">复制示例</button>
+<p>在“导航与按钮”中新增条目：位置选“页脚”，类型选“按钮链接”，填写路径，启用并选择可见范围；按排序数字从小到大显示。中文、英文标题分别填写。</p>
+<p><code>&lt;nav data-footer-navigation&gt;&lt;/nav&gt;</code> 是受控占位区，内部内容由已启用且当前用户可见的页脚按钮替换。重复占位只输出一组；不放占位区时自动追加。手写的普通链接不受导航设置控制。</p>
+<p>支持段落、分栏、列表、强调和链接；不执行JavaScript或模板表达式。分栏类名可用 footer-grid、footer-brand、footer-meta、footer-note。</p>
+<a class="btn btn-outline-secondary btn-sm" href="/admin/navigation_items" target="_blank" rel="noopener">打开导航与按钮</a>
+</details>

@@ -1,0 +1,16 @@
+{% extends 'admin/layout.html' %}
+{% block content %}
+<h1>历史词库</h1>
+<p class="native-muted">查看已保存字段的写法。仅显示有权查看的记录；最多展示50项，不代表全库统计。</p>
+{% if history_catalog %}
+<form id="history-explorer" class="native-query" action="/api/assistance/suggestions" method="post" data-history-catalog='{{ history_catalog|tojson }}' data-csrf="{{ csrf }}">
+<input type="hidden" name="_csrf" value="{{ csrf }}">
+<label>模块<select class="form-select form-select-sm" name="table" aria-label="建议模块">{% for name,entry in history_catalog.items() %}<option value="{{ name }}" {% if name==selected_module %}selected{% endif %}>{{ entry.label }}</option>{% endfor %}</select></label>
+<label>字段<select class="form-select form-select-sm" name="field" aria-label="建议字段"></select></label>
+<label class="native-history-keyword">关键词<input class="form-control form-control-sm" name="query" aria-label="建议关键词" maxlength="240" placeholder="留空查看最近的写法"></label>
+<button type="submit" class="btn btn-primary btn-sm">⌕ 查询</button>
+</form>
+<p role="status" data-history-feedback></p>
+<div class="native-history-values" data-history-values aria-label="历史候选"></div>
+{% else %}<p role="status">当前账号没有可查看的历史字段。</p>{% endif %}
+{% endblock %}

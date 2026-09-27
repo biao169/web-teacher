@@ -1,0 +1,34 @@
+{% extends 'admin/layout.html' %}
+{% from 'admin/native-help.html' import hint %}
+{% block content %}
+<div class="native-title"><h1>批量扫描与翻译</h1><a class="btn btn-outline-secondary btn-sm" href="/admin/translation_cache">返回翻译列表</a></div>
+<section class="panel native-batch" data-translation-batch data-csrf="{{ csrf }}" data-initial="{{ batch|tojson|forceescape }}">
+<p class="native-muted" data-batch-scope></p>
+<fieldset class="native-batch-sources"><legend>公开来源范围</legend>
+{% for source in batch.modules %}<label><input class="form-check-input" type="checkbox" name="batch-source" value="{{ source.id }}" checked> {{ source.label }} <span class="native-muted">{{ source.fields }}字段</span></label>{% endfor %}
+</fieldset>
+{{ hint('batch-scope-help','仅扫描有权限查看的公开、启用及已发布内容；排除联系方式、账号、密钥、引文格式和文件正文。已有人工英文优先，纯英文不送译。勾选模块后点击扫描；来源范围独立于翻译列表的筛选。') }}
+<div class="native-batch-options">
+<label class="native-help-control">本批次使用服务<select class="form-select form-select-sm" data-batch-provider aria-describedby="batch-provider-help"><option value="default">按全局默认服务</option><option value="fallback">按配置回退（会发送给后续服务）</option>{% for p in translation_options %}{% if p.enabled %}<option value="{{ p.id }}">{{ p.label }}</option>{% endif %}{% endfor %}</select>{{ hint('batch-provider-help','执行时只发送所选公开文本；扫描不调用服务。服务选项在新扫描时记录，后续保持。') }}</label>
+<p class="native-muted">下一批上限 <strong>{{ batch.batch_size }}</strong> 条 · 实际并发 <strong>1</strong><br>配置并发上限 {{ batch.configured_workers }}，当前采用低资源串行执行。{% if principal.permissions.get('global_settings',{}).get('can_view') %}<a href="/admin/global_settings">服务与批次配置 ↗</a>{% endif %}</p>
+</div>
+<div class="native-helper-actions" role="group" aria-label="翻译批次操作">
+<button class="btn btn-outline-primary btn-sm" type="button" data-batch-action="scan" title="建立新的有界来源扫描，不立即联网翻译">⌕ 扫描来源</button>
+<button class="btn btn-outline-primary btn-sm" type="button" data-batch-action="resume" title="从已保存位置继续扫描或未完成的批次">▷ 继续任务</button>
+<button class="btn btn-primary btn-sm" type="button" data-batch-action="once" title="按每批条数处理后停止本页推进">▶ 执行下一批</button>
+<button class="btn btn-primary btn-sm" type="button" data-batch-action="auto" title="保持本页打开，连续推进并有限重试；失败条目可能仍需人工处理">↻ 连续运行</button>
+<button class="btn btn-outline-warning btn-sm" type="button" data-batch-action="pause" title="停止发起后续请求，已发出的请求可以完成">Ⅱ 暂停</button>
+<button class="btn btn-outline-secondary btn-sm" type="button" data-batch-action="retry" title="重排本次失败及待确认条目；待确认请求可能已由服务处理，请核对后重试">↶ 重试失败</button>
+<button class="btn btn-outline-secondary btn-sm" type="button" data-batch-refresh title="只读取服务器进度，不自动继续">↧ 刷新状态</button>
+</div>
+<noscript><p>批次调度需要JavaScript。现有翻译列表和人工编辑仍可使用。</p></noscript>
+<p class="native-muted">关闭或离开页面后，不再发起后续请求；重新打开不会自动运行。异常请求的领取最多180秒后可恢复。已收到响应的限流/暂时失败最多尝试3次，等待30或120秒。超时或中断的请求结果待确认，需核对后点击重试失败。</p>
+<div class="native-batch-progress" role="status" aria-live="polite"><strong data-batch-status>尚未建立批次</strong><p data-batch-message></p><progress data-batch-progress max="100" value="0" aria-label="来源扫描进度"></progress><span data-batch-position></span></div>
+<p class="native-muted" data-batch-packing></p>
+<dl class="native-batch-counts" aria-label="原文与服务请求统计">{% for key,title in [('sources','来源记录'),('unique','去重原文'),('sent_unique','送译原文'),('requests','请求尝试'),('confirmed','已收到响应'),('uncertain','请求结果待确认')] %}<div><dt>{{ title }}</dt><dd data-batch-metric="{{ key }}">0</dd></div>{% endfor %}</dl>
+<p class="native-muted">先复用有效译文，再合并不同原文。完整条目逐条保存；返回内容无法对应时会缩小批次重试，计入请求尝试。费用以服务商规则为准。</p>
+<dl class="native-batch-counts">{% for key,title in [('queued','纳入队列'),('success','成功次数'),('reused','复用次数'),('failed','累计失败'),('manual','人工保留'),('invalidated','失效处理'),('existing','已有有效结果'),('skipped','跳过'),('english','无需中译英'),('oversized','正文超限')] %}<div><dt>{{ title }}</dt><dd data-batch-count="{{ key }}">0</dd></div>{% endfor %}</dl>
+<p class="native-muted">计数记录本次操作结果，失败后的显式重试会继续累计；运行结束不代表所有条目成功。扫描期间新增内容和已扫条目的再次修改，可在下一次扫描纳入。</p>
+<div class="native-table-scroll"><table class="native-table"><thead><tr><th>最近处理来源</th><th>状态</th><th>说明</th><th>操作</th></tr></thead><tbody data-batch-recent></tbody></table></div>
+</section>
+{% endblock %}

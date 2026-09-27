@@ -1,0 +1,23 @@
+{
+  "main_archive": "academic-cms-frontend-round6-source.zip",
+  "transfer_archive": "file-transfer-step10-source.zip",
+  "tables": {
+    "teacher": 27,
+    "transfer": 12
+  },
+  "columns": {
+    "teacher": 394,
+    "transfer": 70
+  },
+  "complete_ddl_verified": true,
+  "source": "Original SQL installers; schema snapshots verified by exact SQL equality",
+  "archives_sha256": {
+    "academic-cms-frontend-round6-source.zip": "62e20f322e6dfdb444c196361209a2bae6dd48b35d0160fb083fae0a095ee70a",
+    "file-transfer-step10-source.zip": "d279102e3106503d54d1f95efdda46b4281cd78e2008ddd984dd26bfe1741ed4"
+  },
+  "schema_spec_sha256": "18b1a58ca2d2732b0f29eee2896c51702620201342029920df46ebf297cd911e",
+  "public_home_upgrade": {
+    "migration": "0013_public_home_settings.sql",
+    "added_columns": 3
+  }
+}

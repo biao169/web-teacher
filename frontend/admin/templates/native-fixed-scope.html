@@ -1,0 +1,1 @@
+{% if base.conditions is defined %}{% for condition in base.conditions %}{{ label(table,condition.field) }} {{ "包含" if condition.operator=="contains" else "等于" }} {{ condition.value }}{% if not loop.last %} · {% endif %}{% endfor %}{% else %}{% for key,value in base.items() %}{{ label(table,key) }} = {{ value }}{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}

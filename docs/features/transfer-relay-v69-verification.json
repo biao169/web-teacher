@@ -1,0 +1,70 @@
+{
+  "version": "0.15.69",
+  "step": 5,
+  "status": "code_delivered_remote_acceptance_pending",
+  "base_version": "0.15.68",
+  "schema_change": false,
+  "production_modified": false,
+  "deployed": false,
+  "full_regression": {
+    "python_passed": 466,
+    "python_seconds": 166.88,
+    "frontend_passed": 181
+  },
+  "final_targeted": {
+    "relay_python_passed": 11,
+    "additional_concurrent_room_test": 1,
+    "python_unique_coverage": 467
+  },
+  "http": {
+    "kind": "real_loopback_shared_launcher_two_clients",
+    "payload_bytes": 8388608,
+    "sha256_verified": true,
+    "main_health_during_transfer": true,
+    "file_chunks_on_disk": false,
+    "remote_WAN": false
+  },
+  "memory_probes": [
+    {
+      "file_mib": 8,
+      "heap_peak_bytes": 2123793,
+      "process_peak_rss_kib": 43312,
+      "max_retained_payload_bytes": 1048576,
+      "final_retained": 0,
+      "sha256_verified": true,
+      "kind": "synthetic_service_only"
+    },
+    {
+      "file_mib": 256,
+      "heap_peak_bytes": 2123858,
+      "process_peak_rss_kib": 43240,
+      "max_retained_payload_bytes": 1048576,
+      "final_retained": 0,
+      "sha256_verified": true,
+      "kind": "synthetic_service_only"
+    }
+  ],
+  "concurrency": {
+    "rooms": 4,
+    "bytes_per_room": 1048576,
+    "peak_retained_payload_bytes": 4194304,
+    "fifth_room_rejected": true,
+    "after_cancel_bytes": 0,
+    "kind": "synthetic_service_test"
+  },
+  "log": "transfer-relay-v69-test-results.txt",
+  "manual_pending": [
+    "real remote WAN networks",
+    "target HTTPS reverse proxy validation and memory",
+    "Windows and mobile browsers",
+    "multi-GiB slow-network disk-full/disconnection",
+    "provider NIC/TLS traffic and main+proxy process RSS under load"
+  ],
+  "notes": [
+    "Full regression preceded addition of the extra concurrent-room test; targeted suite rerun passed.",
+    "Application authorized bytes are not provider network billing.",
+    "No Caddy executable available in this environment; generated configuration not executed.",
+    "Ephemeral relay does not resume after server restart or page reload.",
+    "Temporary sharing still has 200MiB technical cap; step 6 handles offline cache."
+  ]
+}

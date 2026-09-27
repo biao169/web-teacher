@@ -1,0 +1,47 @@
+{
+  "version": "0.15.89",
+  "python": {
+    "passed": 144,
+    "runs": [
+      {
+        "passed": 142,
+        "files": [
+          "tests/test_public_translation_v89.py (first 32)",
+          "tests/test_translation_regression.py",
+          "tests/test_navigation_filters_v86.py",
+          "tests/test_public_navigation_v88.py",
+          "tests/test_public_filters_v56.py"
+        ]
+      },
+      {
+        "passed": 2,
+        "files": [
+          "tests/test_public_translation_v89.py (last 2)"
+        ]
+      }
+    ]
+  },
+  "simulated_dom": {
+    "passed": 66,
+    "files": [
+      "tests/public-query-dom.test.cjs",
+      "tests/public-people-dom.test.cjs",
+      "tests/public-filters-dom.test.cjs",
+      "tests/public-stream-dom.test.cjs",
+      "tests/public-citations-dom.test.cjs"
+    ]
+  },
+  "benchmark": {
+    "records": 500,
+    "cache_entries": 500,
+    "total": 500,
+    "returned": 10,
+    "search_seconds": 0.16,
+    "facet_seconds": 0.012,
+    "facet_returned": 50
+  },
+  "limitations": [
+    "No Windows real-browser visual check",
+    "No live D1 verification; D1 lacks local digest UDF"
+  ]
+}

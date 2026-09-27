@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="{{ lang }}" data-reading="{{ options.reading_size if options is defined else 'standard' }}" data-theme="{{ options.theme if options is defined else 'green' }}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ site.title }}{% endblock %}</title>
+{% block metadata %}{% endblock %}
+<link rel="icon" href="{{ branding.icon_uid if branding is defined and branding.icon_uid else '/assets/shared/favicon.svg' }}">
+{% if asset_mode == 'cdn' %}
+<link id="bootstrap-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+{% else %}<link rel="stylesheet" href="/assets/shared/vendor/bootstrap.min.css">{% endif %}
+<link rel="stylesheet" href="/assets/shared/css/tokens.css">
+<link rel="stylesheet" href="/assets/shared/css/base.css">
+<link rel="stylesheet" href="/assets/{{ section }}/css/{{ section }}.css{% if section == 'admin' %}?v=0.15.37{% elif section == 'public' %}?v=0.15.58{% endif %}">
+{% if section == 'admin' %}<link rel="stylesheet" href="/assets/admin/css/admin-theme.css?v=0.15.37">{% endif %}
+<script src="/assets/shared/js/vendor-loader.js" defer></script>
+<script src="/assets/shared/js/reading.js" defer></script>
+<script src="/assets/shared/js/forms.js" defer></script>
+{% block scripts %}{% endblock %}
+</head>
+<body class="section-{{ section }}">
+<a class="skip" href="#main">{{ 'Skip to content' if lang == 'en' else '跳到正文' }}</a>
+{% block shell %}{% endblock %}
+{% if section=='public' and footer_html is defined %}{% include 'public/native-footer.html' %}{% else %}<footer class="site-footer container">{{ site.title }}</footer>{% endif %}
+</body></html>

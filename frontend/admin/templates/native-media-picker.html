@@ -1,0 +1,32 @@
+{# One modal for every field and rich-text insertion; never nested inside a content form. #}
+<dialog class="native-media-picker" data-media-picker data-csrf="{{ csrf }}" aria-labelledby="media-picker-title">
+<header class="media-picker-header"><h2 id="media-picker-title">选择媒体</h2><button type="button" class="btn btn-outline-secondary btn-sm" data-picker-close aria-label="关闭媒体选择器">×</button></header>
+<div class="media-picker-body">
+<p class="media-picker-feedback" data-picker-feedback role="status" aria-live="polite"></p>
+<div class="native-helper-actions" aria-label="媒体来源"><button type="button" class="btn btn-primary btn-sm" data-picker-tab="library" aria-pressed="true">▧ 媒体库</button><button type="button" class="btn btn-outline-primary btn-sm" data-picker-tab="upload" aria-pressed="false">↑ 本地上传</button><button type="button" class="btn btn-outline-primary btn-sm" data-picker-tab="link" aria-pressed="false">↗ 媒体链接</button></div>
+<section data-picker-panel="library" aria-label="已有媒体">
+<form class="native-query media-picker-query" data-picker-search><label class="visually-hidden" for="picker-q">搜索媒体</label><input id="picker-q" class="form-control form-control-sm" type="search" placeholder="搜索名称、文件或分类" maxlength="120" data-picker-q><label class="visually-hidden" for="picker-category">分类</label><input id="picker-category" class="form-control form-control-sm" placeholder="全部分类" maxlength="200" list="picker-categories" data-picker-category><datalist id="picker-categories"></datalist><label class="visually-hidden" for="picker-kind">媒体类型</label><select id="picker-kind" class="form-select form-select-sm" data-picker-kind><option value="">全部适用类型</option><option value="image">图片</option><option value="pdf">PDF</option><option value="video">视频</option><option value="archive">压缩包</option></select><button class="btn btn-outline-primary btn-sm" type="submit">搜索</button></form>
+<div class="media-picker-grid" data-picker-grid aria-label="媒体候选"></div>
+<div class="native-pagination"><span data-picker-page-info></span><nav aria-label="媒体分页"><ul class="pagination pagination-sm" data-picker-pages></ul></nav><label>每页 <select class="form-select form-select-sm" data-picker-size aria-label="每页媒体数"><option>10</option><option>20</option></select></label></div>
+</section>
+<section data-picker-panel="upload" aria-label="本地上传" hidden>
+<p class="native-muted" data-picker-upload-help></p><label for="picker-file">选择本地文件</label><input id="picker-file" type="file" class="form-control form-control-sm" data-picker-file>
+<div class="media-picker-upload-preview" data-picker-local-preview></div><ul data-picker-file-list></ul>
+<button type="button" class="btn btn-outline-primary btn-sm" data-picker-edit-local hidden title="编辑当前本地图片，生成后仍需上传">✂ 编辑本地图片</button>
+<div class="native-fields"><label>媒体标题<input class="form-control form-control-sm" data-picker-title maxlength="200" placeholder="默认使用文件名"></label><label>分类<input class="form-control form-control-sm" data-picker-upload-category maxlength="200" list="picker-categories" placeholder="可选"></label></div>
+<div class="native-helper-actions"><button type="button" class="btn btn-primary btn-sm" data-picker-upload>↑ 上传到媒体库</button><button type="button" class="btn btn-outline-secondary btn-sm" data-picker-stop hidden>停止等待</button></div>
+<p class="native-muted">上传成功后文件保留在媒体库。确认选择并保存内容，才建立引用；取消不会删除已经上传的文件。</p>
+</section>
+<section data-picker-panel="link" aria-label="媒体链接" hidden>
+<div class="native-fields">
+<label>媒体链接<input class="form-control form-control-sm" type="text" data-picker-link-url maxlength="4096" aria-describedby="picker-link-url-help" placeholder="/media/标识 或 https://…"><small id="picker-link-url-help" class="native-field-help">本站链接复用已登记媒体；外部链接不下载到服务器。确认登记后保留在媒体库，保存内容才建立引用。</small></label>
+<label>外链类型<select class="form-select form-select-sm" data-picker-link-type aria-describedby="picker-link-type-help"><option value="">请选择外链类型</option></select><small id="picker-link-type-help" class="native-field-help">新外链须声明类型；扩展名只作提示，服务器不验证远程内容或大小。本站链接按已有类型处理。</small></label>
+</div>
+<div class="media-picker-upload-preview" data-picker-link-preview></div>
+<div class="native-helper-actions"><button type="button" class="btn btn-outline-primary btn-sm" data-picker-link-check>预览链接</button><button type="button" class="btn btn-primary btn-sm" data-picker-link-register>登记并选择</button></div>
+<p class="native-muted">外部文件由对方网站控制，本站无法撤回原始链接。私密附件请上传本地文件；外链裁剪需要对方允许CORS。</p>
+</section>
+<div class="media-picker-selection"><span data-picker-selected>未选择文件</span><button type="button" class="btn btn-outline-primary btn-sm" data-picker-edit hidden title="裁剪所选图片并生成新文件，原图保持不变">✂ 编辑图片</button><button type="button" class="btn btn-outline-secondary btn-sm" data-picker-reset>清除待选</button><label data-picker-caption-label hidden>图片说明 / PDF标题<input class="form-control form-control-sm" maxlength="500" data-picker-caption></label></div>
+</div>
+<footer class="media-picker-footer"><small class="native-muted">图片完整等比显示；原文件按需加载</small><div><button type="button" class="btn btn-primary btn-sm" data-picker-confirm disabled>使用所选媒体</button><button type="button" class="btn btn-outline-secondary btn-sm" data-picker-close>取消</button></div></footer>
+</dialog>

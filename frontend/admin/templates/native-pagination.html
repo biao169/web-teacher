@@ -1,0 +1,13 @@
+{# Shared pagination: normal lists use links; in-form previews use non-submit buttons. #}
+{% macro pager(listing, page_url=none, numbers=none, preview=false, unit='条') %}
+<div class="native-pagination"><span>第 {{ listing.page }} / {{ listing.pages }} 页 · 本页 {{ listing.rows|length }} {{ unit }} · 共 {{ listing.total }} {{ unit }}</span><nav aria-label="{{ '匹配结果分页' if preview else '列表分页' }}"><ul class="pagination pagination-sm">
+{% set entries = [([1,listing.page-1]|max, '‹', '上一页', listing.page==1)] %}
+{% for p, text, title, disabled in entries %}{{ page_item(p,text,title,disabled,listing.page,page_url,preview,false) }}{% endfor %}
+{% set values = numbers if numbers is not none else range(1,listing.pages+1) %}
+{% for p in values %}{% if p is none %}<li class="page-item disabled"><span class="page-link" aria-label="省略页码">…</span></li>{% else %}{{ page_item(p,p,'第 '+p|string+' 页',false,listing.page,page_url,preview,true) }}{% endif %}{% endfor %}
+{{ page_item([listing.pages,listing.page+1]|min,'›','下一页',listing.page==listing.pages,listing.page,page_url,preview,false) }}
+</ul></nav></div>
+{% endmacro %}
+{% macro page_item(p,text,title,disabled,current,page_url,preview,number) %}
+<li class="page-item{{ ' disabled' if disabled }}{{ ' active' if number and p==current }}">{% if preview %}<button type="button" class="page-link" data-match-page="{{ p }}" aria-label="{{ title }}" {% if disabled %}disabled{% endif %} {% if number and p==current %}aria-current="page"{% endif %}>{{ text }}</button>{% else %}<a class="page-link" href="{{ page_url(p) }}" aria-label="{{ title }}" {% if number and p==current %}aria-current="page"{% endif %}>{{ text }}</a>{% endif %}</li>
+{% endmacro %}

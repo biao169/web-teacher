@@ -1,0 +1,24 @@
+/* Grouped translation sources and per-source review reuse the existing admin theme. */
+.native-list[data-table=translation_cache] .native-query{flex-wrap:wrap}
+.native-list[data-table=translation_cache] .translation-categories{order:2;flex:0 0 100%}
+.translation-review{padding:var(--admin-list-block-inset) var(--admin-list-inset)}
+.translation-categories{display:flex;flex-wrap:wrap;gap:.5rem 1rem;width:100%;border:0;padding:.35rem 0;margin:0}
+.translation-categories legend{float:none;width:auto;font-size:inherit;margin:0;font-weight:600}
+.translation-categories label{display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap}
+.translation-source-list,.translation-source-item,.translation-state-list{display:flex;flex-direction:column;gap:.2rem;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+.translation-source-item>a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.translation-source-item small,.translation-state-list small,.translation-version-meta{color:var(--bs-secondary-color,#68758a)}
+.translation-conflict{color:var(--bs-warning-text-emphasis,#825613);font-size:inherit}
+.translation-original,.translation-choice,.translation-version{padding:.8rem;border:1px solid var(--bs-border-color,#dbe2ec);border-radius:.6rem;margin-bottom:.8rem}
+.translation-original pre,.translation-version pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:.6rem 0;max-height:18rem;overflow:auto;tab-size:4}
+.translation-choice{position:sticky;top:0;background:var(--surface,#fff);z-index:2;border-color:var(--accent,#325cd6)}
+.translation-version-title,.translation-version-meta{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.translation-version-title h2{font-size:1rem;margin:0;overflow-wrap:anywhere}
+.translation-version-meta{justify-content:flex-start;font-size:.9em;margin-top:.35rem}
+.translation-review [data-review-feedback]:not(:empty){padding:.6rem 0}
+.translation-version[data-chosen=true]{border-color:var(--accent,#325cd6);box-shadow:inset 3px 0 var(--accent,#325cd6)}
+@media(max-width:640px){.translation-categories{gap:.5rem}.translation-version-title{display:block}.translation-review .native-title{flex-wrap:wrap}.translation-choice{position:static}}
+
+.native-list[data-table=translation_cache] .native-cell{-webkit-line-clamp:3;line-height:1.5;max-height:4.5em}.native-list[data-table=translation_cache] .translation-source-list{max-height:4.5em;overflow-y:auto;overscroll-behavior:contain;padding-right:.4rem}.native-list[data-table=translation_cache] .translation-source-list:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.native-list[data-table=translation_cache] .translation-source-item{gap:0}.native-list[data-table=translation_cache] .translation-state-list{max-height:4.5em;overflow:auto}
+
+.native-list[data-table=translation_cache] .translation-source-text .native-cell{-webkit-line-clamp:2;max-height:3em}.translation-source-text>small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

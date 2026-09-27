@@ -1,0 +1,6 @@
+历史字段草案：0.15.46已实现。请使用upgrade-data.cmd或正式0012迁移及升级说明，不执行本文件。
+
+-- Proposal only. DO NOT execute independently or on the transfer database.
+-- Requires backup, schema fingerprint verification, registry updates and migration tests.
+ALTER TABLE site_settings ADD COLUMN homepage_project_limit INTEGER NOT NULL DEFAULT 10
+CHECK (typeof(homepage_project_limit) = 'integer' AND homepage_project_limit >= 0);

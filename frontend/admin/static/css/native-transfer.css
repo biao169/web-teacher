@@ -1,0 +1,21 @@
+/* Scoped to the teacher admin content pane; no second page shell or global overrides. */
+.transfer-admin{min-width:0;max-width:100%}
+.transfer-admin-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.transfer-admin-heading h1{margin-bottom:.5rem}.transfer-admin-heading p{margin:0}
+.transfer-admin-sections{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.25rem}
+.transfer-admin-sections a{display:inline-flex;padding:.5rem .85rem;border:1px solid var(--bs-border-color);border-radius:.6rem;text-decoration:none;color:inherit;background:var(--bs-body-bg)}
+.transfer-admin-sections a:hover,.transfer-admin-sections a:focus-visible{color:var(--bs-primary);border-color:currentColor}
+.transfer-admin .card{border-radius:.75rem;min-width:0}.transfer-admin .card-body{padding:1.25rem}
+.transfer-admin .card-body>h2{margin-bottom:.8rem}.transfer-admin .file-name{max-width:19rem;overflow-wrap:anywhere}
+.transfer-admin .task-id{font-size:var(--admin-small-size,.8rem)}.transfer-admin .task-date{white-space:nowrap}
+.transfer-admin #task-filter .form-control{flex:2;min-width:12rem}
+.transfer-admin #task-filter .form-select,.transfer-admin #batch-scope,.transfer-admin #batch-action,.transfer-admin #cache-area{width:auto;max-width:100%}
+.transfer-admin #task-jump input[type=number]{width:5rem}.transfer-admin #task-jump button{white-space:nowrap}
+.transfer-admin #cache-rows td,.transfer-admin #admin-usage td{overflow-wrap:anywhere;max-width:30rem}
+.transfer-admin #task-feedback:not(:empty),.transfer-admin #cache-feedback:not(:empty){padding:.6rem;border-left:3px solid var(--bs-primary);background:var(--bs-light)}
+.transfer-admin .transfer-setting-group{border:1px solid var(--bs-border-color);border-radius:.65rem;padding:1rem;margin:1.25rem 0}
+.transfer-admin .transfer-setting-group legend{float:none;width:auto;font-size:inherit;font-weight:600;padding:0 .4rem}
+.transfer-admin .transfer-rule{padding:1rem;margin-bottom:1rem;border:1px solid var(--bs-border-color);border-radius:.5rem;background:var(--bs-tertiary-bg)}
+.transfer-admin .form-label{display:block;margin-bottom:.4rem}.transfer-admin .transfer-examples{margin-bottom:1rem}
+.transfer-admin .transfer-examples>summary{cursor:pointer;padding:.75rem 0}.transfer-admin [id^=transfer-]{scroll-margin-top:5rem}
+@media(max-width:600px){.transfer-admin .card-body,.transfer-admin .transfer-setting-group,.transfer-admin .transfer-rule{padding:.8rem}.transfer-admin .table{min-width:650px}.transfer-admin-heading>.btn{width:100%}}
