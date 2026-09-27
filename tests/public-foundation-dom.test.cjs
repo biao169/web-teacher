@@ -31,7 +31,7 @@ test('public styles reference centralized typography and color values without mi
  const dom=new JSDOM('<head></head>');t.after(()=>dom.window.close());
  const theme=fs.readFileSync(path.join(__dirname,'../frontend/shared/static/css/public-theme.css'),'utf8');
  const defined=new Set([...theme.matchAll(/(--public-[\w-]+)\s*:/g)].map(m=>m[1]));
- const files=['frontend/public/static/css/public.css','frontend/public/static/css/academic.css','frontend/public/static/css/home.css','frontend/public/static/css/faculty.css','transfer/frontend/native/portal.css','frontend/shared/static/css/public-controls.css'];
+ const files=['frontend/public/static/css/public.css','frontend/public/static/css/academic.css','frontend/public/static/css/home.css','frontend/public/static/css/faculty.css','transfer/frontend/native/portal.css','frontend/shared/static/css/public-controls.css','frontend/shared/static/css/public-background.css'];
  const walk=rules=>{for(const r of rules){if(r.cssRules)walk(r.cssRules);if(!r.style)continue;for(let i=0;i<r.style.length;i++){const name=r.style[i],value=r.style.getPropertyValue(name);assert.doesNotMatch(value,/#(?:[a-f\d]{3,8})\b|\b(?:rgba?|hsla?)\(/i);if(['font','font-family','font-size','font-weight','line-height','letter-spacing'].includes(name))assert.match(value,/^(var\(|inherit$|normal$|initial$|unset$)/);for(const m of value.matchAll(/var\((--public-[\w-]+)/g))assert(defined.has(m[1]),m[1]);}}};
  for(const file of files){const el=dom.window.document.createElement('style');el.textContent=fs.readFileSync(path.join(__dirname,'..',file),'utf8');dom.window.document.head.append(el);assert(el.sheet,file);walk(el.sheet.cssRules);}
  // Theme scopes shared overrides away from administration and keeps reading sizes in one source.

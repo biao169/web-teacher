@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="{{ lang }}" data-reading="{{ options.reading_size if options is defined else 'standard' }}" data-theme="{{ options.theme if options is defined else 'green' }}">
+<html lang="{{ lang }}"{% if section=='public' %} data-public-reading{% endif %} data-reading="{{ options.reading_size if options is defined else 'standard' }}" data-theme="{{ options.theme if options is defined else 'green' }}">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+{% if section=='public' %}<script src="/assets/shared/js/reading.js?v=0.15.101"></script>{% endif %}
 <title>{% block title %}{{ site.title }}{% endblock %}</title>
 {% block metadata %}{% endblock %}
 <link rel="icon" href="{{ branding.icon_uid if branding is defined and branding.icon_uid else '/assets/shared/favicon.svg' }}">
@@ -13,7 +14,7 @@
 <link rel="stylesheet" href="/assets/{{ section }}/css/{{ section }}.css{% if section == 'admin' %}?v=0.15.37{% elif section == 'public' %}?v=0.15.58{% endif %}">
 {% if section == 'admin' %}<link rel="stylesheet" href="/assets/admin/css/admin-theme.css?v=0.15.37">{% endif %}
 <script src="/assets/shared/js/vendor-loader.js" defer></script>
-<script src="/assets/shared/js/reading.js" defer></script>
+{% if section!='public' %}<script src="/assets/shared/js/reading.js?v=0.15.101" defer></script>{% endif %}
 <script src="/assets/shared/js/forms.js" defer></script>
 {% block scripts %}{% endblock %}
 </head>

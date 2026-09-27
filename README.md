@@ -1,4 +1,35 @@
-# 教师网站使用教程（0.15.98）
+# 教师网站使用教程（0.15.102）
+
+## 淡几何图案背景（v0.15.102）
+
+前台和文件快传新增细线多边形、节点连线和柔和曲线，使用原生 SVG 自动绘制；主要分布于两侧边角，并缓慢漂移。无需图片或外部依赖。手机仅保留左侧一组淡图案；开启系统“减少动态效果”时静止；后台、打印及高对比度模式不显示。沿用页面隐藏时暂停动画的逻辑。
+
+颜色、透明度、线宽和动画速度统一配置在 `frontend/shared/static/css/public-theme.css` 的 `--public-pattern-*` 变量；图案数量与几何结构在 `frontend/shared/static/js/public-background.js` 管理。数据库与后台均未修改，无需重建数据库。
+
+
+## 前台体验第三步：适配与自动验收（v0.15.101）
+
+标准/大字体、程序生成动态背景及整体适配的三步代码更新已完成。本步补齐：字号从其他标签页同步时重新定位已打开的筛选浮层；引用格式工具栏允许换行；窄屏大字体导航不强制挤成单行；快传长文件名可断行，较窄屏幕的大字体接收码区域改为上下排列。
+
+字体、颜色仍统一在公共主题文件中，后台和数据库未改动，不需要重新初始化。更新代码后重启并刷新页面即可；Windows 保留数据使用 `deploy/windows/start-existing.cmd`。
+
+已完成模拟 DOM 与页面接口回归；真实浏览器安装因下载失败未能完成，不能将自动化结果等同于 Windows 实机视觉验收。详见 [第三步说明及现场验收清单](docs/public-appearance-v101.md)。
+
+## 自动生成动态背景（v0.15.100，第二步）
+
+教师网站、登录页和文件快传前台新增浅色渐变、缓慢光晕和淡网格，全部由 CSS 自动生成，无需背景图片。首页装饰稍明显，列表和详情更淡，卡片保持原有清晰底色。
+
+背景随视口宽高适配；手机端减少光晕并隐藏网格，系统开启“减少动态效果”时改为静态背景。切换到其他标签页时暂停，打印和高对比度模式隐藏装饰。颜色、透明度、网格间距和动画时长集中在 `frontend/shared/static/css/public-theme.css` 的 `--public-ambient-*` 变量。
+
+后台代码及数据库未改动，无需重建。下一步进行各类页面、移动端和大字体模式的整体适配验收。详见 [动态背景说明](docs/public-background-v100.md)。
+
+## 前台字号切换（v0.15.99，第一步）
+
+顶部语言切换附近新增 `A / A+`：标准字体与大字体。教师网站、登录页和文件快传共用浏览器偏好；刷新、切换页面/语言后保留选择，也支持同源多标签页同步。浏览器禁止保存偏好时，当前页面仍可正常切换。
+
+沿用已有根字号：标准 16px、大字体 20px。字体和颜色统一在 `frontend/shared/static/css/public-theme.css` 设置；控件通过 CSS 相对单位随字体放大，不缩放整个页面，不清空表单或传输状态。后台不应用此前台偏好。历史 comfortable 偏好兼容为大字体。
+
+本步未添加动态背景，下一步实现渐变、柔和光晕及网格。数据库结构未变，无需重新初始化。详情见 [字号切换说明](docs/public-reading-v99.md)。
 
 ## 本次五步更新已完成（v0.15.98）
 
@@ -120,16 +151,16 @@ TEACHER_PYTHON=/opt/python/bin/python3.12 TEACHER_VENV=/opt/teacher-venv TEACHER
 在交互式 SSH 终端执行以下一行命令（需要 curl）：
 
 ```bash
-( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' --port 8003 )
+( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' )
 ```
 
 已有源码也可以在项目根目录执行：
 
 ```bash
-sudo bash install.sh --domain teacher.example.org --port 8003
+sudo bash install.sh --domain teacher.example.org
 ```
 
-端口不填时，交互式终端会提示输入本机监听端口，默认 `8003`。需要指定解释器时追加 `--python /opt/python/bin/python3.12`。脚本安装必要系统依赖，准备独立虚拟环境和单一服务，并交互创建管理员。安装完成只表示本机应用健康检查通过，仍需配置公网 HTTPS。
+需要指定解释器时追加 `--python /opt/python/bin/python3.12`。脚本安装必要系统依赖，准备独立虚拟环境和单一服务，并交互创建管理员。安装完成只表示本机应用健康检查通过，仍需配置公网 HTTPS。
 
 ### 反向代理与 HTTPS
 
@@ -138,11 +169,11 @@ sudo bash install.sh --domain teacher.example.org --port 8003
 - Caddy：将生成的片段合并到 `/etc/caddy/Caddyfile`；执行 `sudo caddy validate --config /etc/caddy/Caddyfile`，通过后 `sudo systemctl reload caddy`。
 - Nginx：在对应域名已有证书和 TLS 配置的 server 中加入生成的 location 片段；执行 `sudo nginx -t`，通过后 `sudo systemctl reload nginx`。
 
-脚本不会覆盖现有代理或防火墙配置。检查云安全组和系统防火墙，开放实际 SSH 端口及 TCP 80/443，不对公网开放本机监听端口。完成后访问 `https://你的域名/`、`/admin` 和 `/transfer/`。
+脚本不会覆盖现有代理或防火墙配置。检查云安全组和系统防火墙，开放实际 SSH 端口及 TCP 80/443，不对公网开放 8003。完成后访问 `https://你的域名/`、`/admin` 和 `/transfer/`。
 
 ### tweb 日常管理
 
-运行 `sudo tweb` 打开中英文菜单，或使用下列命令：
+运行 `sudo tweb` 打开菜单，或使用下列命令：
 
 | 命令 | 用途 |
 | --- | --- |
@@ -154,17 +185,13 @@ sudo bash install.sh --domain teacher.example.org --port 8003
 | `sudo tweb proxy` | 查看代理配置示例 |
 | `sudo tweb update` | 从已保存的仓库/分支更新整站 |
 | `sudo tweb update --branch staging` | 更新到指定分支 |
-| `sudo tweb update-source` | 只更新源码，复用现有依赖，不初始化数据库 |
-| `sudo tweb update-deps` | 只按当前锁文件更新 Python 依赖 |
-| `sudo tweb update-db` | 只初始化空库或核验当前数据库结构 |
-| `sudo tweb update-service` | 只重生成 systemd 服务和反向代理片段 |
 | `sudo tweb update --scope frontend` | 前台局部更新；后台或数据库结构不兼容时拒绝 |
 | `sudo tweb db-init` / `db-update` | 初始化空库或核验现有结构，不执行迁移 |
 | `sudo tweb db-reset` | 输入 RESET 后按新站重建数据库、重新设置管理员 |
 | `sudo tweb update --reset` | 获取新版本并明确重建数据库 |
 | `sudo tweb uninstall` | 输入 DELETE 后删除本工具管理的站点文件、服务和账号 |
 
-也可以使用 `sudo tweb update --scope source|deps|db|service|frontend|all`。普通启动/更新不会自动清库。开发按新站使用时，Windows 使用 start.cmd，Linux 使用明确的 db-reset 或 update --reset。重置不备份、不迁移，物理媒体文件保留；卸载才会删除本站受管目录内的媒体、快传文件、数据库与依赖。共用系统软件、系统日志和手动合并的外部代理配置不属于自动卸载范围。
+普通启动/更新不会自动清库。开发按新站使用时，Windows 使用 start.cmd，Linux 使用明确的 db-reset 或 update --reset。重置不备份、不迁移，物理媒体文件保留；卸载才会删除本站受管目录内的媒体、快传文件、数据库与依赖。共用系统软件、系统日志和手动合并的外部代理配置不属于自动卸载范围。
 
 ## 六、文件与数据位置
 

@@ -102,3 +102,7 @@ button{transition:background .15s ease,box-shadow .15s ease;}
 .transfer-code-card .actions{margin-top:.5rem;flex-wrap:wrap}.transfer-code-card p{margin:.5rem 0 0;overflow-wrap:anywhere}
 .transfer-code-entry .actions{flex-wrap:wrap}.transfer-public [hidden]{display:none!important}
 @media(max-width:640px){.transfer-code-entry{grid-template-columns:1fr;gap:.75rem}.transfer-code-entry>p{grid-column:auto}}
+
+/* Keep long file names and large-font receive controls inside their cards. */
+.transfer-public :is(#lan-detail,#relay-detail,#file-info,#stream-feedback,#folder-summary){overflow-wrap:anywhere;min-width:0}
+@media(max-width:900px){html[data-reading=large] .transfer-public .transfer-code-entry{grid-template-columns:minmax(0,1fr)}html[data-reading=large] .transfer-public .transfer-code-entry>p{grid-column:auto}}

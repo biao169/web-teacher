@@ -19,7 +19,7 @@ def test_legacy_sort_normalizes_and_reverse_is_stable_across_batches(fixture,tab
     html=c.get('/en/'+table).text;dom=DOM(html)
     assert not dom.find('select',name='sort') and not dom.find('select',name='size')
     assert len(dom.find('input',name='direction'))==2
-    assert 'public-filters.js?v=0.15.56' in html
+    assert 'public-filters.js?v=0.15.101' in html
 
 @pytest.mark.parametrize('table,field', [('publications','index_type'),('publications','publication_type'),('students','category'),('students','direction'),('courses','audience'),('projects','project_role')])
 def test_multivalue_tokens_match_full_values_with_safe_special_characters(fixture,table,field):

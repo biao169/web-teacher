@@ -1,0 +1,23 @@
+/* Generated decoration only: no image resources, layout dimensions or hit targets. */
+body.section-public{position:relative;isolation:isolate}
+body.section-public .public-ambient{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;user-select:none;contain:strict;background:linear-gradient(155deg,var(--public-ambient-base),var(--public-page) 58%,var(--public-ambient-warm));opacity:var(--public-ambient-strength)}
+body.section-public .public-ambient--home{opacity:var(--public-ambient-home-strength)}
+body.section-public .public-ambient::before{content:"";position:absolute;inset:-12%;background:radial-gradient(ellipse at 12% 17%,var(--public-ambient-mint),var(--public-color-2) 46%),radial-gradient(ellipse at 87% 25%,var(--public-ambient-blue),var(--public-color-2) 45%),radial-gradient(ellipse at 58% 92%,var(--public-ambient-sand),var(--public-color-2) 42%);animation:public-ambient-drift var(--public-ambient-duration) ease-in-out infinite alternate;transform-origin:center}
+body.section-public .public-ambient::after{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--public-ambient-grid) 1px,var(--public-color-2) 1px),linear-gradient(90deg,var(--public-ambient-grid) 1px,var(--public-color-2) 1px);background-size:var(--public-ambient-grid-size) var(--public-ambient-grid-size);mask-image:linear-gradient(to bottom,var(--public-ink),var(--public-color-2) 78%);opacity:var(--public-ambient-grid-strength)}
+@keyframes public-ambient-drift{from{transform:translate3d(-2%,-1%,0) scale(1)}to{transform:translate3d(2%,2%,0) scale(1.035)}}
+html[data-public-motion=paused] body.section-public .public-ambient::before{animation-play-state:paused}
+@media(max-width:640px){body.section-public .public-ambient{opacity:var(--public-ambient-mobile-strength)}body.section-public .public-ambient::before{background:radial-gradient(ellipse at 15% 12%,var(--public-ambient-mint),var(--public-color-2) 62%),radial-gradient(ellipse at 90% 75%,var(--public-ambient-blue),var(--public-color-2) 58%);animation-duration:var(--public-ambient-mobile-duration)}body.section-public .public-ambient::after{display:none}}
+@media(prefers-reduced-motion:reduce){body.section-public .public-ambient::before{animation:none;transform:none}}
+@media(forced-colors:active){body.section-public .public-ambient{display:none}}
+@media print{body.section-public .public-ambient{display:none}}
+
+/* Sparse vector islands stay at the edges; CSS alone animates the two layers. */
+body.section-public .public-ambient-pattern{position:absolute;inline-size:clamp(160px,26vw,440px);block-size:auto;color:var(--public-pattern-color);opacity:var(--public-pattern-strength);animation:public-pattern-drift var(--public-pattern-duration) ease-in-out infinite alternate;pointer-events:none}
+body.section-public .public-ambient-pattern--left{left:-6%;top:8%;--pattern-turn:-12deg}
+body.section-public .public-ambient-pattern--right{right:-8%;bottom:3%;--pattern-turn:168deg;animation-delay:-24s}
+body.section-public .public-ambient-pattern-lines{fill:none;stroke:currentColor;stroke-width:var(--public-pattern-line-width);stroke-linecap:round;stroke-linejoin:round}
+body.section-public .public-ambient-pattern-nodes{fill:currentColor;stroke:none}
+@keyframes public-pattern-drift{from{transform:translate3d(0,-8px,0) rotate(var(--pattern-turn))}to{transform:translate3d(8px,12px,0) rotate(var(--pattern-turn))}}
+html[data-public-motion=paused] body.section-public .public-ambient-pattern{animation-play-state:paused}
+@media(max-width:640px){body.section-public .public-ambient-pattern{inline-size:180px;opacity:var(--public-pattern-mobile-strength)}body.section-public .public-ambient-pattern--left{left:-80px;top:14%}body.section-public .public-ambient-pattern--right{display:none}}
+@media(prefers-reduced-motion:reduce){body.section-public .public-ambient-pattern{animation:none;transform:rotate(var(--pattern-turn))}}

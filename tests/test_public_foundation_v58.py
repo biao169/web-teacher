@@ -53,7 +53,7 @@ def test_public_theme_controls_and_avatar_initials_without_admin_style_changes(f
             page=c.get(f'/{lang}/{table}?f.uid={uid}').text
             assert '>'+text+'</span>' in page
             assert 'data-public-media' in page and 'data-back-top hidden' in page
-            assert '/assets/shared/css/public-theme.css?v=0.15.65' in page
+            assert '/assets/shared/css/public-theme.css?v=0.15.100' in page
     for path in ['/admin/profiles']:
         assert '/assets/shared/css/public-theme.css' not in c.get(path).text
     assert '/assets/shared/css/public-theme.css' in c.get('/auth/login').text

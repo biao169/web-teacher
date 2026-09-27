@@ -86,6 +86,7 @@
   document.addEventListener('pointerdown',event=>{if(opened&&!opened.host.contains(event.target))close();});
   document.addEventListener('focusin',event=>{if(opened&&!opened.host.contains(event.target))close();});
   const reposition=()=>{if(opened)position(opened);};
+  document.addEventListener('public-reading-change',reposition);
   window.addEventListener('resize',reposition);window.visualViewport?.addEventListener('resize',reposition);
   document.addEventListener('scroll',event=>{if(opened&&!opened.panel.contains(event.target))reposition();},true);
   form.addEventListener('submit',()=>close());form.addEventListener('reset',()=>{close();queueMicrotask(()=>controls.forEach(sync));});

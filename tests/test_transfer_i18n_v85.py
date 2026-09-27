@@ -7,7 +7,7 @@ def test_default_english_reuses_main_brand_and_language_links(fixture):
     response=c.get('/transfer/?folder=abc')
     assert response.status_code==200
     html=response.text
-    assert '<html lang="en">' in html and 'Files, effortlessly delivered.' in html
+    assert re.search(r'<html\b[^>]*lang="en"',html) and 'Files, effortlessly delivered.' in html
     assert 'class="academic-header"' in html and 'data-public-language="zh"' in html
     assert '/transfer/?folder=abc&amp;lang=zh' in html
     assert '/auth/logout' in html and 'href="/admin"' in html
@@ -20,11 +20,11 @@ def test_default_english_reuses_main_brand_and_language_links(fixture):
 def test_query_then_cookie_language_and_guest_login_return(fixture):
     c,r=fixture;c.cookies.clear();c.cookies.set('public_language','zh')
     response=c.get('/transfer/?folder=abc')
-    assert '<html lang="zh">' in response.text and '文件，轻松送达。' in response.text
+    assert re.search(r'<html\b[^>]*lang="zh"',response.text) and '文件，轻松送达。' in response.text
     assert 'next=%2Ftransfer%2F%3Ffolder%3Dabc%26lang%3Dzh' in response.text
     assert '/auth/logout' not in response.text
-    assert '<html lang="en">' in c.get('/transfer/?lang=en').text
-    assert '<html lang="en">' in c.get('/transfer/?lang=invalid').text
+    assert re.search(r'<html\b[^>]*lang="en"',c.get('/transfer/?lang=en').text)
+    assert re.search(r'<html\b[^>]*lang="en"',c.get('/transfer/?lang=invalid').text)
 
 def test_configured_navigation_is_shared_and_not_duplicated(fixture):
     c,r=fixture

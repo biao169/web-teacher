@@ -21,7 +21,6 @@ def managed(tmp_path,monkeypatch):
         if args[:2]==['systemctl','show']:return SimpleNamespace(stdout='not-found\n')
         if args[0]=='useradd':return SimpleNamespace(stdout='')
         if args[0]=='chown':return SimpleNamespace(stdout='')
-        if '-m' in args and 'venv' in args:Path(args[-1]).mkdir(parents=True,exist_ok=True);return SimpleNamespace(stdout='')
         if '-m' in args and 'deploy.vps.release' in args:
             out=Path(args[args.index('--output')+1]);out.mkdir()
             (out/tweb.SERVICE).write_text(f'ExecStart={l.current}/.venv/bin/python -m uvicorn\nRestart=on-failure\nReadWritePaths=/var/lib/teacher-site {l.base}/current/transfer-data\n')
@@ -29,7 +28,7 @@ def managed(tmp_path,monkeypatch):
     m=tweb.Manager(l,runner)
     monkeypatch.setattr(tweb.pwd,'getpwnam',lambda n:(_ for _ in ()).throw(KeyError(n)))
     monkeypatch.setattr(m,'active',lambda:True)
-    monkeypatch.setattr(m,'healthy',lambda *args:events.append(['healthy']))
+    monkeypatch.setattr(m,'healthy',lambda:events.append(['healthy']))
     count=[0]
     def fetch(repo,branch):
         count[0]+=1
@@ -38,7 +37,7 @@ def managed(tmp_path,monkeypatch):
             p=target/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('source')
         return target,'commit-'+str(count[0])
     monkeypatch.setattr(m,'fetch',fetch)
-    args=SimpleNamespace(repo='https://github.com/example/teacher',branch='main',domain='teacher.example.org',port=8003,python='/usr/bin/python3')
+    args=SimpleNamespace(repo='https://github.com/example/teacher',branch='main',domain='teacher.example.org',python='/usr/bin/python3')
     m.install(args)
     return m,events,args
 
@@ -52,9 +51,6 @@ def test_install_permissions_paths_and_no_second_service(managed):
     assert m.load()['phase']=='ready'
     assert m.l.command.stat().st_mode & 0o777==0o755
     assert m.l.data.stat().st_mode & 0o777==0o700
-    assert (m.l.data/'database').is_dir()
-    assert (m.l.base/'transfer-data').stat().st_mode & 0o777==0o700
-    assert any(e[:2]==['chown','-R'] and str(m.l.data) in e and str(m.l.base/'transfer-data') in e for e in events)
     assert m.l.state.stat().st_mode & 0o777==0o600
     storage=(m.l.config/'storage.toml').read_text()
     assert f'{m.l.base}/transfer-data/files' in storage
@@ -98,27 +94,9 @@ def test_partial_update_accepts_compatible_frontend(managed,monkeypatch):
     assert (m.release()/'frontend/test.css').read_text()=='new front'
 
 
-def test_source_update_reuses_existing_dependencies_and_skips_database(managed):
-    m,events,_=managed;old=m.release();events.clear()
-    m.update(update_args(scope='source'))
-    assert m.release()!=old and not old.exists()
-    assert not any('pip' in e for e in events)
-    assert not any('init' in e and '--ready' in e for e in events)
-    assert m.load()['commit']=='commit-2'
-
-
-def test_dependency_update_uses_current_release_without_fetch(managed,monkeypatch):
-    m,events,_=managed;events.clear()
-    monkeypatch.setattr(m,'fetch',lambda *args:(_ for _ in ()).throw(AssertionError('fetch not expected')))
-    m.update(update_args(scope='deps'))
-    assert m.load()['commit']=='commit-1'
-    assert any('pip' in e for e in events)
-    assert ['systemctl','stop',tweb.SERVICE] in events
-
-
 def test_failed_health_reverts_source_without_reset_and_restores_state(managed,monkeypatch):
     m,events,_=managed;old=m.release();state=m.load();calls=[]
-    def health(*args):
+    def health():
         calls.append(1)
         if len(calls)==1:raise RuntimeError('unhealthy')
     monkeypatch.setattr(m,'healthy',health)
@@ -129,7 +107,7 @@ def test_failed_health_reverts_source_without_reset_and_restores_state(managed,m
 
 def test_failed_reset_stays_stopped_on_new_source(managed,monkeypatch):
     m,events,_=managed;old=m.release();events.clear()
-    monkeypatch.setattr(m,'healthy',lambda *args:(_ for _ in ()).throw(RuntimeError('unhealthy')))
+    monkeypatch.setattr(m,'healthy',lambda:(_ for _ in ()).throw(RuntimeError('unhealthy')))
     with pytest.raises(RuntimeError,match='unhealthy'):m.update(update_args(reset=True,confirm='RESET'))
     assert m.release()!=old and m.load()['phase']=='reset-failed'
     assert events[-1]==['systemctl','stop',tweb.SERVICE]

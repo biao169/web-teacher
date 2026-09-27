@@ -53,3 +53,10 @@ test('append preserves checked cards, new cards unchecked, and current result to
 test('Tab visits load-more inside panel; leaving or outside focus closes without choosing',t=>{
  const f=fixture(t);f.$('[data-facet-trigger]').click();const list=f.$('[role=listbox]');f.key(list,'Tab');assert.equal(f.w.document.activeElement,f.$('[data-facet-more]'));f.key(f.$('[data-facet-more]'),'Tab',{shiftKey:true});assert.equal(f.w.document.activeElement,list);f.$('[name=q]').focus();assert.equal(f.$('[data-facet-trigger]').getAttribute('aria-expanded'),'false');assert.equal(f.$('select').value,'');
 });
+
+test('reading-size change repositions an open facet without losing its selection',t=>{
+ const f=fixture(t,{selectValue:'Alpha'}),trigger=f.$('[data-facet-trigger]');trigger.click();const panel=f.$('.facet-panel'),before=panel.style.top;
+ trigger.getBoundingClientRect=()=>({left:10,right:100,top:30,bottom:60,width:90,height:30});
+ f.w.document.dispatchEvent(new f.w.Event('public-reading-change'));
+ assert.notEqual(panel.style.top,before);assert.equal(panel.hidden,false);assert.equal(f.$('select').value,'Alpha');assert.equal(f.requests.length,0);
+});
