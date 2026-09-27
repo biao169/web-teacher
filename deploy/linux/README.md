@@ -33,6 +33,10 @@
 | `sudo tweb update` | 从已保存仓库/分支更新整站源码和锁定依赖 |
 | `sudo tweb update --branch staging` | 改为指定分支，成功后保存此分支 |
 | `sudo tweb update --repo https://github.com/biao169/web-teacher.git --branch web-py` | 更换仓库与分支 |
+| `sudo tweb update-source` | 只更新源码，复用现有依赖，不初始化数据库 |
+| `sudo tweb update-deps` | 只按当前锁文件更新 Python 依赖 |
+| `sudo tweb update-db` | 只初始化空库或核验当前数据库结构 |
+| `sudo tweb update-service` | 只重生成 systemd 服务和反向代理片段 |
 | `sudo tweb update --scope frontend` | 前台局部更新；后端、SQL、快传、部署代码和 pyproject 必须与当前一致，否则拒绝并提示整站更新 |
 | `sudo tweb db-init` | 空库初始化并创建管理员；已有库只核验当前结构及管理员状态 |
 | `sudo tweb db-update` | 与 db-init 相同：确保数据库符合当前源码，不执行历史迁移 |
@@ -40,11 +44,11 @@
 | `sudo tweb update --reset` | 先确认 RESET，获取新版本，再以新版本 SQL 重建数据库 |
 | `sudo tweb uninstall` | 输入 DELETE 后完全删除本工具管理的站点 |
 
-自动化操作可传 `--confirm RESET` 或 `--confirm DELETE` 代替破坏性操作的文字确认；新管理员创建仍需终端密码输入。普通启动/更新不自动清空数据库。开发需要每次新站时使用 Windows `start.cmd`，或 Linux 的 `update --reset` / `db-reset`。所有新命令不做迁移、备份；旧结构不匹配时停止更新并提示使用明确的重置流程。
+也可以使用 `sudo tweb update --scope source|deps|db|service|frontend|all`。自动化操作可传 `--confirm RESET` 或 `--confirm DELETE` 代替破坏性操作的文字确认；新管理员创建仍需终端密码输入。普通启动/更新不自动清空数据库。开发需要每次新站时使用 Windows `start.cmd`，或 Linux 的 `update --reset` / `db-reset`。所有新命令不做迁移、备份；旧结构不匹配时停止更新并提示使用明确的重置流程。
 
 数据库重置删除主数据库及 SQLite 侧文件，账号、站点内容和快传任务一并重建。物理媒体和快传文件不随数据库重置删除；只有卸载会把本站物理文件一起删除。
 
-更新先下载源码和安装依赖，再停服核验数据库、切换源码并检查健康。下载/依赖失败不停止现有服务。无重置的更新若健康失败，会切回本次更新前的代码；这是失败恢复，不创建数据库备份。成功后删除旧源码版本。**执行重置后不能恢复旧数据**；失败时保留新代码并停服，使用 `logs`、`db-init`、`start` 修复。
+整站更新先下载源码和安装依赖，再停服核验数据库、切换源码并检查健康。只更新源码会复用现有 `.venv`，不运行 pip、不碰数据库，适合小改动；依赖或数据库结构变化时改用整站更新或对应独立命令。下载/依赖失败不停止现有服务。无重置的更新若健康失败，会切回本次更新前的代码；这是失败恢复，不创建数据库备份。成功后删除旧源码版本。**执行重置后不能恢复旧数据**；失败时保留新代码并停服，使用 `logs`、`db-init`、`start` 修复。
 
 服务内存限制沿用原配置：MemoryHigh=160M、MemoryMax=224M。它限制整个服务，不是单文件大小；需要按服务器资源及真实传输负载验收后调整 systemd unit。全局更新更新源码/依赖，不覆盖已安装的 systemd 运行参数或管理员手动调整的配置；新增版本若需要改服务参数，应依说明修改并执行 `sudo systemctl daemon-reload && sudo tweb restart`。
 

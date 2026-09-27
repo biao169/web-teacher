@@ -21,6 +21,7 @@ def managed(tmp_path,monkeypatch):
         if args[:2]==['systemctl','show']:return SimpleNamespace(stdout='not-found\n')
         if args[0]=='useradd':return SimpleNamespace(stdout='')
         if args[0]=='chown':return SimpleNamespace(stdout='')
+        if '-m' in args and 'venv' in args:Path(args[-1]).mkdir(parents=True,exist_ok=True);return SimpleNamespace(stdout='')
         if '-m' in args and 'deploy.vps.release' in args:
             out=Path(args[args.index('--output')+1]);out.mkdir()
             (out/tweb.SERVICE).write_text(f'ExecStart={l.current}/.venv/bin/python -m uvicorn\nRestart=on-failure\nReadWritePaths=/var/lib/teacher-site {l.base}/current/transfer-data\n')
@@ -95,6 +96,24 @@ def test_partial_update_accepts_compatible_frontend(managed,monkeypatch):
     monkeypatch.setattr(m,'fetch',changed)
     m.update(update_args(scope='frontend'))
     assert (m.release()/'frontend/test.css').read_text()=='new front'
+
+
+def test_source_update_reuses_existing_dependencies_and_skips_database(managed):
+    m,events,_=managed;old=m.release();events.clear()
+    m.update(update_args(scope='source'))
+    assert m.release()!=old and not old.exists()
+    assert not any('pip' in e for e in events)
+    assert not any('init' in e and '--ready' in e for e in events)
+    assert m.load()['commit']=='commit-2'
+
+
+def test_dependency_update_uses_current_release_without_fetch(managed,monkeypatch):
+    m,events,_=managed;events.clear()
+    monkeypatch.setattr(m,'fetch',lambda *args:(_ for _ in ()).throw(AssertionError('fetch not expected')))
+    m.update(update_args(scope='deps'))
+    assert m.load()['commit']=='commit-1'
+    assert any('pip' in e for e in events)
+    assert ['systemctl','stop',tweb.SERVICE] in events
 
 
 def test_failed_health_reverts_source_without_reset_and_restores_state(managed,monkeypatch):

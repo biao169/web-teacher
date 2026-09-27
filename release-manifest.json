@@ -586,12 +586,12 @@
       "sha256": "95f853f8a74433118f9ca0f922a3dc85648dd935924a6affb9a527677e28d0ee"
     },
     "deploy/linux/README.md": {
-      "bytes": 12228,
-      "sha256": "45447029d1b31fbb4d731d836d142e77e972d3c37df139fd56f652d4545bd670"
+      "bytes": 12807,
+      "sha256": "c151dc436360bcba0f3e950888ed2ab9c2cefe1c6997d639626576db256b5177"
     },
     "deploy/linux/tweb.py": {
-      "bytes": 26571,
-      "sha256": "dbba03f5d1efe2ce26f8ef11b255e060b5aa3053164318b527c002c9718e648c"
+      "bytes": 29369,
+      "sha256": "2de8a7b2a658460b1c861894bea001184ba38719eb969949995aaef88ae41026"
     },
     "deploy/shared/bootstrap.py": {
       "bytes": 1763,
@@ -3134,8 +3134,8 @@
       "sha256": "d7934f225392692cfc0e343739effcf5631a58125809abe41a734e4dd0eb07cb"
     },
     "README.md": {
-      "bytes": 37659,
-      "sha256": "f06f5bd3abd2731ab78181229acf5dec5a5ca75a27087a0357c2d954c779480f"
+      "bytes": 38064,
+      "sha256": "6617ba85a5e53fc6c339845fb12d01b32272943a7c4dc0d123d1766c8b007f56"
     },
     "scripts/build_frontend_examples.mjs": {
       "bytes": 5550,
@@ -3310,8 +3310,8 @@
       "sha256": "422ad04cdf82bab1cfc1d23573a96d5c64b8e4d1f835e8ccf0a28dcad95cfa20"
     },
     "tests/test_linux_manager_v76.py": {
-      "bytes": 8827,
-      "sha256": "6d5bff0e9b9ecd31db7176f6ee9040cc7879fbdfd504f2f9e575b4ba8e7bcea3"
+      "bytes": 9749,
+      "sha256": "6bfa511021b841bbfe54a1bc78f2925978732dfa7b292e4cf33279d67c54d9cb"
     },
     "tests/test_linux_process_v77.py": {
       "bytes": 6318,

@@ -154,13 +154,17 @@ sudo bash install.sh --domain teacher.example.org --port 8003
 | `sudo tweb proxy` | 查看代理配置示例 |
 | `sudo tweb update` | 从已保存的仓库/分支更新整站 |
 | `sudo tweb update --branch staging` | 更新到指定分支 |
+| `sudo tweb update-source` | 只更新源码，复用现有依赖，不初始化数据库 |
+| `sudo tweb update-deps` | 只按当前锁文件更新 Python 依赖 |
+| `sudo tweb update-db` | 只初始化空库或核验当前数据库结构 |
+| `sudo tweb update-service` | 只重生成 systemd 服务和反向代理片段 |
 | `sudo tweb update --scope frontend` | 前台局部更新；后台或数据库结构不兼容时拒绝 |
 | `sudo tweb db-init` / `db-update` | 初始化空库或核验现有结构，不执行迁移 |
 | `sudo tweb db-reset` | 输入 RESET 后按新站重建数据库、重新设置管理员 |
 | `sudo tweb update --reset` | 获取新版本并明确重建数据库 |
 | `sudo tweb uninstall` | 输入 DELETE 后删除本工具管理的站点文件、服务和账号 |
 
-普通启动/更新不会自动清库。开发按新站使用时，Windows 使用 start.cmd，Linux 使用明确的 db-reset 或 update --reset。重置不备份、不迁移，物理媒体文件保留；卸载才会删除本站受管目录内的媒体、快传文件、数据库与依赖。共用系统软件、系统日志和手动合并的外部代理配置不属于自动卸载范围。
+也可以使用 `sudo tweb update --scope source|deps|db|service|frontend|all`。普通启动/更新不会自动清库。开发按新站使用时，Windows 使用 start.cmd，Linux 使用明确的 db-reset 或 update --reset。重置不备份、不迁移，物理媒体文件保留；卸载才会删除本站受管目录内的媒体、快传文件、数据库与依赖。共用系统软件、系统日志和手动合并的外部代理配置不属于自动卸载范围。
 
 ## 六、文件与数据位置
 

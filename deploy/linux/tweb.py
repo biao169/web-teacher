@@ -197,8 +197,15 @@ class Manager:
         self.run([python,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         self.run([python,'-m','venv',release/'.venv'])
         self.run([release/'.venv/bin/python','-m','pip','install','--disable-pip-version-check','--no-cache-dir','-r',release/'deploy/shared/requirements/requirements-vps.lock'])
+        self.link_runtime(release)
+
+    def link_runtime(self, release):
         (release/'data').symlink_to(self.l.data,target_is_directory=True)
         (release/'transfer-data').symlink_to(self.l.base/'transfer-data',target_is_directory=True)
+
+    def reuse_runtime(self, old, release):
+        shutil.copytree(old/'.venv',release/'.venv',symlinks=True)
+        self.link_runtime(release)
 
     def db(self, release, mode):
         # Reset and init both reuse the native schema, lock and admin prompt.
@@ -324,14 +331,21 @@ location / {{
         state=self.load();previous_state=json.loads(json.dumps(state));old=self.release()
         repo=repository(args.repo or state['repo']);branch=branch_name(args.branch or state['branch'])
         if args.reset:confirm('RESET',args.confirm)
-        if args.scope=='frontend' and args.reset:raise ValueError('前台局部更新不能同时重置数据库')
+        if args.reset and args.scope!='all':raise ValueError('只有整站更新可以同时重置数据库')
+        if args.scope=='db':
+            self.database(False);return
+        if args.scope=='deps':
+            self.update_deps();return
+        if args.scope=='service':
+            self.update_service();return
         release,commit=self.fetch(repo,branch)
         stopped=False;switched=False;was_active=self.active()
         try:
             if args.scope=='frontend' and protected_digest(old)!=protected_digest(release):raise ValueError('后端、数据库或部署代码发生变化；请使用 update --scope all')
-            self.prepare(release,state['python'])
+            if args.scope in ('source','frontend'):self.reuse_runtime(old,release)
+            else:self.prepare(release,state['python'])
             self.run(['systemctl','stop',SERVICE]);stopped=True
-            self.db(release,'reset' if args.reset else 'init')
+            if args.scope=='all':self.db(release,'reset' if args.reset else 'init')
             self.switch(release);switched=True
             if was_active:self.start()
             state.update(repo=repo,branch=branch,commit=commit,phase='ready');self.save(state)
@@ -353,6 +367,26 @@ location / {{
         # No backups: cleanup after committing a healthy release, outside rollback handling.
         shutil.rmtree(old)
         print('更新完成: '+args.scope+' '+commit)
+
+    def update_deps(self):
+        state=self.load();release=self.release();was_active=self.active()
+        self.run(['systemctl','stop',SERVICE])
+        try:
+            self.run([release/'.venv/bin/python','-m','pip','install','--disable-pip-version-check','--no-cache-dir','-r',release/'deploy/shared/requirements/requirements-vps.lock'])
+            state.update(phase='ready');self.save(state)
+            if was_active:self.start()
+        except BaseException:
+            print('依赖更新失败，服务保持停止；修复后可 tweb start。',file=sys.stderr)
+            raise
+        print('依赖更新完成。')
+
+    def update_service(self):
+        state=self.load();release=self.release();was_active=self.active()
+        self.generate(release,state)
+        write(self.l.base/'tweb.py',Path(__file__).read_text())
+        if was_active:
+            self.run(['systemctl','stop',SERVICE]);self.start()
+        print('服务配置更新完成。')
 
     def database(self,reset=False,supplied=None):
         self.load();release=self.release()
@@ -410,7 +444,10 @@ def parser():
     p=argparse.ArgumentParser(description='教师网站管理；不带命令显示菜单')
     sub=p.add_subparsers(dest='action')
     install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY,help='默认：'+DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH,help='默认：'+DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--port',default=DEFAULT_PORT,type=port_number,help='本机监听端口，默认：8003');install.add_argument('--python',default='/usr/bin/python3')
-    update=sub.add_parser('update');update.add_argument('--repo');update.add_argument('--branch');update.add_argument('--scope',choices=('all','frontend'),default='all');update.add_argument('--reset',action='store_true');update.add_argument('--confirm')
+    update=sub.add_parser('update');update.add_argument('--repo');update.add_argument('--branch');update.add_argument('--scope',choices=('all','source','frontend','deps','db','service'),default='all');update.add_argument('--reset',action='store_true');update.add_argument('--confirm')
+    for name in ('update-source','update-frontend'):
+        cmd=sub.add_parser(name);cmd.add_argument('--repo');cmd.add_argument('--branch')
+    for name in ('update-deps','update-db','update-service'):sub.add_parser(name)
     for name in ('db-reset','uninstall'):sub.add_parser(name).add_argument('--confirm')
     for name in ('start','stop','restart','status','logs','db-init','db-update','doctor','paths','proxy'):sub.add_parser(name)
     return p
@@ -426,7 +463,12 @@ def main(argv=None):
             ('stop','停止 / Stop','停止网站服务 / Stop the service'),
             ('restart','重启 / Restart','重启网站并执行健康检查 / Restart and run health check'),
             ('logs','日志 / Logs','持续查看最近服务日志，Ctrl+C 退出 / Follow recent logs'),
-            ('update','更新 / Update','从已保存 GitHub 仓库和分支更新源码 / Update from saved GitHub source'),
+            ('update','整站更新 / Full Update','更新源码、依赖并核验数据库 / Update source, dependencies and database'),
+            ('update-source','只更新源码 / Source Only','拉取代码并复用现有依赖，不改数据库 / Pull code, reuse deps, keep DB'),
+            ('update-frontend','只更新前台 / Frontend Only','只允许前台文件变化 / Allow frontend-only changes'),
+            ('update-deps','只更新依赖 / Dependencies','按当前锁文件重装 Python 依赖 / Reinstall locked Python deps'),
+            ('update-db','只更新数据库 / Database','初始化空库或核验现有结构 / Initialize or verify database'),
+            ('update-service','只更新服务配置 / Service Config','重生成 systemd 和反代片段 / Regenerate service and proxy snippets'),
             ('db-init','初始化数据库 / Init DB','初始化空库或核验现有结构 / Initialize or verify database'),
             ('db-reset','重置数据库 / Reset DB','输入 RESET 后清空并重建数据库 / Rebuild database after RESET confirmation'),
             ('doctor','诊断 / Doctor','检查服务、端口、防火墙和代理工具 / Check service, port, firewall and proxy tools'),
@@ -453,6 +495,9 @@ def main(argv=None):
         m=Manager()
         if a.action=='install':m.install(a)
         elif a.action=='update':m.update(a)
+        elif a.action.startswith('update-'):
+            scope={'update-source':'source','update-frontend':'frontend','update-deps':'deps','update-db':'db','update-service':'service'}[a.action]
+            m.update(argparse.Namespace(repo=getattr(a,'repo',None),branch=getattr(a,'branch',None),scope=scope,reset=False,confirm=None))
         elif a.action in ('db-init','db-update','db-reset'):m.database(a.action=='db-reset',getattr(a,'confirm',None))
         elif a.action=='uninstall':m.uninstall(a.confirm)
         elif a.action in ('paths','doctor','proxy'):getattr(m,a.action)()
