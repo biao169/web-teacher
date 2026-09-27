@@ -120,16 +120,16 @@ TEACHER_PYTHON=/opt/python/bin/python3.12 TEACHER_VENV=/opt/teacher-venv TEACHER
 在交互式 SSH 终端执行以下一行命令（需要 curl）：
 
 ```bash
-( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' )
+( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' --port 8003 )
 ```
 
 已有源码也可以在项目根目录执行：
 
 ```bash
-sudo bash install.sh --domain teacher.example.org
+sudo bash install.sh --domain teacher.example.org --port 8003
 ```
 
-需要指定解释器时追加 `--python /opt/python/bin/python3.12`。脚本安装必要系统依赖，准备独立虚拟环境和单一服务，并交互创建管理员。安装完成只表示本机应用健康检查通过，仍需配置公网 HTTPS。
+端口不填时，交互式终端会提示输入本机监听端口，默认 `8003`。需要指定解释器时追加 `--python /opt/python/bin/python3.12`。脚本安装必要系统依赖，准备独立虚拟环境和单一服务，并交互创建管理员。安装完成只表示本机应用健康检查通过，仍需配置公网 HTTPS。
 
 ### 反向代理与 HTTPS
 
@@ -138,11 +138,11 @@ sudo bash install.sh --domain teacher.example.org
 - Caddy：将生成的片段合并到 `/etc/caddy/Caddyfile`；执行 `sudo caddy validate --config /etc/caddy/Caddyfile`，通过后 `sudo systemctl reload caddy`。
 - Nginx：在对应域名已有证书和 TLS 配置的 server 中加入生成的 location 片段；执行 `sudo nginx -t`，通过后 `sudo systemctl reload nginx`。
 
-脚本不会覆盖现有代理或防火墙配置。检查云安全组和系统防火墙，开放实际 SSH 端口及 TCP 80/443，不对公网开放 8003。完成后访问 `https://你的域名/`、`/admin` 和 `/transfer/`。
+脚本不会覆盖现有代理或防火墙配置。检查云安全组和系统防火墙，开放实际 SSH 端口及 TCP 80/443，不对公网开放本机监听端口。完成后访问 `https://你的域名/`、`/admin` 和 `/transfer/`。
 
 ### tweb 日常管理
 
-运行 `sudo tweb` 打开菜单，或使用下列命令：
+运行 `sudo tweb` 打开中英文菜单，或使用下列命令：
 
 | 命令 | 用途 |
 | --- | --- |

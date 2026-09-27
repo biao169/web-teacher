@@ -586,12 +586,12 @@
       "sha256": "95f853f8a74433118f9ca0f922a3dc85648dd935924a6affb9a527677e28d0ee"
     },
     "deploy/linux/README.md": {
-      "bytes": 12015,
-      "sha256": "a6b667d4cad59cd7645330f926442bd530752ec379072a4aea3a4a84e08a98ab"
+      "bytes": 12228,
+      "sha256": "45447029d1b31fbb4d731d836d142e77e972d3c37df139fd56f652d4545bd670"
     },
     "deploy/linux/tweb.py": {
-      "bytes": 24396,
-      "sha256": "e24d5289228c208d9905df92e983318082e06fca18a2f56d61dfde0c2311e187"
+      "bytes": 26571,
+      "sha256": "dbba03f5d1efe2ce26f8ef11b255e060b5aa3053164318b527c002c9718e648c"
     },
     "deploy/shared/bootstrap.py": {
       "bytes": 1763,
@@ -642,8 +642,8 @@
       "sha256": "c41dbdbec5eaef96cad480140611efde54408f4676c6ab1b2bf622a3aca6f5bd"
     },
     "deploy/vps/release.py": {
-      "bytes": 11888,
-      "sha256": "7b912a300c3f468845eb2fab7324a816b382d1e5becca9d63a1ef4c578dacfa6"
+      "bytes": 12166,
+      "sha256": "f8b1c210c4e9a3c0c92604dd95aa59df0cddd2f359a82b48db973f836e74a9a4"
     },
     "deploy/windows/add-demo-data.cmd": {
       "bytes": 233,
@@ -3118,8 +3118,8 @@
       "sha256": "029d3dc6cd54742423501637c56dcc32f7bab75dfbe3d33e53bb4aeb7066bf76"
     },
     "install.sh": {
-      "bytes": 2818,
-      "sha256": "723d2bd421857774c716c0ea64a364c3448a2cd68feb7b4f20711297e142103a"
+      "bytes": 3274,
+      "sha256": "acb76de23329232e8285b40e429ce1b9b8ccc34d01f3ef4360238a3c560bd829"
     },
     "legal/licenses/justhtml-LICENSE.txt": {
       "bytes": 1256,
@@ -3134,8 +3134,8 @@
       "sha256": "d7934f225392692cfc0e343739effcf5631a58125809abe41a734e4dd0eb07cb"
     },
     "README.md": {
-      "bytes": 37528,
-      "sha256": "c225594f00f575f05c6ac8ddbf3f2fe02367502a27d6095e42ef79b14a6468fb"
+      "bytes": 37659,
+      "sha256": "f06f5bd3abd2731ab78181229acf5dec5a5ca75a27087a0357c2d954c779480f"
     },
     "scripts/build_frontend_examples.mjs": {
       "bytes": 5550,
@@ -3310,8 +3310,8 @@
       "sha256": "422ad04cdf82bab1cfc1d23573a96d5c64b8e4d1f835e8ccf0a28dcad95cfa20"
     },
     "tests/test_linux_manager_v76.py": {
-      "bytes": 8800,
-      "sha256": "58d2d74c0e2c6fd13a64399ca170cc8a551dd9fc8e972737b07433c610fe61f5"
+      "bytes": 8827,
+      "sha256": "6d5bff0e9b9ecd31db7176f6ee9040cc7879fbdfd504f2f9e575b4ba8e7bcea3"
     },
     "tests/test_linux_process_v77.py": {
       "bytes": 6318,

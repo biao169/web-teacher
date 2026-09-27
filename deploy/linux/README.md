@@ -9,18 +9,18 @@
 在 Ubuntu/Debian 的交互式 SSH 终端执行下面**一行命令**。仓库默认 `https://github.com/biao169/web-teacher.git`，分支默认 `web-py`；只需把 teacher.example.org 替换为实际域名。URL 中带斜杠的分支写作 `feature/name` 即可。需要已安装 `curl`；没有时先 `sudo apt-get update && sudo apt-get install -y curl`。
 
 ```bash
-( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' )
+( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' --port 8003 )
 ```
 
-若需要指定解释器，在末尾追加 `--python /opt/python/bin/python3.12`。解释器必须有 venv 支持，并能被 teacher-site 系统用户访问；不要放在 `/root` 或个人家目录内，因为服务隔离禁止访问家目录。
+若需要指定本机监听端口，修改或追加 `--port 8005`；省略时交互式终端会提示输入，默认 `8003`。若需要指定解释器，在末尾追加 `--python /opt/python/bin/python3.12`。解释器必须有 venv 支持，并能被 teacher-site 系统用户访问；不要放在 `/root` 或个人家目录内，因为服务隔离禁止访问家目录。
 
 不用 `curl | bash`，保留终端输入，安装期间才能输入管理员名和密码。管理员密码交互输入，不写入命令行、安装状态或脚本。脚本安装 git、ca-certificates、python3、python3-venv，然后准备独立虚拟环境、当前锁文件依赖、唯一数据库结构和 systemd 服务。
 
-安装完成表示**本机应用健康检查通过**；完成 DNS、反向代理与 HTTPS 配置后才可从公网使用。主站、后台和快传共用 `127.0.0.1:8003`，不新增快传端口。浏览器入口是 `https://域名/`、`/admin`、`/transfer`。
+安装完成表示**本机应用健康检查通过**；完成 DNS、反向代理与 HTTPS 配置后才可从公网使用。主站、后台和快传共用安装时选择的 `127.0.0.1:端口`，不新增快传端口。浏览器入口是 `https://域名/`、`/admin`、`/transfer`。
 
 ## 常用命令
 
-无参数运行 `sudo tweb` 显示菜单。以下命令也可直接执行：
+无参数运行 `sudo tweb` 显示中英文菜单，每个选项都带简短说明。以下命令也可直接执行：
 
 | 命令 | 内容 |
 | --- | --- |
@@ -72,7 +72,7 @@
 
 ## 反向代理与防火墙
 
-`sudo tweb doctor` 只读取检查信息。并存多个防火墙时分别报告，不自动启用、清空或改写规则；云平台安全组无法从主机内可靠判断，需要在云控制台检查。仅为公网开放实际 SSH 端口、TCP 80/443，不对公网开放 8003。两种反代任选一种：
+`sudo tweb doctor` 只读取检查信息。并存多个防火墙时分别报告，不自动启用、清空或改写规则；云平台安全组无法从主机内可靠判断，需要在云控制台检查。仅为公网开放实际 SSH 端口、TCP 80/443，不对公网开放本机网站端口。两种反代任选一种：
 
 - **Caddy**：将 `sudo tweb proxy` 输出的 Caddy 片段合并至 `/etc/caddy/Caddyfile`；不要直接 import `/etc/teacher-site/generated/`，该配置目录只允许 root 和站点账号读取。运行 `sudo caddy validate --config /etc/caddy/Caddyfile`，通过后 `sudo systemctl reload caddy`。完成 DNS 与证书验证所需网络配置后，Caddy 管理 HTTPS。
 - **Nginx**：在对应域名已配置 TLS 和证书的 `server` 块中加入生成的 `location` 片段，保留其他站点；`sudo nginx -t` 通过后 `sudo systemctl reload nginx`。提供的是 location 片段，不是可单独启用的完整 TLS 站点文件，证书路径使用自己的实际路径。

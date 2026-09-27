@@ -28,7 +28,7 @@ def managed(tmp_path,monkeypatch):
     m=tweb.Manager(l,runner)
     monkeypatch.setattr(tweb.pwd,'getpwnam',lambda n:(_ for _ in ()).throw(KeyError(n)))
     monkeypatch.setattr(m,'active',lambda:True)
-    monkeypatch.setattr(m,'healthy',lambda:events.append(['healthy']))
+    monkeypatch.setattr(m,'healthy',lambda *args:events.append(['healthy']))
     count=[0]
     def fetch(repo,branch):
         count[0]+=1
@@ -37,7 +37,7 @@ def managed(tmp_path,monkeypatch):
             p=target/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('source')
         return target,'commit-'+str(count[0])
     monkeypatch.setattr(m,'fetch',fetch)
-    args=SimpleNamespace(repo='https://github.com/example/teacher',branch='main',domain='teacher.example.org',python='/usr/bin/python3')
+    args=SimpleNamespace(repo='https://github.com/example/teacher',branch='main',domain='teacher.example.org',port=8003,python='/usr/bin/python3')
     m.install(args)
     return m,events,args
 
@@ -99,7 +99,7 @@ def test_partial_update_accepts_compatible_frontend(managed,monkeypatch):
 
 def test_failed_health_reverts_source_without_reset_and_restores_state(managed,monkeypatch):
     m,events,_=managed;old=m.release();state=m.load();calls=[]
-    def health():
+    def health(*args):
         calls.append(1)
         if len(calls)==1:raise RuntimeError('unhealthy')
     monkeypatch.setattr(m,'healthy',health)
@@ -110,7 +110,7 @@ def test_failed_health_reverts_source_without_reset_and_restores_state(managed,m
 
 def test_failed_reset_stays_stopped_on_new_source(managed,monkeypatch):
     m,events,_=managed;old=m.release();events.clear()
-    monkeypatch.setattr(m,'healthy',lambda:(_ for _ in ()).throw(RuntimeError('unhealthy')))
+    monkeypatch.setattr(m,'healthy',lambda *args:(_ for _ in ()).throw(RuntimeError('unhealthy')))
     with pytest.raises(RuntimeError,match='unhealthy'):m.update(update_args(reset=True,confirm='RESET'))
     assert m.release()!=old and m.load()['phase']=='reset-failed'
     assert events[-1]==['systemctl','stop',tweb.SERVICE]

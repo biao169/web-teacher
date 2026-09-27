@@ -22,6 +22,7 @@ from urllib.request import build_opener, ProxyHandler
 
 DEFAULT_REPOSITORY = 'https://github.com/biao169/web-teacher.git'
 DEFAULT_BRANCH = 'web-py'
+DEFAULT_PORT = 8003
 
 MARKER = 'teacher-site-managed-v1\n'
 SERVICE = 'teacher-site.service'
@@ -61,6 +62,15 @@ def hostname(value):
     if len(value)>253 or not re.fullmatch(r'[a-z0-9.-]+',value) or '.' not in value or any(not p or len(p)>63 or p.startswith('-') or p.endswith('-') for p in value.split('.')):
         raise ValueError('请输入有效域名，不带协议、端口或路径')
     return value
+
+def port_number(value):
+    try: port=int(value)
+    except (TypeError,ValueError): raise ValueError('端口必须是 1024-65535 的整数')
+    if not 1024<=port<=65535: raise ValueError('端口必须是 1024-65535 的整数')
+    return port
+
+def state_port(state):
+    return port_number(state.get('port',DEFAULT_PORT))
 
 
 def no_symlinks(path):
@@ -133,6 +143,7 @@ class Manager:
         no_symlinks(self.l.state)
         state=json.loads(self.l.state.read_text())
         repository(state['repo']);branch_name(state['branch']);hostname(state['domain'])
+        state['port']=state_port(state)
         return state
 
     def save(self,state):write(self.l.state,json.dumps(state,ensure_ascii=False,indent=2)+'\n',0o600)
@@ -197,25 +208,27 @@ class Manager:
         if mode=='reset':self.run([*prefix,'-m','backend.cli','reset-data','--include-transfer'],cwd=release)
         self.run([*prefix,release/'deploy/shared/launcher.py','init','--ready','--no-browser'],cwd=release)
 
-    def healthy(self):
+    def healthy(self, port=DEFAULT_PORT):
         opener=build_opener(ProxyHandler({}))
         for _ in range(60):
             try:
-                with opener.open('http://127.0.0.1:8003/health/ready',timeout=1) as r:
+                with opener.open(f'http://127.0.0.1:{port}/health/ready',timeout=1) as r:
                     if r.status==200:return
             except OSError:pass
             time.sleep(.5)
         raise RuntimeError('健康检查失败；使用 tweb logs 检查')
 
     def start(self):
+        state=self.load()
         self.fix_permissions()
-        self.run(['systemctl','start',SERVICE]);self.healthy()
+        self.run(['systemctl','start',SERVICE]);self.healthy(state_port(state))
 
     def generate(self, release, state):
         # Existing shared renderer keeps service and bounded HTTP defaults consistent.
         output=self.l.config/'generated'
         if output.exists():shutil.rmtree(output)
-        self.run([release/'.venv/bin/python','-m','deploy.vps.release','render','--output',output,'--base',self.l.base,'--python',self.l.current/'.venv/bin/python','--teacher-domain',state['domain']],cwd=release)
+        port=state_port(state)
+        self.run([release/'.venv/bin/python','-m','deploy.vps.release','render','--output',output,'--base',self.l.base,'--python',self.l.current/'.venv/bin/python','--teacher-domain',state['domain'],'--port',port],cwd=release)
         storage=f'''[storage]
 data_dir = "{self.l.data}"
 database_path = "{self.l.data}/database/site.sqlite3"
@@ -241,7 +254,7 @@ transfer_cache_dir = "{self.l.base}/transfer-data/cache"
 # Configure listen 443 ssl and valid certificates in that server; do not publish HTTP login.
 # Forward full paths; transfer and website use this same upstream.
 location / {{
-    proxy_pass http://127.0.0.1:8003;
+    proxy_pass http://127.0.0.1:{port};
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -260,7 +273,7 @@ location / {{
         # Proxy all static assets too: avoids granting nginx/caddy filesystem access.
         write(output/'Caddyfile.fragment',f'''{state['domain']} {{
     encode zstd gzip
-    reverse_proxy 127.0.0.1:8003 {{
+    reverse_proxy 127.0.0.1:{port} {{
         flush_interval 10ms
     }}
 }}
@@ -268,7 +281,7 @@ location / {{
         self.run(['systemctl','daemon-reload'])
 
     def install(self,args):
-        repository(args.repo);branch_name(args.branch);hostname(args.domain)
+        repository(args.repo);branch_name(args.branch);hostname(args.domain);port=port_number(args.port)
         # Preflight every destination before claiming anything. Do not adopt existing users.
         for p in (self.l.base,self.l.config,self.l.data):
             no_symlinks(p)
@@ -282,8 +295,8 @@ location / {{
         except KeyError:pass
         else:raise ValueError('teacher-site 用户已存在，拒绝接管')
         self.run([args.python,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
-        with socket.socket() as sock:sock.bind(('127.0.0.1',8003))
-        state={'format':1,'repo':args.repo,'branch':args.branch,'domain':args.domain,'python':args.python,'user_created':False,'phase':'preparing','owned_files':{}}
+        with socket.socket() as sock:sock.bind(('127.0.0.1',port))
+        state={'format':1,'repo':args.repo,'branch':args.branch,'domain':args.domain,'port':port,'python':args.python,'user_created':False,'phase':'preparing','owned_files':{}}
         for p in (self.l.base,self.l.config,self.l.data):claim(p)
         self.save(state)
         # Install manager early so failed/interrupted setup can be cleanly uninstalled.
@@ -372,7 +385,7 @@ location / {{
 
     def paths(self,state=None):
         state=state or self.load()
-        print(json.dumps({'website':'https://'+state['domain'],'admin':'https://'+state['domain']+'/admin','transfer':'https://'+state['domain']+'/transfer','repository':state['repo'],'branch':state['branch'],'phase':state['phase'],'code':str(self.l.current),'config':str(self.l.config),'database':str(self.l.data/'database/site.sqlite3'),'media':str(self.l.data/'media'),'transfer_files':str(self.l.base/'transfer-data'),'logs':str(self.l.data/'service.log'),'service':str(self.l.unit),'command':str(self.l.command)},ensure_ascii=False,indent=2))
+        print(json.dumps({'website':'https://'+state['domain'],'admin':'https://'+state['domain']+'/admin','transfer':'https://'+state['domain']+'/transfer','repository':state['repo'],'branch':state['branch'],'port':state_port(state),'phase':state['phase'],'code':str(self.l.current),'config':str(self.l.config),'database':str(self.l.data/'database/site.sqlite3'),'media':str(self.l.data/'media'),'transfer_files':str(self.l.base/'transfer-data'),'logs':str(self.l.data/'service.log'),'service':str(self.l.unit),'command':str(self.l.command)},ensure_ascii=False,indent=2))
 
     def doctor(self):
         self.paths()
@@ -381,7 +394,7 @@ location / {{
             if not shutil.which(command[0]):print(command[0]+': 未安装');continue
             print('\n$ '+' '.join(command),flush=True)
             subprocess.run(command,check=False,timeout=20)
-        print('检查云平台安全组；公网只开放实际 SSH 端口与 TCP 80/443，不开放 8003。此命令未修改防火墙或代理。')
+        print('检查云平台安全组；公网只开放实际 SSH 端口与 TCP 80/443，不开放本机网站端口。此命令未修改防火墙或代理。')
 
     def proxy(self):
         self.load()
@@ -396,7 +409,7 @@ location / {{
 def parser():
     p=argparse.ArgumentParser(description='教师网站管理；不带命令显示菜单')
     sub=p.add_subparsers(dest='action')
-    install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY,help='默认：'+DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH,help='默认：'+DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--python',default='/usr/bin/python3')
+    install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY,help='默认：'+DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH,help='默认：'+DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--port',default=DEFAULT_PORT,type=port_number,help='本机监听端口，默认：8003');install.add_argument('--python',default='/usr/bin/python3')
     update=sub.add_parser('update');update.add_argument('--repo');update.add_argument('--branch');update.add_argument('--scope',choices=('all','frontend'),default='all');update.add_argument('--reset',action='store_true');update.add_argument('--confirm')
     for name in ('db-reset','uninstall'):sub.add_parser(name).add_argument('--confirm')
     for name in ('start','stop','restart','status','logs','db-init','db-update','doctor','paths','proxy'):sub.add_parser(name)
@@ -407,12 +420,27 @@ def main(argv=None):
     p=parser();a=p.parse_args(argv)
     if not a.action:
         if not sys.stdin.isatty():p.print_help();return 0
-        choices=['status','start','stop','restart','logs','update','db-init','db-reset','doctor','paths','proxy','uninstall']
-        print('\n'.join(f'{i+1}. {name}' for i,name in enumerate(choices)))
-        choice=input('选择编号（回车退出）: ').strip()
+        menu=[
+            ('status','状态 / Status','查看 systemd 服务当前状态 / Show current service status'),
+            ('start','启动 / Start','启动网站并执行健康检查 / Start service and run health check'),
+            ('stop','停止 / Stop','停止网站服务 / Stop the service'),
+            ('restart','重启 / Restart','重启网站并执行健康检查 / Restart and run health check'),
+            ('logs','日志 / Logs','持续查看最近服务日志，Ctrl+C 退出 / Follow recent logs'),
+            ('update','更新 / Update','从已保存 GitHub 仓库和分支更新源码 / Update from saved GitHub source'),
+            ('db-init','初始化数据库 / Init DB','初始化空库或核验现有结构 / Initialize or verify database'),
+            ('db-reset','重置数据库 / Reset DB','输入 RESET 后清空并重建数据库 / Rebuild database after RESET confirmation'),
+            ('doctor','诊断 / Doctor','检查服务、端口、防火墙和代理工具 / Check service, port, firewall and proxy tools'),
+            ('paths','路径 / Paths','显示网站、配置、数据库和日志路径 / Show managed paths'),
+            ('proxy','反代配置 / Proxy','输出 Caddy 和 Nginx 反向代理片段 / Print reverse proxy snippets'),
+            ('uninstall','卸载 / Uninstall','输入 DELETE 后删除本工具管理的站点 / Remove managed site after DELETE confirmation'),
+        ]
+        print('教师网站管理 / Teacher Site Manager')
+        print('输入编号执行，直接回车退出 / Enter a number, or press Enter to exit\n')
+        for i,(_,label,desc) in enumerate(menu,1): print(f'{i}. {label}\n   {desc}')
+        choice=input('选择编号 / Choice: ').strip()
         if not choice:return 0
-        if not choice.isdigit() or not 1<=int(choice)<=len(choices):raise ValueError('无效选择')
-        a=p.parse_args([choices[int(choice)-1]])
+        if not choice.isdigit() or not 1<=int(choice)<=len(menu):raise ValueError('无效选择')
+        a=p.parse_args([menu[int(choice)-1][0]])
     if os.geteuid()!=0:raise ValueError('请使用 sudo tweb '+a.action)
     if not Path('/run/systemd/system').is_dir():raise ValueError('需要运行 systemd 的 Ubuntu/Debian 主机')
     os_release=Path('/etc/os-release').read_text()
