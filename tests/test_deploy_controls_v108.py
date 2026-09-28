@@ -182,17 +182,19 @@ def test_health_uses_saved_port(managed,monkeypatch):
     m,events,_=managed;state=m.load();state['port']=9123;m.save(state);seen=[]
     class Reply:
         status=200
+        def read(self,n):return b'{"status":"ok","schema":"academic-cms-native"}'
         def __enter__(self):return self
         def __exit__(self,*args):pass
     monkeypatch.setattr(tweb,'build_opener',lambda *a:SimpleNamespace(open=lambda url,**kw:(seen.append(url) or Reply())))
     tweb.Manager.healthy(m)
-    assert seen==['http://127.0.0.1:9123/health/ready']
+    assert seen[0].full_url=='http://127.0.0.1:9123/health/ready'
+    assert seen[0].get_header('Host')=='teacher.example.org'
 
 
-def test_bilingual_menu_loop_color_and_no_color(monkeypatch,capsys):
+def test_bilingual_single_menu_color_and_no_color(monkeypatch,capsys):
     monkeypatch.setattr(sys.stdin,'isatty',lambda:True);monkeypatch.setattr(sys.stdout,'isatty',lambda:True)
     monkeypatch.setenv('TERM','xterm');monkeypatch.delenv('NO_COLOR',raising=False)
-    choices=iter(['6','2','0']);monkeypatch.setattr('builtins.input',lambda _:next(choices));seen=[]
+    choices=iter(['6','2']);monkeypatch.setattr('builtins.input',lambda _:next(choices));seen=[]
     monkeypatch.setattr(tweb,'execute',lambda a:seen.append(a))
     assert tweb.main([])==0
     assert seen[0].scope=='source'

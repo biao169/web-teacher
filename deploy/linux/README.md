@@ -1,4 +1,4 @@
-# Ubuntu / Debian 部署与 tweb 管理（0.15.110）
+# Ubuntu / Debian 部署与 tweb 管理（0.15.111）
 
 需要运行 systemd 的 Ubuntu/Debian、Python 3.12+ 和 venv。脚本不替换系统 Python。主站与快传共用一个服务和一个内部端口；操作同一受管安装的命令互斥执行。
 
@@ -18,7 +18,7 @@
 sudo bash install.sh --domain teacher.example.org --port 9103 --python /opt/python/bin/python3.12
 ```
 
-`--repo`、`--branch` 可更换来源。解释器应使用可被服务账号访问的绝对路径，不能放在 /root 或个人家目录。端口范围 1024–65535；安装和改端口前检查冲突，不终止占用端口的其他程序。服务只监听 `127.0.0.1`，不对公网裸露 HTTP。外部 HTTPS 端口仍由 nginx/Caddy 配置，主站和快传不需要额外端口。
+`--repo`、`--branch` 可更换源码来源；`--pip-source tuna|pypi` 选择 Python 依赖源，默认清华 tuna。解释器应使用可被服务账号访问的绝对路径，不能放在 /root 或个人家目录。端口范围 1024–65535；安装和改端口前检查冲突，不终止占用端口的其他程序。服务只监听 `127.0.0.1`，不对公网裸露 HTTP。外部 HTTPS 端口仍由 nginx/Caddy 配置，主站和快传不需要额外端口。
 
 安装会准备系统依赖、虚拟环境、数据库和服务账号，并交互创建网站管理员。完成前用服务账号实际创建/删除探测文件、读取源码和存储配置，检查目录访问权限。安装失败保留受管入口用于诊断或卸载。
 
@@ -117,3 +117,9 @@ python -B -m deploy.vps.release verify
 ## 健康检查失败排查（v0.15.110）
 
 健康检查连接保存的本地端口并携带安装域名 Host，要求返回本站的健康 JSON。HTTP 400/401/403/404 会直接提示状态码和配置检查方向；拒绝连接/超时会保留最近原因。生产域名不需要在本地健康检查中解析 DNS。旧版缺少 Host 可造成正常服务误报，先按根目录 README 的步骤替换受管 tweb.py，再重启；无需重建数据库。若仍失败，检查应用日志与 systemd journal，不能靠重启防火墙或删除数据库解决所有启动错误。
+
+## Python 依赖下载（v0.15.111）
+
+默认源为清华 HTTPS 镜像；tweb pip-source tuna / pypi 保存选择，tweb pip-source 查看选择。安装、整站更新、依赖单独更新和恢复源码使用同一个下载方法，明确指定唯一源并保留 TLS 验证。忽略 pip 配置文件及冲突的 PIP_* 参数，保留网络代理与显式 PIP_CERT。不写全局 pip.conf，不使用 trusted-host，不自动回退到 HTTP。使用原锁定版本，网络超时 20 秒、最多重试 2 次。
+
+首次安装在依赖下载阶段失败且尚未激活时，可以 tweb resume-install 复用唯一暂存源码和原虚拟环境继续安装。必须先更新 /opt/teacher-site/tweb.py，具体命令见根目录 README。已有 current、同名服务、多个暂存目录或不匹配的安装状态都会拒绝续装，不自动删除数据。此命令不适用于已完成安装的网站日常更新。

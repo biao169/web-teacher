@@ -1,4 +1,31 @@
-# 教师网站使用教程（0.15.110）
+# 教师网站使用教程（0.15.111）
+
+## Python 依赖源与失败续装（v0.15.111）
+
+Linux 一键安装、整站更新、源码删除后的恢复和依赖单独更新共用同一安装方法，默认使用已验证可用的清华 HTTPS 源：`https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple`。保持锁文件中的依赖版本，不关闭 SSL 校验，不修改系统全局 pip 配置。每次明确指定唯一 index-url，忽略 pip 配置文件和冲突的 PIP_* 参数；保留常规网络代理和显式 PIP_CERT 证书包。失败最多重试 2 次，网络超时为 20 秒；不自动混用多个来源。
+
+新安装默认即可，选择官方源可加 `--pip-source pypi`。已安装管理器提供：
+
+```bash
+tweb pip-source          # 查看当前源
+tweb pip-source tuna     # 保存清华源
+tweb pip-source pypi     # 保存官方源
+tweb update --scope dependencies
+```
+
+依赖源保存在现有 install.json，不新建配置目录；旧安装未记录该字段时默认使用清华源。更换来源只影响之后的依赖下载，不改变当前已安装版本，也不自动执行更新。设置环境变量 PIP_INDEX_URL 不再覆盖此选择；请通过 --pip-source 或 tweb pip-source 配置。
+
+如果仍停留在先前首次安装的 pip 依赖失败阶段：先在服务器解压本版、进入 teacher-site 目录（默认受管安装路径），执行：
+
+```bash
+sudo install -o root -g root -m 0644 deploy/linux/tweb.py /opt/teacher-site/tweb.py
+sudo tweb pip-source tuna
+sudo tweb resume-install
+```
+
+续装仅允许：安装状态 preparing、已创建服务账号、尚无 current/服务文件、且只有一个暂存源码目录。它校验原源码清单，复用已创建的虚拟环境，再完成依赖、配置、数据库初始化、权限检查和启动，不卸载、不清空数据、不重新下载源码。若目录不唯一、已有服务或已进入后续安装阶段，则拒绝猜测和覆盖，需按具体错误检查。安装管理员账号时可能需要交互输入。
+
+将完整新版本上传到 GitHub web-py 后，后续远程安装才会使用新默认值；避免用仓库旧版本覆盖更新后的管理脚本。直接启动器和 Windows 依赖策略本轮不变。本版数据库表和索引未变，无需重建。详细验证及文件清单见 [依赖源修改说明](docs/pip-source-v111.md)。
 
 ## 修复生产域名健康检查误判（v0.15.110）
 

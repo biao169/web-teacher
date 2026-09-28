@@ -25,6 +25,8 @@ from urllib.error import HTTPError, URLError
 
 DEFAULT_REPOSITORY = 'https://github.com/biao169/web-teacher.git'
 DEFAULT_BRANCH = 'web-py'
+PIP_SOURCES = {'tuna':'https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple','pypi':'https://pypi.org/simple'}
+DEFAULT_PIP_SOURCE = 'tuna'
 
 MARKER = 'teacher-site-managed-v1\n'
 SERVICE = 'teacher-site.service'
@@ -227,9 +229,27 @@ class Manager:
     def prepare(self, release, python):
         self.run([python,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         self.run([python,'-m','venv',release/'.venv'])
-        self.run([release/'.venv/bin/python','-m','pip','install','--disable-pip-version-check','--no-cache-dir','-r',release/'deploy/shared/requirements/requirements-vps.lock'])
+        self.install_dependencies(release)
         (release/'data').symlink_to(self.l.data,target_is_directory=True)
         (release/'transfer-data').symlink_to(self.l.base/'transfer-data',target_is_directory=True)
+
+    def pip_source(self,value=None):
+        state=self.load();selected=value or state.get('pip_source',DEFAULT_PIP_SOURCE)
+        if selected not in PIP_SOURCES:raise ValueError('无效依赖源 / Invalid package source')
+        if value is not None:state['pip_source']=selected;self.save(state)
+        print('Python 依赖源 / Package source: '+selected+' — '+PIP_SOURCES[selected],flush=True)
+        return PIP_SOURCES[selected]
+
+    def install_dependencies(self,release):
+        source=self.pip_source()
+        # Match the successfully tested command without changing global pip config.
+        # Preserve normal network proxies and an explicitly supplied CA bundle.
+        env={k:v for k,v in os.environ.items() if not k.startswith('PIP_')}
+        if os.environ.get('PIP_CERT'):env['PIP_CERT']=os.environ['PIP_CERT']
+        env['PIP_CONFIG_FILE']=os.devnull
+        self.run([release/'.venv/bin/python','-m','pip','install','--disable-pip-version-check','--no-cache-dir',
+                  '--index-url',source,'--retries','2','--timeout','20',
+                  '-r',release/'deploy/shared/requirements/requirements-vps.lock'],env=env)
 
     def db(self, release, mode):
         # Reset and init both reuse the native schema, lock and admin prompt.
@@ -334,6 +354,8 @@ location / {{
     def install(self,args):
         repository(args.repo);branch_name(args.branch);hostname(args.domain)
         port=port_number(getattr(args,'port',8003))
+        pip_source=getattr(args,'pip_source',DEFAULT_PIP_SOURCE)
+        if pip_source not in PIP_SOURCES:raise ValueError('无效依赖源 / Invalid package source')
         # Preflight every destination before claiming anything. Do not adopt existing users.
         for p in (self.l.base,self.l.config,self.l.data):
             no_symlinks(p)
@@ -348,7 +370,7 @@ location / {{
         else:raise ValueError('teacher-site 用户已存在，拒绝接管')
         self.run([args.python,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         with socket.socket() as sock:sock.bind(('127.0.0.1',port))
-        state={'format':1,'port':port,'repo':args.repo,'branch':args.branch,'domain':args.domain,'python':args.python,'user_created':False,'phase':'preparing','owned_files':{}}
+        state={'format':1,'port':port,'pip_source':pip_source,'repo':args.repo,'branch':args.branch,'domain':args.domain,'python':args.python,'user_created':False,'phase':'preparing','owned_files':{}}
         for p in (self.l.base,self.l.config,self.l.data):claim(p)
         self.save(state)
         # Install manager early so failed/interrupted setup can be cleanly uninstalled.
@@ -372,8 +394,31 @@ location / {{
             print('安装完成。应用健康检查通过；公网 HTTPS 需按 tweb proxy 输出接入。')
             self.paths(state)
         except BaseException:
-            print('安装未完成。已保留管理入口；修复后可 tweb db-init / start，或 tweb uninstall 完全清理。',file=sys.stderr)
+            print('安装未完成。依赖阶段失败且尚未建立 current 时可 tweb resume-install；已建立 current 时使用日志诊断 / Install incomplete; resume-install supports the pre-activation dependency stage.',file=sys.stderr)
             raise
+
+    def resume_install(self):
+        """Resume the dependency-stage failure without discarding the user's installation."""
+        state=self.load()
+        if state.get('phase')!='preparing' or not state.get('user_created'):
+            raise ValueError('不是可续装阶段 / Not a resumable installation stage')
+        if self.l.current.exists() or self.l.current.is_symlink() or self.l.unit.exists() or self.l.unit.is_symlink():
+            raise ValueError('已有当前版本或服务，拒绝覆盖 / Existing active release or unit; refusing overwrite')
+        directory=self.l.base/'releases';no_symlinks(directory)
+        candidates=list(directory.iterdir())
+        if len(candidates)!=1 or candidates[0].is_symlink() or not candidates[0].is_dir():
+            raise ValueError('无法唯一确定失败的源码目录 / Cannot identify a single staged release')
+        release=candidates[0]
+        for name in ('data','transfer-data'):
+            if (release/name).exists() or (release/name).is_symlink():raise ValueError('暂存版本已有数据链接，需检查安装阶段 / Staged data links already exist')
+        loaded=self.run(['systemctl','show','--property=LoadState','--value',SERVICE],capture_output=True,text=True).stdout.strip()
+        if loaded!='not-found':raise ValueError('系统已存在同名服务，拒绝覆盖 / Existing service; refusing overwrite')
+        self.run([state['python'],'-B',release/'deploy/vps/release.py','verify','--root',release])
+        self.prepare(release,state['python']);self.switch(release);self.generate(release,state)
+        self.db(release,'init');self.permissions()
+        self.run(['systemctl','enable',SERVICE]);self.start()
+        state['phase']='ready';self.save(state)
+        print(color('续装完成 / Installation resumed successfully','32'))
 
     def update(self,args):
         if args.scope in ('source','frontend'):return self.update_source(args)
@@ -477,8 +522,7 @@ location / {{
         self.run(['systemctl','stop',SERVICE])
         # Updating in place is deliberate: no extra virtual environments or backups.
         # On failure keep the service stopped; re-running retries the same lock file.
-        self.run([release/'.venv/bin/python','-m','pip','install','--disable-pip-version-check','--no-cache-dir',
-                  '-r',release/'deploy/shared/requirements/requirements-vps.lock'])
+        self.install_dependencies(release)
         if was_active:self.start()
         print(color('依赖同步完成 / Dependencies synchronized','32'))
 
@@ -687,6 +731,8 @@ MENU = [
  ('paths','文件与网址 / Paths and URLs','查看目录与访问地址 / Show directories and URLs'),
  ('proxy','代理示例 / Proxy examples','查看 nginx / Caddy 配置 / Show nginx / Caddy snippets'),
  ('remove','分项删除 / Remove','选择文件类别或完整卸载 / Choose data category or uninstall'),
+ ('pip-source','Python 依赖源 / Package source','清华或官方 HTTPS 源 / Tsinghua or official HTTPS index'),
+ ('resume-install','继续失败的安装 / Resume installation','仅限激活前依赖阶段失败 / Pre-activation dependency failure only'),
 ]
 UPDATE_MENU = [
  ('all','整站更新 / Full update','源码、锁定依赖和数据库核验 / Source, locked dependencies and DB verification'),
@@ -721,7 +767,9 @@ def choose(title,entries):
 def parser():
     p=argparse.ArgumentParser(description='教师网站管理 / Teacher website manager; no command opens menu')
     sub=p.add_subparsers(dest='action')
-    install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--python',default='/usr/bin/python3');install.add_argument('--port',type=port_number,default=8003)
+    install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--python',default='/usr/bin/python3');install.add_argument('--port',type=port_number,default=8003);install.add_argument('--pip-source',choices=tuple(PIP_SOURCES),default=DEFAULT_PIP_SOURCE)
+    source=sub.add_parser('pip-source');source.add_argument('name',choices=tuple(PIP_SOURCES),nargs='?')
+    sub.add_parser('resume-install')
     update=sub.add_parser('update');update.add_argument('--repo');update.add_argument('--branch');update.add_argument('--scope',choices=tuple(x[0] for x in UPDATE_MENU),default='all');update.add_argument('--reset',action='store_true');update.add_argument('--confirm')
     for name in ('db-reset','uninstall'):sub.add_parser(name).add_argument('--confirm')
     remove=sub.add_parser('remove');remove.add_argument('--scope',choices=tuple(x[0] for x in REMOVE_MENU),required=True);remove.add_argument('--confirm')
@@ -741,6 +789,8 @@ def execute(a):
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         m=Manager()
         if a.action=='install':m.install(a)
+        elif a.action=='pip-source':m.pip_source(a.name)
+        elif a.action=='resume-install':m.resume_install()
         elif a.action=='update':
             if a.scope not in ('all','source','frontend') and (a.repo or a.branch or a.reset or a.confirm):
                 raise ValueError('该模式不接受仓库、分支或重置参数 / This scope does not accept repository or reset options')
@@ -801,6 +851,10 @@ def main(argv=None):
             scope=choose('更新范围 / Update scope' if action=='update' else '删除范围 / Removal scope',UPDATE_MENU if action=='update' else REMOVE_MENU)
             if scope is None:return 0
             args+=['--scope',scope]
+        if action=='pip-source':
+            source=choose('选择依赖源 / Choose package source',[('tuna','清华镜像 / Tsinghua mirror','已验证可用的默认 HTTPS 源 / Default HTTPS index'),('pypi','官方源 / Official PyPI','使用官方文件下载链路 / Use official download servers')])
+            if source is None:return 0
+            args.append(source)
         if action=='permissions':
             mode=choose('权限操作 / Permissions',[('check','检查 / Check','实际读写探测 / Actual access probe'),('repair','修复 / Repair','恢复受管数据目录权限 / Restore managed data permissions')])
             if mode is None:return 0

@@ -4,22 +4,24 @@
 # bash install.sh --domain example.org
 # --python selects an existing Python >=3.12; never replaces /usr/bin/python3.
 set -Eeuo pipefail
-repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' python='/usr/bin/python3' port=''
+repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' python='/usr/bin/python3' port='' pip_source='tuna'
 usage() {
-  printf '%s\n' 'Usage: install.sh --domain example.org [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003]' \
+  printf '%s\n' 'Usage: install.sh --domain example.org [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003] [--pip-source tuna|pypi]' \
     'Installs git, ca-certificates, python3, python3-venv; then installs the single teacher website service.' \
     'Existing managed installation: use sudo tweb update instead.'
 }
 while (($#)); do
   case "$1" in
     --help|-h) usage; exit 0;;
-    --repo|--branch|--domain|--python|--port)
+    --repo|--branch|--domain|--python|--port|--pip-source)
       if (($# < 2)); then usage; exit 2; fi
-      case "$1" in --repo) repo=$2;; --branch) branch=$2;; --domain) domain=$2;; --python) python=$2;; --port) port=$2;; esac
+      case "$1" in --repo) repo=$2;; --branch) branch=$2;; --domain) domain=$2;; --python) python=$2;; --port) port=$2;; --pip-source) pip_source=$2;; esac
       shift 2;;
     *) printf 'Unknown argument: %s\n' "$1" >&2; exit 2;;
   esac
 done
+# Use one HTTPS package index. Never disable TLS verification or combine indexes.
+[[ $pip_source == tuna || $pip_source == pypi ]] || { printf 'Invalid pip source / 无效依赖源\n' >&2; exit 2; }
 # --port is the private application port, not the public HTTPS port.
 # Interactive installs allow typing a value; unattended installs default to 8003.
 if [[ -z $port ]]; then
@@ -46,4 +48,4 @@ trap 'rm -rf -- "$work"' EXIT
 GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone --depth 1 --single-branch --branch "$branch" -- "$repo" "$work/source"
 [[ -f "$work/source/deploy/linux/tweb.py" && ! -L "$work/source/deploy/linux/tweb.py" ]] || { printf 'Missing deployment manager\n' >&2; exit 1; }
 # stdin remains the terminal for the administrator password; do not use curl | bash.
-"$python" "$work/source/deploy/linux/tweb.py" install --repo "$repo" --branch "$branch" --domain "$domain" --python "$python" --port "$port"
+"$python" "$work/source/deploy/linux/tweb.py" install --repo "$repo" --branch "$branch" --domain "$domain" --python "$python" --port "$port" --pip-source "$pip_source"
