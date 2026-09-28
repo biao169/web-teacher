@@ -56,7 +56,7 @@ MENU_GROUPS=(
  ('content','内容管理',('profiles','students','student_category_displays','research_interests','projects','publications','patents','courses','news')),
  ('resources','资源与工具',('media_assets','translation_cache','messages','transfer')),
  ('website','网站配置',('navigation_items','site_settings','global_settings')),
- ('system','系统管理',('auth_users','auth_roles','operation_logs','data_tools')),
+ ('system','系统管理',('auth_users','auth_roles','operation_logs','data_tools','runtime-maintenance')),
  ('custom','自定义入口',()),
 )
 

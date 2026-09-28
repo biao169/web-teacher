@@ -1,0 +1,54 @@
+{
+  "version": "0.15.107",
+  "python_suite": {
+    "initial_passed": 751,
+    "initial_failed": 2,
+    "corrected_assertions_rerun_passed": 2,
+    "note": "旧断言分别依赖命令尾随空格和历史 CSS 版本号；修正后单独复测通过，未再次全量运行。"
+  },
+  "dom_suite": {
+    "passed": 265,
+    "failed": 0
+  },
+  "shell_syntax": {
+    "passed": 3
+  },
+  "transfer_probes": {
+    "relay_32": {
+      "file_mib": 32,
+      "heap_peak_bytes": 2125449,
+      "process_peak_rss_kib": 43360,
+      "max_retained_payload_bytes": 1048576,
+      "final_retained": 0,
+      "sha256_verified": true,
+      "kind": "synthetic_service_only"
+    },
+    "relay_256": {
+      "file_mib": 256,
+      "heap_peak_bytes": 2125449,
+      "process_peak_rss_kib": 42908,
+      "max_retained_payload_bytes": 1048576,
+      "final_retained": 0,
+      "sha256_verified": true,
+      "kind": "synthetic_service_only"
+    },
+    "offline_32": {
+      "file_mib": 32,
+      "heap_peak_bytes": 2132891,
+      "process_peak_rss_kib": 43968,
+      "max_metadata_page": 32,
+      "sha256_verified": true,
+      "physical_cleanup_verified": true,
+      "disk_budget_enabled": true
+    },
+    "offline_256": {
+      "file_mib": 256,
+      "heap_peak_bytes": 2150717,
+      "process_peak_rss_kib": 44168,
+      "max_metadata_page": 64,
+      "sha256_verified": true,
+      "physical_cleanup_verified": true,
+      "disk_budget_enabled": true
+    }
+  }
+}

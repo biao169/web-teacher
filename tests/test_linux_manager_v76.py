@@ -21,9 +21,9 @@ def managed(tmp_path,monkeypatch):
         if args[:2]==['systemctl','show']:return SimpleNamespace(stdout='not-found\n')
         if args[0]=='useradd':return SimpleNamespace(stdout='')
         if args[0]=='chown':return SimpleNamespace(stdout='')
-        if '-m' in args and 'deploy.vps.release' in args:
+        if '-m' in args and 'deploy.vps.release' in args and 'render' in args:
             out=Path(args[args.index('--output')+1]);out.mkdir()
-            (out/tweb.SERVICE).write_text(f'ExecStart={l.current}/.venv/bin/python -m uvicorn\nRestart=on-failure\nReadWritePaths=/var/lib/teacher-site {l.base}/current/transfer-data\n')
+            (out/tweb.SERVICE).write_text(f'ExecStart={l.current}/.venv/bin/python -m uvicorn backend.entrypoints.vps:app --workers 1 --timeout-keep-alive 5 --no-access-log\nRestart=on-failure\nReadWritePaths=/var/lib/teacher-site {l.base}/current/transfer-data\n')
         return SimpleNamespace(stdout='')
     m=tweb.Manager(l,runner)
     monkeypatch.setattr(tweb.pwd,'getpwnam',lambda n:(_ for _ in ()).throw(KeyError(n)))

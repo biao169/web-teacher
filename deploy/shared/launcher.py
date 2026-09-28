@@ -62,13 +62,12 @@ def serve(settings,both=False,open_browser=True,seconds=None):
     main_port=int(os.environ.get('TEACHER_PORT','8003'));check_ports([main_port])
     main_origin=os.environ.setdefault('TEACHER_ORIGIN',f'http://127.0.0.1:{main_port}')
     items=[('teacher','backend.entrypoints.vps:app',main_port,'/health/ready')]
-    logs=settings.cache_dir/'logs';logs.mkdir(parents=True,exist_ok=True);processes=[];handles=[];opener=build_opener(ProxyHandler({}))
+    logs=settings.data_dir/'logs';logs.mkdir(parents=True,exist_ok=True);processes=[];handles=[];opener=build_opener(ProxyHandler({}))
     try:
         for name,entry,port,health in items:
-            path=logs/(name+'.log')
-            if path.exists():path.replace(logs/(name+'.previous.log'))
-            handle=path.open('w',encoding='utf-8');handles.append(handle)
-            proc=subprocess.Popen([sys.executable,'-m','uvicorn',entry,'--host','127.0.0.1','--port',str(port),'--workers','1','--limit-concurrency',str(main_concurrency if name=='teacher' else 8),'--timeout-keep-alive','5','--no-access-log'],cwd=ROOT,env=os.environ|{'PYTHONUTF8':'1','PYTHONDONTWRITEBYTECODE':'1'},stdout=handle,stderr=handle);processes.append(proc)
+            # Logging is owned by the child service, including startup output.
+            path=logs/'service.log'
+            proc=subprocess.Popen([sys.executable,'-m','deploy.shared.service',entry,'--host','127.0.0.1','--port',str(port),'--limit-concurrency',str(main_concurrency if name=='teacher' else 8)],cwd=ROOT,env=os.environ|{'PYTHONUTF8':'1','PYTHONDONTWRITEBYTECODE':'1'});processes.append(proc)
             for _ in range(150):
                 if proc.poll() is not None:raise RuntimeError(f'{name} failed; see {path}')
                 try:
@@ -83,14 +82,14 @@ def serve(settings,both=False,open_browser=True,seconds=None):
         while all(p.poll() is None for p in processes):
             if seconds is not None and time.monotonic()-started>=seconds:return
             time.sleep(.25)
-        raise RuntimeError('A service exited; inspect configured cache/logs.')
+        raise RuntimeError('A service exited; inspect configured data/logs/service.log.')
     finally:
         for process in reversed(processes):stop(process)
         for handle in handles:handle.close()
 
 def main(argv=None):
     """Default missing mode to start; seed and reset remain explicit operations."""
-    p=argparse.ArgumentParser();p.add_argument('mode',nargs='?',default='start',choices=['start','seed','examples','both','init','reset','migrate','fresh','rebuild','test','frontend-examples']);p.add_argument('--profile',choices=['normal','demo'],default='normal');p.add_argument('--ready',action='store_true');p.add_argument('--no-browser',action='store_true');p.add_argument('--dom',action='store_true');p.add_argument('--report');a=p.parse_args(argv)
+    p=argparse.ArgumentParser();p.add_argument('mode',nargs='?',default='start',choices=['start','seed','examples','both','init','reset','migrate','fresh','rebuild','test','frontend-examples','cleanup-preview','cleanup-run','cleanup-status']);p.add_argument('--profile',choices=['normal','demo'],default='normal');p.add_argument('--ready',action='store_true');p.add_argument('--no-browser',action='store_true');p.add_argument('--dom',action='store_true');p.add_argument('--report');a=p.parse_args(argv)
     if not a.ready:
         from deploy.shared.bootstrap import prepare_environment
         python=prepare_environment();raise SystemExit(subprocess.call([str(python),str(Path(__file__).resolve()),*(sys.argv[1:] if argv is None else argv),'--ready'],cwd=ROOT))
@@ -100,6 +99,9 @@ def main(argv=None):
     if a.mode in ('fresh','rebuild') and a.profile!='demo':
         raise ValueError('Fresh development requires --profile demo')
     s=configure(a.profile)
+    if a.mode.startswith('cleanup-'):
+        from backend.cli import main as maintenance
+        asyncio.run(maintenance([a.mode]));return
     if a.mode in ('fresh','rebuild'):
         check_ports([int(os.environ.get('TEACHER_PORT',8003))])
         from deploy.shared.development import reset

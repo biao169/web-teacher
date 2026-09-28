@@ -16,7 +16,7 @@ def test_real_http_update_restart_reset_and_owned_uninstall(tmp_path,monkeypatch
     l=Layout(tmp_path/'site',tmp_path/'config',tmp_path/'site/data',tmp_path/'site.service',tmp_path/'tweb')
     for path in (l.base,l.config,l.data):claim(path)
     (l.base/'releases').mkdir();(l.base/'transfer-data/files').mkdir(parents=True);(l.base/'transfer-data/cache').mkdir()
-    l.unit.write_text('synthetic-test-unit');l.command.write_text('synthetic-test-command')
+    l.unit.write_text('ExecStart=python -m uvicorn backend.entrypoints.vps:app --workers 1 --timeout-keep-alive 5 --no-access-log\n');l.command.write_text('synthetic-test-command')
     db=l.data/'main.sqlite3'
     (l.config/'storage.toml').write_text(f'[storage]\ndata_dir="{l.data}"\ndatabase_path="{db}"\ntransfer_media_dir="{l.base}/transfer-data/files"\ntransfer_cache_dir="{l.base}/transfer-data/cache"\n')
     with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
@@ -33,7 +33,7 @@ def test_real_http_update_restart_reset_and_owned_uninstall(tmp_path,monkeypatch
                 release=m.release();handle=(tmp_path/f'process-{len(logs)}.log').open('w');logs.append(handle)
                 env={k:v for k,v in os.environ.items() if not k.startswith(('TEACHER_','TRANSFER_'))}
                 env.update(TEACHER_CONFIG=str(l.config/'storage.toml'),TEACHER_ORIGIN=origin,PYTHONDONTWRITEBYTECODE='1')
-                process[0]=subprocess.Popen([sys.executable,'-B','-m','uvicorn','backend.entrypoints.vps:app','--host','127.0.0.1','--port',str(port),'--no-access-log'],cwd=release,env=env,stdout=handle,stderr=handle)
+                process[0]=subprocess.Popen([sys.executable,'-B','-m','deploy.shared.service','backend.entrypoints.vps:app','--host','127.0.0.1','--port',str(port)],cwd=release,env=env,stdout=handle,stderr=handle)
             return SimpleNamespace(stdout='')
         if args[0]=='runuser':
             # Strip only the account switch. Keep real env -i, config, Python, CLI and lock.

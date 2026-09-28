@@ -53,10 +53,14 @@ def install(app,resources,root):
     async def lifespan(application):
         nonlocal disk,maintenance
         async with original_lifespan(application):
-            worker=None
+            worker=None;site_worker=None;site_maintenance=None
             try:
                 try:
                     main=await resources(Request({'type':'http','method':'GET','path':'/transfer/','headers':[],'query_string':b'','server':('localhost',80),'scheme':'http'}))
+                    from backend.maintenance.runtime import Maintenance as SiteMaintenance
+                    site_maintenance=SiteMaintenance(main.sql,main.settings)
+                    application.state.site_maintenance=site_maintenance
+                    site_worker=asyncio.create_task(site_maintenance.run())
                     legacy=main.settings.transfer_database_path.is_file() and not await main.sql.query("SELECT 1 FROM service_meta WHERE key='integrated-source'")
                     if not legacy:
                         store=DurableStore(main.settings.transfer_media_dir)
@@ -67,6 +71,8 @@ def install(app,resources,root):
                     application.state.transfer_maintenance_error="离线缓存维护未能启动，请检查配置、磁盘权限及数据库；主站仍可使用。"
                 yield
             finally:
+                if site_worker:
+                    site_maintenance.stopped.set();await site_worker
                 if worker:
                     maintenance.stopped.set()
                     # Finish the current bounded purge batch before releasing process locks.

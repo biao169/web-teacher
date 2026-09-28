@@ -4,8 +4,15 @@ from backend.app.config import Settings
 from backend.app.native.database import Database
 async def main(argv=None):
     """Maintenance always uses the same Settings as the web entrypoint."""
-    parser=argparse.ArgumentParser(description='Teacher website maintenance');parser.add_argument('command',choices=['init','init-admin','doctor','seed-demo','seed-examples','reset-data','migrate']);parser.add_argument('--username',default='admin');parser.add_argument('--include-transfer',action='store_true');args=parser.parse_args(argv)
+    parser=argparse.ArgumentParser(description='Teacher website maintenance');parser.add_argument('command',choices=['init','init-admin','doctor','seed-demo','seed-examples','reset-data','migrate','cleanup-preview','cleanup-run','cleanup-status']);parser.add_argument('--username',default='admin');parser.add_argument('--include-transfer',action='store_true');parser.add_argument('--batches',type=int,default=1);args=parser.parse_args(argv)
     settings=Settings.from_env();db=Database(settings.database_path)
+    if args.command.startswith('cleanup-'):
+        if not settings.database_path.is_file():raise SystemExit('Configured database does not exist; maintenance did not initialize it.')
+        db.verify()
+        from backend.maintenance.runtime import Maintenance
+        task=Maintenance(db,settings)
+        result=await task.load('status.json') if args.command=='cleanup-status' else await task.tick(args.command=='cleanup-run',args.batches)
+        print(json.dumps(result,ensure_ascii=False,indent=2));return
     if args.command=='reset-data':
         db.initialize(reset=True)
         # Integrated transfer metadata is part of the main reset. Legacy source is preserved.

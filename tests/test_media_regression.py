@@ -158,6 +158,10 @@ def test_vps_generation_reuses_main_limit_for_integrated_transfer(tmp_path, monk
     monkeypatch.setenv('TEACHER_HTTP_CONCURRENCY','16')
     destination = tmp_path / 'generated'
     render(destination,'/opt/test-teacher','teacher.example.test','transfer.example.test','/opt/test-venv/bin/python')
-    assert '--limit-concurrency 16 ' in (destination / 'teacher-site.service').read_text()
+    service = (destination / 'teacher-site.service').read_text()
+    command = next(line for line in service.splitlines() if line.startswith('ExecStart='))
+    args = command.split()
+    assert args[args.index('--limit-concurrency') + 1] == '16'
+    assert '-m deploy.shared.service ' in command
     assert not (destination / 'teacher-transfer.service').exists()
     assert '8004' not in (destination / 'Caddyfile.fragment').read_text()

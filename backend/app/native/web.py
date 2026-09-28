@@ -83,6 +83,8 @@ def create_app(factory,static_root=None):
                     target,_=r.content.parse_navigation(nav['path'] or '')
                     if nav['url_name'] and nav['visibility'] in r.p['scopes'] and r.p['permissions'].get(target,{}).get('can_view'):menu.append({'key':nav['uid'],'label':nav['title'],'url':'/admin/n/'+nav['url_name'],**sidebar_presentation(nav)})
                 except Error:pass
+        from .maintenance_admin import allowed as maintenance_allowed
+        if r.kind=='local' and maintenance_allowed(r.p):menu.append({'key':'runtime-maintenance','label':'运行维护','url':'/admin/runtime-maintenance','icon':'settings','locked':False})
         from .accounts import ACCOUNT_TABLES,ACTIONS,SCOPES
         from .permissions import groups
         from .navigation_options import grouped_menu
@@ -314,6 +316,8 @@ def create_app(factory,static_root=None):
     install_session_admin(app,resources,csrf,resolve,navigation_stamp,check_navigation_current)
     from .translation_group_admin import install as install_translation_groups
     install_translation_groups(app,resources,render,csrf,resolve,navigation_stamp)
+    from .maintenance_admin import install as install_maintenance
+    install_maintenance(app,resources,csrf,render)
     @app.get('/admin/transfer')
     async def transfer_admin(request:Request):
         """显示独立快传管理入口和身份桥接说明。"""

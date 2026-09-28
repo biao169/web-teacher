@@ -1,124 +1,113 @@
-# Ubuntu / Debian 部署与 tweb 管理（0.15.94）
+# Ubuntu / Debian 部署与 tweb 管理（0.15.108）
 
-本轮提供可以在目标主机执行的部署代码，未连接或修改真实服务器。支持运行 systemd 的 Ubuntu/Debian；网站需要 Python 3.12+ 和 venv。Ubuntu 24.04+、Debian 13 的默认 Python 满足这一最低要求；使用旧发行版时，请先准备符合要求的解释器，传 `--python /实际路径/python3.12`。脚本不替换系统 Python，也不添加第三方 apt 源。
+需要运行 systemd 的 Ubuntu/Debian、Python 3.12+ 和 venv。脚本不替换系统 Python。主站与快传共用一个服务和一个内部端口；操作同一受管安装的命令互斥执行。
 
-## GitHub 项目准备与一条指令安装
+## 一键安装和端口
 
-把压缩包中 `teacher-site/` 内的文件上传到仓库根目录。根目录必须能直接看到 `install.sh`、`pyproject.toml`、`backend/`、`database/`、`deploy/`。本版本自动下载针对公开 GitHub 仓库，不在仓库 URL 中放入令牌或密码。部署的仓库/分支代码将以管理员权限执行，使用自己审核的版本。
+将压缩包内 teacher-site 目录中的文件上传到 GitHub 仓库根目录：应直接看到 install.sh、pyproject.toml、backend、deploy 和 release-manifest.json。默认仓库是 `https://github.com/biao169/web-teacher.git`，分支为 `web-py`；只执行自己审核过的仓库代码。
 
-在 Ubuntu/Debian 的交互式 SSH 终端执行下面**一行命令**。仓库默认 `https://github.com/biao169/web-teacher.git`，分支默认 `web-py`；只需把 teacher.example.org 替换为实际域名。URL 中带斜杠的分支写作 `feature/name` 即可。需要已安装 `curl`；没有时先 `sudo apt-get update && sudo apt-get install -y curl`。
+在有 curl 的交互式 SSH 终端运行以下一行，将域名换成自己的：
 
 ```bash
-( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' --port 8003 )
+( f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install.sh' -o "$f" && sudo bash "$f" --domain 'teacher.example.org' )
 ```
 
-若需要指定本机监听端口，修改或追加 `--port 8005`；省略时交互式终端会提示输入，默认 `8003`。若需要指定解释器，在末尾追加 `--python /opt/python/bin/python3.12`。解释器必须有 venv 支持，并能被 teacher-site 系统用户访问；不要放在 `/root` 或个人家目录内，因为服务隔离禁止访问家目录。
+未传 `--port` 时，交互终端会询问内部应用端口，回车使用 8003；非交互运行使用默认值。可以显式指定：
 
-不用 `curl | bash`，保留终端输入，安装期间才能输入管理员名和密码。管理员密码交互输入，不写入命令行、安装状态或脚本。脚本安装 git、ca-certificates、python3、python3-venv，然后准备独立虚拟环境、当前锁文件依赖、唯一数据库结构和 systemd 服务。
+```bash
+sudo bash install.sh --domain teacher.example.org --port 9103 --python /opt/python/bin/python3.12
+```
 
-安装完成表示**本机应用健康检查通过**；完成 DNS、反向代理与 HTTPS 配置后才可从公网使用。主站、后台和快传共用安装时选择的 `127.0.0.1:端口`，不新增快传端口。浏览器入口是 `https://域名/`、`/admin`、`/transfer`。
+`--repo`、`--branch` 可更换来源。解释器应使用可被服务账号访问的绝对路径，不能放在 /root 或个人家目录。端口范围 1024–65535；安装和改端口前检查冲突，不终止占用端口的其他程序。服务只监听 `127.0.0.1`，不对公网裸露 HTTP。外部 HTTPS 端口仍由 nginx/Caddy 配置，主站和快传不需要额外端口。
 
-## 常用命令
+安装会准备系统依赖、虚拟环境、数据库和服务账号，并交互创建网站管理员。完成前用服务账号实际创建/删除探测文件、读取源码和存储配置，检查目录访问权限。安装失败保留受管入口用于诊断或卸载。
 
-无参数运行 `sudo tweb` 显示中英文菜单，每个选项都带简短说明。以下命令也可直接执行：
+直接启动不安装系统服务：`bash start.sh --port 9103`，或 `TEACHER_PORT=9103 bash start.sh`。`start-transfer.sh` 复用同一入口。所有 .sh 在根目录，所有 .cmd 在 deploy 下。
 
-| 命令 | 内容 |
+## 彩色双语管理菜单
+
+输入 `tweb` 即进入同时显示中英文的菜单，每项带说明。非 root 用户由入口通过 sudo 请求操作系统管理员权限；不改变 sudo 授权规则。安装时指定的 Python 同样用于管理入口。
+
+菜单包含状态、启动、停止、重启、日志、分项更新、端口、数据库初始化/重建、清理预览/执行/状态、权限检查/修复、诊断、路径、代理示例及分项删除。选择操作后返回菜单，0 或回车返回/退出；持续日志按 Ctrl+C 返回。直接执行命令时 Ctrl+C 退出该命令。
+
+支持 ANSI 的终端使用颜色区分标题、选项、成功和错误；重定向输出、TERM=dumb 或 `NO_COLOR=1 tweb` 不输出颜色控制符。无终端输入时不循环等待菜单，而是显示帮助；自动化应指定子命令。
+
+## 更新范围
+
+| 命令 | 实际范围 |
 | --- | --- |
-| `sudo tweb status` | systemd 当前状态 |
-| `sudo tweb start / stop / restart` | 分别启动、停止、重启；写其中一个动词，不要照抄斜杠 |
-| `sudo tweb logs` | 查看最近 100 行并持续输出服务日志，Ctrl+C 退出 |
-| `sudo tweb paths` | 网站 URL、源码、数据库、媒体、日志和配置位置 |
-| `sudo tweb doctor` | 服务、监听端口、UFW/firewalld/nftables/iptables、Nginx 配置与 Caddy 安装情况 |
-| `sudo tweb proxy` | 输出当前域名的 Caddy 与 Nginx 配置片段及检查命令 |
-| `sudo tweb update` | 从已保存仓库/分支更新整站源码和锁定依赖 |
-| `sudo tweb update --branch staging` | 改为指定分支，成功后保存此分支 |
-| `sudo tweb update --repo https://github.com/biao169/web-teacher.git --branch web-py` | 更换仓库与分支 |
-| `sudo tweb update-source` | 只更新源码，复用现有依赖，不初始化数据库 |
-| `sudo tweb update-deps` | 只按当前锁文件更新 Python 依赖 |
-| `sudo tweb update-db` | 只初始化空库或核验当前数据库结构 |
-| `sudo tweb update-service` | 只重生成 systemd 服务和反向代理片段 |
-| `sudo tweb update --scope frontend` | 前台局部更新；后端、SQL、快传、部署代码和 pyproject 必须与当前一致，否则拒绝并提示整站更新 |
-| `sudo tweb db-init` | 空库初始化并创建管理员；已有库只核验当前结构及管理员状态 |
-| `sudo tweb db-update` | 与 db-init 相同：确保数据库符合当前源码，不执行历史迁移 |
-| `sudo tweb db-reset` | 输入 RESET 后，停服并按新站重建数据库、重新创建管理员 |
-| `sudo tweb update --reset` | 先确认 RESET，获取新版本，再以新版本 SQL 重建数据库 |
-| `sudo tweb uninstall` | 输入 DELETE 后完全删除本工具管理的站点 |
+| `tweb update --scope all` | 下载并校验源码、安装该版锁定依赖，停服初始化/核验数据库后切换版本；默认不清空数据 |
+| `tweb update --scope source` | 下载并校验源码，数据库与依赖定义兼容时替换源码；不执行 pip 或数据库命令，保留原虚拟环境绝对路径 |
+| `tweb update --scope frontend` | 替换 frontend 中的模板/CSS/JS；后端、数据库、快传与部署代码必须兼容。仅版本号变化不阻止操作 |
+| `tweb update --scope dependencies` | 不下载仓库，按已安装源码的锁文件同步依赖 |
+| `tweb update --scope database` | 不下载仓库；调用已有数据库升级/核验入口，再核验管理员；不会自动重置 |
+| `tweb update --scope config` | 刷新受管服务文件和代理示例；保留存储配置、环境变量以及其他服务参数 |
 
-也可以使用 `sudo tweb update --scope source|deps|db|service|frontend|all`。自动化操作可传 `--confirm RESET` 或 `--confirm DELETE` 代替破坏性操作的文字确认；新管理员创建仍需终端密码输入。普通启动/更新不自动清空数据库。开发需要每次新站时使用 Windows `start.cmd`，或 Linux 的 `update --reset` / `db-reset`。所有新命令不做迁移、备份；旧结构不匹配时停止更新并提示使用明确的重置流程。
+下载型更新可以附加 `--repo` / `--branch`，成功后保存来源；其余范围不接受仓库、分支或重置参数。仅源码模式遇到 schema、依赖锁或项目依赖定义变化时，在停服前拒绝，提示整站更新。
 
-数据库重置删除主数据库及 SQLite 侧文件，账号、站点内容和快传任务一并重建。物理媒体和快传文件不随数据库重置删除；只有卸载会把本站物理文件一起删除。
+整站更新沿用原先下载后准备、健康检查失败恢复代码的流程；成功后删除前一源码版本。源码和界面单独更新在原版本目录中替换受管源码对象，不复制虚拟环境，避免依赖脚本里的解释器绝对路径失效。局部源码/依赖更新失败时保持停服，重试相同命令或使用整站更新修复；没有另外保留旧源码备份。数据和配置目录不会随源码切换删除。
 
-整站更新先下载源码和安装依赖，再停服核验数据库、切换源码并检查健康。只更新源码会复用现有 `.venv`，不运行 pip、不碰数据库，适合小改动；依赖或数据库结构变化时改用整站更新或对应独立命令。下载/依赖失败不停止现有服务。无重置的更新若健康失败，会切回本次更新前的代码；这是失败恢复，不创建数据库备份。成功后删除旧源码版本。**执行重置后不能恢复旧数据**；失败时保留新代码并停服，使用 `logs`、`db-init`、`start` 修复。
+`db-init` 用于空库初始化或现有结构核验。`db-update` 等同 database 更新范围：已是当前结构时只核验；仅已有升级器识别的旧结构可以升级，它会沿用原有旧结构快照行为，不新增迁移机制；未知结构拒绝修改并停服。开发按新站使用仍可直接执行 `db-reset` 或 `update --reset`，输入 RESET 后重建所有数据库记录，不备份也不保留旧账号。媒体/快传磁盘文件不会随重建删除。
 
-服务内存限制沿用原配置：MemoryHigh=160M、MemoryMax=224M。它限制整个服务，不是单文件大小；需要按服务器资源及真实传输负载验收后调整 systemd unit。全局更新更新源码/依赖，不覆盖已安装的 systemd 运行参数或管理员手动调整的配置；新增版本若需要改服务参数，应依说明修改并执行 `sudo systemctl daemon-reload && sudo tweb restart`。
+本版本数据库表与索引不变，从 0.15.107 更新不需要数据库升级或重建。
 
-## 文件位置与权限
+## 修改端口与代理
 
-| 位置 | 用途 |
+```bash
+tweb port 9103
+tweb proxy
+```
+
+不传数字时可交互输入。端口保存在安装状态中，健康检查和后续更新使用同一个值。修改时同步 systemd 和生成的代理示例，服务之前正在运行才自动重新启动；失败会恢复原端口、服务文件与示例并尝试恢复原运行状态。
+
+**需要自行同步实际代理配置。** 脚本只更新示例，避免覆盖已有站点、证书或防火墙。Caddy 把片段合并到 `/etc/caddy/Caddyfile`，校验后 reload；Nginx 把 location 片段合并到已有 TLS server，执行 nginx -t 后 reload。不要直接导入 root 管理目录中受限访问的示例文件。端口修改到代理重载之间，公网访问可能短暂不可用。
+
+`doctor` 检查服务、监听端口及系统已安装的防火墙/代理工具，不修改规则。云安全组只开放实际 SSH 端口及所需的 80/443，内部应用端口不需要对公网开放。
+
+## 分项删除与恢复
+
+所有删除都先显示受管路径并要求确认词，自动化可用 `--confirm` 传入相同词；传错时不停止服务、不删除文件。
+
+| 命令范围 | 删除对象 | 确认词 | 后续 |
+| --- | --- | --- | --- |
+| `remove --scope cache` | 主站缓存、快传缓存 | DELETE-CACHE | 保留数据库译文；原来运行则重新启动 |
+| `remove --scope logs` | 本站 logs 目录及旧 service.log | DELETE-LOGS | 保留审计数据库记录和系统日志；服务启动会写新日志 |
+| `remove --scope media` | 所有网站媒体物理文件 | DELETE-MEDIA | DB 引用保留，但旧资源将不可读取 |
+| `remove --scope transfer` | 所有快传物理文件和缓存 | DELETE-TRANSFER | 任务/计量记录保留，未接收文件不可继续下载 |
+| `remove --scope database` | 受管 database 目录，含库、SQLite 侧文件、旧快照 | DELETE-DATABASE | 保持停服；运行 db-init 创建管理员，再 start |
+| `remove --scope source` | releases 内源码和依赖、current 链接 | DELETE-SOURCE | 保留数据、配置、tweb；运行 update --scope all 恢复，再 start |
+| `remove --scope all` 或 `uninstall` | 本站全部受管文件、配置、服务、命令、账号及组 | DELETE | 完整卸载本站 |
+
+删除媒体/快传文件不会替你修改数据库业务关系；只删除某条媒体及其记录，应使用网站后台的媒体管理。这里提供的是运维层面的批量文件清空。
+
+发生删除或权限错误时保持服务停止，修复权限后重试。完整卸载不删除系统共用软件、系统日志、手动合并到外部代理的配置或证书，避免影响其他站点。外部代理配置应另行移除本站域名部分。
+
+## 目录与权限
+
+| 路径 | 用途与访问 |
 | --- | --- |
-| `/usr/local/bin/tweb` | 终端管理入口 |
-| `/opt/teacher-site/tweb.py` | 独立管理程序，可用于失败安装的卸载 |
-| `/opt/teacher-site/current` | 当前版本符号链接 |
-| `/opt/teacher-site/releases/…` | 源码和该版本 `.venv` |
-| `/opt/teacher-site/transfer-data/files` | 快传文件；当前项目根目录下的 `transfer-data` 链接到此目录 |
-| `/opt/teacher-site/transfer-data/cache` | 快传缓存 |
-| `/etc/teacher-site/storage.toml` | 数据路径配置；默认统一受控路径 |
-| `/etc/teacher-site/teacher-site.env` | HTTPS 来源及网站环境配置 |
-| `/etc/teacher-site/install.json` | 仓库/分支、安装状态和管理文件校验，不保存登录密码 |
-| `/etc/teacher-site/generated/` | 反向代理与服务参考配置 |
-| `/opt/teacher-site/data/database/site.sqlite3` | 唯一在用数据库，包含快传元数据 |
-| `/opt/teacher-site/data/media` | 网站媒体 |
-| `/opt/teacher-site/data/cache` | 网站缓存 |
-| `/opt/teacher-site/data/service.log` | 服务运行日志；可按运维策略配置 logrotate |
+| `/opt/teacher-site/current` | 当前源码链接；root 管理源码和虚拟环境 |
+| `/opt/teacher-site/releases/…` | 当前源码/依赖；成功整站更新删除前一版 |
+| `/opt/teacher-site/data/database/site.sqlite3` | 唯一活动数据库 |
+| `/opt/teacher-site/data/media`、`cache`、`logs` | 主站媒体、缓存、轮转日志 |
+| `/opt/teacher-site/transfer-data/files`、`cache` | 快传持久文件与缓存 |
+| `/etc/teacher-site` | 存储配置、环境文件、安装状态及 generated 示例 |
+| `/opt/teacher-site/tweb.py`、`/usr/local/bin/tweb` | 管理实现和入口 |
 | `/etc/systemd/system/teacher-site.service` | 单一网站服务 |
 
-源码、解释器和配置归 root；非登录系统账号 teacher-site 只能写站点数据和快传目录。安装拒绝接管已有非空目录、同名账号/服务或 tweb 命令。目录有归属标记，卸载前核对。默认不支持把数据改到上述目录之外；自行外置的数据无法由本工具识别并彻底卸载。
+不新增并行缓存或备份目录。源码版本内 data / transfer-data 链接到上述持久目录。数据与快传目录仅 teacher-site 系统账号可读写；配置由 root 管理，服务账号可读；安装状态仅 root 可读。不使用 777。
 
-## 反向代理与防火墙
+`tweb permissions` 以服务账号进行实际读写探测；`tweb permissions --repair` 暂停服务，恢复受管数据目录和配置权限，再检查，成功后按原状态启动。它不重写未知外部路径或修改系统解释器权限。管理路径经过符号链接、存储配置改到默认管理范围外，或者 unit/入口被外部修改时，相关删除/修改会拒绝执行。目录内链接只删除链接，不删除外部目标。
 
-`sudo tweb doctor` 只读取检查信息。并存多个防火墙时分别报告，不自动启用、清空或改写规则；云平台安全组无法从主机内可靠判断，需要在云控制台检查。仅为公网开放实际 SSH 端口、TCP 80/443，不对公网开放本机网站端口。两种反代任选一种：
+## 发布和验证
 
-- **Caddy**：将 `sudo tweb proxy` 输出的 Caddy 片段合并至 `/etc/caddy/Caddyfile`；不要直接 import `/etc/teacher-site/generated/`，该配置目录只允许 root 和站点账号读取。运行 `sudo caddy validate --config /etc/caddy/Caddyfile`，通过后 `sudo systemctl reload caddy`。完成 DNS 与证书验证所需网络配置后，Caddy 管理 HTTPS。
-- **Nginx**：在对应域名已配置 TLS 和证书的 `server` 块中加入生成的 `location` 片段，保留其他站点；`sudo nginx -t` 通过后 `sudo systemctl reload nginx`。提供的是 location 片段，不是可单独启用的完整 TLS 站点文件，证书路径使用自己的实际路径。
-
-Nginx 片段关闭请求/响应缓冲，避免在线快传被额外整段缓存；具体文件限额仍使用后台已有设置。Caddy 不配置 request_buffers/response_buffers。网络路径和浏览器是否使用点对点直传仍取决于原快传功能、网络和 HTTPS 环境，本次没有修改传输协议。
-
-官方参考：
-- Nginx：https://nginx.org/en/docs/http/ngx_http_proxy_module.html
-- Caddy：https://caddyserver.com/docs/caddyfile/directives/reverse_proxy
-- systemd：https://manpages.debian.org/trixie/systemd/systemd.exec.5.en.html
-- Python：https://www.python.org/downloads/
-
-## 卸载边界和失败处理
-
-`uninstall` 停止并禁用本站服务，删除全部受管版本/虚拟环境、主数据库、媒体、快传文件/缓存、配置、本站服务日志、tweb 入口和本站系统账号/组。未修改的受管 systemd unit 一并删除。目录内指向外部的符号链接只删除链接，不删除目标。
-
-如果入口或 systemd unit 被人工改动，卸载会先停止操作并显示具体文件，避免删除可能已改作其他用途的配置。需要确认仍属于本站后，恢复该文件原始受管内容再卸载。脚本不卸载共用 Python/git/Nginx/Caddy，不删除系统共用日志，也不会删除手动合并到外部代理的配置或证书；卸载后自行移除该域名的代理段。这些共用资源不属于本站。
-
-首次安装中断时，管理目录和 tweb 入口保留，可用 `tweb paths` 查看阶段，`tweb uninstall` 清理后重装。若失败发生在创建入口之前，请按错误中显示的路径检查；不要把其他站点目录强行删掉。数据库初始化/启动失败时，可从 `tweb logs` 查看原因。无任何真实服务器测试成功的隐含承诺，部署后必须完成 HTTPS 登录、上传下载及服务重启验收。
-
-当前部署在项目目录中持久保存 data/，每个源码版本的 data 链接到此目录，源码更新不会删除数据库/媒体；Windows 和直接启动默认使用项目根目录 data/。默认首页语言为英文。
-
-
-### 上传到 GitHub 的 web-py 分支
-
-将压缩包中 `teacher-site/` 内的全部源码放在仓库根目录，包含 `.gitignore`、`.gitattributes`、`release-manifest.json`，不要额外套一层 `teacher-site/`。默认仓库为 `https://github.com/biao169/web-teacher.git`，分支为 `web-py`。直接上传本次完整源码可使用已有发布清单；如果修改了代码、文档或添加文件，提交前在根目录执行：
+修改源码、文档或脚本后，在提交 GitHub 前执行：
 
 ```bash
 python -B -m deploy.vps.release manifest --refresh
 python -B -m deploy.vps.release verify
 ```
 
-把刷新后的清单与源码放在同一个提交中。清单只做文件完整性校验，不能代替对仓库代码来源的信任。部署在安装 Python 依赖、切换版本之前执行校验；清单不匹配会停止，请在开发端重新生成并提交。
+清单与源码放入同一提交；使用包内 .gitattributes 避免 Windows 换行转换造成校验失败。不要上传 data、transfer-data、虚拟环境、本机配置或凭据。本交付包已生成清单。
 
-`.gitattributes` 保持文件原始字节，避免 Git 的 `core.autocrlf` 改写发布内容；`.sh` 强制 LF，现有 `.cmd` 保留 CRLF。初始化仓库时先放入该文件再添加源码。已有 Git 工作区应用本规则后，可执行 `git add --renormalize .`，检查变更，再重新生成清单并提交。安装命令使用 `bash install.sh`，不依赖从 ZIP 保留可执行位。
-
-`.gitignore` 排除默认数据库/媒体/缓存目录、环境凭据、本机配置、虚拟环境和压缩包；自定义到其他位置的运行目录也应单独排除。不要把运行数据上传到源码仓库。
-
-首次安装默认使用 web-py。`sudo tweb update` 使用已保存的安装来源，不强行覆盖管理员选择的分支。已有站点如需切换到本仓库，执行：
-
-```bash
-sudo tweb update --repo https://github.com/biao169/web-teacher.git --branch web-py
-```
-
-本步骤仅变更部署配置和发布流程；数据库结构、教师网站功能及文件快传功能不变。GitHub 分支需先上传并可读取，才能执行云端真实安装。
+验证覆盖隔离目录下的分项更新/删除、端口/回滚、菜单、权限探测，以及实际本地服务进程更新、重启和卸载；未在真实 Ubuntu/Debian 主机安装或改动系统服务，也未推送 GitHub。上线后仍需完成真实系统账号、sudo、代理 HTTPS 和快传验证。

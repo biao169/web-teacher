@@ -1,4 +1,84 @@
-# 教师网站使用教程（0.15.102）
+# 教师网站使用教程（0.15.108）
+
+## Ubuntu/Debian 部署管理增强（v0.15.108）
+
+安装时可输入内部应用端口，默认 8003；也可以显式指定：
+
+```bash
+sudo bash install.sh --domain teacher.example.org --port 9103
+```
+
+安装后输入 `tweb` 显示**同时中英文、带简短说明的彩色菜单**。普通系统用户运行时，入口会通过 sudo 请求系统管理权限；没有 sudo 权限的用户不能执行管理操作。菜单操作结束后返回菜单，输入 0 退出。输出重定向或设置 `NO_COLOR=1` 时关闭颜色。
+
+| 操作 | 示例与作用 |
+| --- | --- |
+| 改端口 | `tweb port 9103`；同步服务、健康检查、代理示例 |
+| 整站更新 | `tweb update --scope all` |
+| 仅源码 | `tweb update --scope source`；复用虚拟环境，不修改数据库、不安装依赖 |
+| 仅界面资源 | `tweb update --scope frontend`；更新 frontend 内模板、CSS、JS，要求后端兼容 |
+| 仅依赖 | `tweb update --scope dependencies`；按已安装源码的锁文件同步 |
+| 仅数据库 | `tweb update --scope database`；复用已有结构核验/已支持升级，不下载源码，不自动重置 |
+| 仅部署配置 | `tweb update --scope config`；刷新受管配置和代理示例，保留存储路径、环境变量及服务其他参数 |
+| 权限检查/修复 | `tweb permissions` / `tweb permissions --repair` |
+| 分项删除 | `tweb remove --scope cache`；还可选 logs、media、transfer、database、source、all |
+
+分项删除先显示路径，并要求输入对应确认词，如 `DELETE-CACHE`；完整卸载输入 `DELETE`。媒体与快传文件删除只删物理文件，数据库引用/任务记录保留，相关资源将不可再读取。数据库删除和源码删除后保持停服，分别使用 `db-init` / `update --scope all` 恢复，再执行 `start`。数据库按新站重建使用 `tweb db-reset`，确认词为 `RESET`。
+
+端口范围为 1024–65535，主站与快传共用一个 `127.0.0.1` 监听端口，公网 HTTPS 通常仍由反向代理提供。改端口后需将 `tweb proxy` 给出的新上游端口同步到现有 nginx/Caddy 配置，再校验并重载代理；脚本不会改动其他站点的代理和防火墙。
+
+继续使用已有目录，不新增缓存、备份或环境目录。源码单独更新复用原虚拟环境路径，整站更新成功后删除前一版本。数据目录仅服务账号可写，不使用 777；安装完成前执行服务账号实际读写探测。权限修复会暂时停服；失败时保持停止并显示原因。自定义到受管范围外的存储路径拒绝自动删除或权限修复。
+
+直接运行模式也支持 `bash start.sh --port 9103`，兼容入口 `start-transfer.sh` 共用同一参数。`.sh` 仍放根目录，`.cmd` 仍全部放在 deploy 中。
+
+本版数据库结构未变，不需要数据库更新或重建。详细操作范围和恢复方法见 [Linux 管理教程](deploy/linux/README.md)，验证记录见 [部署管理验收](docs/deployment-controls-v108.md)。
+
+## 运行维护第五步：持续运行与部署验收（v0.15.107）
+
+新增可重复执行的本地 HTTP 负载检查，覆盖中英文页面、连续分页、并发在线快传、取消释放、资源统计、清理预览和服务重启后的登录/媒体读取。所有测试使用临时数据库和文件，不访问正式站点数据。测量结果、执行方式和尚待实机确认的项目见 [验收报告](docs/runtime-acceptance-v107.md)。
+
+数据库表与索引不变，无需更新或重建数据库。正式环境更新代码后重启网站；Windows 使用现有 deploy\windows 启动入口，Linux 使用 tweb update --scope all 后 tweb restart。
+
+## 运行维护第四步：后台资源与策略管理（v0.15.106）
+
+系统管理员登录后台后，从左侧“系统管理 → 运行维护”进入，地址 `/admin/runtime-maintenance`。可以查看当前进程内存、系统可用内存、数据库及前台缓存占用、各目录所在磁盘可用空间；点击“更新文件占用统计”按批次统计媒体、缓存、日志和快传文件。刷新状态复用统计结果，不重扫文件目录。
+
+保留策略可设置自动清理开关/间隔、会话期限、检查报告宽限、临时文件期限、操作日志与快传历史期限，以及运行日志单份容量、归档数量和天数。保存采用版本校验，自动维护、命令行和后台共用；自动任务及日志参数通常在 30 秒内读取新设置。报告宽限和临时文件最小保留不低于 24 小时。减少日志归档份数会删除超出新数量的归档；容量调整用于后续写入/轮转，不截断已有日志内容。
+
+先“预览下一批”，确认后可执行一批清理；页面显示类别数量、失败原因和最近结果。关闭主站自动清理不影响手动操作、日志轮转或快传文件独立的到期设置。策略存入已有 service_meta，数据库表和索引不变，无需重建。运行维护仅在本地 Windows/Linux 部署开放；Worker/R2 不支持此页面。详见 [运行维护后台说明](docs/runtime-admin-v106.md)。
+
+
+## 运行维护第三步：历史保留策略（v0.15.105）
+
+统一维护任务现在清理超过 180 天且未近期更新的后台操作记录；快传设置变更历史也保留 180 天，当前设置版本的记录始终保留。快传计量明细和已完成物理清理的任务历史默认保留至少 90 天。当前日/周/月配额所需数据、有效预留及未完成任务始终受保护；同时兼容 UTC 与中国时区。
+
+继续使用 `cleanup-preview`、`cleanup-run`、`cleanup-status`，Windows 通过 `deploy\windows\cleanup.cmd` 调用，Linux 使用同名 `tweb` 子命令。无需新增清理命令。预览/状态增加历史类别计数、保留期限和配额保护边界；预览是下一批候选数量，不是全库总量。
+
+快传任务必须已完成磁盘清理、无残留目录/分块、无近期关联记录，才会分批删除成员、接收窗口、旧接收码和目录元数据，最后删除主任务。删除失败时该任务事务回滚，并在后续维护批次重试。历史计量先清，关联任务在后续批次清理；这是正常的分阶段处理。
+
+数据库结构保持不变，无需初始化或重建。更新并重启后按默认策略自动生效；被清理的历史不再出现在后台查询中。当前默认期限集中在 `backend/maintenance/history.py`，后台可调整策略入口将在第四步提供。详见 [历史保留说明](docs/history-retention-v105.md)。
+
+
+## 运行维护第二步：安全清理（v0.15.104）
+
+主站启动时自动启动维护，默认每 15 分钟检查；积压时逐批继续，失败后 60 秒重试。清理失效超过 30 天的登录会话、已到期的登录/公开操作限流记录，以及过期超过 24 小时的媒体检查报告。缓存中符合生成规则且超过 24 小时的原子写入临时文件也可回收。媒体原文件、回收站、译文、留言、操作日志和快传流量历史不在本步清理范围；快传文件仍由原有到期清理机制处理。
+
+Windows：`deploy\windows\cleanup.cmd` 默认预览；`deploy\windows\cleanup.cmd cleanup-run` 执行一批；`deploy\windows\cleanup.cmd cleanup-status` 查看最近执行结果。沿用 local.cmd 中的解释器与路径配置。
+
+Linux：更新后使用 `tweb cleanup-preview`、`tweb cleanup-run`、`tweb cleanup-status`。手动运行项目时也可使用 `python -m backend.cli cleanup-preview` / `cleanup-run` / `cleanup-status`，使用与网站相同的环境配置。
+
+预览只表示当前有界扫描批次的候选项，不是全库或全盘总量。数据库每类每批最多 200 条，缓存每批最多访问 20 个目录条目；命令行执行可用 `--batches 10` 连续处理多批（最多 100 批）。状态与扫描游标保存在 `data/maintenance`，不会保存媒体内容。无需数据库更新或重建。详见 [安全清理说明](docs/runtime-maintenance-v104.md)。
+
+
+## 运行维护第一步：日志轮转（v0.15.103）
+
+Windows 启动脚本、根目录 start.sh 和 Linux 一键部署共用日志入口，日志位于配置的数据目录 `data/logs/service.log`。单份最多 10 MiB，最多 5 份归档，归档超过 14 天自动清除；在服务运行时每分钟检查一次。常规日志总量上限约 60 MiB。相同警告/错误在 60 秒内合并，保留首次内容并汇总重复次数。单条最多 16 KiB，超长内容截断。
+
+Linux 使用 `tweb update --scope all` 更新，然后执行 `tweb restart` 重新生成服务配置（从旧版升级时也必须执行；仅更新前台不会更新启动入口）。`tweb logs` 查看新日志。Windows 更新源码后用原启动脚本启动即可。无需重建数据库。具体目录随 TEACHER_DATA_DIR 或 TEACHER_CONFIG 配置变化。直接手动执行 uvicorn 不经过此日志入口，请使用提供的启动脚本。
+
+旧版 `data/service.log`、`data/cache/logs/teacher.log` 与 `teacher.previous.log` 不再写入，本次不自动删除历史日志；确认旧服务已停止且无须保留后可手动删除。新日志随 tweb 完全卸载一起删除。Nginx/Caddy 和系统日志由各自配置管理，不纳入网站日志容量上限。
+
+说明见 [日志维护说明](docs/runtime-logging-v103.md)。下一步接入过期会话、检查报告和可识别临时文件的统一清理。
+
 
 ## 淡几何图案背景（v0.15.102）
 
@@ -169,11 +249,11 @@ sudo bash install.sh --domain teacher.example.org
 - Caddy：将生成的片段合并到 `/etc/caddy/Caddyfile`；执行 `sudo caddy validate --config /etc/caddy/Caddyfile`，通过后 `sudo systemctl reload caddy`。
 - Nginx：在对应域名已有证书和 TLS 配置的 server 中加入生成的 location 片段；执行 `sudo nginx -t`，通过后 `sudo systemctl reload nginx`。
 
-脚本不会覆盖现有代理或防火墙配置。检查云安全组和系统防火墙，开放实际 SSH 端口及 TCP 80/443，不对公网开放 8003。完成后访问 `https://你的域名/`、`/admin` 和 `/transfer/`。
+脚本不会覆盖现有代理或防火墙配置。检查云安全组和系统防火墙，开放实际 SSH 端口及 TCP 80/443，不对公网开放内部应用端口（默认 8003）。完成后访问 `https://你的域名/`、`/admin` 和 `/transfer/`。
 
 ### tweb 日常管理
 
-运行 `sudo tweb` 打开菜单，或使用下列命令：
+运行 `tweb` 打开双语菜单（需要系统管理权限），或使用下列命令：
 
 | 命令 | 用途 |
 | --- | --- |
@@ -186,12 +266,13 @@ sudo bash install.sh --domain teacher.example.org
 | `sudo tweb update` | 从已保存的仓库/分支更新整站 |
 | `sudo tweb update --branch staging` | 更新到指定分支 |
 | `sudo tweb update --scope frontend` | 前台局部更新；后台或数据库结构不兼容时拒绝 |
-| `sudo tweb db-init` / `db-update` | 初始化空库或核验现有结构，不执行迁移 |
+| `sudo tweb db-init` | 初始化空库或核验现有结构 |
+| `sudo tweb db-update` | 复用已有结构核验/已支持升级；未知结构拒绝修改 |
 | `sudo tweb db-reset` | 输入 RESET 后按新站重建数据库、重新设置管理员 |
 | `sudo tweb update --reset` | 获取新版本并明确重建数据库 |
 | `sudo tweb uninstall` | 输入 DELETE 后删除本工具管理的站点文件、服务和账号 |
 
-普通启动/更新不会自动清库。开发按新站使用时，Windows 使用 start.cmd，Linux 使用明确的 db-reset 或 update --reset。重置不备份、不迁移，物理媒体文件保留；卸载才会删除本站受管目录内的媒体、快传文件、数据库与依赖。共用系统软件、系统日志和手动合并的外部代理配置不属于自动卸载范围。
+普通启动/更新不会自动清库。开发按新站使用时，Windows 使用 start.cmd，Linux 使用明确的 db-reset 或 update --reset。重置不备份、不迁移，物理媒体文件保留；分项删除或卸载可删除所选受管文件，操作前会显示范围并要求确认。共用系统软件、系统日志和手动合并的外部代理配置不属于自动卸载范围。
 
 ## 六、文件与数据位置
 
@@ -207,7 +288,7 @@ sudo bash install.sh --domain teacher.example.org
 | data | 默认数据库、媒体、缓存和快传数据，Git/发布包排除 |
 | tests / docs / legal | 验收、历史记录与许可资料 |
 
-一键部署后的主要路径：源码 `/opt/teacher-site/current`，配置 `/etc/teacher-site`，数据库 `/opt/teacher-site/data/database/site.sqlite3`，媒体 `/opt/teacher-site/data/media`，快传 `/opt/teacher-site/transfer-data`，日志 `/opt/teacher-site/data/service.log`。生产项目内的 `current/data` 链接到持久的 `/opt/teacher-site/data`，源码版本切换不删除它；`current/transfer-data` 同样引用项目内持久快传目录。用 `sudo tweb paths` 查看实际安装信息。
+一键部署后的主要路径：源码 `/opt/teacher-site/current`，配置 `/etc/teacher-site`，数据库 `/opt/teacher-site/data/database/site.sqlite3`，媒体 `/opt/teacher-site/data/media`，快传 `/opt/teacher-site/transfer-data`，日志 `/opt/teacher-site/data/logs/service.log`。生产项目内的 `current/data` 链接到持久的 `/opt/teacher-site/data`，源码版本切换不删除它；`current/transfer-data` 同样引用项目内持久快传目录。用 `sudo tweb paths` 查看实际安装信息。
 
 ## 七、测试与常见问题
 

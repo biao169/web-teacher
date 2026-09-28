@@ -113,17 +113,13 @@ def domain(value):
  """校验反向代理使用的域名格式。"""
  if len(value)>253 or not re.fullmatch(r'[a-z0-9]+(?:[a-z0-9.-]*[a-z0-9])?',value) or '.' not in value or any(not label or label.startswith('-') or label.endswith('-') or len(label)>63 for label in value.split('.')):raise ValueError('域名格式无效')
  return value
-def port_number(value):
- """校验本机监听端口。"""
- port=int(value)
- if not 1024<=port<=65535:raise ValueError('端口必须是 1024-65535')
- return port
 
 def render(output,base,teacher_domain,transfer_domain,python,port=8003):
  """Generate one service, one origin and one local HTTP port; never deploy."""
  from deploy.shared.http_limits import teacher_concurrency
+ if isinstance(port,bool) or not str(port).isdigit() or not 1024<=int(port)<=65535:raise ValueError("应用端口须为 1024–65535 / Invalid application port")
+ port=int(port)
  base=safe_path(base);python=safe_path(python);host=domain(teacher_domain)
- port=port_number(port)
  if transfer_domain:domain(transfer_domain) # legacy CLI input, not a second listener
  if base=='/' or not base.startswith('/opt/'):raise ValueError('生产基目录须位于/opt下')
  output=Path(output);output.mkdir(mode=0o700)
@@ -141,7 +137,7 @@ User=teacher-site
 Group=teacher-site
 WorkingDirectory={base}/current
 EnvironmentFile=/etc/teacher-site/teacher-site.env
-ExecStart={python} -m uvicorn backend.entrypoints.vps:app --host 127.0.0.1 --port {port} --workers 1 --limit-concurrency {teacher_concurrency()} --timeout-keep-alive 5 --no-access-log
+ExecStart={python} -m deploy.shared.service backend.entrypoints.vps:app --host 127.0.0.1 --port {port} --limit-concurrency {teacher_concurrency()}
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=90
@@ -162,11 +158,11 @@ WantedBy=multi-user.target
  caddy=f'{host} {{\n    encode zstd gzip\n'
  for area in ('shared','public','admin'):
   caddy+=f'    handle_path /assets/{area}/* {{\n        root * {base}/current/frontend/{area}/static\n        file_server\n    }}\n'
- caddy+=f'    # Online relay: bounded POST bodies; do not add request_buffers/response_buffers.\n    handle /transfer/api/relay/* {{\n        request_body {{\n            max_size 1048576\n        }}\n        reverse_proxy 127.0.0.1:{port} {{\n            flush_interval 10ms\n        }}\n    }}\n'
- caddy+=f'    handle {{\n        reverse_proxy 127.0.0.1:{port}\n    }}\n}}\n'
+ caddy+='    # Online relay: bounded POST bodies; do not add request_buffers/response_buffers.\n    handle /transfer/api/relay/* {\n        request_body {\n            max_size 1048576\n        }\n        reverse_proxy 127.0.0.1:8003 {\n            flush_interval 10ms\n        }\n    }\n'
+ caddy+='    handle {\n        reverse_proxy 127.0.0.1:8003\n    }\n}\n'
  if transfer_domain and transfer_domain!=host:
   caddy+=f'{transfer_domain} {{\n    redir https://{host}/transfer{{uri}} 308\n}}\n'
- (output/'Caddyfile.fragment').write_text(caddy)
+ (output/'Caddyfile.fragment').write_text(caddy.replace('127.0.0.1:8003',f'127.0.0.1:{port}'))
  return {'generated':True,'services':1,'system_modified':False,'note':'预算不是实测；旧域名仅重定向，不启动旧服务。切换release时必须显式保留transfer-data。'}
 
 def main():
@@ -177,7 +173,7 @@ def main():
  st=sub.add_parser('stage');st.add_argument('--source',type=Path,required=True);st.add_argument('--destination',type=Path,required=True)
  d=sub.add_parser('check-data');d.add_argument('--root',type=Path,default=ROOT);d.add_argument('--teacher-database',type=Path,required=True);d.add_argument('--transfer-database',type=Path,required=True)
  f=sub.add_parser('preflight');f.add_argument('--root',type=Path,default=ROOT);f.add_argument('--data-parent',type=Path,required=True)
- r=sub.add_parser('render');r.add_argument('--output',required=True);r.add_argument('--base',default='/opt/teacher-site');r.add_argument('--python',default='/opt/teacher-site/venv/bin/python');r.add_argument('--teacher-domain',required=True);r.add_argument('--transfer-domain');r.add_argument('--port',default=8003,type=port_number)
+ r=sub.add_parser('render');r.add_argument('--output',required=True);r.add_argument('--base',default='/opt/teacher-site');r.add_argument('--python',default='/opt/teacher-site/venv/bin/python');r.add_argument('--teacher-domain',required=True);r.add_argument('--transfer-domain');r.add_argument('--port',type=int,default=8003)
  args=p.parse_args()
  try:
   if args.action=='manifest':result=write_manifest(args.root,args.refresh)
