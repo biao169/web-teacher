@@ -13,7 +13,7 @@ const modules=[
  ['native-student-categories.js','学生分类','[data-editor-table="student_category_displays"]'],
  ['native-navigation.js?v=0.15.92','导航配置','[data-editor-table="navigation_items"]'],
  ['native-field-help.js?v=0.15.88','字段说明','body'],
- ['native-media.js?v=0.15.33','媒体预览','.native-media-preview'],
+ ['native-media.js?v=0.15.113','媒体预览','.native-media-preview'],
  ['native-media-fields.js?v=0.15.33','媒体选择与上传','[data-media-field]'],
  ['native-media-audit.js','媒体目录核对','#media-audit'],
  ['native-services.js?v=0.15.29','服务辅助','[data-run-translation],[data-invalidate-translation],[data-queue-translation],[data-service-test],[data-service-recommend]'],
@@ -33,7 +33,7 @@ function holdControls(selector,scope=document){
 async function initialize(){
  // Headers have their own dependency-free entry. Keep HTML search and pagination
  // available even if list actions fail to import; never disable the search submit.
- const root=document.querySelector('.native-list[data-table]');
+ const root=document.querySelector('.native-list[data-table]:not([data-list-kind="audit"])');
  if(root){
   holdControls('[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload],[data-page-size],[data-select-all],[data-select-row],[data-export-groups]',root);
   try{const {mountList}=await import('./native-list.js?v=0.15.42');mountList(root)}

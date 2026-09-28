@@ -1,5 +1,6 @@
 /** One controller for every native list, including newly rendered panels after a mutation. */
-import {mountListHeaders} from './native-table-headers.js?v=0.15.38';
+import {mountListHeaders} from './native-table-headers.js?v=0.15.113';
+import {mountTableSelection} from './native-table-selection.js?v=0.15.113';
 import {requestJSON} from './native-http.js';
 import {notify,rememberNotice} from './native-notifications.js';
 
@@ -15,15 +16,7 @@ export function mountList(root,transient=null){
  let columns={snapshot:()=>transient,dispose(){}},disposed=false;
  let busy=false,stale=false,refreshing=false,writeFocus=null;
  const mutationSelector='[data-translate-entry],[data-media-purge],[data-bulk-purge],[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload]';
- const chosen=()=>[...root.querySelectorAll('tbody tr[data-uid]')].filter(row=>row.querySelector('[data-select-row]').checked);
- function selection(){
-  // Keep the count and the page-wide checkbox accurate after a partial result or a refresh.
-  const all=[...root.querySelectorAll('[data-select-row]')],count=chosen().length,box=root.querySelector('[data-select-all]');
-  root.querySelector('[data-selected-count]').textContent=`已选 ${count} 项`;
-  box.checked=!!all.length&&count===all.length;box.indeterminate=count>0&&count<all.length;
- }
- on(root.querySelector('[data-select-all]'),'change',event=>{root.querySelectorAll('[data-select-row]').forEach(box=>box.checked=event.target.checked);selection()});
- root.querySelectorAll('[data-select-row]').forEach(box=>on(box,'change',selection));
+ const selected=mountTableSelection(root),chosen=selected.chosen,selection=selected.paint;cleanups.push(selected.dispose);
  on(root.querySelector('[data-page-size]'),'change',event=>{const url=new URL(location.href);url.searchParams.set('size',event.target.value);url.searchParams.delete('page');location.assign(url)});
 
  function dispose(){
@@ -183,10 +176,10 @@ export function mountList(root,transient=null){
  // Optional enhancements load separately and only for their own markup. No rejection
  // propagates into the action controller; late results cannot mount onto a removed panel.
  const enhancements=[
-  ['列设置','./native-columns.js?v=0.15.42','[data-column-controls]',m=>{columns=m.setupColumns(root,table,transient)}],
+  ['列设置','./native-columns.js?v=0.15.113','[data-column-controls]',m=>{columns=m.setupColumns(root,table,transient)}],
   ['操作列布局','./native-table-layout.js','.native-actions',m=>m.observeActionColumn(table)],
   ['媒体使用位置','./native-media-locations.js?v=0.15.27','[data-media-locations]',m=>m.setupMediaLocations(root)],
-  ['媒体预览','./native-media.js?v=0.15.33','[data-media-thumb],[data-media-large]',m=>{m.setupMediaPreviews(root);return ()=>m.clearMediaPreviews(root)}],
+  ['媒体预览','./native-media.js?v=0.15.113','[data-media-thumb],[data-media-large]',m=>{m.setupMediaPreviews(root);return ()=>m.clearMediaPreviews(root)}],
   ['翻译组导出','./native-translation-groups.js?v=0.15.29','[data-export-groups]',m=>{const cleanup=m.setupTranslationGroups(root);root.querySelector('[data-export-groups]').disabled=false;return cleanup}],
   ['日志导出','./native-message-logs.js','[data-log-export]',m=>m.setupLogExport(root)]
  ];

@@ -1,6 +1,6 @@
 import {adminFetch} from './native-access.js?v=0.15.28';
 /** URL presentation and bounded browser-only image reads shared by fields and the chooser. */
-import {watchMediaPreview,clearMediaPreviews} from './native-media.js?v=0.15.33';
+import {watchMediaPreview,clearMediaPreviews} from './native-media.js?v=0.15.113';
 export const mediaURL=row=>row.storage_kind==='external'?row.object_key:'/media/'+row.uid;
 export const previewURL=row=>row.storage_kind==='external'?row.object_key:'/api/admin/media/'+encodeURIComponent(row.uid)+'/content';
 export function lookupMedia(key,csrf,signal){

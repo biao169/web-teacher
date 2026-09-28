@@ -32,7 +32,7 @@ def test_all_module_lists_and_fragments(fixture, table):
     page = client.get('/admin/' + table)
     assert page.status_code == 200, page.text
     assert 'data-list-load-status' in page.text
-    assert 'native-table-headers.js?v=0.15.38' in page.text
+    assert 'native-table-headers.js?v=0.15.113' in page.text
     assert 'quill.js' not in page.text
     fragment = client.get('/admin/' + table, headers={'X-Native-List': '1'})
     assert fragment.status_code == 200

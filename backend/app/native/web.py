@@ -136,7 +136,10 @@ def create_app(factory,static_root=None):
     async def domain_error(request,exc):
         """将业务异常转换为对应状态码及页面或JSON错误。"""
         code=exc.code or ('session_required' if exc.status==401 else 'request_forbidden' if exc.status==403 else 'request_failed')
-        if request.headers.get('accept','').startswith('application/json'):return JSONResponse({'error':exc.message,'code':code},status_code=exc.status)
+        if request.headers.get('accept','').startswith('application/json'):
+            response=JSONResponse({'error':exc.message,'code':code},status_code=exc.status)
+            if code in ('media_read_denied','media_read_failed'):response.headers['X-Media-Error']=code
+            return response
         if exc.status in (401,403) and request.url.path.startswith(('/admin','/api/','/transfer/login')):
             r=await resources(request)
             response=await render(r,'admin/native-access-error.html',title='权限不足' if code=='access_denied' else '登录已过期' if exc.status==401 else '操作受限',message=exc.message,access_code=code)
@@ -652,6 +655,8 @@ def create_app(factory,static_root=None):
     async def media_inspect(request:Request,uid:str):
         """显示媒体预览、元数据和按模块权限分页的真实使用位置。"""
         r=await resources(request);row=await r.media.inspect(r.p,uid)
+        from .media_response import preview_details
+        await preview_details(r.media_store,row)
         usage=(await r.media.references.summaries(r.p,[row]))[uid]
         locations=await r.media.references.locations(r.p,row,usage,request.query_params.get('source',''),request.query_params.get('page',1))
         def page_url(page,source=None):

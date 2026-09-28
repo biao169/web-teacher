@@ -76,14 +76,31 @@ def install(app,resources,csrf,render):
     async def audit_page(request:Request):
         """按需读取一个报告页和20条到期候选，沿用后台分区与分页组件。"""
         r=await resources(request);a=MediaAudit(r);latest=await a.latest();state=None;listing=None;error=''
-        category=request.query_params.get('category','')
+        from .media_audit_list import COLUMNS,LABELS,KINDS,specifications
+        category=request.query_params.get('category','');query=dict(request.query_params)
         if latest:
-            try:state,listing=await a.page(latest['id'],category,request.query_params.get('page',1))
+            try:state,listing=await a.page(latest['id'],query=query);query=listing['query']
             except Error as exc:error=exc.message
         permissions=r.p['permissions']['media_assets'];candidates=await a.purge_candidates() if permissions['can_delete'] else []
         for row in candidates:row['pending']=bool(await r.sql.query('SELECT 1 FROM admin_mutation_guards WHERE uid=?',(purge_key(row['uid']),)))
         retention=(await r.sql.query('SELECT media_trash_retention_days FROM global_settings ORDER BY id LIMIT 1'))[0]['media_trash_retention_days']
-        return await render(r,'admin/native-media-audit.html','media_assets','媒体目录核对',report=(latest or {}).get('id',''),state=state,listing=listing,error=error,categories=CATEGORIES,category=category,candidates=candidates,retention=retention,permissions=permissions,page_url=lambda p:'/admin/media/audit?'+urlencode({'category':category,'page':p})+'#audit-report')
+        return await render(r,'admin/native-media-audit.html','media_assets','媒体目录核对',report=(latest or {}).get('id',''),state=state,listing=listing,error=error,categories=CATEGORIES,category=category,candidates=candidates,retention=retention,permissions=permissions,query=query,columns=COLUMNS,column_labels=LABELS,column_specs=specifications(CATEGORIES),kinds=KINDS,
+            category_url=lambda value:'/admin/media/audit?'+urlencode(query|{'f.category':value,'page':1})+'#audit-report',
+            page_url=lambda p:'/admin/media/audit?'+urlencode(query|{'page':p})+'#audit-report')
+    @app.api_route('/api/admin/media-audit/{report}/{page}/{index}/content',methods=['GET','HEAD'])
+    async def audit_content(request:Request,report:str,page:int,index:int):
+        """预览仅引用已授权报告条目；浏览器不能传入任意磁盘路径，不自动收录。"""
+        from pathlib import PurePosixPath
+        from .media_response import media_response,media_file_response
+        r=await resources(request);entry=await MediaAudit(r).entry(report,page,index)
+        if entry.get('storage_kind',r.kind)!=r.kind or entry['category']=='external':raise Error('此条目不属于当前媒体目录',404)
+        # 文件可能在扫描之后已经收录，继续复用现有媒体权限入口。
+        rows=await r.sql.query('SELECT uid FROM media_assets WHERE object_key=? LIMIT 1',(entry['key'],))
+        if rows:return await media_response(request,r,rows[0]['uid'],private=True)
+        if entry['uid']:raise Error('媒体登记已变化，请重新核对',409)
+        name=PurePosixPath(entry['key']).name
+        row={'uid':'','object_key':entry['key'],'storage_kind':r.kind,'original_filename':name,'title':name}
+        return await media_file_response(request,r,row)
     @app.post('/api/admin/media-audit/actions/run')
     async def audit_action(request:Request):
         """扫描及报告也是私有操作；所有状态变化仅由显式POST调用。"""

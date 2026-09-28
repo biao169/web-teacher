@@ -70,7 +70,7 @@ function runtime({media=false,failPurge=false,mobile=false,confirmResult=true,fa
  };
 }
 async function until(check){for(let i=0;i<100;i++){if(check())return;await new Promise(resolve=>setTimeout(resolve,5))}assert.ok(check(),'condition was not reached')}
-async function headers(r){return (await r.load('native-table-headers.js?v=0.15.38')).namespace}
+async function headers(r){return (await r.load('native-table-headers.js?v=0.15.113')).namespace}
 async function list(r){return (await r.load('native-list.js?v=0.15.38')).namespace}
 
 test('arrow toggles asc/desc/asc, keeps independent conditions and resets page',async t=>{

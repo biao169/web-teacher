@@ -7,7 +7,7 @@ const checks=[];let checking=0;
 function checkMedia(work){return new Promise((resolve,reject)=>{checks.push({work,resolve,reject});pumpChecks()})}
 function pumpChecks(){while(checking<2&&checks.length){const {work,resolve,reject}=checks.shift();checking++;Promise.resolve().then(work).then(resolve,reject).finally(()=>{checking--;pumpChecks()})}}
 const create=(tag,text='',className='')=>Object.assign(document.createElement(tag),{textContent:text,className});
-const privateURL=value=>{try{const url=new URL(value,location.href);return url.origin===location.origin&&/^\/api\/admin\/media\/[^/]+\/content$/.test(url.pathname)?url:null}catch{return null}};
+const privateURL=value=>{try{const url=new URL(value,location.href);return url.origin===location.origin&&(/^\/api\/admin\/media\/[^/]+\/content$/.test(url.pathname)||/^\/api\/admin\/media-audit\/[a-f0-9]{32}\/\d+\/\d+\/content$/.test(url.pathname))?url:null}catch{return null}};
 
 export function clearMediaPreviews(root){
  root.querySelectorAll('[data-preview-bound]').forEach(media=>previews.get(media)?.dispose());
@@ -46,14 +46,18 @@ export function watchMediaPreview(media,{host=media.parentElement,onStatus=()=>{
    const response=await adminFetch(url,{method:'HEAD',headers:{Accept:'application/json'},credentials:'same-origin',redirect:'manual',cache:'no-store',signal:request.signal});
    if(token!==sequence)return result('');
    if(response.type==='opaqueredirect'||(response.status>=300&&response.status<400))return result('外部图片无法预览，可打开原文件核对。');
-   const reasons={401:'登录已过期，请登录后重试。',403:'没有媒体查看权限。',404:'文件不存在或无法访问。',409:'文件已变化，请重试。',413:'文件超过20 MiB预览上限。'};
+   const issue=response.headers.get('x-media-error');
+   if(issue==='media_read_denied')return result('网站运行账号没有读取文件的权限，请检查媒体目录和文件权限。');
+   if(issue==='media_read_failed')return result('媒体文件暂不可读取，请检查磁盘与目录状态后重试。');
+   const reasons={401:'登录已过期，请登录后重试。',403:'没有媒体查看权限。',404:'配置的媒体目录中找不到文件，或文件无法访问。',409:'文件已变化，请重试。',413:'服务器拒绝了此次读取，请检查代理或服务限制。'};
    if(reasons[response.status])return result(reasons[response.status]);
    if(!response.ok)return result('媒体服务暂不可用（HTTP '+response.status+'），请稍后重试。',[502,503,504].includes(response.status)&&!response.headers.get('retry-after'));
    const type=(response.headers.get('content-type')?.split(';')[0]||'').trim().toLowerCase();
    if(response.headers.get('content-length')==='0')return result('文件内容为空，无法预览；请核对原文件。');
    if((media.tagName==='IMG'&&!['image/jpeg','image/png','image/gif','image/webp'].includes(type))||(media.tagName==='VIDEO'&&!type.startsWith('video/')))return result('实际文件类型不支持此预览，请核对原文件。');
-   return result('文件可读取，预览未完成；可能是传输中断或解码失败。',media.tagName==='IMG');
-  }catch{return result(request.signal.aborted?'检查超时，请重试或打开原文件。':'网络检查失败，请重试或打开原文件。')}
+   const unsupported=media.tagName==='VIDEO'&&media.error?.code===4;
+   return result(unsupported?'浏览器不支持此视频编码，可下载原文件后播放。':'文件头可读取，但预览尚未完成；可能是传输中断或文件无法解码。',media.tagName==='IMG'||(media.tagName==='VIDEO'&&!unsupported));
+  }catch{return result(request.signal.aborted?'检查超时，请重试或打开原文件。':'网络检查失败，请重试或打开原文件。',!request.signal.aborted&&!!privateURL(media.src))}
   finally{clearTimeout(timeout);if(controller===request)controller=null}
  }
  async function failed(){
@@ -100,3 +104,32 @@ export function setupMediaPreviews(root=document){
  root.querySelectorAll('[data-media-thumb],[data-media-large]').forEach(media=>watchMediaPreview(media,{host:media.closest('[data-media-preview]')||media.parentElement}));
 }
 setupMediaPreviews();
+
+/** On-demand dialog reuses the authorized content response and existing preview states. */
+export function setupMediaViewer(root){
+ const events=new AbortController();let current=null;
+ function close(){if(current){current.abort.abort();clearMediaPreviews(current.dialog);current.dialog.querySelectorAll('video').forEach(video=>{video.pause();video.removeAttribute('src');video.load()});current.dialog.remove();current=null}}
+ root.addEventListener('click',async event=>{
+  const trigger=event.target.closest('[data-media-peek]');if(!trigger||!root.contains(trigger)||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+  const url=privateURL(trigger.href);if(!url)return;event.preventDefault();close();
+  const dialog=create('dialog','','native-media-viewer'),heading=create('h2',trigger.dataset.previewTitle||'媒体预览'),body=create('div','','native-media-preview'),status=create('p','正在读取预览…','native-muted'),buttons=create('div','','native-helper-actions'),original=create('a','↗ 打开原文件','btn btn-outline-secondary btn-sm'),download=create('a','⇩ 下载','btn btn-outline-primary btn-sm'),exit=create('button','关闭','btn btn-outline-secondary btn-sm');
+  heading.id='media-viewer-title';dialog.setAttribute('aria-labelledby',heading.id);body.dataset.mediaPreview='';status.setAttribute('role','status');exit.type='button';original.href=url.href;original.target='_blank';original.rel='noopener noreferrer';const downloadURL=new URL(url);downloadURL.searchParams.set('download','1');download.href=downloadURL.href;
+  body.append(status);buttons.append(original,download,exit);dialog.append(heading,body,buttons);document.body.append(dialog);
+  const abort=new AbortController();current={dialog,abort};exit.addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>{if(current?.dialog===dialog){close();trigger.focus()}});dialog.showModal();exit.focus();
+  const timeout=setTimeout(()=>abort.abort(),10000);
+  try{
+   const response=await checkMedia(()=>adminFetch(url,{method:'HEAD',headers:{Accept:'application/json'},credentials:'same-origin',redirect:'manual',cache:'no-store',signal:abort.signal}));
+   if(current?.dialog!==dialog)return;
+   if(!response.ok)throw Error(response.status===409?'报告或文件已变化，请刷新核对页后重试。':response.status===404?'媒体文件已不存在，请重新核对。':'预览暂不可用（HTTP '+response.status+'），可打开原文件查看。');
+   const type=(response.headers.get('content-type')||'').split(';')[0];
+   let media;
+   if(['image/png','image/jpeg','image/gif','image/webp'].includes(type)){media=create('img');media.alt=heading.textContent;media.dataset.mediaLarge=''}
+   else if(type.startsWith('video/')){media=create('video');media.controls=true;media.preload='metadata';media.dataset.mediaLarge=''}
+   else if(type==='application/pdf'){media=create('iframe');media.title=heading.textContent;media.className='native-media-viewer-pdf'}
+   else{status.textContent='此类型不支持浏览器内预览，可以下载原文件。';return}
+   media.src=url.href;body.replaceChildren(media);if(media.tagName!=='IFRAME')watchMediaPreview(media,{host:body});
+  }catch(error){if(current?.dialog===dialog)status.textContent=abort.signal.aborted?'预览检查超时，可关闭后重试。':error.message}
+  finally{clearTimeout(timeout)}
+ },{signal:events.signal});
+ return ()=>{events.abort();close()};
+}

@@ -1,10 +1,26 @@
 import {adminFetch} from './native-access.js?v=0.15.28';
 /** Bounded scan and explicit preflight/commit. A failed batch reports partial success and stops. */
 import {observeActionColumn} from './native-table-layout.js';
+import {mountTableSelection} from './native-table-selection.js?v=0.15.113';
+import {mountListHeaders} from './native-table-headers.js?v=0.15.113';
+import {copyText} from './native-copy.js';
 const root=document.querySelector('#media-audit');
 if(root){
  const feedback=root.querySelector('[data-audit-feedback]'),progress=root.querySelector('[data-audit-progress]'),scan=root.querySelector('[data-audit-scan]'),pause=root.querySelector('[data-audit-pause]'),dialog=root.querySelector('[data-audit-dialog]'),confirm=root.querySelector('[data-audit-confirm]'),cancel=root.querySelector('[data-audit-cancel]'),confirmFeedback=root.querySelector('[data-audit-confirm-feedback]');let busy=false,stopping=false,plans=[],kind='';
  root.querySelectorAll('table').forEach(observeActionColumn);
+ const report=root.querySelector('#audit-report'),selection=mountTableSelection(report);
+ if(root.dataset.report&&report.querySelector('table')){const url=new URL(location.href),page=url.searchParams.get('page');url.search=new URLSearchParams(JSON.parse(report.dataset.listQuery||'{}'));if(page)url.searchParams.set('page',page);history.replaceState(history.state,'',url)}
+ mountListHeaders(report).paint();
+ report.querySelector('[data-page-size]')?.addEventListener('change',event=>{if(busy)return;const url=new URL(location.href);url.searchParams.set('size',event.target.value);url.searchParams.delete('page');location.assign(url)});
+ report.querySelector('[data-audit-copy]')?.addEventListener('click',async()=>{const rows=selection.chosen();if(!rows.length){feedback.textContent='请先选择本页条目。';return}try{await copyText(rows.map(row=>row.dataset.auditPath).join('\n'));feedback.textContent=`已复制 ${rows.length} 项路径。`}catch(error){feedback.textContent=error.message}});
+ (async()=>{
+  const status=report.querySelector('[data-list-load-status]');
+  for(const [name,load] of [
+   ['列设置',async()=>{if(report.querySelector('table')){const {setupColumns}=await import('./native-columns.js?v=0.15.113');setupColumns(report,report.querySelector('table'))}}],
+   ['媒体预览',async()=>{const {setupMediaPreviews,setupMediaViewer}=await import('./native-media.js?v=0.15.113');setupMediaPreviews(report);setupMediaViewer(report)}]
+  ]){try{await load()}catch(error){feedback.textContent=name+'未能加载，请重新打开页面。';console.error(error)}}
+  if(status)status.hidden=true;
+ })();
  async function api(action,values={}){
   const response=await adminFetch('/api/admin/media-audit/actions/run',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json','X-CSRF-Token':root.dataset.csrf},body:JSON.stringify({action,report:root.dataset.report,...values})});
   let result;try{result=await response.json()}catch{throw Error('服务器未返回有效结果，请刷新核对状态')}
@@ -24,14 +40,17 @@ if(root){
   try{let result;do{result=await api('clear')}while(!result.done);location.reload()}catch(error){feedback.textContent=error.message}finally{busy=false}
  });
  root.querySelectorAll('[data-audit-select-all]').forEach(control=>control.addEventListener('change',()=>{root.querySelectorAll(`[data-audit-select="${control.dataset.auditSelectAll}"]`).forEach(box=>box.checked=control.checked)}));
- root.querySelectorAll('[data-audit-recheck]').forEach(button=>button.addEventListener('click',async()=>{
-  if(busy)return;busy=true;button.disabled=true;const row=button.closest('tr');
-  try{const result=await api('recheck',{page:Number(row.dataset.reportPage),index:Number(row.dataset.reportIndex)});const labels={matched:'已匹配',missing:'登记但缺失',unregistered:'存在但未收录',changed:'大小有变化',unsupported:'无法处理',pending:'清理待重试'};row.querySelector('[data-audit-row-state]').textContent='最新核对：'+labels[result.category];feedback.textContent=result.note||'复核完成；分类统计仍对应原扫描报告。'}catch(error){feedback.textContent=error.message}finally{busy=false;button.disabled=false}
- }));
+ async function recheck(rows,button){
+  if(busy)return;if(!rows.length){feedback.textContent='请先选择本页条目。';return}busy=true;button.disabled=true;let done=0;
+  try{for(const row of rows){const result=await api('recheck',{page:Number(row.dataset.reportPage),index:Number(row.dataset.reportIndex)});const labels={matched:'已匹配',missing:'登记但缺失',unregistered:'存在但未收录',changed:'大小有变化',unsupported:'无法处理',pending:'清理待重试',external:'外部链接（未验证）'};row.querySelector('[data-audit-row-state]').textContent='最新核对：'+labels[result.category]+(result.note?' · '+result.note:'');done++;feedback.textContent=`已复核 ${done} / ${rows.length} 项；筛选与统计仍对应扫描时状态。`}}
+  catch(error){feedback.textContent=`已复核 ${done} / ${rows.length} 项，后续已停止：${error.message}`}finally{busy=false;button.disabled=false}
+ }
+ root.querySelectorAll('[data-audit-recheck]').forEach(button=>button.addEventListener('click',()=>recheck([button.closest('tr')],button)));
+ root.querySelector('[data-audit-recheck-selected]')?.addEventListener('click',event=>recheck(selection.chosen(),event.currentTarget));
  root.querySelectorAll('[data-audit-prepare]').forEach(button=>button.addEventListener('click',async()=>{
   if(busy)return;kind=button.dataset.auditPrepare;const selected=[...root.querySelectorAll(`[data-audit-select="${kind}"]:checked`)].map(box=>box.closest('tr'));
   if(!selected.length||selected.length>10){feedback.textContent='请选择1至10项进行预检。';return}
-  busy=true;button.disabled=true;plans=[];feedback.textContent='正在预检；尚未更改媒体。';
+  busy=true;button.disabled=true;plans=[];feedback.textContent='正在预检；尚未更改媒体。'+(kind==='import'?'仅处理勾选的未登记项。':'');
   try{
    await ensureReport();for(const row of selected)plans.push(await api('prepare_'+kind,kind==='import'?{page:Number(row.dataset.reportPage),index:Number(row.dataset.reportIndex)}:{uid:row.dataset.uid,stamp:row.dataset.stamp}));
    root.querySelector('[data-audit-plans]').replaceChildren(...plans.map(p=>{const item=document.createElement('li');item.textContent=kind==='import'?(p.mode==='copy'?`${p.source} → ${p.target}：创建规范名称副本并登记，原文件保留`:`${p.source}：原地登记，不移动文件`):`${p.source}：${p.mode}`;return item}));

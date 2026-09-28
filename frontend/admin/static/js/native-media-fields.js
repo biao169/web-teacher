@@ -2,7 +2,7 @@ import {adminFetch} from './native-access.js?v=0.15.28';
 /** One link input, native key, chooser and complete preview for every media field. */
 import {chooseMedia,mediaContext} from './native-media-picker.js?v=0.15.33';
 import {mediaURL,showLinkPreview,suggestedType,lookupMedia} from './native-media-links.js?v=0.15.33';
-import {clearMediaPreviews} from './native-media.js?v=0.15.33';
+import {clearMediaPreviews} from './native-media.js?v=0.15.113';
 for(const field of document.querySelectorAll('[data-media-field]')){
  const select=field.querySelector('[data-media-key]'),input=field.querySelector('[data-media-link]'),mime=field.querySelector('[data-media-type]'),stamp=field.querySelector('[data-media-stamp]'),box=field.querySelector('[data-field-canvas]'),status=field.querySelector('[data-field-preview-status]'),open=field.querySelector('[data-field-preview-open]');let epoch=0,controller,timer,current=null;
  const message=text=>{clearMediaPreviews(box);box.replaceChildren(Object.assign(document.createElement('span'),{className:'native-muted',textContent:text}))};

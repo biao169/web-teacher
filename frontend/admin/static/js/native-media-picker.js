@@ -1,7 +1,7 @@
 import {adminFetch} from './native-access.js?v=0.15.28';
 /** Shared media chooser: bounded pages, isolated draft selection and explicit upload/confirmation. */
 import {previewURL,showLinkPreview,suggestedType,imageFile,lookupMedia} from './native-media-links.js?v=0.15.33';
-import {watchMediaPreview,clearMediaPreviews} from './native-media.js?v=0.15.33';
+import {watchMediaPreview,clearMediaPreviews} from './native-media.js?v=0.15.113';
 import {editImage} from './native-media-crop.js';
 const dialog=document.querySelector('[data-media-picker]');
 let active=null,serial=0;

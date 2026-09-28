@@ -49,7 +49,7 @@ export function setupColumns(root, table, transient = null) {
  for(const [col,th] of headers){
   const values=[th.textContent,...[...table.querySelectorAll(`td[data-column="${col}"]`)].slice(0,30).map(td=>td.textContent.trim())];
   const measured=Math.min(330,Math.max(85,...values.map(text=>(context?context.measureText(text.slice(0,120)).width:text.slice(0,120).length*14)+24)));
-  widths.set(col,saved[col]?.width??(root.dataset.table==='media_assets'&&col==='size'?100:measured));
+  widths.set(col,saved[col]?.width??(['media_assets','media_audit'].includes(root.dataset.table)&&col==='size'?100:measured));
  }
  function paintWidths() {
   // Keep the frozen name usable on narrow screens without destroying the stored desktop width.

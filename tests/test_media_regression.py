@@ -64,12 +64,17 @@ def test_upload_signature_policy_is_still_strict():
     assert signature(b'<svg/>', 'svg') is None
     assert signature(PNG, 'png') == 'image/png'
 
-def test_actual_file_size_limit_still_applies(runtime):
+def test_streaming_read_is_not_blocked_by_upload_size_limit(runtime):
     client, r = runtime
     uid, key = register(runtime, b'')
     with r.media_store.path(key).open('r+b') as handle:
         handle.truncate(20 * 1024 * 1024 + 1)
-    assert client.head('/api/admin/media/' + uid + '/content').status_code == 413
+    url='/api/admin/media/' + uid + '/content'
+    response=client.head(url)
+    assert response.status_code==200
+    assert int(response.headers['content-length'])==20*1024*1024+1
+    response=client.get(url,headers={'Range':'bytes=-16'})
+    assert response.status_code==206 and response.content==b'\0'*16
 
 @pytest.mark.parametrize('value,expected', [('bytes=0-99',JPEG[:100]),('bytes=65500-65600',JPEG[65500:65601]),('bytes=-10',JPEG[-10:]),('bytes=140000-',JPEG[140000:])])
 def test_real_range_bytes(runtime, value, expected):

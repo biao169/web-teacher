@@ -15,6 +15,10 @@ def digest(value):
     """将平台版本信息转换为固定长度比较值，不作为内容校验值。"""
     return hashlib.sha256(str(value).encode()).hexdigest()
 
+def file_version(info):
+    """共用本地文件版本格式；核对/删除仍保留严格版本检查。"""
+    return digest((info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns))
+
 def js_options(value):
     """在Worker中将纯Python配置转换为普通JS对象；本地测试可替换此边界。"""
     import js
@@ -38,7 +42,26 @@ class LocalInventory:
         try:s=p.stat()
         except FileNotFoundError:return None
         if not stat.S_ISREG(s.st_mode):raise Error('此对象不是普通文件')
-        return {'key':key,'size':s.st_size,'version':digest((s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns))}
+        return {'key':key,'size':s.st_size,'version':file_version(s)}
+    def open_reader(self,key):
+        """鉴权后调用：只定位并打开一次，元信息与文件头来自同一个文件句柄。"""
+        path=self.path(key)
+        # 不跟随最终符号链接；非阻塞打开避免误把管道当媒体文件等待。
+        flags=os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)
+        fd=os.open(path,flags)
+        try:handle=os.fdopen(fd,'rb')
+        except BaseException:
+            os.close(fd);raise
+        try:
+            info=os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode):raise Error('此对象不是普通媒体文件',404)
+            prefix=handle.read(512);handle.seek(0)
+            return handle,{'key':key,'size':info.st_size,'version':file_version(info)},prefix
+        except BaseException:
+            handle.close();raise
+    def absolute_path(self,key):
+        """仅用于已授权后台展示；不接受范围外路径，不跟随目录内链接。"""
+        return str(self.path(key).resolve())
     async def read(self,key,limit):
         """对目录内Unicode文件进行有界读取，调用者负责前后版本一致性。"""
         p=self.path(key)
@@ -53,11 +76,11 @@ class LocalInventory:
         try:
             with p.open('rb') as handle:
                 before=os.fstat(handle.fileno())
-                current=digest((before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns))
+                current=file_version(before)
                 if not stat.S_ISREG(before.st_mode) or current!=version:raise Error('媒体文件已变化，请重新打开',409)
                 handle.seek(offset);data=handle.read(length)
                 after=os.fstat(handle.fileno())
-                if digest((after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns))!=version:raise Error('媒体文件已变化，请重新打开',409)
+                if file_version(after)!=version:raise Error('媒体文件已变化，请重新打开',409)
         except FileNotFoundError:raise Error('媒体文件不存在',404) from None
         if len(data)!=length:raise Error('媒体文件读取不完整',409)
         return data

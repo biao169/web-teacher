@@ -1,0 +1,15 @@
+{# Column headers and controls shared by SQL lists and media inventory reports. #}
+{% macro column_header(col,label,spec,visible=true,first=false,fixed=none) %}
+<th data-column="{{ col }}" {% if not visible %}hidden{% endif %} {% if first %}class="native-frozen"{% endif %}>{% if spec.kind!='derived' %}<span class="native-column-heading"><button type="button" data-label="{{ label }}" data-column-popup="{{ col }}" {% if fixed is not none %}data-fixed-value="{{ fixed }}"{% endif %} data-filter-multi="{{ 'true' if spec.get('multi') else 'false' }}" data-filter-scale="{{ spec.get('filter_scale',1) }}" data-filter-note="{{ spec.get('filter_note','') }}" data-kind="{{ spec.kind }}" data-options='{{ spec.get("enum",[])|tojson }}' data-option-labels='{{ spec.get("option_labels",{})|tojson }}' data-filter-prefix="{{ spec.get('filter_prefix','') }}" title="筛选：{{ label }}">{{ label }}</button><button type="button" data-column-sort="{{ col }}" data-label="{{ label }}" data-sort-default="{{ 'desc' if col.endswith('_at') else 'asc' }}" title="排序：{{ label }}" aria-label="排序：{{ label }}">↕</button></span>{% else %}<span>{{ label }}</span>{% endif %}<span data-resize title="拖动调整列宽"></span></th>
+{% endmacro %}
+
+{% macro column_controls(columns,column_labels,recommended_columns) %}
+<details class="native-columns"><summary class="btn btn-outline-secondary btn-sm" title="选择显示列；当前功能单独保存，首列固定显示">▤ 列设置</summary><div>
+{# Server defaults remain usable without JavaScript; preference buttons only activate with their handler. #}
+<fieldset data-column-controls disabled><legend class="visually-hidden">显示列设置</legend>
+<div class="native-column-actions"><button type="button" class="btn btn-outline-primary btn-sm" data-columns-recommended title="恢复当前功能的推荐显示列，保留已调整的列宽">↶ 恢复推荐列</button><button type="button" class="btn btn-outline-secondary btn-sm" data-columns-legacy hidden title="恢复此浏览器保存的旧版显隐方案，保留当前列宽">↶ 恢复旧版方案</button></div>
+<p class="native-muted" data-column-feedback role="status">首列固定显示，其他列可自由选择。</p>
+{% for col in columns %}<label><input type="checkbox" {% if col in recommended_columns %}checked{% endif %} data-column-toggle="{{ col }}" data-default-visible="{{ '1' if col in recommended_columns else '0' }}" {% if loop.first %}disabled{% endif %}> {{ column_labels[col] }}</label>{% endfor %}
+</fieldset><noscript><p class="native-muted">当前显示推荐列；启用JavaScript后可调整列设置。</p></noscript>
+</div></details>
+{% endmacro %}

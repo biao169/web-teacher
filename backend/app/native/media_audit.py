@@ -50,13 +50,14 @@ class MediaAudit:
             if await self.latest():raise Error('已有报告，请继续查看或先清除报告',409)
             report=secrets.token_hex(16)
             s={'id':report,'owner':self.owner,'scope':self.scope,'version':0,'phase':'registry','last':0,'cursor':None,'pages':[],
-               'counts':{k:0 for k in CATEGORIES},'registry_checked':0,'objects_checked':0,'created_at':now(),'expires':now(seconds=86400)}
+               'list_index':1,'counts':{k:0 for k in CATEGORIES},'registry_checked':0,'objects_checked':0,'created_at':now(),'expires':now(seconds=86400)}
             await self.write_json(self.root(report)+'/state.json',s)
             await self.write_json('media-audit/latest-'+self.owner+'.json',{'id':report})
             return s
     async def classify(self,key,asset=None,info=None):
         """元信息核对不读取文件内容；不存在、大小变化、链接和保留存储类型分开显示。"""
-        entry={'key':key,'uid':asset['uid'] if asset else '', 'stamp':asset['updated_at'] if asset else '', 'size':asset['size'] if asset else 0,'category':'unsupported','note':''}
+        entry={'key':key,'uid':asset['uid'] if asset else '', 'stamp':asset['updated_at'] if asset else '', 'size':asset['size'] if asset else 0,'storage_kind':asset['storage_kind'] if asset else self.r.kind,'category':'unsupported','note':''}
+        entry.update(mime_type=asset.get('mime_type') if asset else None,original_filename=asset.get('original_filename') if asset else None,title=asset.get('title') if asset else None)
         try:
             if asset and asset['storage_kind']=='external':
                 entry['category']='external';entry['note']='外部链接不扫描本地/R2目录，也不核验远程大小或可用性';return entry
@@ -85,7 +86,7 @@ class MediaAudit:
             if len(s['pages'])>=1000:raise Error('报告达到20000条记录上限，请先处理并清除报告',413)
             entries=[]
             if s['phase']=='registry':
-                rows=await r.sql.query('SELECT id,uid,updated_at,object_key,size,storage_kind FROM media_assets WHERE id>? ORDER BY id LIMIT 20',(s['last'],))
+                rows=await r.sql.query('SELECT id,uid,updated_at,object_key,size,storage_kind,mime_type,original_filename,title FROM media_assets WHERE id>? ORDER BY id LIMIT 20',(s['last'],))
                 # Use the actual integer primary key as the seek cursor, independent of editable fields.
                 for row in rows:entries.append(await self.classify(row['object_key'],row))
                 s['registry_checked']+=len(rows)
@@ -100,23 +101,17 @@ class MediaAudit:
             if entries:
                 counts={k:sum(e['category']==k for e in entries) for k in CATEGORIES}
                 index=len(s['pages']);await self.write_json(self.root(report)+f'/page-{index}.json',entries);s['pages'].append(counts)
+                from .media_audit_list import append_index
+                await append_index(self,s,index,entries)
                 for k,n in counts.items():s['counts'][k]+=n
             s['version']+=1
             condition,args=live_lease('media:scan:'+report,owner);gid,guard=r.auth.guard(r.p,'media_assets','view',condition,args)
             await r.sql.batch([guard,('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
             await self.write_json(self.root(report)+'/state.json',s);return s
-    async def page(self,report,category='',page=1):
-        """按类别选取已有报告批次，每次仅读取一个不超过20条的缓存页。"""
-        s=await self.state(report,True)
-        if category and category not in CATEGORIES:raise Error('报告分类无效')
-        indexes=[i for i,c in enumerate(s['pages']) if not category or c.get(category,0)]
-        try:page=min(max(1,int(page)),max(1,len(indexes)))
-        except (TypeError,ValueError):raise Error('页码无效') from None
-        index=indexes[page-1] if indexes else None
-        rows=await self.read_json(self.root(report)+f'/page-{index}.json') if index is not None else []
-        if rows is None:raise Error('报告页已缺失，请重新扫描',409)
-        selected=[dict(row,report_page=index,report_index=i) for i,row in enumerate(rows) if not category or row['category']==category]
-        return s,{'rows':selected,'page':page,'pages':max(1,len(indexes)),'total':s['counts'][category] if category else sum(s['counts'].values()),'size':20}
+    async def page(self,report,category='',page=1,query=None):
+        """媒体列表协议：对整个已扫描报告筛选和排序，再读取当前页条目。"""
+        from .media_audit_list import listing
+        return await listing(self,report,query if query is not None else {'category':category,'page':page},CATEGORIES)
     async def entry(self,report,page,index):
         """操作目标来自已保存报告，不能由浏览器传任意文件系统地址。"""
         s=await self.state(report)

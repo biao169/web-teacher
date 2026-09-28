@@ -1,6 +1,6 @@
 import {adminFetch} from './native-access.js?v=0.15.28';
 /** Account-local session controls: refresh fragments, preserve drafts, never retry writes automatically. */
-import {mountTableHeaders} from './native-table-headers.js?v=0.15.38';
+import {mountTableHeaders} from './native-table-headers.js?v=0.15.113';
 import {notify} from './native-notifications.js';
 const section=document.querySelector('#tool-sessions'),form=document.querySelector('#native-editor');
 if(section&&form){

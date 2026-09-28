@@ -1,9 +1,17 @@
+{% macro thumbnail(row,source=none,details=none,peek=false) %}
+{% set title=row.get('title') or row.get('name') or row.get('object_key') or row.get('key') or '媒体文件' %}
+{% set source=source or '/api/admin/media/'+row.uid+'/content' %}
+{% set details=details or '/admin/media/'+row.uid+'/inspect' %}
+{% set mime=row.get('preview_mime') or row.get('mime_type') or '' %}
+<div class="native-media-thumb-wrap" data-media-preview><a class="native-media-thumb" href="{{ details }}" title="预览：{{ title }}" {% if peek %}data-media-peek data-preview-title="{{ title }}" target="_blank" rel="noopener noreferrer"{% endif %}>
+{% if mime.startswith('image/') %}<img src="{{ source }}" alt="{{ title }}" loading="lazy" decoding="async" referrerpolicy="no-referrer" width="56" height="40" data-media-thumb>
+{% else %}<span>{{ '▷ 视频' if mime.startswith('video/') else '▤ PDF' if mime=='application/pdf' else '▧ 文件' }}<small>点击预览</small></span>{% endif %}</a><div hidden data-preview-fallback></div></div>
+{% endmacro %}
+
 {# Derived columns never claim to be stored fields or send unsupported sort/filter parameters. #}
 {% macro media_cell(col,row,usage) %}
 {% if col=='__preview' %}
-<div class="native-media-thumb-wrap" data-media-preview><a class="native-media-thumb" href="/admin/media/{{ row.uid }}/inspect" title="预览：{{ row.title or row.object_key }}；点击查看大图、文档和使用位置">
-{% if row.mime_type and row.mime_type.startswith('image/') %}<img src="/api/admin/media/{{ row.uid }}/content" alt="{{ row.title or '媒体图片' }}" loading="lazy" decoding="async" referrerpolicy="no-referrer" width="56" height="40" data-media-thumb>
-{% else %}<span>{{ '▷ 视频' if row.mime_type and row.mime_type.startswith('video/') else '▤ PDF' if row.mime_type=='application/pdf' else '▧ 文件' }}<small>点击预览</small></span>{% endif %}</a><div hidden data-preview-fallback></div></div>
+{{ thumbnail(row) }}
 {% elif col=='__usage' %}
 {% set description %}{% for group in usage.groups %}{{ group.label }} {{ group.count }}处{% if not loop.last %}；{% endif %}{% endfor %}{% if usage.protected %}；另有受权限保护的引用{% endif %}{% if usage.uncertain %}；有超长正文待核对{% endif %}{% endset %}
 {% if usage.used %}<a class="native-cell native-media-usage" {% if usage.get('direct') %}href="{{ usage.direct.url }}" target="_blank" rel="noopener noreferrer"{% else %}href="/admin/media/{{ row.uid }}/inspect#media-usage" data-media-locations="{{ row.uid }}"{% endif %} title="{{ description|trim }}；{{ '新标签定位来源' if usage.get('direct') else '展开使用位置' }}">{{ description|trim('； ') }}</a>{% else %}<span class="native-muted">○ 暂未使用</span>{% endif %}
@@ -12,11 +20,13 @@
 
 {% macro preview(row) %}
 {% set source='/api/admin/media/'+row.uid+'/content' %}
+{% set mime=row.preview_mime if row.preview_mime is defined else row.mime_type %}
 <div class="native-media-preview" data-media-preview>
 {% if row.storage_kind=='external' %}<p class="native-muted">↗ 外部链接 · 类型由用户声明，内容和大小未核验。预览失败可打开原链接或上传本地文件；本站不保存远程正文。</p>{% endif %}
-{% if row.mime_type and row.mime_type.startswith('image/') %}<img src="{{ source }}" alt="{{ row.title or row.object_key }}" data-media-large referrerpolicy="no-referrer">
-{% elif row.mime_type and row.mime_type.startswith('video/') %}<video controls preload="metadata" src="{{ source }}" data-media-large aria-label="{{ row.title or '媒体视频' }}"></video>
-{% elif row.mime_type=='application/pdf' %}<iframe title="{{ row.title or 'PDF预览' }}" src="{{ source }}" loading="lazy" {% if row.storage_kind=='external' %}sandbox="" referrerpolicy="no-referrer"{% endif %}></iframe><p class="native-muted">PDF预览由浏览器提供；若未显示，可使用下方“打开文件”。</p>
+{% if row.get("preview_note") %}<p class="native-feedback" role="status">{{ row.preview_note }}</p>{% endif %}
+{% if mime and mime.startswith('image/') %}<img src="{{ source }}" alt="{{ row.title or row.object_key }}" data-media-large referrerpolicy="no-referrer">
+{% elif mime and mime.startswith('video/') %}<video controls preload="metadata" src="{{ source }}" data-media-large aria-label="{{ row.title or '媒体视频' }}"></video>
+{% elif mime=='application/pdf' %}<iframe title="{{ row.title or 'PDF预览' }}" src="{{ source }}" loading="lazy" {% if row.storage_kind=='external' %}sandbox="" referrerpolicy="no-referrer"{% endif %}></iframe><p class="native-muted">PDF预览由浏览器提供；若未显示，可使用下方“打开文件”。</p>
 {% else %}<p>▧ 此类型显示文件信息，可下载后查看。</p>{% endif %}
 <p class="native-feedback" data-preview-error role="status" hidden>预览不可用：文件可能缺失、类型不受支持或访问权限已变化。</p>
 </div>

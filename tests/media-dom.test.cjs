@@ -6,13 +6,14 @@ const path=require('node:path');
 const vm=require('node:vm');
 const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
 const directory=path.resolve(__dirname,'../frontend/admin/static/js');
-async function fixture({status=200,type='image/jpeg',length='100',src='/api/admin/media/test/content',cached=false,fetcher=null,retryAfter=null}={}){
- const dom=new JSDOM('<div data-media-preview><img data-media-large><div data-preview-error hidden></div></div>',{url:'http://localhost/admin/media_assets',runScripts:'outside-only'});
- const w=dom.window,document=w.document,img=document.querySelector('img'),requests=[],timers=new Map();let clock=0;
+async function fixture({status=200,type='image/jpeg',length='100',src='/api/admin/media/test/content',cached=false,fetcher=null,retryAfter=null,issue=null,tag='img',mediaError=null}={}){
+ const dom=new JSDOM('<div data-media-preview>'+ (tag==='video'?'<video data-media-large></video>':'<img data-media-large>')+'<div data-preview-error hidden></div></div>',{url:'http://localhost/admin/media_assets',runScripts:'outside-only'});
+ const w=dom.window,document=w.document,img=document.querySelector('[data-media-large]'),requests=[],timers=new Map();let clock=0;
+ if(tag==='video'){img.load=()=>{};Object.defineProperty(img,'error',{get:()=>mediaError})}
  img.src=src;
  Object.defineProperty(img,'complete',{get:()=>cached});Object.defineProperty(img,'naturalWidth',{get:()=>cached?12:0});
  w.setTimeout=(fn,delay)=>{timers.set(++clock,{fn,delay});return clock};w.clearTimeout=id=>timers.delete(id);
- const response=()=>({ok:status>=200&&status<300,status,type:'basic',headers:{get:name=>({'content-type':type,'content-length':length,'retry-after':retryAfter}[name]??null)}});
+ const response=()=>({ok:status>=200&&status<300,status,type:'basic',headers:{get:name=>({'content-type':type,'content-length':length,'retry-after':retryAfter,'x-media-error':issue}[name]??null)}});
  w.fetch=async(input,options)=>{requests.push({input:String(input),options});return fetcher?fetcher(input,options):response()};
  const context=dom.getInternalVMContext();
  const access=new vm.SourceTextModule(fs.readFileSync(path.join(directory,'native-access.js'),'utf8'),{context});
@@ -21,7 +22,7 @@ async function fixture({status=200,type='image/jpeg',length='100',src='/api/admi
  await media.link(()=>access);await media.evaluate();
  return {w,document,img,requests,timers,api:media.namespace,response,
   error(){img.dispatchEvent(new w.Event('error'))},
-  loaded(){img.dispatchEvent(new w.Event('load'))},
+  loaded(){img.dispatchEvent(new w.Event(tag==='video'?'loadedmetadata':'load'))},
   runRetry(){const entry=[...timers].find(([,timer])=>timer.delay>=1000&&timer.delay<3000);assert.ok(entry,'retry timer exists');timers.delete(entry[0]);entry[1].fn()},
   close(){media.namespace.clearMediaPreviews(document);dom.window.close()}
  };
@@ -103,4 +104,24 @@ test('dispose cancels retry and stale diagnosis cannot hide a recovered image',a
  const second=await fixture({status:503});t.after(()=>second.close());second.error();
  await until(()=>second.img.dataset.previewState==='loading');second.api.clearMediaPreviews(second.document);
  assert.equal(second.timers.size,0);assert.equal(second.img.hasAttribute('data-preview-bound'),false);
+});
+
+test('disk access failures show actionable messages without retry bursts',async t=>{
+ for(const issue of ['media_read_denied','media_read_failed']){
+  const r=await fixture({status:503,issue});t.after(()=>r.close());r.error();
+  await until(()=>r.requests.length===1&&r.img.dataset.previewState==='error'&&r.document.querySelector('[data-preview-message]').textContent!=='预览失败，正在检查…');
+  assert.equal(r.timers.size,0);assert.match(r.document.querySelector('[data-preview-message]').textContent,/权限|磁盘/);
+ }
+});
+
+test('video network failure retries and metadata load restores preview',async t=>{
+ const r=await fixture({tag:'video',type:'video/mp4',mediaError:{code:2}});t.after(()=>r.close());r.error();
+ await until(()=>r.img.dataset.previewState==='loading');r.runRetry();r.loaded();
+ assert.equal(r.img.dataset.previewState,'ready');assert.equal(r.timers.size,0);
+});
+
+test('unsupported video codec leaves download/open recovery without automatic retries',async t=>{
+ const r=await fixture({tag:'video',type:'video/mp4',mediaError:{code:4}});t.after(()=>r.close());r.error();
+ await until(()=>r.document.querySelector('[data-preview-message]').textContent.includes('视频编码'));
+ assert.equal(r.timers.size,0);assert.equal(r.img.dataset.previewState,'error');
 });

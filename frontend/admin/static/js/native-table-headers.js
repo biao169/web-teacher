@@ -35,11 +35,18 @@ export function mountTableHeaders(root,{query=()=>new URLSearchParams(location.s
   if(options.length){input.add(new Option('不限',empty));options.filter(v=>String(v)!==empty).forEach(value=>input.add(new Option(labels[value]||String(value),value)))}else{input.placeholder='输入搜索内容';input.maxLength=500}
   const scale=Number(button.dataset.filterScale)||1;
   input.setAttribute('aria-label','筛选值');input.value=params().get(key)||empty;
+  if(options.length&&button.dataset.filterMulti==='true'){
+   input.multiple=true;input.size=Math.min(7,options.length+1);const raw=params().get(key)||'';let selected=[];
+   try{selected=raw.startsWith('[')?JSON.parse(raw):raw?[raw]:[]}catch{}
+   if(!Array.isArray(selected))selected=[];
+   [...input.options].forEach(option=>option.selected=selected.map(String).includes(option.value));
+   input.setAttribute('aria-label','筛选值（可多选）');
+  }
   if(scale!==1&&input.value!=='')input.value=String(Number(input.value)/scale);
   if(button.hasAttribute('data-fixed-value')){input.value=scale===1?button.dataset.fixedValue:String(Number(button.dataset.fixedValue)/scale);input.disabled=true;input.title='此条件由当前导航固定'}pop.append(input);
   if(button.dataset.filterNote){const note=document.createElement('p');note.className='native-muted';note.textContent=button.dataset.filterNote;pop.append(note)}
   const save=document.createElement('button');save.type='button';save.className='btn btn-primary btn-sm';save.textContent='应用';
-  save.addEventListener('click',()=>{const current=params();let value=input.value;if(scale!==1&&value!==''){const raw=Number(value)*scale;if(!/^\d+(?:\.\d+)?$/.test(value)||!Number.isSafeInteger(raw)||raw<0){input.setCustomValidity('请输入可换算为整数个字节的非负KB数值');input.reportValidity();return}input.setCustomValidity('');value=String(raw)}if(!button.hasAttribute('data-fixed-value')){if(!button.dataset.filterKey){current.delete('f.'+button.dataset.columnPopup);current.delete('c.'+button.dataset.columnPopup)}if(value)current.set(key,value);else current.delete(key)}commit(current,'filter',button.dataset.columnPopup)});pop.append(save);
+  save.addEventListener('click',()=>{const current=params();let value=input.value;if(input.multiple){const values=[...input.selectedOptions].map(option=>option.value).filter(v=>v!==empty);value=values.length?JSON.stringify(values):''}if(scale!==1&&value!==''){const raw=Number(value)*scale;if(!/^\d+(?:\.\d+)?$/.test(value)||!Number.isSafeInteger(raw)||raw<0){input.setCustomValidity('请输入可换算为整数个字节的非负KB数值');input.reportValidity();return}input.setCustomValidity('');value=String(raw)}if(!button.hasAttribute('data-fixed-value')){if(!button.dataset.filterKey){current.delete('f.'+button.dataset.columnPopup);current.delete('c.'+button.dataset.columnPopup)}if(value)current.set(key,value);else current.delete(key)}commit(current,'filter',button.dataset.columnPopup)});pop.append(save);
   const clear=document.createElement('button');clear.type='button';clear.className='btn btn-outline-secondary btn-sm';clear.textContent='清除此列';clear.disabled=button.hasAttribute('data-fixed-value');if(clear.disabled)clear.title='固定条件需在导航设置中修改';clear.addEventListener('click',()=>{input.value=empty;save.click()});pop.append(clear);
   pop.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target===input&&!e.isComposing){e.preventDefault();save.click()}});
   document.body.append(pop);const rect=button.getBoundingClientRect();pop.style.left=Math.max(8,Math.min(rect.left,innerWidth-278))+'px';pop.style.top=Math.max(8,Math.min(rect.bottom+6,innerHeight-pop.offsetHeight-8))+'px';(input.disabled?save:input).focus();
