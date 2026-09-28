@@ -606,12 +606,12 @@
       "sha256": "95f853f8a74433118f9ca0f922a3dc85648dd935924a6affb9a527677e28d0ee"
     },
     "deploy/linux/README.md": {
-      "bytes": 10023,
-      "sha256": "8cb14f417ab7a54c806b3642de2c35e5192da3acbcd812c6122c6b3d06bf505d"
+      "bytes": 11031,
+      "sha256": "1890e6836242356a3e0308fd8a63c97de11bb2b07fd09322176480d4926bccc1"
     },
     "deploy/linux/tweb.py": {
-      "bytes": 46127,
-      "sha256": "f7f80887bdc12e0108423df44a6364c839fcfa5711f38f5d18e12414d43d0cf2"
+      "bytes": 50912,
+      "sha256": "c68d03253d75a540b49b05f766bd6607cb51f83880920476ddbc0fe13cb16cb8"
     },
     "deploy/shared/bootstrap.py": {
       "bytes": 1763,
@@ -630,8 +630,8 @@
       "sha256": "3957d38ce02f8968405cd3d043da6a9d7f8aee0abb0fc931a5311f00288cce81"
     },
     "deploy/shared/launcher.py": {
-      "bytes": 8948,
-      "sha256": "bf4f78a8a0ad3e271da7fb8c855c06884c3792127ac4e4276e533a46bd6260bc"
+      "bytes": 9073,
+      "sha256": "17eb30c026a644e3c1d275d3e95c81e4b434dcc33377bd8236bc0a5edb3993e9"
     },
     "deploy/shared/package_release.py": {
       "bytes": 2141,
@@ -3243,11 +3243,11 @@
     },
     "pyproject.toml": {
       "bytes": 239,
-      "sha256": "c6e974248e1efb44b343e8e135c0cebd8f853031fc8037e44e7b4fe327e6d839"
+      "sha256": "d4eba8deac9a56d10caca541a237e86c22334d88fadd931ff4e4c5d296b6133a"
     },
     "README.md": {
-      "bytes": 50355,
-      "sha256": "421a16de9685902ffda3b8fb31436ad96c457636512ff90cc67ee1bc2db865f1"
+      "bytes": 53139,
+      "sha256": "b84438da29b853b2e85ff804c6a77ff11903411944bcedffbf1ad2486df77e38"
     },
     "scripts/build_frontend_examples.mjs": {
       "bytes": 5550,

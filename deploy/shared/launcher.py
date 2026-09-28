@@ -1,7 +1,8 @@
 """Shared Windows/Linux launcher; explicit user storage configuration survives code updates."""
 import argparse,asyncio,getpass,json,os,socket,subprocess,sys,time,webbrowser
 from pathlib import Path
-from urllib.request import build_opener,ProxyHandler
+from urllib.request import build_opener,ProxyHandler,Request
+from urllib.parse import urlsplit
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT))
 def state_root():
     """Keep launcher-managed data outside replaceable source directories."""
@@ -71,7 +72,7 @@ def serve(settings,both=False,open_browser=True,seconds=None):
             for _ in range(150):
                 if proc.poll() is not None:raise RuntimeError(f'{name} failed; see {path}')
                 try:
-                    with opener.open(f'http://127.0.0.1:{port}{health}',timeout=1) as response:
+                    with opener.open(Request(f'http://127.0.0.1:{port}{health}',headers={'Host':urlsplit(main_origin).netloc,'Accept':'application/json'}),timeout=1) as response:
                         if response.status==200:break
                 except OSError:pass
                 time.sleep(.1)

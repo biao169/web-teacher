@@ -20,6 +20,8 @@ import sys
 import time
 import uuid
 from urllib.request import build_opener, ProxyHandler
+from urllib.request import Request
+from urllib.error import HTTPError, URLError
 
 DEFAULT_REPOSITORY = 'https://github.com/biao169/web-teacher.git'
 DEFAULT_BRANCH = 'web-py'
@@ -139,7 +141,39 @@ def protected_digest(root,names=('backend','database','transfer','deploy','pypro
 
 
 class Manager:
-    def __init__(self, layout=Layout(), runner=run):self.l=layout;self.run=runner
+    def __init__(self, layout=Layout(), runner=run):
+        self.l=layout;self.runner=runner;self.sequence=0
+
+    def step(self,label,action,*args,**kwargs):
+        self.sequence+=1;number=self.sequence;started=time.monotonic()
+        print(color(f'[{number:02}] 开始 / START — '+label,'36'),flush=True)
+        try:result=action(*args,**kwargs)
+        except BaseException:
+            print(color(f'[{number:02}] 失败或中断 / FAILED or INTERRUPTED — '+label,'31'),flush=True)
+            raise
+        print(color(f'[{number:02}] 完成 / OK — {label} ({time.monotonic()-started:.1f}s)','32'),flush=True)
+        return result
+
+    def run(self,argv,**kwargs):
+        # Describe operations without echoing environment values, inline code or secrets.
+        args=list(map(str,argv));program=Path(args[0]).name
+        if program=='systemctl':
+            labels={'stop':'停止服务 / Stop service','start':'启动服务 / Start service',
+                    'daemon-reload':'重新加载服务定义 / Reload service definitions',
+                    'enable':'启用开机启动 / Enable on boot','disable':'停止并禁用服务 / Stop and disable service',
+                    'status':'查看服务状态 / Inspect service','show':'检查服务定义 / Inspect service definition'}
+            label=labels.get(args[1],'服务操作 / Service operation')
+        elif program=='git':label='下载源码 / Download source' if 'clone' in args else '读取版本信息 / Read revision'
+        elif 'pip' in args:label='同步 Python 依赖 / Synchronize Python dependencies'
+        elif 'venv' in args:label='准备 Python 环境 / Prepare Python environment'
+        elif 'backend.cli' in args:label='数据库或维护操作 / Database or maintenance: '+args[args.index('backend.cli')+1]
+        elif any(a.endswith('/launcher.py') for a in args):label='初始化并核验数据库 / Initialize and verify database'
+        elif 'deploy.vps.release' in args or any(a.endswith('/release.py') for a in args):label='校验或生成部署文件 / Verify or generate deployment files'
+        elif program=='runuser':label='验证服务账号访问权限 / Verify service-account access'
+        elif program in ('chown','useradd','userdel','groupdel'):label='更新受管账号或权限 / Update managed account or permissions: '+program
+        elif program=='tail':label='跟踪运行日志（Ctrl+C 结束） / Follow logs (Ctrl+C to exit)'
+        else:label='执行部署检查 / Run deployment check'
+        return self.step(label,self.runner,argv,**kwargs)
 
     def load(self):
         for p in (self.l.base,self.l.config,self.l.data):owned(p)
@@ -206,18 +240,41 @@ class Manager:
         self.run([*prefix,release/'deploy/shared/launcher.py','init','--ready','--no-browser'],cwd=release)
 
     def healthy(self):
-        port=port_number(self.load().get('port',8003))
+        state=self.load();port=port_number(state.get('port',8003))
+        # Connect locally, but preserve the configured production Host. The app
+        # intentionally validates Host on ALL routes, including /health/ready.
+        url=f'http://127.0.0.1:{port}/health/ready'
+        request=Request(url,headers={'Host':hostname(state['domain']),'Accept':'application/json'})
         opener=build_opener(ProxyHandler({}))
-        for _ in range(60):
+        last='尚未响应 / No response'
+        for attempt in range(60):
             try:
-                with opener.open(f'http://127.0.0.1:{port}/health/ready',timeout=1) as r:
-                    if r.status==200:return
-            except OSError:pass
+                with opener.open(request,timeout=1) as r:
+                    if r.status==200:
+                        try:data=json.loads(r.read(4097))
+                        except (ValueError,UnicodeDecodeError):data={}
+                        if isinstance(data,dict) and data.get('status')=='ok' and data.get('schema')=='academic-cms-native':return
+                        raise RuntimeError('健康接口返回了非预期内容，请核对端口对应的服务 / Unexpected health response; check the service bound to this port')
+                    last='HTTP '+str(r.status)
+            except HTTPError as exc:
+                last='HTTP '+str(exc.code);exc.close()
+                if exc.code in (400,401,403,404):
+                    raise RuntimeError(f'健康检查 {last}；本地端口 {port}，Host={state["domain"]}。请核对 tweb paths 与 teacher-site.env 的 TEACHER_ORIGIN / Verify configured domain and port') from None
+            except URLError as exc:last=str(exc.reason)
+            except OSError as exc:last=str(exc)
+            if attempt in (0,19,39):
+                print(color(f'等待服务就绪 / Waiting: {url}; Host={state["domain"]}; {last}','33'),flush=True)
             time.sleep(.5)
-        raise RuntimeError('健康检查失败；使用 tweb logs 检查')
+        raise RuntimeError(f'健康检查失败 / Health check failed: {url}; Host={state["domain"]}; {last}。检查 tweb logs；若无应用日志，执行 sudo journalctl -u teacher-site.service -n 80 --no-pager')
 
     def start(self):
-        self.run(['systemctl','start',SERVICE]);self.healthy()
+        self.run(['systemctl','start',SERVICE])
+        self.step('检查网站健康状态 / Check website health',self.healthy)
+
+    def restart(self):
+        self.run(['systemctl','stop',SERVICE]);self.refresh_logging(self.load());self.start()
+        print(color('[跳过 / SKIP] 防火墙 / Firewall — 规则未变，无需重启 / Rules unchanged; no restart needed','33'),flush=True)
+        print(color('[跳过 / SKIP] nginx/Caddy — 配置未变，无需重启 / Configuration unchanged; no restart needed','33'),flush=True)
 
     def generate(self, release, state):
         # Existing shared renderer keeps service and bounded HTTP defaults consistent.
@@ -617,7 +674,7 @@ MENU = [
  ('start','启动 / Start','启动教师网站与快传 / Start website and transfer'),
  ('stop','停止 / Stop','停止服务，不删除文件 / Stop without deleting data'),
  ('restart','重启 / Restart','重新载入网站进程 / Reload the website process'),
- ('logs','运行日志 / Logs','持续查看，Ctrl+C 返回 / Follow logs; Ctrl+C to return'),
+ ('logs','运行日志 / Logs','持续查看，Ctrl+C 结束 / Follow logs; Ctrl+C to exit'),
  ('update','分项更新 / Update','选择源码、依赖、数据库或配置 / Choose update scope'),
  ('port','修改端口 / Port','修改内部端口及代理示例 / Change internal port and proxy examples'),
  ('db-init','初始化数据库 / Initialize database','空库创建管理员；已有库核验 / Create admin for empty database; verify existing'),
@@ -654,7 +711,7 @@ def choose(title,entries):
     heading(title)
     for n,(_,label,description) in enumerate(entries,1):
         print(color(f'{n:2}. ','33')+label+'\n    '+color(description,'2'))
-    print(color(' 0. 返回/退出 / Back or exit','2'))
+    print(color(' 0. 退出 / Exit','2'))
     choice=input('选择编号 / Number [0]: ').strip()
     if choice in ('','0'):return None
     if not choice.isdigit() or not 1<=int(choice)<=len(entries):raise ValueError('无效选择 / Invalid selection')
@@ -706,12 +763,23 @@ def execute(a):
             m.load()
             if a.action=='logs':m.run(['tail','-n','100','-F',m.l.data/'logs/service.log'])
             elif a.action=='start':m.start()
-            elif a.action=='restart':
-                m.run(['systemctl','stop',SERVICE]);m.refresh_logging(m.load());m.start()
+            elif a.action=='restart':m.restart()
             else:m.run(['systemctl',a.action,'--no-pager',SERVICE])
     if a.action=='uninstall' or (a.action=='remove' and a.scope=='all'):
         Path('/run/lock/teacher-site-manager.lock').unlink(missing_ok=True)
     return 0
+
+
+def perform(a):
+    label=next((label for key,label,_ in MENU if key==a.action),a.action)
+    if getattr(a,'scope',None):label+=' — '+a.scope
+    started=time.monotonic();heading('开始执行 / Executing: '+label)
+    try:result=execute(a)
+    except BaseException:
+        print(color('执行失败或中断，管理菜单已结束 / Failed or interrupted; menu closed','31'),flush=True)
+        raise
+    print(color(f'执行完成，管理菜单已结束 / Completed; menu closed ({time.monotonic()-started:.1f}s)','32'),flush=True)
+    return result or 0
 
 
 def main(argv=None):
@@ -723,26 +791,22 @@ def main(argv=None):
         run([interpreter,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         os.execvp(interpreter,[interpreter,str(Path(__file__).resolve()),*(sys.argv[1:] if argv is None else argv)])
     heading('教师网站管理 / Teacher Website Manager')
-    if a.action:return execute(a)
+    if a.action:return perform(a)
     if not sys.stdin.isatty():p.print_help();return 0
-    while True:
-        try:
-            action=choose('管理菜单 / Management menu',MENU)
-            if action is None:return 0
-            args=[action]
-            if action in ('update','remove'):
-                scope=choose('更新范围 / Update scope' if action=='update' else '删除范围 / Removal scope',UPDATE_MENU if action=='update' else REMOVE_MENU)
-                if scope is None:continue
-                args+=['--scope',scope]
-            if action=='permissions':
-                mode=choose('权限操作 / Permissions',[('check','检查 / Check','实际读写探测 / Actual access probe'),('repair','修复 / Repair','恢复受管数据目录权限 / Restore managed data permissions')])
-                if mode is None:continue
-                if mode=='repair':args+=['--repair']
-            execute(p.parse_args(args))
-            if action=='remove' and scope=='all':return 0
-        except KeyboardInterrupt:print('\n已中断 / Interrupted')
-        except EOFError:return 0
-        except Exception as exc:print(color('操作失败 / Failed: '+str(exc),'31'),file=sys.stderr)
+    try:
+        action=choose('管理菜单 / Management menu',MENU)
+        if action is None:return 0
+        args=[action]
+        if action in ('update','remove'):
+            scope=choose('更新范围 / Update scope' if action=='update' else '删除范围 / Removal scope',UPDATE_MENU if action=='update' else REMOVE_MENU)
+            if scope is None:return 0
+            args+=['--scope',scope]
+        if action=='permissions':
+            mode=choose('权限操作 / Permissions',[('check','检查 / Check','实际读写探测 / Actual access probe'),('repair','修复 / Repair','恢复受管数据目录权限 / Restore managed data permissions')])
+            if mode is None:return 0
+            if mode=='repair':args+=['--repair']
+    except EOFError:return 0
+    return perform(p.parse_args(args))
 
 if __name__=='__main__':
     try:raise SystemExit(main())
