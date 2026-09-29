@@ -46,6 +46,8 @@ def column_layout(table):
         from .translation_groups import COLUMNS
         return list(COLUMNS),RECOMMENDED[table]
     recommended = RECOMMENDED[table]
+    from .ordering import ORDER_FIELDS
+    recommended=tuple(dict.fromkeys((*recommended,*(name for name in ORDER_FIELDS if name in fields(table)))))
     candidates = ACCOUNT_COLUMNS.get(table, (TITLE[table], *fields(table), *EXTRA.get(table, ()), 'updated_at'))
     allowed = set(TABLES[table]['columns']) | DERIVED.get(table, set())
     columns = [name for name in dict.fromkeys((*recommended, *candidates))

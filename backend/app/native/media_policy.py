@@ -8,7 +8,7 @@ ALL_TYPES=IMAGE_TYPES+PDF_TYPES+VIDEO_TYPES+('application/zip',)
 EXTENSIONS={'image/png':('png',),'image/jpeg':('jpg','jpeg'),'image/gif':('gif',),'image/webp':('webp',),'application/pdf':('pdf',),'video/mp4':('mp4',),'video/webm':('webm',),'application/zip':('zip',)}
 FIELD_TYPES={('profiles','avatar_key'):IMAGE_TYPES,('students','avatar_key'):IMAGE_TYPES,
     **{('site_settings',f):IMAGE_TYPES for f in ('logo_key','favicon_key','og_image_key')},
-    ('news','cover_key'):IMAGE_TYPES,('publications','pdf_key'):PDF_TYPES,('patents','certificate_key'):IMAGE_TYPES+PDF_TYPES,
+    ('news','cover_key'):IMAGE_TYPES+VIDEO_TYPES,('publications','pdf_key'):PDF_TYPES,('patents','certificate_key'):IMAGE_TYPES+PDF_TYPES,
     ('courses','syllabus_key'):ALL_TYPES,('courses','material_key'):ALL_TYPES,('messages','attachment_key'):ALL_TYPES}
 BODY_TYPES={'body_image':IMAGE_TYPES,'body_pdf':PDF_TYPES}
 

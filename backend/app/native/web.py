@@ -158,11 +158,12 @@ def create_app(factory,static_root=None):
         """返回服务就绪信息，供启动器和反向代理检查。"""
         r=factory(request);await r.sql.query('SELECT uid FROM site_settings LIMIT 1');return {'status':'ok','schema':'academic-cms-native'}
     async def contact_response(r,lang,values=None,message='',success=False,status=200):
-        challenge=secrets.token_urlsafe(32)
-        allowed=bool(r.p) or bool(await r.sql.query('SELECT 1 FROM global_settings WHERE allow_anonymous_messages=1 LIMIT 1'))
-        response=await render(r,'public/action.html',lang=lang,kind='contact',challenge=challenge,contact_values=values or {},contact_message=message,contact_success=success,contact_allowed=allowed)
+        from .public_contact import form_context
+        ctx=await form_context(r,lang,values,strict=not bool(message and not success))
+        ctx.update(contact_message=message,contact_success=success)
+        response=await render(r,'public/action.html',lang=lang,kind='contact',**ctx)
         response.status_code=status;response.headers['Cache-Control']='no-store'
-        r.config.set_cookie(response,'public-form',challenge,600)
+        r.config.set_cookie(response,'public-form',ctx['challenge'],600)
         return response
 
     @app.get('/{lang}/contact')
@@ -171,7 +172,7 @@ def create_app(factory,static_root=None):
         if lang not in ('zh','en'):raise Error('页面不存在',404)
         r=await resources(request)
         success=request.cookies.get(r.config.name('contact-result'))=='sent'
-        response=await contact_response(r,lang,success=success,message=('Your message has been sent.' if lang=='en' else '留言已提交。') if success else '')
+        response=await contact_response(r,lang,values={'news_uid':request.query_params.get('news','')},success=success,message=('Your message has been sent.' if lang=='en' else '留言已提交。') if success else '')
         response.delete_cookie(r.config.name('contact-result'),path='/')
         return response
     @app.post('/{lang}/contact')
@@ -186,7 +187,7 @@ def create_app(factory,static_root=None):
             data=await payload(request,65536)
             token=request.cookies.get(r.config.name('public-form'),'')
             if not token or request.headers.get('origin')!=r.config.origin or not hmac.compare_digest(str(data.get('challenge','')),token):raise Error('表单已过期，请刷新',403)
-            if any(not isinstance(data.get(key,''),str) for key in ('name','email','subject','content')):raise Error('请求格式不正确')
+            if any(not isinstance(data.get(key,''),str) for key in ('name','email','subject','content','news_uid')):raise Error('请求格式不正确')
             await contact(r,data,request.client.host if request.client else 'worker')
         except Error as exc:
             message=error_text(exc.message,lang)
@@ -194,7 +195,7 @@ def create_app(factory,static_root=None):
                 challenge=secrets.token_urlsafe(32);response=JSONResponse({'ok':False,'message':message,'challenge':challenge},status_code=exc.status,headers={'Cache-Control':'no-store'});r.config.set_cookie(response,'public-form',challenge,600);return response
             return await contact_response(r,lang,form_values(data),message,status=exc.status)
         if wants_json:return JSONResponse({'ok':True,'message':'Your message has been sent.' if lang=='en' else '留言已提交。'},headers={'Cache-Control':'no-store'})
-        response=RedirectResponse('/'+lang+'/contact',303);r.config.set_cookie(response,'contact-result','sent',60);return response
+        response=RedirectResponse('/'+lang+'/contact'+('?' +urlencode({'news':data['news_uid']}) if data.get('news_uid') else ''),303);r.config.set_cookie(response,'contact-result','sent',60);return response
     from .public_auth import install as install_public_auth
     install_public_auth(app,resources,render)
     @app.post('/auth/logout')
@@ -275,8 +276,8 @@ def create_app(factory,static_root=None):
         account_model=await list_context(r,table,result['rows']);permissions=dict(r.p['permissions'][table])
         message_states={};message_views={}
         if table=='messages':
-            from .messages import STATES,presentation
-            message_states=STATES;message_views={row['uid']:presentation(row) for row in result['rows']}
+            from .messages import STATES,views
+            message_states=STATES;message_views=await views(r.content,result['rows'])
             column_specs['status']={**column_specs['status'],'enum':list(STATES),'option_labels':STATES}
             permissions['can_create']=0
             permissions['can_delete']=0
@@ -427,6 +428,8 @@ def create_app(factory,static_root=None):
         navigation_stamp(r,data.pop('_nav_stamp',''))
         from .accounts import parse_helpers
         permissions=parse_helpers(table,data,password)
+        from .time_fields import form_times
+        form_times(table,data)
         if table=='global_settings':
             from .metadata_config import form_settings
             form_settings(data)
@@ -523,19 +526,23 @@ def create_app(factory,static_root=None):
             from .messages import STATES
             if not isinstance(data.get('value'),str) or data['value'] not in STATES:raise Error('无效留言状态')
             await r.content.save(table,r.p,{'status':data['value']},uid,data.get('stamp'),base,navigation=r.navigation_context)
+        elif action=='order':
+            from .ordering import patch as order_patch
+            field=data.get('field')
+            await r.content.save(table,r.p,order_patch(table,field,data.get('value')),uid,data.get('stamp'),base,navigation=r.navigation_context)
         elif action=='toggle':
             field=data.get('field');spec=fields(table).get(field,{})
             if spec.get('kind')!='boolean':raise Error('不支持此快捷字段')
             await r.content.save(table,r.p,{field:data.get('value')},uid,data.get('stamp'),base,navigation=r.navigation_context)
         else:raise Error('未知操作')
         result={'ok':True,'redirect':'/auth/password' if table=='auth_users' and uid==r.p['uid'] and action=='toggle' and data.get('field')=='must_change_password' and data.get('value') in (1,'1') else ''}
-        if action=='toggle':
-            # Only catalog-validated boolean names enter SQL; never send a complete sensitive row.
+        if action in ('toggle','order'):
+            # Only validated boolean/ordering names enter SQL; never send a complete sensitive row.
             rows=await r.sql.query(f'SELECT uid,updated_at,"{field}" FROM "{table}" WHERE uid=?',(uid,))
             if rows:
                 row=rows[0];result['row']={'uid':uid,'updated_at':row['updated_at'],'updated_at_display':admin_datetime(row['updated_at']),'field':field,'value':row[field],'label':label(table,field)}
             # These modules can also change the shared sidebar or branding, beyond the list panel.
-            result['reload']=table in ('navigation_items','site_settings')
+            result['reload']=action=='toggle' and table in ('navigation_items','site_settings')
         return result
     @app.get('/admin/translation/suggestions')
     async def history_page(request:Request):
@@ -858,7 +865,11 @@ def create_app(factory,static_root=None):
         if uid:seo_query={}
         values['seo_canonical']=r.config.origin+query_url(request.url.path,seo_query)
         values['seo_alternates']={code:r.config.origin+query_url('/'+code+request.url.path[3:],seo_query) for code in ('en','zh')}
+        if detail and table=='news' and detail.get('allow_comments')==1:
+            from .public_contact import form_context
+            values.update(await form_context(r,lang,news=detail))
         response=await render(r,'public/native.html',**values)
+        if 'challenge' in values:r.config.set_cookie(response,'public-form',values['challenge'],600)
         response.headers['Cache-Control']='no-store'
         return response
 

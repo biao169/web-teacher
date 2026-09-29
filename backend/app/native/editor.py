@@ -48,7 +48,7 @@ def editor_fields(table,row=None):
         if table=='student_category_displays' and name=='keywords':help_text='分号、逗号或换行分隔；任意一词匹配即可。最多20个不同关键词，每词最多120字；修改后自动预览。'
         if table=='publications' and name=='title':help_text='填写论文原题名，不区分中英文；需要英文展示时使用翻译功能。'
         if table=='publications' and (name.startswith(('citation_','highlight_')) or name=='bibtex'):help_text='已保存或手动修改的非空内容默认受保护；手动清空也会保护。取消保护后可重新生成，核对后统一保存。'
-        if spec.get('format')=='timestamp':help_text='按UTC时间填写，例如2026-09-14 09:30:00；保存时统一为UTC。'
+        if spec.get('format')=='timestamp':help_text='默认北京时间，可切换录入时区；保存时统一为UTC。'
         if table=='navigation_items' and name=='url_name':help_text='固定入口使用小写字母、数字、下划线或短横线；前台中文条件编码保存。'
         if spec.get('references',{}).get('table')=='media_assets':help_text='下拉显示最近20项；选择 / 上传可搜索全部适用媒体。'
         options=[(v,VISIBILITY_LABELS.get(v,v) if name.endswith('visibility') else v) for v in spec.get('enum',[])]
@@ -57,6 +57,10 @@ def editor_fields(table,row=None):
                       'history':name in SUGGESTION_FIELDS.get(table,()),'multiple':name in MULTIVALUE.get(table,set()),
                       'rows':8 if name=='content' else 4,'help':help_text,'options':options,
                       'placeholder':{'education':'例如：2010—2014　某大学，本科','experience':'例如：2018年至今　某大学，教师','orcid':'https://orcid.org/0000-0000-0000-000X'}.get(name,'')}
+    from .time_fields import local_value,ZONES,DEFAULT_ZONE
+    for name,spec in result.items():
+        if spec.get('format')=='timestamp' and not spec.get('readonly'):
+            spec.update(widget='zoned-time',time_value=local_value((row or {}).get(name)),time_zones=ZONES,time_zone=DEFAULT_ZONE)
     if table=='site_settings':
         result['publication_citation_style'].update(options=[('gbt','GB/T'),('elsevier','Elsevier'),('apa','APA'),('ieee','IEEE')],help='全站统一的论文阅读格式，默认GB/T；保留已保存的人工引用。')
         for name in ('homepage_student_limit','homepage_patent_limit'):result[name]['help']='0隐藏，正数为首页展示总上限；超过首批数量时分批读取。'

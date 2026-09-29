@@ -6,6 +6,14 @@
   {% if spec.get('readonly') %}
   <pre id="f-{{ field }}" class="native-record-text" tabindex="0" {% if described %}aria-describedby="{{ described }}"{% endif %}>{{ spec.get('readonly_text',value if value is not none else '—') }}</pre>
   {% if spec.get('paper_pdf') %}<div class="native-media-field-actions"><button type="button" class="btn btn-outline-primary btn-sm" disabled title="需要媒体库进入权限">⇧ 上传 PDF</button><button type="button" class="btn btn-outline-secondary btn-sm" disabled title="需要媒体库进入权限">▧ 从媒体库选择</button></div>{% endif %}
+  {% elif spec.widget=='zoned-time' %}
+  <div class="native-zoned-time" data-zoned-time data-original="{{ value or '' }}">
+  <input class="form-control form-control-sm" type="datetime-local" step="0.001" id="f-{{ field }}" name="{{ field }}" value="{{ spec.time_value }}" data-time-input {% if spec.get('required') %}required{% endif %}>
+  <label>录入时区<input class="form-control form-control-sm" name="_timezone_{{ field }}" value="{{ spec.time_zone }}" list="zones-{{ field }}" data-time-zone required autocomplete="off" aria-describedby="time-help-{{ field }}"></label>
+  <datalist id="zones-{{ field }}">{% for key,text in spec.time_zones %}<option value="{{ key }}">{{ text }}</option>{% endfor %}</datalist>
+  <label data-time-fold-label>重复时间（如适用）<select class="form-select form-select-sm" name="_fold_{{ field }}" data-time-fold><option value="">请选择</option><option value="0">较早一次</option><option value="1">较晚一次</option></select></label>
+  <small id="time-help-{{ field }}" data-time-status>北京时间 UTC+08:00；可选择或输入 IANA 时区。保存为 UTC。</small>
+  </div>
   {% elif spec.media %}
   {# Keep the native key for programmatic selection; the visible link is resolved at whole-form save. #}
   <select name="{{ field }}" data-media-key hidden aria-describedby="{{ described }}"><option value="">未设置</option>{% for key,text in choices.get(field,[]) %}<option value="{{ key }}" {% if key==value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select>

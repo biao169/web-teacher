@@ -1,0 +1,1 @@
+{% macro timestamp(value) -%}<time datetime="{{ value }}" data-local-time>{{ value|admin_datetime(480) }} · UTC+08:00</time>{%- endmacro %}

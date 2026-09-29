@@ -1,4 +1,5 @@
 """Second-step homepage composition with real templates and public paging."""
+import re
 from test_accounts_regression import fixture,run
 from test_public_home_step2 import add,configure,DOM
 from test_public_replan_v53 import image_asset
@@ -18,7 +19,8 @@ def test_five_modules_are_grouped_in_reading_order_and_home_css_is_scoped(fixtur
         sections=[a['data-table'] for t,a in dom.tags if 'data-public-stream' in a]
         assert sections==['publications','news','projects','patents','students']
         assert len(dom.find('h1'))==1
-        assert '/assets/public/css/home.css?v=0.15.60' in html
+        asset=re.search(r'href="(/assets/public/css/home\.css\?v=[^"]+)"',html)
+        assert asset and c.get(asset[1]).status_code==200
         assert html.index('id="home-news"')<html.index('data-home-group="secondary"')<html.index('id="home-projects"')
     for path in ('/zh/publications','/zh/contact','/admin/profiles'):
         assert 'home.css' not in c.get(path).text

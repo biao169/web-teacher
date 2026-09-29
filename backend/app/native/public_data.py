@@ -90,6 +90,8 @@ async def public_media_map(r,data):
         rows=await r.sql.query("SELECT uid,object_key,mime_type FROM media_assets WHERE status='active' AND object_key IN ("+','.join('?' for _ in batch)+')',batch)
         result.update({m['object_key']:m['uid'] for m in rows})
         types.update({m['object_key']:m['mime_type'] for m in rows})
+    for row in data.get('news',[]):
+        row['_cover_type']=types.get(row.get('cover_key'),'')
     for row in data.get('courses',[]):
         row['_attachment_types']={f:types.get(row.get(f),'') for f in ('syllabus_key','material_key') if f!='material_key' or row.get('material_visibility')=='public'}
     return result

@@ -18,8 +18,8 @@ def install(app,resources,render):
             row['detail_json']=json.dumps(row['detail_json'],ensure_ascii=False,indent=2)
             message_view=None;states={};attachment=None
         else:
-            from .messages import STATES,presentation
-            row=await r.content.get(table,uid,r.p);message_view=presentation(row);states=STATES;attachment=None
+            from .messages import STATES,views
+            row=await r.content.get(table,uid,r.p);message_view=(await views(r.content,[row]))[row['uid']];states=STATES;attachment=None
             if row.get('attachment_key') and r.p['permissions'].get('media_assets',{}).get('can_view'):
                 rows=await r.sql.query("SELECT uid,title FROM media_assets WHERE object_key=? AND status='active'",(row['attachment_key'],))
                 if rows:attachment=rows[0]

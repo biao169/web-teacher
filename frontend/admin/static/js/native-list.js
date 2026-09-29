@@ -5,9 +5,9 @@ import {requestJSON} from './native-http.js';
 import {notify,rememberNotice} from './native-notifications.js';
 
 const mounted=new WeakMap();
-const listActionControls='[data-translate-entry],[data-media-purge],[data-bulk-purge],[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload],[data-select-all],[data-select-row],[data-page-size]';
+const listActionControls='[data-order-field],[data-order-save],[data-translate-entry],[data-media-purge],[data-bulk-purge],[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload],[data-select-all],[data-select-row],[data-page-size]';
 
-export function mountList(root,transient=null){
+export function mountList(root,transient=null,orderDrafts=new Map()){
  if(!root)return;
  if(mounted.has(root))return mounted.get(root);
  const table=root.querySelector('table'),listeners=new AbortController();
@@ -15,7 +15,7 @@ export function mountList(root,transient=null){
  const headers=mountListHeaders(root),cleanups=[];
  let columns={snapshot:()=>transient,dispose(){}},disposed=false;
  let busy=false,stale=false,refreshing=false,writeFocus=null;
- const mutationSelector='[data-translate-entry],[data-media-purge],[data-bulk-purge],[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload]';
+ const mutationSelector='[data-order-field],[data-order-save],[data-translate-entry],[data-media-purge],[data-bulk-purge],[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload]';
  const selected=mountTableSelection(root),chosen=selected.chosen,selection=selected.paint;cleanups.push(selected.dispose);
  on(root.querySelector('[data-page-size]'),'change',event=>{const url=new URL(location.href);url.searchParams.set('size',event.target.value);url.searchParams.delete('page');location.assign(url)});
 
@@ -40,9 +40,9 @@ export function mountList(root,transient=null){
    const x=scroll.scrollLeft,y=main.scrollTop,selected=new Set(chosen().map(row=>row.dataset.uid));
    const preference=columns.snapshot(),draft=root.querySelector('#search').value;
    const focused=document.activeElement===document.body&&writeFocus?writeFocus:document.activeElement,focusUid=focused?.closest('tr[data-uid]')?.dataset.uid;
-   const focusKind=focused?.matches?.('[data-toggle-field]')?'[data-toggle-field="'+focused.dataset.toggleField+'"]':focused?.matches?.('[data-delete]')?'[data-delete]':focused?.matches?.('[data-media-status]')?'[data-media-status]':null;
+   const focusKind=focused?.matches?.('[data-order-field],[data-order-save]')?'[data-order-field]':focused?.matches?.('[data-toggle-field]')?'[data-toggle-field="'+focused.dataset.toggleField+'"]':focused?.matches?.('[data-delete]')?'[data-delete]':focused?.matches?.('[data-media-status]')?'[data-media-status]':null;
    history.replaceState(history.state,'',url.pathname+url.search+location.hash);
-   dispose();root.replaceWith(next);mountList(next,preference);
+   dispose();root.replaceWith(next);mountList(next,preference,orderDrafts);
    next.querySelector('#search').value=draft;
    for(const row of next.querySelectorAll('tr[data-uid]'))row.querySelector('[data-select-row]').checked=selected.has(row.dataset.uid);
    next.querySelector('[data-select-row]')?.dispatchEvent(new Event('change'));
@@ -97,6 +97,37 @@ export function mountList(root,transient=null){
    writeFocus=null;
   }
  }
+ function orderKey(input){return input.closest('tr').dataset.uid+':'+input.dataset.orderField;}
+ function orderChanged(input){return !/^-?[0-9]+$/.test(input.value)||Number(input.value)!==Number(input.dataset.orderSaved);}
+ function paintOrder(input){input.closest('.native-order-cell').querySelector('[data-order-save]').hidden=!orderChanged(input);}
+ on(root,'input',event=>{
+  const input=event.target.closest('[data-order-field]');if(!input)return;
+  paintOrder(input);const key=orderKey(input);
+  if(orderChanged(input))orderDrafts.set(key,{value:input.value,saved:input.dataset.orderSaved,stamp:input.dataset.orderStamp||input.closest('tr').dataset.stamp});
+  else{orderDrafts.delete(key);delete input.dataset.orderStamp;}
+ });
+ function saveOrder(input){
+  if(busy||stale||!orderChanged(input))return;
+  if(!/^-?[0-9]+$/.test(input.value)||!Number.isSafeInteger(Number(input.value))||!input.reportValidity()){
+   notify('排序值必须为允许范围内的整数','error',{id:'list-operation'});input.focus();return;
+  }
+  const row=input.closest('tr'),value=input.value,key=orderKey(input),draft=orderDrafts.get(key);
+  perform(async()=>{
+   notify('正在保存排序…','progress',{id:'list-operation'});
+   const result=await mutate(row,{action:'order',field:input.dataset.orderField,value,stamp:draft?.stamp||row.dataset.stamp});
+   // A confirmed write must never be retried because its following list read failed.
+   if(result.row){row.dataset.stamp=result.row.updated_at;input.value=String(result.row.value);input.dataset.orderSaved=input.value;}
+   orderDrafts.delete(key);paintOrder(input);
+   await finish('排序已保存'+(root.dataset.table==='navigation_items'?'；导航栏在完整刷新页面后同步':''));
+   if(!root.isConnected&&![...document.querySelectorAll('.native-list tr[data-uid]')].some(item=>item.dataset.uid===row.dataset.uid))notify('排序已保存；该条目已移出当前页或不再符合当前筛选','success',{id:'list-operation'});
+  });
+ }
+ on(root,'keydown',event=>{
+  const input=event.target.closest('[data-order-field]');if(!input||busy||stale||event.isComposing)return;
+  if(event.key==='Enter'){event.preventDefault();saveOrder(input);}
+  if(event.key==='Escape'){event.preventDefault();input.value=input.dataset.orderSaved;orderDrafts.delete(orderKey(input));delete input.dataset.orderStamp;paintOrder(input);}
+ });
+ on(root,'click',event=>{const button=event.target.closest('[data-order-save]');if(button)saveOrder(button.closest('.native-order-cell').querySelector('[data-order-field]'));});
  on(root,'click',event=>{
   const button=event.target.closest('[data-translate-entry],[data-media-purge],[data-bulk-purge],[data-delete],[data-toggle-field],[data-media-status]');if(!button||busy||stale)return;
   if(button.hasAttribute('data-translate-entry')){
@@ -171,6 +202,7 @@ export function mountList(root,transient=null){
  });
  selection();mounted.set(root,dispose);root.dataset.listReady='true';
  root.querySelectorAll(listActionControls).forEach(control=>control.disabled=false);
+ for(const input of root.querySelectorAll('[data-order-field]')){const draft=orderDrafts.get(orderKey(input));if(draft){input.value=draft.value;input.dataset.orderStamp=draft.stamp;}paintOrder(input);}
  const status=root.querySelector('[data-list-load-status]');if(status)status.hidden=true;
  const groupExport=root.querySelector('[data-export-groups]');if(groupExport)groupExport.disabled=true;
  // Optional enhancements load separately and only for their own markup. No rejection

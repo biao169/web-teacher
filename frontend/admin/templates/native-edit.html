@@ -1,7 +1,7 @@
 {% extends 'admin/layout.html' %}
 {% from 'admin/native-fields.html' import control %}
 {% from 'admin/native-help.html' import hint %}
-{% block metadata %}{{ super() }}{% if table=='publications' %}<link rel="stylesheet" href="/assets/admin/css/native-publication-editor.css?v=0.15.25">{% endif %}{% endblock %}
+{% block metadata %}{{ super() }}<script src="/assets/admin/js/native-time.js?v=0.15.117" defer></script><link rel="stylesheet" href="/assets/admin/css/native-time.css?v=0.15.117">{% if table=='publications' %}<link rel="stylesheet" href="/assets/admin/css/native-publication-editor.css?v=0.15.25">{% endif %}{% endblock %}
 {% block footer_class %}native-editor-footer{% endblock %}
 {% block content %}
 <div class="native-title"><h1>{{ page_title }}</h1>{% if specs.values()|selectattr('history')|list %}<a class="btn btn-outline-secondary btn-sm" href="/admin/translation/suggestions?module={{ table }}" target="_blank" rel="noopener" title="在新标签页查看已保存字段的常见写法，当前编辑保留">↗ 历史词库</a>{% endif %}</div>

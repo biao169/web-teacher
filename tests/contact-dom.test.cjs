@@ -18,3 +18,10 @@ test('success stays in page and prevents repeated submission, offers new message
 test('unexpected response does not clear draft or retry writes',async t=>{
  const f=fixture(t);f.submit();f.requests[0].resolve({ok:true,headers:{get:()=> 'text/html'}});await f.tick();assert.equal(f.$('textarea').value,'Draft');assert.equal(f.requests.length,1);assert.equal(f.$('form').hasAttribute('aria-busy'),false);
 });
+test('embedded news message keeps source in POST and write-another link',async t=>{
+ const f=fixture(t);f.$('form').action='/en/contact?news=demo-news-1';
+ const source=f.w.document.createElement('input');source.type='hidden';source.name='news_uid';source.value='demo-news-1';f.$('form').append(source);
+ f.submit();assert.equal(f.requests[0].opts.body.get('news_uid'),'demo-news-1');
+ f.requests[0].resolve({ok:true,headers:{get:()=> 'application/json'},json:async()=>({ok:true,message:'Private message sent'})});await f.tick();
+ assert.equal(f.$('.contact-actions a').href,'https://site.test/en/contact?news=demo-news-1');
+});

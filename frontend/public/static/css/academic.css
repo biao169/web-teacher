@@ -244,7 +244,7 @@ body.section-public .patent-record{display:flex;flex-wrap:wrap;gap:3px 10px;min-
 body.section-public .patent-records:empty,body.section-public .patent-people:empty{display:none}
 body.section-public .patent-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;margin:4px 0 0;white-space:normal;overflow-wrap:anywhere;font-size:var(--public-project-meta);line-height:var(--public-project-line);color:var(--public-muted)}
 /* Citation display remains independent of the copy-format choice. */
-body.section-public .publication-citation strong{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;font-weight:400;}  /* font-weight:var(--public-weight-emphasis) */
+body.section-public .publication-citation strong{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;font-weight:400;}    /*  font-weight:var(--public-weight-emphasis)  */
 body.section-public .publication-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 14px;margin-top:5px}
 body.section-public .publication-footer .publication-links{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0;min-width:0;overflow-wrap:anywhere}
 body.section-public .publication-footer .content-tags{margin:0 0 0 auto;justify-content:flex-end;min-width:0;overflow-wrap:anywhere}
@@ -324,3 +324,13 @@ body.section-public .project-text.project-with-status{grid-template-columns:minm
 body.section-public .project-main{min-width:0}
 body.section-public .project-text .project-status{grid-column:2;grid-row:1;justify-self:end;max-width:12ch;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:right;margin:0}
 @media(max-width:575px){body.section-public .project-text{column-gap:8px}body.section-public .project-text .project-status{max-width:9ch}}
+
+/* One news-cover component, compact in lists and fully contained in details. */
+body.section-public .content-card .content-cover video{display:block;width:96px;height:80px;object-fit:contain;background:transparent;border:0;border-radius:7px;}
+body.section-public .content-detail-cover{width:100%;min-width:0;background:transparent;border:0;margin:16px 0 24px;}
+body.section-public .content-detail-cover :is(img,video){display:block;width:auto;height:auto;max-width:100%;max-height:min(60vh,520px);object-fit:contain;object-position:center;background:transparent;border:0;border-radius:8px;}
+body.section-public .public-media :is(img,video,span)[hidden]{display:none;}
+body.section-public .academic-card-media video{display:block;width:130px;height:92px;max-width:100%;object-fit:contain;background:transparent;border:0;border-radius:5px;}
+body.section-public .content-detail-cover [data-media-fallback]{font-size:inherit;font-weight:inherit;line-height:inherit;padding:8px 0;}
+body.section-public .news-contact{margin-block:1.5rem;margin-inline:auto;}  /* max-width:860px;  */
+body.section-public .news-contact textarea{min-height:7rem;}

@@ -4,5 +4,7 @@
 <h1 data-copy-field>{{ row.get('name_en') if lang=='en' and row.get('name_en') else row[title_field[table]] }}</h1>
 <div class="content-facts">{% include 'public/content-fields.html' %}</div>
 <div class="content-links">{% include 'public/content-links.html' %}</div>
-{% if table=='news' %}<div class="native-public-richtext news-body" data-copy-field data-copy-rich>{{ row.body_html|safe }}</div>{% endif %}
+{% if table=='news' %}{% from 'public/news-media.html' import cover %}{{ cover(row,media_map,css='content-detail-cover',detail=true,lang=lang) }}<div class="native-public-richtext news-body" data-copy-field data-copy-rich>{{ row.body_html|safe }}</div>{% endif %}
 </article>
+
+{% if table=='news' and row.allow_comments==1 %}<section class="contact-card news-contact" id="news-message" aria-labelledby="news-message-title"><h2 id="news-message-title">{{ 'Leave a message' if lang=='en' else '关于这条新闻留言' }}</h2><p>{{ 'Your message is private and will be sent to the website administrator.' if lang=='en' else '留言仅提交给网站管理员，不会公开展示。' }}</p>{% include 'public/contact-fields.html' %}</section><script src="/assets/public/js/contact.js?v=0.15.64" defer></script>{% endif %}

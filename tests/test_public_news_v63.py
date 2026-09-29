@@ -7,14 +7,15 @@ from justhtml import JustHTML
 
 @pytest.mark.parametrize('lang',['zh','en'])
 @pytest.mark.parametrize('allow',[0,1])
-def test_news_reader_settings_and_detail_no_duplicate_cover(fixture,lang,allow):
+def test_news_reader_settings_and_detail_cover(fixture,lang,allow):
     c,r=fixture;pdf=register(r,status='active');image=register(r,status='active')
     run(r.sql.batch([('UPDATE media_assets SET mime_type=? WHERE uid=?',('application/pdf',pdf['uid'])),('UPDATE global_settings SET news_pdf_allow_download=?,news_pdf_watermark=?',(allow,'Team <script>literal</script> " &'))]))
     body=f'<p>Body text</p><p><img src="/media/{image["uid"]}"></p><p><a href="/media/{pdf["uid"]}">Paper</a></p>'
     row=source(r,'news','content',body,content_format='html',cover_key=image['object_key'],category='研究动态')
     page=c.get(f'/{lang}/news/{row["uid"]}');assert page.status_code==200
     doc=JustHTML(page.text,sanitize=False)
-    assert len(doc.query('.content-detail-cover'))==0
+    assert len(doc.query('.content-detail-cover'))==1
+    assert len(doc.query('.content-detail-cover img'))==1
     assert len(doc.query('.news-body img'))==1
     readers=doc.query('[data-pdf-public]');assert len(readers)==1
     reader=readers[0];assert reader.attrs['data-pdf-watermark']=='Team <script>literal</script> " &'

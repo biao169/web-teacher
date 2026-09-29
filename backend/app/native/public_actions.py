@@ -29,7 +29,16 @@ async def contact(r,data,network,new_uid=None,before=(),after=()):
     if email and (len(email)>254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email)):raise Error('邮箱格式无效')
     if not r.p and not await r.sql.query('SELECT 1 FROM global_settings WHERE allow_anonymous_messages=1 LIMIT 1'):raise Error('请登录后留言',403)
     if new_uid is not None and (not isinstance(new_uid,str) or not re.fullmatch('[a-f0-9]{32}',new_uid)):raise Error('新增标识无效')
+    news_uid=data.get('news_uid','');kind='contact';source_guard='';source_args=()
+    if news_uid:
+        from .public_contact import news_source
+        news=await news_source(r,news_uid);kind='news:'+news['uid']
+        where,args=r.content.scope('news',public=True)
+        source_guard=' AND EXISTS(SELECT 1 FROM news WHERE uid=? AND allow_comments=1 AND '+where+')'
+        source_args=(news_uid,*args)
     await throttle(r.sql,'contact',network,email or network);uid=new_uid or secrets.token_hex(16)
-    rows=await r.sql.batch([*before,("INSERT INTO messages(uid,name,email,message_type,subject,content,status,visibility) SELECT ?,?,?,'contact',?,?,'new','hidden' WHERE ?=1 OR EXISTS(SELECT 1 FROM global_settings WHERE allow_anonymous_messages=1) RETURNING uid",(uid,name or None,email or None,subject or None,content,int(bool(r.p)))),*after])
-    if not rows[len(before)]:raise Error('当前无法匿名留言',403)
+    rows=await r.sql.batch([*before,("INSERT INTO messages(uid,name,email,message_type,subject,content,status,visibility) SELECT ?,?,?,?,?,?,'new','hidden' WHERE (?=1 OR EXISTS(SELECT 1 FROM global_settings WHERE allow_anonymous_messages=1))"+source_guard+" RETURNING uid",(uid,name or None,email or None,kind,subject or None,content,int(bool(r.p)),*source_args)),*after])
+    if not rows[len(before)]:
+        if news_uid:await news_source(r,news_uid)
+        raise Error('当前无法匿名留言',403)
     return uid

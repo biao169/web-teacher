@@ -1,0 +1,1 @@
+{{ message_view.type_label }}{% if message_view.source %} · {% if message_view.source.url %}<a href="{{ message_view.source.url }}" target="_blank" rel="noopener" title="{{ message_view.source.title }}">{{ message_view.source.title }}</a>{% else %}<span class="native-muted">{{ message_view.source.title }}</span>{% endif %}{% endif %}

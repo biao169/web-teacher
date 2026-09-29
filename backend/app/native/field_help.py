@@ -23,7 +23,7 @@ COMMON={
  'avatar_key':'教师或学生头像；选择/上传可检索全部适用图片，预览完整等比显示。',
  'pdf_key':'论文PDF附件；通过统一媒体库选择或上传PDF。',
  'pdf_visibility':'控制论文PDF访问范围，与论文正文可见性分别校验。',
- 'cover_key':'新闻封面图片；选择或上传后可裁剪另存，保存整条新闻后建立引用。',
+ 'cover_key':'新闻封面支持图片、MP4/WebM 视频；图片可裁剪另存，保存整条新闻后建立引用。视频不自动播放。',
  'material_visibility':'独立控制课程材料的引用权限；当前访客模板未展示材料下载按钮。',
  'url':'完整HTTP/HTTPS链接，不可包含账号和密码；当前论文访客页主要提供DOI链接。',
  'keywords':'用于关键词记录及适用的检索条件。','category':'用于分类及筛选，可填写中文。',
@@ -85,7 +85,7 @@ BY_TABLE={
   'related_publication_uid':'关联一篇已有且有权查看的论文；当前访客模板未单独展示关联入口。',
   'related_project_uid':'关联一个已有且有权查看的项目；当前访客模板未单独展示关联入口。',
   'related_student_uid':'关联一名已有且有权查看的学生；当前访客模板未单独展示关联入口。',
-  'allow_comments':'当前仅保存，新闻详情评论入口尚未接入；通用联系页面仍由全局留言设置控制。',
+  'allow_comments':'开启后在公开新闻详情显示私密留言表单；是否允许游客提交由全局匿名留言设置控制，留言不公开展示。',
   'published_at':'访客仅能查看已到发布时间且公开的新闻；留空不发布，未来时间到达后才可见。',
  },
  'navigation_items':{
@@ -164,7 +164,7 @@ def requirements(table,field,spec):
         if spec.get('max') is not None:rules.append('最大 '+str(spec['max']))
     elif kind=='json':rules.append('有效JSON'+('数组' if spec.get('jsonType')=='array' else '对象') if spec['widget'] not in ('scopes','providers') else '通过上方选项设置')
     else:
-        formats={'decimal':'非负数，最多4位小数','date':'YYYY-MM-DD','timestamp':'UTC日期时间，如2026-09-14 09:30:00'}
+        formats={'decimal':'非负数，最多4位小数','date':'YYYY-MM-DD','timestamp':('按旁边所选时区录入，保存为UTC' if spec['widget']=='zoned-time' else 'UTC日期时间，如2026-09-14 09:30:00')}
         if native.get('format') in formats:rules.append(formats[native['format']])
         if spec['widget']=='url':rules.append('完整HTTP/HTTPS链接')
         if spec['widget']=='email':rules.append('邮箱格式，例如name@example.org')

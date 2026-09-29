@@ -17,7 +17,7 @@ body.section-public .home-card p{font-size:var(--public-font-size-31);line-heigh
 body.section-public .home-card .academic-meta{font-size:var(--public-font-size-35);}
 body.section-public .home-card.academic-card-with-media{grid-template-columns:88px minmax(0,1fr);padding:12px 14px;}
 body.section-public .home-card .academic-card-media{width:88px;height:80px;min-height:0;display:grid;place-items:center;justify-self:start;align-self:center;}
-body.section-public .home-card .academic-card-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:var(--public-color-2);border:0;border-radius:5px;}
+body.section-public .home-card .academic-card-media :is(img,video){display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:var(--public-color-2);border:0;border-radius:5px;}
 body.section-public .home-module-grid-secondary .home-card{background:var(--public-color-2);border:0;border-radius:0;padding:10px 0;box-shadow:none;}
 body.section-public .home-module-grid-secondary .home-card+.home-card{border-top:1px solid var(--line);}
 body.section-public .home-module-grid-secondary .academic-card-list{gap:0;}

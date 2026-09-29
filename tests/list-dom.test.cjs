@@ -20,9 +20,10 @@ with tempfile.TemporaryDirectory() as directory:
     client.close()
 `],{cwd:project,encoding:'utf8',maxBuffer:4*1024*1024}));
 
-function runtime({media=false,failPurge=false,mobile=false,confirmResult=true,fail=[],storageFailure=false,readFailure=false,url='/admin/profiles?sort=name&direction=asc&size=20'}={}){
+function runtime({failOrder=false,media=false,failPurge=false,mobile=false,confirmResult=true,fail=[],storageFailure=false,readFailure=false,url='/admin/profiles?sort=name&direction=asc&size=20'}={}){
  if(media)url='/admin/media_assets?f.status=trash';
  const dom=new JSDOM(media?fixtures.mediahtml:fixtures.html,{url:'http://127.0.0.1:8765'+url,pretendToBeVisual:true});
+ let orderSequence=0;const orderFragment=JSON.parse(JSON.stringify(fixtures.fragment));
  const w=dom.window,document=w.document,errors=[],navigation=[],requests=[],confirmations=[],timers=new Set(),modules=new Map();
  const viewport={matches:mobile,listener:null,addEventListener(type,listener){this.listener=listener}};
  let current=new URL(w.location.href);
@@ -39,8 +40,15 @@ function runtime({media=false,failPurge=false,mobile=false,confirmResult=true,fa
   matchMedia:query=>query==='(max-width: 767px)'?viewport:{matches:true},navigator:w.navigator,
   fetch:async(input,options={})=>{
    requests.push({url:String(input),options});const body=options.body?JSON.parse(options.body):{};
-   const failed=(readFailure&&options.method!=='POST')||(failPurge&&body.action==='purge');
-   return {ok:!failed,status:failed?503:200,url:new URL(input,current).href,json:async()=>failed?{error:'Synthetic read failure'}:body.action==='purge-prepare'?{token:'synthetic-token',name:'Trash file',mode:'永久删除文件及登记',size:1536}:options.method==='POST'?{ok:true}:media?fixtures.mediafragment:fixtures.fragment}
+   if(body.action==='order'&&!failOrder){
+    const uid=decodeURIComponent(String(input).split('/').pop()),stamp=`2026-09-29T08:10:${String(++orderSequence).padStart(2,'0')}.000Z`;
+    const template=document.createElement('template');template.innerHTML=orderFragment.html;
+    const row=[...template.content.querySelectorAll('tr[data-uid]')].find(row=>row.dataset.uid===uid),control=row.querySelector('[data-order-field]');
+    row.dataset.stamp=stamp;control.setAttribute('value',body.value);control.dataset.orderSaved=body.value;orderFragment.html=template.innerHTML;
+    return {ok:true,status:200,json:async()=>({ok:true,row:{uid,field:body.field,value:Number(body.value),updated_at:stamp}})};
+   }
+   const failed=(readFailure&&options.method!=='POST')||(failPurge&&body.action==='purge')||(failOrder&&body.action==='order');
+   return {ok:!failed,status:failed?(failOrder?422:503):200,url:new URL(input,current).href,json:async()=>failed?{error:'Synthetic read failure'}:body.action==='purge-prepare'?{token:'synthetic-token',name:'Trash file',mode:'永久删除文件及登记',size:1536}:options.method==='POST'?{ok:true}:media?fixtures.mediafragment:orderFragment}
   }
  };
  for(const name of ['AbortController','Event','CustomEvent','MouseEvent','KeyboardEvent','MutationObserver','Option','HTMLElement','FormData'])sandbox[name]=w[name];
@@ -310,4 +318,27 @@ test('media KB cells use integers and a compact default width',async t=>{
  assert.equal(r.root().querySelector('td[data-column=size]').textContent.trim(),'2');
  await until(()=>r.root().querySelector('th[data-column=size]').style.width==='100px');
  assert.equal(r.root().querySelector('[data-purge-immediate]'),null);
+});
+test('inline ordering requires explicit save, Escape restores, Enter saves with fresh version',async t=>{
+ const r=runtime();t.after(()=>r.close());const m=await list(r);m.mountList(r.root());
+ let input=r.root().querySelector('[data-order-field]');const original=input.value;
+ input.value='-9';input.dispatchEvent(new r.w.Event('input',{bubbles:true}));input.dispatchEvent(new r.w.Event('blur'));
+ assert.equal(r.requests.filter(x=>x.options.method==='POST').length,0);assert.equal(input.parentElement.querySelector('button').hidden,false);
+ input.dispatchEvent(new r.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(input.value,original);assert.equal(input.parentElement.querySelector('button').hidden,true);
+ for(const value of ['-10','21']){
+  const before=r.root();input=before.querySelector('[data-order-field]');const stamp=input.closest('tr').dataset.stamp;input.focus();input.value=value;input.dispatchEvent(new r.w.Event('input',{bubbles:true}));input.dispatchEvent(new r.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+  await until(()=>r.root()!==before);const posts=r.requests.filter(x=>x.options.method==='POST'),body=JSON.parse(posts.at(-1).options.body);
+  assert.equal(body.action,'order');assert.equal(body.value,value);assert.equal(body.stamp,stamp);assert.equal(r.root().querySelector('[data-order-field]').value,value);assert.ok(r.document.activeElement.matches('[data-order-field]'));
+ }
+ const count=r.requests.length;input=r.root().querySelector('[data-order-field]');input.dispatchEvent(new r.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));assert.equal(r.requests.length,count);
+});
+test('rejected order write preserves input and enables retry without refreshing',async t=>{
+ const r=runtime({failOrder:true});t.after(()=>r.close());(await list(r)).mountList(r.root());const root=r.root(),input=root.querySelector('[data-order-field]');input.value='77';input.dispatchEvent(new r.w.Event('input',{bubbles:true}));input.parentElement.querySelector('button').click();
+ await until(()=>r.requests.length===1&&!root.hasAttribute('aria-busy'));assert.equal(r.root(),root);assert.equal(input.value,'77');assert.equal(input.disabled,false);assert.equal(input.parentElement.querySelector('button').hidden,false);
+});
+test('saving order preserves other row drafts and visible selections through refresh',async t=>{
+ const r=runtime();t.after(()=>r.close());(await list(r)).mountList(r.root());const before=r.root(),inputs=before.querySelectorAll('[data-order-field]');before.querySelector('[data-select-row]').checked=true;before.querySelector('#search').value='draft search';
+ for(const [i,value] of [[0,'22'],[1,'33']]){inputs[i].value=value;inputs[i].dispatchEvent(new r.w.Event('input',{bubbles:true}));}
+ inputs[0].parentElement.querySelector('button').click();await until(()=>r.root()!==before);
+ assert.equal(r.root().querySelectorAll('[data-order-field]')[1].value,'33');assert.equal(r.root().querySelector('[data-select-row]').checked,true);assert.equal(r.root().querySelector('#search').value,'draft search');
 });

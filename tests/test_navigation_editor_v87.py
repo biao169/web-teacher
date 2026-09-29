@@ -23,7 +23,9 @@ def test_round_trip_and_public_editor_fields(fixture,lang):
     assert fields['name']['default_operator']=='contains' and fields['status']['operators']==['eq']
     assert not {'principal','amount','members'}&fields.keys()
     html=c.get('/admin/navigation_items/'+uid+'/edit').text
-    assert 'data-nav-pending' in html and 'native.js?v=0.15.92' in html
+    assert 'data-nav-pending' in html
+    asset=re.search(r'src="(/assets/admin/js/native\.js\?v=[^"]+)"',html)
+    assert asset and c.get(asset[1]).status_code==200
     assert request(c,r,action='parse',path=path).json()['conditions']==RULE
     # Scoped visitor links contain only an ASCII slug, never the stored condition marker.
     assert 'href="/en/n/ai-projects"' in c.get('/en').text

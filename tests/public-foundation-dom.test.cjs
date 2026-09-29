@@ -37,3 +37,11 @@ test('public styles reference centralized typography and color values without mi
  // Theme scopes shared overrides away from administration and keeps reading sizes in one source.
  assert.match(theme,/body\.section-public:not\(\.transfer-public\)/);assert.match(theme,/--public-root-large:20px/);
 });
+test('news video appended by infinite scroll exposes fallback on media error',t=>{
+ const f=fixture(t),root=f.w.document.querySelector('[data-stream-items]');
+ root.innerHTML='<div data-public-media><video src="/media/video" controls preload="none"></video><span data-media-fallback hidden>研</span></div>';
+ root.dispatchEvent(new f.w.CustomEvent('public:appended',{bubbles:true}));
+ assert.equal(root.querySelector('span').hidden,true);
+ root.querySelector('video').dispatchEvent(new f.w.Event('error'));
+ assert.equal(root.querySelector('video').hidden,true);assert.equal(root.querySelector('span').hidden,false);
+});

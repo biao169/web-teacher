@@ -21,10 +21,32 @@ def decorate_fields(specs,row):
         if field not in ('status','visibility'):spec.update(readonly=True,media=False,history=False,help='访客提交的原始信息，仅供查看，不随处理状态保存。')
     specs['email'].update(widget='email',help='访客原始邮箱，只读；复制邮箱不会发送消息。')
     specs['message_type']['help']='留言来源或类型标记，例如contact、news、cooperation；保留已有原值，后台不会发送通知。'
-    specs['content']['help']='原始留言只读，按纯文本展示，换行保留；HTML不会执行。新闻来源前缀保留在正文中，没有独立新闻外键。'
+    specs['content']['help']='原始留言只读，按纯文本展示，换行保留；HTML不会执行。新闻来源保存在类型标记中，正文保持原样。'
     specs['visibility']['help']='控制哪些后台角色可查看此记录；留言不会因此变成前台公开评论。'
 
 def presentation(row):
     """为列表和只读详情提供相同的状态文字、语义样式及类型标签。"""
     state=row.get('status');return {'state_label':STATES.get(state,state or '未设置'),'state_style':STATE_STYLES.get(state,'muted'),
-                                  'type_label':TYPE_LABELS.get(row.get('message_type'),row.get('message_type') or '未分类')}
+                                  'type_label':'新闻留言' if news_uid(row) else TYPE_LABELS.get(row.get('message_type'),row.get('message_type') or '未分类'),'source':None}
+
+def news_uid(row):
+    value=row.get('message_type') or ''
+    return value[5:] if value.startswith('news:') and 1<=len(value[5:])<=128 else None
+
+async def views(content,rows):
+    """Batch resolve public news sources for a page; no per-message queries or private news leak."""
+    from urllib.parse import quote
+    result={row['uid']:presentation(row) for row in rows}
+    ids=list(dict.fromkeys(uid for row in rows if (uid:=news_uid(row))))
+    sources={};where,args=content.scope('news',public=True)
+    for offset in range(0,len(ids),40):
+        batch=ids[offset:offset+40]
+        found=await content.sql.query('SELECT uid,title FROM news WHERE uid IN ('+','.join('?' for _ in batch)+') AND '+where,(*batch,*args))
+        sources.update({row['uid']:row for row in found})
+    for row in rows:
+        uid=news_uid(row)
+        if uid:
+            source=sources.get(uid)
+            result[row['uid']]['source']={'title':source['title'] if source else '来源新闻已删除或不可公开访问',
+                                         'url':'/zh/news/'+quote(uid,safe='') if source else ''}
+    return result

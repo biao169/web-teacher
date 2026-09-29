@@ -35,8 +35,8 @@ async function initialize(){
  // available even if list actions fail to import; never disable the search submit.
  const root=document.querySelector('.native-list[data-table]:not([data-list-kind="audit"])');
  if(root){
-  holdControls('[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload],[data-page-size],[data-select-all],[data-select-row],[data-export-groups]',root);
-  try{const {mountList}=await import('./native-list.js?v=0.15.42');mountList(root)}
+  holdControls('[data-order-field],[data-order-save],[data-delete],[data-toggle-field],[data-media-status],[data-bulk-delete],[data-bulk-media],[data-bulk-message],[data-message-bulk-status],[data-media-upload],[data-page-size],[data-select-all],[data-select-row],[data-export-groups]',root);
+  try{const {mountList}=await import('./native-list.js?v=0.15.118');mountList(root)}
   catch(error){
    root.dataset.listReady='failed';
    const status=root.querySelector('[data-list-load-status]');

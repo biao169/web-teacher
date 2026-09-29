@@ -4,12 +4,12 @@
   if (!document.body.classList.contains('section-public')) return;
   function prepareMedia(scope) {
     for (const frame of scope.querySelectorAll('[data-public-media]')) {
-      const img = frame.querySelector('img'), fallback = frame.querySelector('[data-media-fallback]');
+      const img = frame.querySelector('img,video'), fallback = frame.querySelector('[data-media-fallback]');
       if (!img || !fallback || img.dataset.fallbackReady) continue;
       img.dataset.fallbackReady = '1';
       const failed = () => { img.hidden = true; fallback.hidden = false; };
       img.addEventListener('error', failed, {once:true});
-      if (img.complete && !img.naturalWidth) failed();
+      if (img.tagName === 'IMG' ? img.complete && !img.naturalWidth : img.error) failed();
     }
   }
   prepareMedia(document);

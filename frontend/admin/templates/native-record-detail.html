@@ -7,7 +7,7 @@
 {% for group in groups %}<section class="panel native-editor-section native-record-section" id="{{ group.id }}"><h2>{{ group.label }}</h2><dl class="native-record-grid">
 {% for field in group.fields %}<div class="{{ 'native-wide' if field in ['content','detail_json','summary','subject'] else '' }}"><dt>{{ label(table,field) }}</dt><dd>
 {% if field=='status' and message_view %}<span class="native-message-state" data-state="{{ message_view.state_style }}">{{ message_view.state_label }}</span>
-{% elif field=='message_type' and message_view %}{{ message_view.type_label }}
+{% elif field=='message_type' and message_view %}{% include 'admin/native-message-source.html' %}
 {% elif field in ['content','detail_json'] %}<pre class="native-record-text" tabindex="0">{{ row.get(field) or '暂无内容' }}</pre>
 {% elif field.endswith('_at') %}{{ row.get(field)|admin_datetime }}
 {% elif field=='attachment_key' %}{% if attachment %}<a href="/admin/media/{{ attachment.uid }}/inspect" class="btn btn-outline-primary btn-sm" title="在媒体库查看附件预览及使用位置">◉ {{ attachment.title or '预览附件' }}</a>{% elif row.get(field) %}<span class="native-muted">附件不可用或没有媒体查看权限</span>{% else %}—{% endif %}
