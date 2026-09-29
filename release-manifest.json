@@ -10,8 +10,8 @@
       "sha256": "1bb1b2af56ecd35a42a615b8ca2051a63893dd3db513ff7361ede6316c67f10f"
     },
     "README.md": {
-      "bytes": 58669,
-      "sha256": "f9dd6fef9b14bbe7557583a0129b1ec48acfd8cefa528dc37da8cbed0bb4bdbc"
+      "bytes": 59502,
+      "sha256": "e47e74806b94813796dd425a1dce2f85e9dca22b81dd5bab6b39f04b96b92973"
     },
     "backend/__init__.py": {
       "bytes": 0,
@@ -337,6 +337,10 @@
       "bytes": 6661,
       "sha256": "c02923c9781030697073637e8299e59f15c75ac51741e07da89ec892a89ed1e3"
     },
+    "backend/app/native/public_seo.py": {
+      "bytes": 2851,
+      "sha256": "c4a3aa6cca4df5d3d673ea2085830b879f0939d0c36b54b9c8ac02f2b00b74e6"
+    },
     "backend/app/native/public_students.py": {
       "bytes": 1861,
       "sha256": "a92cc1b660b8b89200f15992842a18130e07a3f6db4dce9bbadd4f798004661f"
@@ -450,8 +454,8 @@
       "sha256": "e16b7d164d2eb8d86b08ef7bc3c123d409054bae8c5d1e29f438816a0b1a69e4"
     },
     "backend/app/native/web.py": {
-      "bytes": 65148,
-      "sha256": "5bf3ed03dcbbba3905e90dc94a8d87e1f1a4a522a68a2df577277d21995b1f39"
+      "bytes": 66689,
+      "sha256": "1511f2316996e254bcdb46f0056b5f7e4f93f70df2e2c5a5b6b1cc7037c5280a"
     },
     "backend/app/ports/__init__.py": {
       "bytes": 0,
@@ -618,8 +622,8 @@
       "sha256": "accfb62103eeed22c6e10ca38ce13ab051a9c61527c4ae8b52b638eded98d665"
     },
     "deploy/linux/tweb.py": {
-      "bytes": 55028,
-      "sha256": "120bc00156d1b75abbb7a35ba989d518d2f04925b610ed340d8295d2a165503b"
+      "bytes": 55130,
+      "sha256": "4931879eb64a0077b97dd9475e0cd73be0cebb258a1c88dc363806dbbb609ace"
     },
     "deploy/shared/bootstrap.py": {
       "bytes": 1763,
@@ -674,8 +678,8 @@
       "sha256": "c41dbdbec5eaef96cad480140611efde54408f4676c6ab1b2bf622a3aca6f5bd"
     },
     "deploy/vps/release.py": {
-      "bytes": 12144,
-      "sha256": "ae0613d2c09b4d7c4430adf71e7ad3c7efe13d0cd67e85e8f1200f17c0bf41e4"
+      "bytes": 12214,
+      "sha256": "3b072bce69268b36ce30a8f2061b2b56edb4fc932ceeddca1f5c5954a793406d"
     },
     "deploy/windows/README.md": {
       "bytes": 3318,
@@ -1581,6 +1585,10 @@
       "bytes": 3470,
       "sha256": "202f7cc0652b50342c1b0b26428923980300eb543ab8099a48b75d14348a3d09"
     },
+    "docs/search-engine-v114.md": {
+      "bytes": 2766,
+      "sha256": "c74771b4b9b687c7ef38d84075a705883a1abe9f68ebfca40fac4bd5b6d76c75"
+    },
     "docs/transfer-admin-v97.md": {
       "bytes": 2406,
       "sha256": "2ca42edfccd1a51264c2eab7791dcf17f9cdf688ee81ca14b8f8b0c232697da1"
@@ -2262,8 +2270,8 @@
       "sha256": "1ab879e37a338ae0c69884c8c6575d861fbe704fc536f40284ccf54247af28ca"
     },
     "frontend/public/templates/native.html": {
-      "bytes": 1785,
-      "sha256": "83555df0b5dd582622ecc385f426ca48dae54ac1c5592c0ee9cacf91e3a60104"
+      "bytes": 1984,
+      "sha256": "56c8520afe0eba214c9456398ab4d324fbea9757736b3b2f18d8ad07c3562a46"
     },
     "frontend/public/templates/news-media.html": {
       "bytes": 503,
@@ -3262,8 +3270,8 @@
       "sha256": "029d3dc6cd54742423501637c56dcc32f7bab75dfbe3d33e53bb4aeb7066bf76"
     },
     "install.sh": {
-      "bytes": 3645,
-      "sha256": "67d6ea38e74182fbe3a0f3aa70961d4f5330b6f9236843ab14fe4583075e1b50"
+      "bytes": 3784,
+      "sha256": "a4359bcb9db66dc2cf5382a99b29c2e0aa8f0b706ba69ea0495574204ee33a9c"
     },
     "legal/licenses/justhtml-LICENSE.txt": {
       "bytes": 1256,
@@ -3275,7 +3283,7 @@
     },
     "pyproject.toml": {
       "bytes": 239,
-      "sha256": "6e26ec37ad12a5aeb6b8a255e2930becac0c81956d6963c2fa0c3093c1a5934f"
+      "sha256": "e62890921a0a82a57098b9585d2550201234d4238d6192effc9063274ea6ef34"
     },
     "start-transfer.sh": {
       "bytes": 156,
@@ -3664,6 +3672,10 @@
     "tests/test_public_replan_v53.py": {
       "bytes": 8145,
       "sha256": "8fc9554564d58aa052fb722d0e89b2c33ab5cd4296dbb3ffd26af99165288c4e"
+    },
+    "tests/test_public_seo_v114.py": {
+      "bytes": 4328,
+      "sha256": "c17306802045c9d5a76f8f170125247db46fc0e92a9ad5324a53542393d63053"
     },
     "tests/test_public_stream_v46.py": {
       "bytes": 10553,

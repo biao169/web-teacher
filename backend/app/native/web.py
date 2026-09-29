@@ -118,6 +118,8 @@ def create_app(factory,static_root=None):
         try:factory(request).config.valid_host(request)
         except Error as exc:return HTMLResponse('请使用配置的网站地址访问',status_code=exc.status)
         response=await call_next(request)
+        if request.url.path.startswith(('/admin','/auth/','/api/','/transfer','/health')):
+            response.headers['X-Robots-Tag']='noindex, nofollow'
         response.headers['X-Content-Type-Options']='nosniff';response.headers.setdefault('Referrer-Policy','same-origin')
         # Browser media may follow authorized external links; cross-origin pixel reads remain subject to CORS.
         image_policy="'self' data: https: http: blob:" if request.url.path.startswith('/admin') else "'self' data: https: http:"
@@ -705,6 +707,24 @@ def create_app(factory,static_root=None):
         if r.kind=='local':return RedirectResponse('/transfer/',303)
         if r.transfer_url:return RedirectResponse(r.transfer_url,303)
         raise Error('尚未配置文件快传地址',503)
+    # Use the configured origin and raw database; cookies never broaden sitemap visibility.
+    @app.get('/robots.txt')
+    async def crawler_rules(request:Request):
+        from .public_seo import robots
+        return robots(factory(request).config.origin)
+    @app.get('/sitemap.xml')
+    async def sitemap_index(request:Request):
+        from .public_seo import index
+        return await index(factory(request))
+    @app.get('/sitemap-home.xml')
+    async def sitemap_home(request:Request):
+        from .public_seo import xml
+        origin=factory(request).config.origin
+        return xml('urlset',[origin+'/en',origin+'/zh'])
+    @app.get('/sitemap-{table}-{part}.xml')
+    async def sitemap_chunk(request:Request,table:str,part:int):
+        from .public_seo import chunk
+        return await chunk(factory(request),table,part)
     @app.get('/')
     async def home():"""将根页面重定向到默认语言首页。""";return RedirectResponse('/en',307)
     @app.get('/api/public/{lang}/{table}/{uid}/description')
@@ -830,6 +850,14 @@ def create_app(factory,static_root=None):
                                  'query_id':pages['query_id'],'nav':scope['slug'] if scope else '', 'nav_stamp':scope['stamp'] if scope else ''},headers={'Cache-Control':'no-store'})
         from .public_data import people_facets
         values['people_facets']=await people_facets(r.content,table,fixed_conditions=fixed,lang=lang,query=query) if table and not uid else []
+        # Canonicalize default list controls; retain meaningful paging/filter state.
+        seo_query=dict(query)
+        for key,default in (('page','1'),('size','10'),('direction','asc')):
+            if str(seo_query.get(key,''))==default:seo_query.pop(key,None)
+        seo_query.pop('sort',None)
+        if uid:seo_query={}
+        values['seo_canonical']=r.config.origin+query_url(request.url.path,seo_query)
+        values['seo_alternates']={code:r.config.origin+query_url('/'+code+request.url.path[3:],seo_query) for code in ('en','zh')}
         response=await render(r,'public/native.html',**values)
         response.headers['Cache-Control']='no-store'
         return response

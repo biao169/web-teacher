@@ -124,7 +124,7 @@ def render(output,base,teacher_domain,transfer_domain,python,port=8003):
  if base=='/' or not base.startswith('/opt/'):raise ValueError('生产基目录须位于/opt下')
  output=Path(output);output.mkdir(mode=0o700)
  (output/'storage.toml').write_text(f'[storage]\ndata_dir="{base}/data"\ndatabase_path="{base}/data/database/site.sqlite3"\ncache_dir="{base}/data/cache"\nmedia_dir="{base}/data/media"\ntransfer_database_path="{base}/data/database/legacy-transfer.sqlite3"\ntransfer_media_dir="{base}/transfer-data/files"\ntransfer_cache_dir="{base}/transfer-data/cache"\n')
- (output/'teacher-site.env').write_text(f'TEACHER_CONFIG=/etc/teacher-site/storage.toml\nTEACHER_ORIGIN=https://{host}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n')
+ (output/'teacher-site.env').write_text(f'TEACHER_CONFIG=/etc/teacher-site/storage.toml\n# Canonical public origin also supplies robots.txt and sitemap URLs.\nTEACHER_ORIGIN=https://{host}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n')
  (output/'teacher-site.env').chmod(0o600)
  unit=f"""[Unit]
 Description=Teacher website with integrated file transfer

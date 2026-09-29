@@ -691,7 +691,7 @@ location / {{
 
     def paths(self,state=None):
         state=state or self.load()
-        print(json.dumps({'website':'https://'+state['domain'],'admin':'https://'+state['domain']+'/admin','transfer':'https://'+state['domain']+'/transfer','repository':state['repo'],'branch':state['branch'],'phase':state['phase'],'application_port':state.get('port',8003),'code':str(self.l.current),'config':str(self.l.config),'database':str(self.l.data/'database/site.sqlite3'),'media':str(self.l.data/'media'),'transfer_files':str(self.l.base/'transfer-data'),'logs':str(self.l.data/'logs/service.log'),'service':str(self.l.unit),'command':str(self.l.command)},ensure_ascii=False,indent=2))
+        print(json.dumps({'website':'https://'+state['domain'],'sitemap':'https://'+state['domain']+'/sitemap.xml','robots':'https://'+state['domain']+'/robots.txt','admin':'https://'+state['domain']+'/admin','transfer':'https://'+state['domain']+'/transfer','repository':state['repo'],'branch':state['branch'],'phase':state['phase'],'application_port':state.get('port',8003),'code':str(self.l.current),'config':str(self.l.config),'database':str(self.l.data/'database/site.sqlite3'),'media':str(self.l.data/'media'),'transfer_files':str(self.l.base/'transfer-data'),'logs':str(self.l.data/'logs/service.log'),'service':str(self.l.unit),'command':str(self.l.command)},ensure_ascii=False,indent=2))
 
     def doctor(self):
         self.paths()

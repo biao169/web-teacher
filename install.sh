@@ -8,7 +8,8 @@ repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' pyth
 usage() {
   printf '%s\n' 'Usage: install.sh --domain example.org [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003] [--pip-source tuna|pypi]' \
     'Installs git, ca-certificates, python3, python3-venv; then installs the single teacher website service.' \
-    'Existing managed installation: use sudo tweb update instead.'
+    'Existing managed installation: use sudo tweb update instead.' \
+    '--domain also configures /robots.txt and /sitemap.xml automatically / 域名同时用于自动生成爬虫规则与站点地图。'
 }
 while (($#)); do
   case "$1" in

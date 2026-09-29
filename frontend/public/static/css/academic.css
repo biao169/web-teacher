@@ -244,7 +244,7 @@ body.section-public .patent-record{display:flex;flex-wrap:wrap;gap:3px 10px;min-
 body.section-public .patent-records:empty,body.section-public .patent-people:empty{display:none}
 body.section-public .patent-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;margin:4px 0 0;white-space:normal;overflow-wrap:anywhere;font-size:var(--public-project-meta);line-height:var(--public-project-line);color:var(--public-muted)}
 /* Citation display remains independent of the copy-format choice. */
-body.section-public .publication-citation strong{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;font-weight:var(--public-weight-emphasis)}
+body.section-public .publication-citation strong{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;font-weight:400;}  <!-- font-weight:var(--public-weight-emphasis) -->
 body.section-public .publication-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 14px;margin-top:5px}
 body.section-public .publication-footer .publication-links{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0;min-width:0;overflow-wrap:anywhere}
 body.section-public .publication-footer .content-tags{margin:0 0 0 auto;justify-content:flex-end;min-width:0;overflow-wrap:anywhere}
