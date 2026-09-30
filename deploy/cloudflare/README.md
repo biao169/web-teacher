@@ -1,6 +1,32 @@
-# Cloudflare 网页部署：第五步——验收与部署教程
+# Cloudflare 网页部署与验收教程
 
-基于网站 v0.15.119，部署补丁 `cloudflare-step5`。只修改 deploy 内文件；根目录版本、业务源码及数据库结构不变。
+基于网站 v0.15.119，部署补丁 `cloudflare-domain-step4`。只修改 deploy 内文件；根目录版本、业务源码及数据库结构不变。
+
+## 2026-09-30 构建 SQLite 修复（第一步）
+
+针对 Cloudflare 构建机 Python 缺少 `_sqlite3` 的报错，正常 `build.py bundle/deploy` 不再导入 SQLite 相关模块：直接复制唯一的 `database/schema.sql`，默认不生成旧版 `migration-plan.json`。构建变量和构建/部署命令保持不变，不需要安装 sqlite3 或更换 Python 来绕过此错误。
+
+旧迁移计划作为可选开发功能保留：手动执行 `deploy/cloudflare/prepare.py` 时添加 `--migration-plan`，并使用带 SQLite 的 Python；不支持 SQLite 时给出明确提示且不会创建输出目录。共享 helper 的原默认行为保留，原调用方也可传 `--no-migration-plan`；网页部署入口默认关闭它。
+
+第一步仅处理打包依赖；第二步现已加入以下 D1 初始化检查。第三步现已加入 R2 读写探针；第四步已补齐默认地址生成和自定义域名切换，见 [DOMAINS.md](DOMAINS.md)。
+
+## 2026-09-30 D1 自动初始化（第二步）
+
+`build.py deploy` 在打包成功、正式发布前，使用锁定的 Wrangler 检查远程 D1。默认 `TEACHER_D1_INIT=auto`：没有业务表时导入唯一的 `database/schema.sql`，随后复查；已有表时只核对结构，不重复导入、不更新记录、不重建管理员。可选 `TEACHER_D1_INIT=check` 只检查，空库也会停止。两种模式均不自动修复、清空或迁移已有库。
+
+预期结构由 Wrangler 的本地 D1 在可清理的临时目录中执行同一份 SQL 得到，不依赖 Python `sqlite3`。检查所有应用表、显式索引及其 SQL 定义（含字段、约束、默认值）；忽略 SQLite/Cloudflare 内部对象和 `d1_migrations`。检查采用保守比较，格式空白和注释不影响比较，但不同的等价 DDL 写法仍可能报差异，需人工核对。额外业务表也会停止，避免误用其他项目的数据库。
+
+日志依次包含 `D1-REFERENCE`、`D1-CHECK`、首次空库的 `D1-INIT`、`D1-READY`。初始化或检查失败时不发布；数据库不存在或无权限时不会被当成空库。构建令牌需要目标账号的 **D1 Edit（编辑）权限**，请在 Cloudflare 构建令牌权限中补齐，不把令牌写入代码。并发首次部署应避免；失败后先检查实际库状态再重试，不自动删除半成品表。
+
+## 2026-09-30 R2 读写检查（第三步）
+
+无需新增构建变量。`deploy` 在发布及远程 D1 初始化之前，读取生成配置中的真实 MEDIA/CACHE 绑定、桶名、对象前缀，分别进行小型二进制对象写入、读取比对和删除。共用桶默认分别测试 `media/` 和 `cache/`，独立缓存桶也会单独测试；同桶两个前缀禁止重叠。`bundle` 只访问临时本地 R2，不连接远程桶。所有本地检查目录随构建结束清理。
+
+日志为 `R2-CHECK` → 每个前缀的 `R2-TARGET`、`R2-PUT`、`R2-GET`、`R2-DELETE`、`R2-OK` → `R2-READY`。测试对象形如 `media/.deploy-probe/<随机ID>.bin` 或 `cache/.deploy-probe/<随机ID>.bin`，约 300 字节。只删除本次的完整随机对象键，不扫描、批量删除或修改已有媒体。读写失败也尝试删除；删除失败会阻止发布并输出 `R2-CLEANUP-FAILED` 和确切路径，需在控制台检查该对象。构建被强制终止时无法保证清理，应按先前 `R2-TARGET` 日志检查；不设置桶级清理规则。
+
+Cloudflare 构建令牌需有目标账号/资源适用的 **Workers R2 Storage 编辑权限**，以使用 Wrangler 管理对象；运行时的桶绑定与构建令牌权限是两回事。不要把访问令牌或 S3 密钥写入源码。检查验证的是构建凭据对指定桶的读写及删除能力，不能替代部署后通过网站上传/预览的业务验收。参考：[Cloudflare Wrangler R2 命令](https://developers.cloudflare.com/workers/wrangler/commands/r2/)。
+
+R2 使用对象键前缀，不需要 `mkdir` 或 `chmod`，也无需开放桶的公开访问。测试不创建新桶、不修改 CORS/公开访问/生命周期设置、不新增业务路由。
 
 ## 当前完成范围
 
@@ -34,16 +60,20 @@
 | 名称 | 填写说明 |
 | --- | --- |
 | TEACHER_WORKER_NAME | 控制台目标 Worker 的实际名称，如 teacher-site；必须与实际项目一致 |
-| TEACHER_ORIGIN | 实际 HTTPS 网站地址，如你的 workers.dev 地址或自定义域名；不带页面路径，不能填 example.com |
+| TEACHER_ORIGIN | 可选的实际 HTTPS 主地址；设置时优先使用。留空则从下面自定义域名或账号子域名生成 |
+| TEACHER_WORKERS_SUBDOMAIN | 未设主地址/自定义域名时填写账号的 workers.dev 子域名，自动组合 Worker 默认地址 |
+| TEACHER_CUSTOM_DOMAIN | 可选，仅域名；生成 Custom Domain 绑定；主地址留空时自动使用该域名 |
+| TEACHER_WORKERS_DEV | 可选，默认 true；自定义域名上线后可设 false 关闭默认入口 |
 | TEACHER_D1_ID | 已创建 D1 数据库的 UUID |
 | TEACHER_D1_NAME | 该 D1 数据库的名称 |
+| TEACHER_D1_INIT | 可选，默认 auto；空库初始化，已有库只检查。check 表示只检查 |
 | TEACHER_MEDIA_BUCKET | 已创建 R2 媒体桶的名称 |
 | TEACHER_CACHE_BUCKET | 可选。单独缓存桶的名称；留空时与媒体共用桶，使用不同对象前缀 |
 | TEACHER_BUILD_BRANCH | 可选，默认 web-py。更换分支时同时修改网页 Production branch |
 
 构建脚本把域名与资源选择转换成实际 Wrangler 配置；生成 DB、MEDIA、可选 CACHE、ASSETS 绑定。并自动配置 TRANSFER_COORDINATOR（Durable Object）及每分钟 Cron。配置不包含管理员密码、API 密钥。第三方 API 密钥等在目标 Worker 的运行时 Secrets 配置，不提交仓库。Cloudflare Builds 的发布凭据使用其平台授权方式，不在文件中硬编码。
 
-更改域名或资源应修改以上构建变量并重新部署，不要只修改某个临时文件。仓库分支由网页选择，脚本会核对 WORKERS_CI_BRANCH 并记录提交 SHA，不执行 git checkout。
+域名具体填写、切换与回退步骤见 [DOMAINS.md](DOMAINS.md)。更改域名或资源应修改以上构建变量并重新部署，不要只修改某个临时文件。仓库分支由网页选择，脚本会核对 WORKERS_CI_BRANCH 并记录提交 SHA，不执行 git checkout。
 
 ## 命令用途
 
@@ -61,16 +91,16 @@ python build.py deploy
 | check | 检查源码、Python、应用依赖声明和 CI 分支，不下载、不发布 |
 | prepare | 保留第一步的应用依赖与导入检查，不生成部署产物；它不是完整的锁定发布流程 |
 | bundle | 完整锁定工具链和 WebAssembly 依赖，生成临时产物，执行 Wrangler deploy --dry-run；不发布、不执行远程 SQL |
-| deploy | 与 bundle 相同，检查通过后执行真实发布；需要账号授权 |
+| deploy | 打包后先检查远程 R2，再检查 D1，默认初始化空库；结构通过后发布，需要账号及 D1 权限 |
 
 需要只做云端打包检查时，可将 Deploy command 临时填为 `python build.py bundle`，但其成功仅代表打包成功，不代表上线。要实际发布必须改回 deploy。
 
-构建脚本不会创建、清空或初始化数据库。首次安装按下节初始化；后续部署不重复导入 SQL、不重建管理员。
+脚本不会创建 D1 资源或清空数据库；请先在控制台创建 D1。默认部署会初始化空库，后续部署仅检查结构，不重复导入 SQL、不重建管理员。
 
 ## 首次安装：D1 与管理员（网页操作）
 
 1. 在 Cloudflare 创建 D1 数据库和 R2 桶，把真实名称、ID 填入上面的构建变量。
-2. 仅对新建的空 D1，在该数据库的 Console 中执行项目现有 `database/schema.sql`。这是唯一表结构来源，不另建初始化 SQL，也不修改表结构。如网页输入限制需分次执行，应按完整 SQL 语句分段并保持顺序。不要对已有数据执行重置操作。
+2. 确保构建令牌有 D1 Edit 权限，保留默认 `TEACHER_D1_INIT=auto`（无需新增此变量）。执行部署时会自动初始化空 D1，无需在 Console 手动粘贴 SQL。已有完整数据库只做结构检查。
 3. 完成 Worker 发布。在 Worker 的 Settings → Variables and Secrets 中新增 **Secret** `TEACHER_SETUP_TOKEN`，保存并部署。使用密码管理器生成独立随机密钥，建议 64 位随机十六进制字符；接受长度 32–256。它是临时初始化凭据，不是管理员密码，不要放入仓库、普通变量、链接或日志。
 4. 访问 `https://你的域名/setup`，输入此密钥、管理员账号及两次密码。访问域名必须与构建变量 `TEACHER_ORIGIN` 一致。
 5. 成功后访问 `/auth/login` 登录，并在 Cloudflare 删除 `TEACHER_SETUP_TOKEN`、保存部署。已有用户或初始化完成标记时，`/setup` 自动返回 404，不允许重复初始化。

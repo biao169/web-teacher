@@ -29,13 +29,8 @@ def settings(env):
     name = required('TEACHER_WORKER_NAME')
     if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,62}', name):
         raise ValueError('TEACHER_WORKER_NAME 格式错误 / Invalid Worker name')
-    origin = required('TEACHER_ORIGIN')
-    p = urlsplit(origin)
-    if (p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment
-            or p.path not in ('', '/') or p.port not in (None, 443)
-            or p.hostname in ('example.com', 'example.org', 'example.net', 'localhost')
-            or any(p.hostname.endswith('.'+x) for x in ('example.com','example.org','example.net'))):
-        raise ValueError('TEACHER_ORIGIN 必须是实际 HTTPS 域名 / Use the actual HTTPS origin')
+    from domains import settings as domain_settings
+    domain = domain_settings(env, name)
     database = required('TEACHER_D1_ID')
     if str(UUID(database)) != database.lower() or UUID(database).int == 0:
         raise ValueError('TEACHER_D1_ID 必须是有效 D1 UUID / Invalid D1 ID')
@@ -47,8 +42,7 @@ def settings(env):
     for value in (bucket, cache):
         if value and not re.fullmatch(r'[a-z0-9][a-z0-9-]{1,61}[a-z0-9]', value):
             raise ValueError('R2 桶名格式错误 / Invalid R2 bucket name')
-    return dict(name=name, origin=origin.rstrip('/'), database=database,
-                dbname=dbname, bucket=bucket, cache=cache)
+    return dict(name=name, database=database, dbname=dbname, bucket=bucket, cache=cache, **domain)
 
 
 def prepare_arguments(config, output):
@@ -142,6 +136,10 @@ def execute(command, runner, log):
         (stage/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n', encoding='utf-8')
         cfg = json.loads((stage/'wrangler.jsonc').read_text())
         cfg['main'] = 'src/main.py'
+        from domains import apply as apply_domains
+        apply_domains(cfg, config)
+        log('DOMAIN', '站点地址配置 / Site origin configuration', origin=config['origin'],
+            custom_domain=config['custom_domain'], workers_dev=config['workers_dev'])
         from integration_package import extend
         extend(ROOT, stage, cfg)
         (stage/'wrangler.jsonc').write_text(json.dumps(cfg, indent=2), encoding='utf-8')
@@ -161,7 +159,11 @@ def execute(command, runner, log):
         runner('BUNDLE', [node,str(wrangler),'deploy','--dry-run','--outdir',str(work/'bundle')], stage, env)
         log('VERIFIED', '打包通过；尚未验证线上业务 / Bundle verified, runtime acceptance pending',
             worker=config['name'], origin=config['origin'])
+        from r2_check import check as check_r2
+        check_r2(node, wrangler, stage, env, cfg, runner, log, publish=command == 'deploy')
+        from d1_setup import setup
+        setup(node, wrangler, stage, env, config, log, publish=command == 'deploy')
         if command == 'deploy':
             runner('DEPLOY', [node,str(wrangler),'deploy'], stage, env)
-            log('PUBLISHED', '平台发布命令成功；仍需数据库初始化与业务验收 / Deployment command succeeded; runtime checks still required')
+            log('PUBLISHED', '平台发布成功，D1 结构与 R2 读写已验证；仍需线上业务验收 / Published with verified D1 schema and R2 storage; runtime checks still required')
     log('CLEANUP', '临时源码、依赖与产物已清理 / Temporary source and artifacts removed')

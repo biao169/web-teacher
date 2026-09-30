@@ -111,8 +111,10 @@ class PipelineTests(unittest.TestCase):
             stages=[]
             with patch.dict(pipeline.os.environ,self.env()), patch.object(pipeline.shutil,'which',return_value='/bin/node'), \
                  patch.object(pipeline.subprocess,'check_output',return_value='v22.0.0'), \
-                 patch.object(pipeline.venv.EnvBuilder,'create'),patch.object(pipeline,'verify_stage'):
+                 patch.object(pipeline.venv.EnvBuilder,'create'),patch.object(pipeline,'verify_stage'), patch('d1_setup.setup') as db_setup, patch('r2_check.check') as r2_check:
                 pipeline.execute(mode,fake_stage,lambda *a,**kw:None)
+            self.assertEqual(db_setup.call_args.kwargs['publish'], mode == 'deploy')
+            self.assertEqual(r2_check.call_args.kwargs['publish'], mode == 'deploy')
             self.assertEqual(sum(n=='DEPLOY' for n,c in stages),int(mode=='deploy'))
             self.assertIn('--dry-run',next(c for n,c in stages if n=='BUNDLE'))
 

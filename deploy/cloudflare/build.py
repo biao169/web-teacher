@@ -20,7 +20,7 @@ import venv
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-PATCH = 'cloudflare-step5'
+PATCH = 'cloudflare-domain-step4'
 
 
 class BuildError(Exception):
