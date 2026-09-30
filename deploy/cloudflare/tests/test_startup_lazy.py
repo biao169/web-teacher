@@ -55,7 +55,8 @@ def test_failed_build_can_retry_without_publishing_partial_app(entry, monkeypatc
 
 def test_coordinator_app_is_stable_and_instance_scoped(entry, monkeypatch):
     apps=[]
-    def build():
+    def build(**kwargs):
+        assert kwargs == {"include_transfer": True}
         async def app(*args):pass
         apps.append(app);return app
     monkeypatch.setattr(entry,'build_application',build)

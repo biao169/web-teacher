@@ -26,19 +26,7 @@ class CatalogRoot:
     def read_text(self, **kwargs): return self.text
 
 
-class TransferStore(R2Store):
-    async def prune_task(self, task, limit=8):
-        import re
-        import js
-        from pyodide.ffi import to_js
-        if not re.fullmatch('[a-f0-9]{32}', task): raise Error('无效任务地址')
-        prefix = self.prefix + task + '/'
-        result = await self.bucket.list(to_js({'prefix': prefix, 'limit': limit}, dict_converter=js.Object.fromEntries))
-        objects = list(result.objects)
-        for obj in objects:
-            if not str(obj.key).startswith(prefix): raise Error('对象地址不匹配', 409)
-            await self.bucket.delete(obj.key)
-        return {'removed': len(objects), 'done': not bool(result.truncated)}
+from .storage import TransferStore
 
 
 def install(app, factory, templates, catalog, stores=None):

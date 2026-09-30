@@ -126,3 +126,33 @@ python deploy/cloudflare/smoke.py --origin https://你的实际测试域名
 - 完整 build.py bundle 在 Python 3.13.15 下通过：STARTUP-CHECK、锁定依赖、Wrangler dry-run、真实本地 R2 两前缀往返/删除、本地 D1 127 对象检查与临时清理全部完成。
 - 公开云端域名检查未通过：12 路径响应未满足预期，/en 使用探针 UA 返回 200 text/plain 和 Hello world；不能认定教师网站已上线。详细见 STARTUP-ACCEPTANCE.md。
 - 未发布到用户账号，未提交真实登录凭据、上传云端媒体或执行云端双端传输。云端最终启动、首次请求及业务验收仍待新版本发布后完成；不改动已有 D1/R2 数据。
+
+## CPU 修复第一步（cloudflare-cpu-step1）
+
+- 150 项原有部署测试通过；新增 Codes 构造副作用负向用例后，16 项启动相关测试复验通过。
+- Python 3.13.15 完整 bundle 通过：依赖锁、实际暂存源码 SNAPSHOT-CHECK、Wrangler dry-run、本地 R2 media/cache 往返及删除、本地 D1 127 对象与清理。
+- 预加载定义仍不构造应用；原 Worker 入口的重复应用构建留待第二步处理。没有提高 CPU 配额或改动运行随机数函数。
+- 业务源码与数据库文件保持逐字节一致；仅 deploy 文件变更，交付时例行重建 release-manifest.json。
+- 未发布到 Cloudflare，未验证实际 CPU 时间、快照执行耗时或 Pyodide 重入错误是否消失。
+
+## CPU 修复第二步（cloudflare-cpu-step2）
+
+- 新增资源工厂提取与校验测试：导入生成模块创建 0 个主站应用，包装构建创建 1 个；原工厂文本一致，原启动结构变化及生成文件篡改会阻止发布。
+- 全套首次运行 150 项通过，5 项因测试暂存目录未创建失败；生成器补齐父目录创建后，相关 39 项复验全部通过。既有首次登录、连续请求、快传实例复用及失败重试覆盖保留。
+- Python 3.13.15 完整 bundle 通过：SNAPSHOT-CHECK、锁定依赖、Wrangler dry-run、本地 R2 两前缀读写删除、本地 D1 127 对象及清理。
+- 本次修改仅在 deploy；打包例行更新 release-manifest.json。未提交 GitHub、发布 Worker、修改远程数据或实际测量线上 CPU；第三步将拆分主站/快传加载路径。
+
+## CPU 修复第三步（cloudflare-cpu-step3）
+
+- 155 项既有部署测试通过；补齐测试用的 Worker 环境绑定后，新增 3 项分流测试通过：主站首页/登录/setup 不调用快传安装器；快传后台和门户正常；Cron 不构建 HTTP 应用。
+- 原有局域网/中继收发状态、连续请求复用、协调实例隔离、失败重试测试仍通过。快传测试现在显式使用协调侧应用模式。
+- 完整 bundle 通过：SNAPSHOT-CHECK、锁定依赖、Wrangler dry-run、本地 R2 两前缀读写删除、本地 D1 127 对象与清理。
+- 只修改 deploy；业务源码、数据库与远程数据不变，打包例行重建 release-manifest.json。未发布到 Cloudflare，也未完成线上 CPU 与 Pyodide 异常验收。
+
+## CPU 修复第四步（cloudflare-cpu-step4）
+
+- 161 项部署测试通过；修正 Cron 测试替身的返回格式后，相关 6 项复验通过，只剩既有 Starlette 弃用提示。
+- 覆盖错误堆栈脱敏、保持原异常传播、正常请求不输出成功日志、平台错误码/Ray ID 提取和 Cron 跳过状态。首次初始化及快传状态测试继续通过。
+- Python 3.13.15 完整 bundle 通过：快照副作用检查、依赖锁、Wrangler dry-run、本地 R2 双前缀读写删除、本地 D1 127 对象与清理。
+- 新增 CPU-DIAGNOSTICS.md；未部署到用户账号或宣称线上 CPU/Pyodide 故障已消失。平台强制终止不保证能输出应用 ERROR，elapsed_ms 不是 CPU 时间。
+- 本轮只修改 deploy，数据库与业务源码未改；打包例行更新校验清单。

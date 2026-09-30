@@ -146,6 +146,8 @@ def execute(command, runner, log):
         for name in FILES:
             shutil.copyfile(HERE/name, stage/name)
         verify_stage(stage)
+        runner('SNAPSHOT-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
+            '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src')], stage, env)
         env['UV_PROJECT_ENVIRONMENT'] = str(host/'.venv')
         runner('WRANGLER', [npm,'ci','--no-audit','--no-fund'], stage, env)
         # Package synchronization is explicit, then Wrangler runs directly so a deploy

@@ -6,6 +6,7 @@ This does not certify authenticated actions, real transfers, or scheduled cleanu
 """
 import argparse
 import json
+import re
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -53,11 +54,19 @@ def inspect(origin,open_url=None,*,repeat_startup=False):
             except HTTPError as exc:response=exc
             with response:
                 status=response.code;ctype=response.headers.get('Content-Type','').lower()
+                ray=response.headers.get('CF-Ray','')
                 body=response.read(2*1024*1024+1)
             text=body.decode('utf-8',errors='replace')
             ok=status in statuses and (mime is None or mime in ctype) and (marker is None or marker in text) and len(body)<=2*1024*1024
             if path=='/robots.txt':ok=ok and ('Sitemap: '+origin+'/sitemap.xml') in text
             results.append({'path':path,'ok':ok,'status':status,'content_type':ctype,'milliseconds':round((time.monotonic()-started)*1000)})
+            if re.fullmatch(r'[a-fA-F0-9]{16,32}(?:-[A-Z]{3})?', ray):
+                results[-1]['cf_ray']=ray
+            if status >= 500:
+                for code in ('1101','1102'):
+                    if re.search(r'(?:error(?: code)?[ :]*|Error[ :]+)'+code+r'\b', text, re.I):
+                        results[-1]['cloudflare_error']=code
+                        break
             if text.strip() == 'Hello world':
                 results[-1]['hint']='Default Hello world response; verify active Worker deployment'
         except (OSError,URLError,ValueError) as exc:

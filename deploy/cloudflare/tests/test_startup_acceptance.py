@@ -23,9 +23,10 @@ def test_first_http_then_real_login_and_subsequent_requests(builder, monkeypatch
                             'password':'Password-only-for-test'},headers={'Origin':r.config.origin},follow_redirects=False)
         assert response.status_code==303,response.text
         assert client.get('/admin/profiles').status_code==200
-        for path in ('/en','/zh','/auth/login','/transfer/'):
+        for path in ('/en','/zh','/auth/login'):
             assert client.get(path).status_code==200,path
         assert factory.call_count==1
+        assert not hasattr(entry.application.application.app.state, "worker_transfer")
     finally:
         client.close()
 

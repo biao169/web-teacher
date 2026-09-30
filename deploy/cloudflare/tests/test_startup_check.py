@@ -22,8 +22,9 @@ def test_actual_startup_graph_passes():
     'import random; random.SystemRandom().randbytes(8)',
     'import time; time.time()',
     'import datetime; datetime.datetime.now()',
-    'import sqlite3',
-    'import backend.app.native.web',
+    'import sqlite3; sqlite3.connect(":memory:")',
+    'import js',
+    'from transfer.backend.codes import Codes; Codes(None)',
     'import socket; socket.create_connection(("127.0.0.1", 9))',
     'import subprocess; subprocess.run(["echo", "unexpected"])',
 ])

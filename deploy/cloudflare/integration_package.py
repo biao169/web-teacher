@@ -5,6 +5,8 @@ from pathlib import Path
 
 
 def extend(root, stage, config):
+    from resource_module import generate
+    generate(root, stage)
     shutil.copytree(root/'transfer/backend', stage/'src/transfer/backend', ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
     source = root/'transfer/frontend/native'
     shutil.copytree(source, stage/'assets/transfer-static', ignore=shutil.ignore_patterns('*.html'))
@@ -26,6 +28,8 @@ def extend(root, stage, config):
 
 def verify(root, stage, config):
     """Gate missing exports/bindings/assets before a real deployment can start."""
+    from resource_module import verify as verify_resources
+    verify_resources(root, stage)
     expected = {'bindings':[{'name':'TRANSFER_COORDINATOR','class_name':'TransferCoordinator'}]}
     if config.get('durable_objects') != expected:
         raise ValueError('Missing or changed transfer coordinator binding')

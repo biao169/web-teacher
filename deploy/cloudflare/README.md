@@ -1,10 +1,40 @@
 # Cloudflare 网页部署与验收教程
 
-基于网站 v0.15.119，部署补丁 `cloudflare-startup-step4`。只修改 deploy 内文件；根目录版本、业务源码及数据库结构不变。
+基于网站 v0.15.119，部署补丁 `cloudflare-cpu-step4`。只修改 deploy 内文件；根目录版本、业务源码及数据库结构不变。
+
+## CPU 修复第四步：阶段日志与线上诊断
+
+新增 [CPU-DIAGNOSTICS.md](CPU-DIAGNOSTICS.md)。初始化阶段记录 START/OK/ERROR；请求失败与 Cron 记录有界的异常类型和堆栈位置，不输出异常消息或请求正文。正常请求不增加成功日志。smoke.py 增加平台 1101/1102 与 CF-Ray 识别，原命令兼容。日志耗时不是 CPU 时间，平台强制终止或 Python 入口前异常仍需平台日志判断。
+
+## CPU 修复第三步：分离主站、快传与清理路径
+
+`LazyApplication` 默认只构建主站和 `/setup`，不安装快传路由、不创建房间/接收码实例。`TransferCoordinator` 明确启用快传构建；`/transfer`、`/transfer/*` 和 `/admin/transfer` 沿用原协调路由，后台仍复用主站认证、模板和权限。各协调实例分别缓存自己的应用，连续请求不重建，失败时不缓存半成品。
+
+`runtime/storage.py` 提取原 TransferStore，HTTP 和 Cron 共用同一存储实现。scheduled 直接依赖存储与清理函数，不通过 transfer HTTP 安装器获取存储，也不构建任何 HTTP 应用。安全的模块定义仍共用第一步的快照预加载；此处分离的是事件执行与有状态应用构建，并非为同一个 Worker 创建三个隔离的 Python 解释器。
+
+不修改数据库结构、存储前缀、清理租约、权限、构建变量或定时任务频率。第四步已补齐初始化阶段日志与线上诊断，线上仍需验证 CPU 限制和 Pyodide 重入问题；本地检查不能替代线上验收。
+
+## CPU 修复第二步：去除重复应用构建
+
+原 `backend/entrypoints/worker.py` 在导入时调用 `create_app`，而部署包装层随后又调用一次。现在由 `resource_module.py` 在打包临时目录生成 `src/worker_runtime/resources.py`：保留原入口的导入、renderer 和 resource_factory 原文，只去掉末尾 `app=create_app(...)` 与 `Default=asgi.entrypoint(...)`。包装入口改为引用生成的工厂，不再导入原 Worker 入口。
+
+这样配置、D1/R2 绑定、认证、翻译和元数据资源仍由同一份源码维护。原业务文件和临时 backend 副本保持不变；仓库中不保存第二套业务工厂。生成器核对两条启动语句的 AST，结构变化时要求人工审查；发布完整性检查逐字比对生成结果。
+
+主 Worker 和各 Durable Object 仍分别维护自身的应用实例；连续请求复用实例，构建失败不缓存半成品。这里去除的是每次构建中的额外主站应用，不删除快传子应用。第三步已处理主站/快传/定时任务的应用构建拆分。
+
+构建根目录、命令、变量、数据库与媒体无需调整。尚未验证线上 CPU 时间或 Pyodide 重入错误是否消失。
+
+## CPU 修复第一步：快照预加载
+
+`runtime/snapshot.py` 在 Worker 顶层预加载 FastAPI、业务定义、模板渲染器类、部署适配器和快传路由模块；不调用应用构造器，不创建 Codes/房间实例，不访问 D1/R2，也不生成随机数。入口导入此模块，让确定性的导入工作参与 Python 部署快照。首次请求仍创建应用；第二步已去除原入口带来的重复应用构建。
+
+启动检查不再按模块名禁止 backend/transfer/FastAPI。`check` 在无依赖环境只检查语法；`bundle/deploy` 安装锁定依赖并生成临时资源后，新增 `SNAPSHOT-CHECK`，在独立进程导入实际预加载图，阻止随机数、时钟调用、网络、数据库连接和文件写入。读取 sqlite3 定义本身不是数据库连接；业务原有缺少 sqlite3 时的回退保持不变。
+
+检查使用最小 SDK 替身，不代表 Cloudflare/Pyodide 运行验收。此补丁不修改 CPU 额度、套餐、数据库结构、管理员或媒体；不能据此宣称已解决所有 CPU 超限和 Pyodide 重入异常。构建变量与命令保持原值。
 
 ## 2026-09-30 构建 SQLite 修复（第一步）
 
-针对 Cloudflare 构建机 Python 缺少 `_sqlite3` 的报错，正常 `build.py bundle/deploy` 不再导入 SQLite 相关模块：直接复制唯一的 `database/schema.sql`，默认不生成旧版 `migration-plan.json`。构建变量和构建/部署命令保持不变，不需要安装 sqlite3 或更换 Python 来绕过此错误。
+针对 Cloudflare 构建机 Python 缺少 `_sqlite3` 的报错，正常打包 SQL 的过程不再导入依赖 SQLite 的迁移模块：直接复制唯一的 `database/schema.sql`，默认不生成旧版 `migration-plan.json`。构建变量和构建/部署命令保持不变，不需要安装 sqlite3 或更换 Python 来绕过此错误。
 
 旧迁移计划作为可选开发功能保留：手动执行 `deploy/cloudflare/prepare.py` 时添加 `--migration-plan`，并使用带 SQLite 的 Python；不支持 SQLite 时给出明确提示且不会创建输出目录。共享 helper 的原默认行为保留，原调用方也可传 `--no-migration-plan`；网页部署入口默认关闭它。
 
@@ -259,7 +289,7 @@ python deploy/cloudflare/prepare.py --output /tmp/teacher-worker-manual --databa
 
 ## 启动路径副作用排查（第三步）
 
-构建预检新增 STARTUP-CHECK：在独立 Python 子进程中导入实际 runtime/entrypoint.py 和其项目启动依赖。当前启动图仅含轻量入口、routing 和标准库；backend、transfer、模板资源和数据库模块都延迟到事件中。检查拒绝启动时提前导入这些业务模块，并阻止常见安全随机数、时间读取、文件写入、socket 连接/绑定、子进程及 SQLite 操作。命中时提前停止构建。
+此节为历史方案，已由本文顶部 CPU 修复第一步替代：无依赖预检只检查语法，完整 SNAPSHOT-CHECK 在锁定依赖与临时资源准备后执行。现在允许安全的业务模块导入，仍阻止随机数、时间读取、文件写入、socket、子进程和 SQLite 连接等副作用。
 
 检查脚本仅运行在构建机，不被复制到 Worker runtime，不替换生产环境的随机数/时间函数，不影响正常请求和 Cron。SDK 使用最小替身，不模拟 Cloudflare 快照或完整第三方 SDK；这是项目导入路径回归检查，并非对任意动态代码的通用安全沙箱。真正的云端启动验证仍必须执行。构建命令和变量不变。
 

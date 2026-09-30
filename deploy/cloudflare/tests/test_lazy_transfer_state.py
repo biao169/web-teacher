@@ -16,8 +16,8 @@ from runtime import transfer, setup, bridge
 @pytest.fixture
 def builder(entry, fixture, monkeypatch):
     _, r = fixture
-    worker=ModuleType('backend.entrypoints.worker');worker.resource_factory=lambda request:r
-    monkeypatch.setitem(sys.modules,'backend.entrypoints.worker',worker)
+    worker=ModuleType('worker_runtime.resources');worker.resource_factory=lambda request:r
+    monkeypatch.setitem(sys.modules,'worker_runtime.resources',worker)
     source=ROOT/'transfer/frontend/native'
     resources=ModuleType('generated_resources')
     resources.TRANSFER_TEMPLATES={p.name:p.read_text() for p in source.glob('*.html')}
@@ -36,6 +36,7 @@ def builder(entry, fixture, monkeypatch):
 @pytest.mark.parametrize('mode',['lan','relay'])
 def test_real_short_code_flow_reuses_lazy_application(builder, monkeypatch, mode):
     entry,r,_=builder
+    entry.application = entry.LazyApplication(include_transfer=True)
     factory=Mock(wraps=entry.build_application)
     monkeypatch.setattr(entry,'build_application',factory)
     with TestClient(entry.application,base_url=r.config.origin) as c:
@@ -49,6 +50,7 @@ def test_real_short_code_flow_reuses_lazy_application(builder, monkeypatch, mode
 
 def test_real_relay_chunk_ack_state_persists(builder, monkeypatch):
     entry,r,_=builder
+    entry.application = entry.LazyApplication(include_transfer=True)
     factory=Mock(wraps=entry.build_application);monkeypatch.setattr(entry,'build_application',factory)
     with TestClient(entry.application,base_url=r.config.origin) as c:
         token=asyncio.run(r.auth.login('test-admin','Password-only-for-test','lazy'))
@@ -59,6 +61,7 @@ def test_real_relay_chunk_ack_state_persists(builder, monkeypatch):
 
 def test_partial_real_install_retry_uses_fresh_routes(builder, monkeypatch):
     entry,r,install=builder
+    entry.application = entry.LazyApplication(include_transfer=True)
     attempts=[]
     def flaky(app,*args):
         install(app,*args);attempts.append(app)
