@@ -1,6 +1,6 @@
 # Cloudflare 部署累计修改清单
 
-基准：原始 teacher-site-windows-v0.15.119.zip。结果：cloudflare-domain-step4（基于 cloudflare-r2-step3）。以下路径均相对项目根目录 teacher-site/。
+基准：原始 teacher-site-windows-v0.15.119.zip。结果：cloudflare-d1-import-fix（基于 cloudflare-domain-step4）。以下路径均相对项目根目录 teacher-site/。
 
 共 38 个 deploy 内文件：新增 34 个，修改 4 个。打包另自动更新根目录 release-manifest.json。
 
@@ -81,3 +81,7 @@ deploy/cloudflare/admin_sql.py 沿用原文件，不计入修改。
 ## 域名第四步（相对 cloudflare-r2-step3）
 
 新增 `deploy/cloudflare/domains.py`、`DOMAINS.md`、`tests/test_domains.py`；修改 `pipeline.py`、`build.py`、`README.md`、`ACCEPTANCE.md`、`CHANGES.md`。共 8 个 deploy 文件。打包另刷新 release-manifest.json。主站认证/SEO/业务代码、数据库和依赖锁不变。
+
+## D1 导入返回结果修复
+
+相对 domain-step4 修改 deploy/cloudflare 下 d1_setup.py、build.py、tests/test_d1_setup.py、README.md、ACCEPTANCE.md、CHANGES.md，共 6 个文件。文件导入不再要求 stdout 为纯 JSON，保留退出码校验及导入后结构复查；严格查询解析不变。数据库结构和业务源码不变。

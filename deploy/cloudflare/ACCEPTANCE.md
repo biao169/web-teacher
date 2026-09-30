@@ -100,3 +100,7 @@ python deploy/cloudflare/smoke.py --origin https://你的实际测试域名
 - 134 项测试通过，1 条既有 Starlette 弃用提示。覆盖 workers.dev 地址生成、旧 TEACHER_ORIGIN 兼容、自定义域名配置、错误/冲突域名拒绝、默认入口开关，以及原有同源校验和 robots 中 sitemap 地址随配置变化。
 - 不填写 TEACHER_ORIGIN、仅以 TEACHER_WORKERS_SUBDOMAIN 生成默认地址的完整 bundle 通过；Wrangler dry-run、本地 R2 二进制读写删除、本地 D1 127 个结构对象验证和临时清理全部完成。
 - 自定义域名路由已做配置测试；未向用户 Cloudflare 账号绑定真实域名、申请证书或发布。实际 DNS/证书和线上登录仍需部署后验收。
+
+## D1 导入结果兼容验证
+
+30 项针对性 D1/部署流程测试通过，包含进度文字/空输出/对象输出的成功导入、非零退出拒绝、返回成功但实际未建表时结构复查拒绝，以及重复部署保留记录。未执行用户远程数据库操作；需要重新部署验证线上结果。此前完整 bundle 验证记录不代表本次远程导入已验收。

@@ -41,6 +41,10 @@ def execute_json(command, cwd, env):
         # Wrangler diagnostics only; never print commands/environment containing credentials.
         raise ValueError('D1 命令失败 / D1 command failed; check D1 binding and API token D1 Edit permission:\n' +
                          (result.stderr or result.stdout)[-4000:])
+    # File import stdout may contain progress/confirmation text even with --json.
+    # Exit status gates import; setup() always re-queries and validates the schema.
+    if '--file' in command:
+        return []
     try:
         payload = json.loads(result.stdout)
         if not isinstance(payload, list) or not payload or any(

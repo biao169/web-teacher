@@ -1,6 +1,6 @@
 # Cloudflare 网页部署与验收教程
 
-基于网站 v0.15.119，部署补丁 `cloudflare-domain-step4`。只修改 deploy 内文件；根目录版本、业务源码及数据库结构不变。
+基于网站 v0.15.119，部署补丁 `cloudflare-d1-import-fix`。只修改 deploy 内文件；根目录版本、业务源码及数据库结构不变。
 
 ## 2026-09-30 构建 SQLite 修复（第一步）
 
@@ -238,3 +238,9 @@ python deploy/cloudflare/prepare.py --output /tmp/teacher-worker-manual --databa
 
 - https://developers.cloudflare.com/workers/runtime-apis/handlers/scheduled/
 - https://developers.cloudflare.com/durable-objects/get-started/
+
+## D1 导入返回结果兼容修复
+
+如果在 D1-INIT 后提示 Invalid D1 JSON response，原脚本没有展示原始输出，不能据此断定 SQL 失败。新补丁对 --file 导入使用进程退出码判断命令结果，退出码非零仍停止；随后必须重新查询远程 sqlite_schema 并完整核对预期结构，只有通过才发布。--command 查询仍严格验证 JSON 和 success，权限错误或无效响应不会被当作空库。
+
+无需清空数据库。重试时若已有完整结构，仅检查后继续；如果缺少部分对象则停止并列出差异，不自动重置。构建变量和部署命令不变。

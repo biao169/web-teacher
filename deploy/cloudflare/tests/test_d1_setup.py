@@ -102,3 +102,31 @@ def test_permission_error_not_treated_as_empty():
 def test_compare_preserves_literal_spaces():
     assert d1.normalized("CREATE TABLE t ( x TEXT DEFAULT 'a b');") == d1.normalized("create TABLE t(x TEXT DEFAULT 'a b')")
     assert d1.normalized("DEFAULT 'a b'") != d1.normalized("DEFAULT 'ab'")
+
+
+@pytest.mark.parametrize('output', ['Upload complete.\n[{"success":true}]', '', '{"status":"complete"}'])
+def test_file_import_uses_exit_status_then_schema_check(output):
+    with patch.object(d1.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=output, stderr='')):
+        assert d1.execute_json(['--file', 'initialize.sql'], None, {}) == []
+
+
+def test_import_error_never_accepted():
+    with patch.object(d1.subprocess, 'run', return_value=SimpleNamespace(returncode=1, stdout='[{"success":true}]', stderr='SQL error')):
+        with pytest.raises(ValueError, match='D1 command failed'):
+            d1.execute_json(['--file', 'initialize.sql'], None, {})
+
+
+def test_successful_import_without_tables_is_rejected(tmp_path):
+    rows=[{'type':'table','name':'required','sql':'CREATE TABLE required(id INTEGER)'}]
+    remote_reads=0
+    def query(args, cwd, env):
+        nonlocal remote_reads
+        if '--file' in args: return []
+        if '--remote' not in args: return rows
+        remote_reads+=1
+        return []
+    with pytest.raises(ValueError, match='Schema mismatch'):
+        d1.setup('node', Path('wrangler.js'), tmp_path, {},
+                 dict(name='teacher', dbname='db', database='12345678-1234-1234-1234-123456789abc'),
+                 lambda *a, **k: None, publish=True, query=query)
+    assert remote_reads==2
