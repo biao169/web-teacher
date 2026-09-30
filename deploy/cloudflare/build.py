@@ -20,7 +20,7 @@ import venv
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-PATCH = 'cloudflare-d1-import-fix'
+PATCH = 'cloudflare-startup-step4'
 
 
 class BuildError(Exception):
@@ -69,6 +69,7 @@ def preflight(env=None, version=None):
     expected = env.get('TEACHER_BUILD_BRANCH', 'web-py')
     if cloud and branch != expected:
         raise BuildError('构建分支不匹配 / Branch mismatch: ' + json.dumps({'actual': branch, 'expected': expected}))
+    run_stage('STARTUP-CHECK', [sys.executable, '-B', str(HERE/'startup_check.py')], HERE, dict(env))
     log('CHECK', '构建配置通过 / Build configuration checked', version=project['version'],
         patch=PATCH, branch=branch, commit=commit, expected_branch=expected,
         python='.'.join(map(str, version)), manifest=str(HERE / 'pyproject.toml'),

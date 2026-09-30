@@ -40,11 +40,12 @@ class SameOrigin(HTTPRedirectHandler):
         return super().redirect_request(req,fp,code,msg,headers,newurl)
 
 
-def inspect(origin,open_url=None):
+def inspect(origin,open_url=None,*,repeat_startup=False):
     origin=origin_value(origin)
     opener=open_url or build_opener(SameOrigin(origin)).open
     results=[]
-    for path,statuses,mime,marker in CHECKS:
+    checks=CHECKS + (tuple(c for c in CHECKS if c[0] in ('/en','/auth/login','/transfer/')) if repeat_startup else ())
+    for path,statuses,mime,marker in checks:
         started=time.monotonic()
         try:
             req=Request(origin+path,headers={'User-Agent':'teacher-site-readonly-check/1','Accept':'*/*'})
@@ -57,6 +58,8 @@ def inspect(origin,open_url=None):
             ok=status in statuses and (mime is None or mime in ctype) and (marker is None or marker in text) and len(body)<=2*1024*1024
             if path=='/robots.txt':ok=ok and ('Sitemap: '+origin+'/sitemap.xml') in text
             results.append({'path':path,'ok':ok,'status':status,'content_type':ctype,'milliseconds':round((time.monotonic()-started)*1000)})
+            if text.strip() == 'Hello world':
+                results[-1]['hint']='Default Hello world response; verify active Worker deployment'
         except (OSError,URLError,ValueError) as exc:
             # Do not print response bodies, cookies or potentially token-bearing URLs.
             results.append({'path':path,'ok':False,'error':type(exc).__name__,'milliseconds':round((time.monotonic()-started)*1000)})
@@ -65,8 +68,8 @@ def inspect(origin,open_url=None):
 
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--origin',required=True);args=p.parse_args()
-    try:result=inspect(args.origin)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--origin',required=True);p.add_argument('--repeat-startup',action='store_true',help='Repeat main/login/transfer GETs; not a guaranteed cold start');args=p.parse_args()
+    try:result=inspect(args.origin,repeat_startup=args.repeat_startup)
     except ValueError as exc:p.error(str(exc))
     print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0 if result['ok'] else 1

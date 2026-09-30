@@ -1,8 +1,8 @@
 # Cloudflare 部署累计修改清单
 
-基准：原始 teacher-site-windows-v0.15.119.zip。结果：cloudflare-d1-import-fix（基于 cloudflare-domain-step4）。以下路径均相对项目根目录 teacher-site/。
+基准：原始 teacher-site-windows-v0.15.119.zip。结果：cloudflare-startup-step4（基于 cloudflare-startup-step3）。以下路径均相对项目根目录 teacher-site/。
 
-共 38 个 deploy 内文件：新增 34 个，修改 4 个。打包另自动更新根目录 release-manifest.json。
+共 44 个 deploy 内文件：新增 40 个，修改 4 个。打包另自动更新根目录 release-manifest.json。
 
 | 路径 | 变更 |
 | --- | --- |
@@ -11,6 +11,12 @@
 | `deploy/cloudflare/DOMAINS.md` | 新增 |
 | `deploy/cloudflare/domains.py` | 新增 |
 | `deploy/cloudflare/tests/test_domains.py` | 新增 |
+| `deploy/cloudflare/tests/test_startup_lazy.py` | 新增 |
+| `deploy/cloudflare/tests/test_lazy_transfer_state.py` | 新增 |
+| `deploy/cloudflare/startup_check.py` | 新增 |
+| `deploy/cloudflare/STARTUP-ACCEPTANCE.md` | 新增 |
+| `deploy/cloudflare/tests/test_startup_acceptance.py` | 新增 |
+| `deploy/cloudflare/tests/test_startup_check.py` | 新增 |
 | `deploy/cloudflare/README.md` | 修改 |
 | `deploy/cloudflare/build.py` | 新增 |
 | `deploy/cloudflare/d1_setup.py` | 新增 |
@@ -85,3 +91,19 @@ deploy/cloudflare/admin_sql.py 沿用原文件，不计入修改。
 ## D1 导入返回结果修复
 
 相对 domain-step4 修改 deploy/cloudflare 下 d1_setup.py、build.py、tests/test_d1_setup.py、README.md、ACCEPTANCE.md、CHANGES.md，共 6 个文件。文件导入不再要求 stdout 为纯 JSON，保留退出码校验及导入后结构复查；严格查询解析不变。数据库结构和业务源码不变。
+
+## 启动随机数第一步修复
+
+相对 d1-import-fix，修改 deploy/cloudflare/runtime/entrypoint.py、build.py、README.md、ACCEPTANCE.md、CHANGES.md；新增 tests/test_startup_lazy.py，共 6 个文件。根目录 release-manifest.json 由打包工具刷新。首次请求创建应用，完整成功后复用，Durable Object 各自保留应用实例，不改原快传源码。
+
+## 启动修复第二步：实例状态验收
+
+新增 deploy/cloudflare/tests/test_lazy_transfer_state.py；修改 build.py、README.md、ACCEPTANCE.md、CHANGES.md，共 5 个 deploy 文件，打包更新根目录 release-manifest.json。第一步的入口复用与失败隔离实现经真实路由验证保留，不重复改写业务实现。
+
+## 启动修复第三步
+
+新增 deploy/cloudflare/startup_check.py、tests/test_startup_check.py；修改 build.py、README.md、ACCEPTANCE.md、CHANGES.md，共 6 个 deploy 文件，发布清单自动刷新。当前运行入口未发现新的启动副作用，保留前两步的延迟构建实现，仅增加构建阶段回归检查。
+
+## 启动修复第四步
+
+新增 deploy/cloudflare/STARTUP-ACCEPTANCE.md、tests/test_startup_acceptance.py；修改 smoke.py、build.py、README.md、ACCEPTANCE.md、CHANGES.md，共 7 个 deploy 文件。自动更新发布清单，业务代码和数据库不变。
