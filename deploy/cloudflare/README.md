@@ -1,21 +1,210 @@
-# Cloudflare 原生结构部署包
+# Cloudflare 网页部署：第五步——验收与部署教程
 
-主站和快传分别使用 Python Worker、独立 D1 数据库和可配置的 R2 媒体/缓存绑定。打包只复制 Python、HTML、CSS、JavaScript 和最终 SQL，不编译前端，不创建云端资源或执行远程 SQL。
+基于网站 v0.15.119，部署补丁 `cloudflare-step5`。只修改 deploy 内文件；根目录版本、业务源码及数据库结构不变。
 
-主站准备命令：
+## 当前完成范围
+
+已提供锁定打包、发布入口、D1/R2 的 Python/JavaScript 边界适配，以及一次性管理员初始化页面。运行包装层复用原主站 app、模板、认证和存储方法。**代码与针对性测试已完成，尚未完成整站 Workers 运行验收。** 已接入同站快传、房间协调与定时清理；第五步补齐发布前完整性检查、部署后 GET 检查脚本和验收记录。
+
+建议现在使用独立测试 Worker。真实发布需你自己的 Cloudflare 账号权限，交付过程没有推送 GitHub、发布 Worker 或执行远程 SQL。
+
+## Cloudflare 网页填写
+
+先将完整项目源码上传到 GitHub 的 web-py 分支，保留根目录 backend、frontend、database、deploy 等目录。不要只上传 deploy，也不要仅上传 ZIP。
+
+进入 Workers & Pages，连接 `biao169/web-teacher` 仓库，设置：
+
+| 项目 | 值 |
+| --- | --- |
+| Production branch | web-py |
+| Root directory | deploy/cloudflare |
+| Build command | python build.py check |
+| Deploy command | python build.py deploy |
+| Preview builds | 初期关闭 |
+| Build variable: SKIP_DEPENDENCY_INSTALL | 1 |
+| Build variable: PYTHON_VERSION | 3.13.15 |
+| Build variable: NODE_VERSION | 22 |
+
+**SKIP_DEPENDENCY_INSTALL 必须在 Settings → Build / Builds → Build Variables and Secrets 中设置。** 否则平台仍可能在运行本脚本之前自动执行 pip install .，出现 Multiple top-level packages 错误。运行时变量无法代替此构建变量。
+
+上述 Build command 只做基础预检。Deploy command 在同一次进程中准备依赖、生成临时源码、执行 dry-run，成功后发布并清理；不依赖两个命令之间保留临时文件。
+
+继续添加以下**构建变量**：
+
+| 名称 | 填写说明 |
+| --- | --- |
+| TEACHER_WORKER_NAME | 控制台目标 Worker 的实际名称，如 teacher-site；必须与实际项目一致 |
+| TEACHER_ORIGIN | 实际 HTTPS 网站地址，如你的 workers.dev 地址或自定义域名；不带页面路径，不能填 example.com |
+| TEACHER_D1_ID | 已创建 D1 数据库的 UUID |
+| TEACHER_D1_NAME | 该 D1 数据库的名称 |
+| TEACHER_MEDIA_BUCKET | 已创建 R2 媒体桶的名称 |
+| TEACHER_CACHE_BUCKET | 可选。单独缓存桶的名称；留空时与媒体共用桶，使用不同对象前缀 |
+| TEACHER_BUILD_BRANCH | 可选，默认 web-py。更换分支时同时修改网页 Production branch |
+
+构建脚本把域名与资源选择转换成实际 Wrangler 配置；生成 DB、MEDIA、可选 CACHE、ASSETS 绑定。并自动配置 TRANSFER_COORDINATOR（Durable Object）及每分钟 Cron。配置不包含管理员密码、API 密钥。第三方 API 密钥等在目标 Worker 的运行时 Secrets 配置，不提交仓库。Cloudflare Builds 的发布凭据使用其平台授权方式，不在文件中硬编码。
+
+更改域名或资源应修改以上构建变量并重新部署，不要只修改某个临时文件。仓库分支由网页选择，脚本会核对 WORKERS_CI_BRANCH 并记录提交 SHA，不执行 git checkout。
+
+## 命令用途
+
+从 deploy/cloudflare 目录运行（项目根目录则在命令前补 deploy/cloudflare/）：
 
 ```bash
-python deploy/cloudflare/prepare.py --database-id REAL-D1-UUID --database-name teacher-site --bucket teacher-media --cache-bucket teacher-cache --origin https://teacher.example.com
+python build.py check
+python build.py prepare
+python build.py bundle
+python build.py deploy
 ```
 
-命令生成 `.worker`。可用 `--database-binding`、`--media-binding`、`--cache-binding` 自定义绑定名，用 `--media-prefix`、`--cache-prefix` 自定义对象前缀。不指定缓存桶时默认与媒体共用桶，前缀必须分离。完整字段见 `docs/features/storage.md`。
+| 命令 | 行为 |
+| --- | --- |
+| check | 检查源码、Python、应用依赖声明和 CI 分支，不下载、不发布 |
+| prepare | 保留第一步的应用依赖与导入检查，不生成部署产物；它不是完整的锁定发布流程 |
+| bundle | 完整锁定工具链和 WebAssembly 依赖，生成临时产物，执行 Wrangler deploy --dry-run；不发布、不执行远程 SQL |
+| deploy | 与 bundle 相同，检查通过后执行真实发布；需要账号授权 |
 
-`initialize.sql` 只用于空D1；主站内容由唯一的 `database/schema.sql` 生成。0.15.74起不再打包多份迁移SQL，改为 `migration-plan.json` 列出已知旧结构对应的DDL语句。它是供核对的计划，不会自动操作远程D1。已有D1必须先停写、备份、核对结构，再通过官方D1执行工具逐条执行匹配前置版本的语句并核验结果。包含旧快传parts数据时还需要Python数据转换，不能仅执行DDL；本地 `backend.cli migrate` 不直接连接远程D1。旧独立快传Worker仅保留兼容输出，其初始化DDL由历史结构快照生成；正式Windows/Linux部署使用整合主库。生成资源不等于迁移或部署；本版未操作真实Cloudflare。
+需要只做云端打包检查时，可将 Deploy command 临时填为 `python build.py bundle`，但其成功仅代表打包成功，不代表上线。要实际发布必须改回 deploy。
 
-`python deploy/cloudflare/admin_sql.py --output /安全的外部目录/admin.sql` 在本地交互生成原生管理员 SQL，并显示管理员 UID。文件包含密码摘要，不进入交付包；应用到已经初始化的主站 D1。快传准备及授权使用此 UID，见 `transfer/README.md`。
+构建脚本不会创建、清空或初始化数据库。首次安装按下节初始化；后续部署不重复导入 SQL、不重建管理员。
 
-生成的 `wrangler.json` 可供核对真实域名、数据库 ID、桶名和绑定。主站变量 `TEACHER_TRANSFER_URL` 指向独立快传域名，两个 Worker 的 `TEACHER_TRANSFER_SECRET` 需通过平台 Secret 配置相同随机值。不要把密钥写进公开源码。
+## 首次安装：D1 与管理员（网页操作）
 
-准备目录提供 Python Workers 依赖声明；部署机需使用目标平台支持的工具解析和锁定 SDK。VPS 不需要安装这套云端开发工具。当前只完成本地打包、模板与 SQL 验证，尚未在真实 Workers 环境验证 ASGI、D1 原子回滚、Web Crypto、R2 二进制桥接和平台资源限额，不能据此宣称云端生产验收通过。
+1. 在 Cloudflare 创建 D1 数据库和 R2 桶，把真实名称、ID 填入上面的构建变量。
+2. 仅对新建的空 D1，在该数据库的 Console 中执行项目现有 `database/schema.sql`。这是唯一表结构来源，不另建初始化 SQL，也不修改表结构。如网页输入限制需分次执行，应按完整 SQL 语句分段并保持顺序。不要对已有数据执行重置操作。
+3. 完成 Worker 发布。在 Worker 的 Settings → Variables and Secrets 中新增 **Secret** `TEACHER_SETUP_TOKEN`，保存并部署。使用密码管理器生成独立随机密钥，建议 64 位随机十六进制字符；接受长度 32–256。它是临时初始化凭据，不是管理员密码，不要放入仓库、普通变量、链接或日志。
+4. 访问 `https://你的域名/setup`，输入此密钥、管理员账号及两次密码。访问域名必须与构建变量 `TEACHER_ORIGIN` 一致。
+5. 成功后访问 `/auth/login` 登录，并在 Cloudflare 删除 `TEACHER_SETUP_TOKEN`、保存部署。已有用户或初始化完成标记时，`/setup` 自动返回 404，不允许重复初始化。
 
-论文元数据可选Secret为 `TEACHER_OPENALEX_API_KEY`、`TEACHER_SEMANTIC_SCHOLAR_API_KEY`、`TEACHER_PUBMED_API_KEY`；可选服务联系邮箱变量为 `TEACHER_METADATA_EMAIL`。由平台配置到生成的主站Worker，不写入服务数组或交付包。查询与回退规则见 `docs/features/metadata-search.md`。
+未配置有效密钥时入口关闭；缺少数据库表时显示 503 和导入提示；来源域名不匹配或密钥错误时返回 403。失败页面不回显密钥和密码。创建过程调用现有 `Auth.bootstrap`，账号、角色、权限、初始设置及完成标记在原有事务中写入，保留原密码哈希格式。
+
+R2 不需要手动创建目录。媒体仍通过现有上传与读取方法访问绑定桶，修正空对象返回值以及 D1 参数、批量数组和嵌套空字段的跨语言转换；不会复制数据库或媒体到 Worker 本地磁盘。
+
+## 同站文件快传（第四步）
+
+部署后使用同一域名下的 `/transfer/` 和 `/admin/transfer`，不再单独部署 transfer Worker、数据库、端口或登录桥。主站登录会话和当前角色权限直接生效，旧 `ft_session` 不赋予权限。首次访问只补齐缺失的原快传设置，不覆盖已有设置或表。
+
+| 资源 | 用途与范围 |
+| --- | --- |
+| 原 DB / D1 | 共用原表：任务、检查点、配额、六位接收码、清理状态 |
+| 原 MEDIA / R2 | `transfer/media/` 保存离线分块；与主站 `media/` 隔离 |
+| CACHE（未独立配置时使用 MEDIA） | `transfer/cache/` 保存快传辅助缓存，与主站 `cache/` 隔离 |
+| TRANSFER_COORDINATOR | 一个固定命名的 Durable Object，协调所有在线房间及码查询 |
+| Cron | 每分钟触发；按后台自动清理开关和间隔决定是否工作 |
+
+构建命令自动生成 Durable Object 绑定、固定 `teacher-transfer-v1` 注册标记和 Cron 配置。它不是业务数据库迁移，不改现有 D1 表。保留此标记与协调器名称，后续普通更新不要随意改名或删除。首次部署需账号允许创建对应资源。
+
+1. 进入教师后台“文件快传”，按需开启临时分享、局域网直连和在线中转，并设置身份规则、单文件限制、日/周/月额度、缓存容量与保存小时数。
+2. 同时在线：局域网模式仍由浏览器 WebRTC 直接传文件，Worker 只协调；广域网在线模式使用原 1 MiB 分块及接收确认协议，中转数据不会写入 R2。
+3. 不同时在线：使用临时分享，分块存入 R2，D1 保存上传及接收检查点。复用前两位字母、后四位数字的接收码，以及文件夹清单和浏览器目录保存功能。
+4. 后台“存储状态”显示 R2 缓存预留量和清理结果；R2 没有本机磁盘空闲量，原“磁盘安全余量”不参与 R2 容量判断。后台的缓存总容量与账号配额继续由数据库事务检查。
+5. Cron 每轮只推进一个任务、最多 8 个已登记分块，并最多扫描删除 8 个该任务前缀下的遗留对象；有剩余工作下一分钟继续。失败保留检查点并在 Cron 中报告失败，不提前标记删除完成。关闭自动清理后，人工清理仍可使用。
+
+清理使用现有 service_meta 中的跨实例租约，并清除有界数量的过期接收码、重放记录及批处理游标。不自动清空历史任务和用量账本，也不清理主站媒体目录；后台人工缓存清理入口保持原样。
+
+### 传输边界
+
+- 原在线房间依赖进程内存，现统一路由到同一 Durable Object，防止两端命中不同实例。此版本采用单协调器以复用既有协议，适合教师站规模，并非无限横向扩容。
+- 在线中转默认最多 4 个房间，每个只保留一个不超过 1 MiB 的待确认分块；批量文件 I/O 同时最多 2 路。目录元数据仍有原 8 MiB 总预算。这些是数据缓冲限制，不是整个 Python 运行时的总内存上限。
+- 在线房间不做持久化；部署、实例回收或超时后需要重新配对。六位码检查实例标记，旧在线码会失败，不会错误连接到其他房间。离线任务仍由 D1/R2 保存。
+- 不承诺任何平台上的“无限文件大小”：仍受后台规则、浏览器、Cloudflare 请求/CPU/内存/配额和账单限制；协议不会一次把整个文件读入内存。
+- 局域网直连无法由服务器核实文件字节，启用硬流量配额时沿用现有策略拒绝直连，避免绕过配额。匿名权限同样沿用原规则，未主动放开匿名缓存上传。
+- 不要将包含快传私有分块的 R2 桶通过公开域名或 r2.dev 直接公开，否则可能绕过应用下载控制。
+
+### Cloudflare 网页验收
+
+完成主站初始化后，在实际测试域名确认：
+
+1. `/transfer/` 中英文、主站登录和 `/admin/transfer` 嵌入管理界面正常。
+2. 两个独立浏览器通过六位码进行在线中转，校验接收文件一致；测试局域网直连及文件夹保存。
+3. 上传离线缓存后关闭发送端，另一浏览器通过接收码下载；重启/部署后仍可访问有效缓存。
+4. 修改角色权限、缓存容量和流量限额，核对越权及超额请求被拒绝。
+5. Worker 的 Cron 执行记录中查看成功/失败；等待测试任务过期，确认仅快传对象被删除。关闭自动清理后确认不自动删除。
+
+完整 Python Workers、真实 Durable Object 双端请求及云端 R2/D1 联调仍需上述验收；本地 HTTP 模拟不能替代它。
+
+## 为什么临时使用 src
+
+实际测试发现，入口放在临时项目根目录时，Wrangler 默认收集规则会把 .venv、.venv-workers、node_modules 下的部分文件也打进 Worker。测试包压缩上传量约 12.2 MiB。
+
+本版只在系统临时目录中创建 src，把原 backend 代码、main.py 和 generated_resources.py 放入其中；Wrangler 入口指向 src/main.py。额外将 deploy/cloudflare/runtime 放入临时 src/worker_runtime，并让生成的 main.py 指向包装入口；原业务包名与导入保持原样，业务 Python 文件逐字节校验。工具、静态 assets、数据库初始化 SQL 均在 src 外。第二步测试压缩上传量约 2.77 MiB，338 个静态资源独立处理；第三步增加少量运行适配文件。
+
+运行结束（包括异常和普通中断）会删除临时源码、虚拟环境和产物；强制杀死进程由构建环境回收。工具的下载缓存可由构建环境管理。项目目录不生成 src、.worker、node_modules 或虚拟环境，不维护第二套业务代码。
+
+## 锁定与兼容性
+
+- 构建工具：uv 0.12.18、workers-py 1.17.4、workers-runtime-sdk 1.9.1、Wrangler 4.143.0。
+- uv.lock：锁定普通 Python 构建环境的完整依赖。
+- pylock.toml：锁定 Workers/Pyodide 运行依赖的版本、下载来源及哈希。
+- package-lock.json：锁定 Wrangler 及 Node 工具依赖。
+- pyproject.toml 声明应用模式，不构建项目 wheel；不执行根目录 pip install .。
+- 沿用兼容日期 2026-09-14。该工具链会选择 Workers Python 3.14/Pyodide 3.14.2；构建机 Python 3.13.15 与 Worker 运行版本不是一回事。
+- 运行依赖同步完成后核对 pylock 包信息，发生变化则阻止发布。后续升级工具链时应重新验证所有锁文件，不能自动忽略检查。
+
+应用依赖由现有清单维护，本版未改变根项目或 VPS 的依赖。锁定依赖下载保持 TLS 校验；本轮不改变 Windows/VPS 的 pip 源策略。
+
+## 第五步新增：部署后快速检查
+
+部署前脚本会额外核对 Python 入口导出、Durable Object 注册、Cron、动态路由优先级、快传源码与静态文件完整性；发现缺失或将脚本/数据库混入静态资源时停止发布。
+
+浏览器操作仍是主流程，可选在有 Python 的电脑上执行：
+
+```bash
+python deploy/cloudflare/smoke.py --origin https://你的实际域名
+```
+
+该脚本仅发送 GET，不接收账号密码，不执行 Cloudflare 管理 API；网站首次访问快传时可能按原逻辑补齐默认设置。检查首页中英文、登录入口、快传入口、CSS/JS、robots、站点地图和未登录媒体访问边界，输出每项状态及耗时；全部通过退出码为 0，失败为 1，参数错误为 2。不输出响应正文或 Cookie。遇到跨域重定向直接判失败，请先核对域名配置。
+
+返回成功只代表这些公开访问检查通过；管理员写入、真实文件往返、目录保存、浏览器 WebRTC 与 Cron 删除必须按验收表另测。
+
+### 更新与故障排查顺序
+
+- 更新同一分支：提交完整源码中的变动文件，由 Builds 重新执行；保留既有 D1/R2 和初始化 Secret 以外的业务 Secrets，不重导初始化 SQL、不重建管理员。
+- 切换域名：修改 TEACHER_ORIGIN 构建变量，配置对应域名后重新部署；原域名 Cookie 不跨域继承，重新登录。
+- `pip install .` 失败：检查构建根目录和构建变量 SKIP_DEPENDENCY_INSTALL=1；这发生在运行本脚本之前。
+- 页面缺表错误：仅在空数据库初始化 `database/schema.sql`。不要通过重置已有数据库来掩盖资源绑定填错的问题。
+- `/setup` 404：先核对是否已存在管理员；只有新站才需要临时开启初始化 Secret。
+- `/transfer/` 或码配对失败：检查 TRANSFER_COORDINATOR 绑定、注册记录及部署版本；部署前创建的在线房间需重新配对。
+- 缓存未自动删除：检查 Cron 调用记录、后台自动清理开关/间隔、任务到期时间、清理状态和 R2 权限。
+- Python workerd 无法解析下载域名：这是运行组件尚未加载，不代表应用 HTTP 验收通过；检查测试网络 DNS/TLS 后再运行，不能关闭证书校验规避。
+
+## 保留的手动准备方式
+
+现有调用保持兼容。新增 --output 可指定一个尚不存在、位于源码目录之外的目录：
+
+```bash
+python deploy/cloudflare/prepare.py --output /tmp/teacher-worker-manual --database-id YOUR-D1-UUID --database-name teacher-site --origin https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev --bucket teacher-media
+```
+
+这仅生成资源，不同步完整工具链，不发布，不执行 SQL。已有目标目录会被拒绝，避免覆盖文件。未提供 --output 的历史调用仍生成项目内 .worker；新网页部署入口始终使用外部临时目录，不走历史默认输出方式。
+
+## 验证与排错
+
+在项目根目录、已安装应用依赖与 pytest 的环境执行 `python -B -m pytest deploy/cloudflare/tests -q`。FFI 检查使用 `tests/ffi_probe.py`，需从含 src 的临时产物目录用 Pyodide Python 执行，普通 CPython 无法代替。
+
+- 仍出现 pip install .：检查 SKIP_DEPENDENCY_INSTALL 是否放在构建变量、是否保存、日志是否来自新构建。
+- Branch mismatch：核对网页生产分支和 TEACHER_BUILD_BRANCH。
+- Missing build variable：按上表补齐；不要把示例值当作实际资源。
+- Python/Node 版本不符：设置网页构建版本，重新构建。
+- Runtime lock drift：停止发布并重新核查依赖，不能直接删除锁文件规避。
+- 发布成功后页面报错：先检查 D1 表是否导入、资源绑定和实际域名，再看 Worker 运行日志；不能由 dry-run 结果推断页面正常。
+
+验证范围（详细证据和限制见 [ACCEPTANCE.md](ACCEPTANCE.md)）：
+
+- 本轮完整 bundle 的依赖同步、锁核对、Wrangler dry-run 和临时目录清理通过；原业务 Python 文件逐字节一致。
+
+- 71 项部署、初始化、主站、媒体与快传 HTTP/路由测试通过，覆盖管理员创建、登录、管理页面、中英文公开页面、重复初始化阻止、事务回滚和错误提示。新增快传测试覆盖码配对、在线块确认、文件夹、实时权限、清理租约和失败检查点。HTTP 测试使用可丢弃的本地 SQLite 和存储替身。
+- 实际 Pyodide FFI 检查通过：D1 参数空值/布尔值/数组/嵌套结果，以及 R2 缺失对象、二进制往返、大小限制和删除。同时验证 SDK 绑定包装解包及 R2 按任务前缀分批清理、正式媒体隔离。绑定服务使用 JavaScript 测试替身，不代表云端 D1/R2 已验收。
+- 本地 JavaScript workerd 的真实 D1/R2 绑定验收通过：原始 127 条 SQL、事务回滚、JSON/空值、R2 范围读取及前缀隔离；此结果不能代替 Python Worker 整站运行。
+- 实际 Pyodide 验证原有 600000 次 PBKDF2 的结果；独立 JavaScript Workerd 探针也确认该 Web Crypto 参数可执行。
+- 本地 Python Workers 启动因当前测试环境无法解析 `pyodide-capnp-bin.edgeworker.net` 而受阻。未完成完整 Python Workerd 请求链、真实线上 D1/R2 业务或 Windows 实机验收；没有发布至用户账号。
+
+第五步的代码、教程和本地可执行验收已完成。真实云端验收未完成：请按 [ACCEPTANCE.md](ACCEPTANCE.md) 在独立测试 Worker 验证，确认后再用于生产。全部文件改动见 [CHANGES.md](CHANGES.md)。
+
+官方参考：
+- https://developers.cloudflare.com/workers/ci-cd/builds/build-image/
+- https://developers.cloudflare.com/workers/ci-cd/builds/configuration/
+- https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/
+- https://developers.cloudflare.com/workers/languages/python/packages/
+
+- https://developers.cloudflare.com/workers/runtime-apis/handlers/scheduled/
+- https://developers.cloudflare.com/durable-objects/get-started/
