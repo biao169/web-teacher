@@ -11,6 +11,7 @@ from worker_runtime.bridge import Database, Bucket
 from backend.app.adapters.d1.sql import D1SQL
 from backend.app.native.storage import R2Store
 from backend.app.adapters.worker_crypto.passwords import derive
+from backend.app.security.passwords import ITERATIONS
 
 async def main():
     native = js.Function.new('''return {
@@ -55,8 +56,9 @@ async def main():
     second=await transfers.prune_task(task);assert second=={'removed':2,'done':True}
     assert await store.get('permanent.png')==b'keep'
     print('R2 task pruning: bounded prefix-only cleanup and permanent media isolation OK')
-    value=await derive(b'pass',b'salt',600000)
-    assert value.hex()=='b8b0941e7a83a1bcd973407482c40b9f4a7a2a8cd2184c2a8efd0f0b9924de6e'
-    print('Web Crypto: existing 600000-iteration PBKDF2 format verified')
+    assert ITERATIONS == 100000
+    value=await derive(b'pass',b'salt',ITERATIONS)
+    assert value.hex()=='2c394e181f6bb90dd7bd2c2c9432b152f3afdce5f5f99d8e33c2264a3f5675e1'
+    print('Web Crypto: shared 100000-iteration PBKDF2 format verified')
 
 asyncio.run(main())

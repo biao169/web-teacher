@@ -10,8 +10,8 @@
       "sha256": "1bb1b2af56ecd35a42a615b8ca2051a63893dd3db513ff7361ede6316c67f10f"
     },
     "README.md": {
-      "bytes": 63559,
-      "sha256": "d1ddefc8bf1dc2e3ce886c503899b19badaf5d7e083e7d5c966b6df6d1b95a0c"
+      "bytes": 64593,
+      "sha256": "c8b7f80068e277c3c822fd0aa84130273c2a8bf944ea54d1d1b21cff16fd28c8"
     },
     "backend/__init__.py": {
       "bytes": 0,
@@ -478,8 +478,8 @@
       "sha256": "1432e637fecccfbdd5c481b6fefc78ed63653e15f0bf32025027cd3292c28e4d"
     },
     "backend/app/security/passwords.py": {
-      "bytes": 1991,
-      "sha256": "160573109f1b336590d85b4201659c188013a1de3b0de51ffc77df1b5f8ca949"
+      "bytes": 2082,
+      "sha256": "3a42d70a9d73ef2c79a4ae1249c9232d0b5662c66916c3954b9c4e87e431479f"
     },
     "backend/app/services/__init__.py": {
       "bytes": 0,
@@ -609,21 +609,217 @@
       "bytes": 62996,
       "sha256": "62a6394dec64cee7c77b9dfec316bf470ebeb7e1ef8b2d3259f8c82c986e7ca5"
     },
+    "deploy/cloudflare/ACCEPTANCE.md": {
+      "bytes": 16390,
+      "sha256": "ba20a2f67c2955794bc4dcb92a87bc6034687a47bdf5b1f75d76edc06ffe157b"
+    },
+    "deploy/cloudflare/CHANGES.md": {
+      "bytes": 7155,
+      "sha256": "ae07a491d1773d9664e839f4b033cd215cb4f9a7ded4b0f5737c3f8fcc50fc32"
+    },
+    "deploy/cloudflare/CPU-DIAGNOSTICS.md": {
+      "bytes": 3865,
+      "sha256": "a6022a40363b26cc934252e565dcdd0160c228bce755eda319ac9a1c35bf3ac5"
+    },
+    "deploy/cloudflare/DOMAINS.md": {
+      "bytes": 4425,
+      "sha256": "42f3a2662652a084711ee0d70a2af39d6ea0afb5ef4ec281f3994a0116cbc5c0"
+    },
+    "deploy/cloudflare/PASSWORD-COMPATIBILITY.md": {
+      "bytes": 2739,
+      "sha256": "0adba319f7dd563d1baf5a028ae3413ca3a6742a994528d64779a67f72faff3a"
+    },
     "deploy/cloudflare/README.md": {
-      "bytes": 2804,
-      "sha256": "95f853f8a74433118f9ca0f922a3dc85648dd935924a6affb9a527677e28d0ee"
+      "bytes": 32735,
+      "sha256": "e32e5ca68d0a274b6ffeae111d4ce03dfc38f7f76c5bcb4170554fadb50d9bf9"
+    },
+    "deploy/cloudflare/STARTUP-ACCEPTANCE.md": {
+      "bytes": 3060,
+      "sha256": "a70fb6abe76784c6c6380893b71b451dfa8af6e92b61b784a3fabd3787b8f89b"
     },
     "deploy/cloudflare/admin_sql.py": {
       "bytes": 2016,
       "sha256": "5f5151c668c9c3e83c314b8e6991f2bbef8bd7530805dd187fdf4affdb993e87"
     },
+    "deploy/cloudflare/build.py": {
+      "bytes": 7458,
+      "sha256": "88de91a6be53b2026a81d0910cf3da475835b8fede97957eb382f441eec8b926"
+    },
+    "deploy/cloudflare/d1_setup.py": {
+      "bytes": 5231,
+      "sha256": "abcc5045e68450975afd6d26c3cfb5d8a15a0455a0f60ccf1700b0aedf1dcb8f"
+    },
+    "deploy/cloudflare/domains.py": {
+      "bytes": 2758,
+      "sha256": "81d98a9836303eadddd6920be93d2947bff4e1db1fd1a3e6fa99e9ed785fae37"
+    },
+    "deploy/cloudflare/integration_package.py": {
+      "bytes": 3910,
+      "sha256": "2dfb3319b2603d446fe7bd60c8b0e85ae6465e64684aaa736560b72135486dd8"
+    },
+    "deploy/cloudflare/package-lock.json": {
+      "bytes": 49380,
+      "sha256": "716a5eb151ba13e6174ce97105eefbfa0737fc8c7de39bfaf442ca1061481a80"
+    },
+    "deploy/cloudflare/package.json": {
+      "bytes": 61,
+      "sha256": "543992c309267858d5b11ebf66f117f47ef4af898bdf38e7215cf99d389a40b8"
+    },
+    "deploy/cloudflare/pipeline.py": {
+      "bytes": 9325,
+      "sha256": "692d4f7cda69dd9f97ee3761c0efa6c345d5c34d530f0199d7839edec0682c35"
+    },
     "deploy/cloudflare/prepare.py": {
-      "bytes": 240,
-      "sha256": "d8251298775c7157ff34a18c17660a0eb204c182ccc830c4d843d3550e75b69f"
+      "bytes": 261,
+      "sha256": "35f0299f8aa16b0db4dc5235add75decce87eedcbb0fe4bdd6ead48ad2683e77"
+    },
+    "deploy/cloudflare/pylock.toml": {
+      "bytes": 5552,
+      "sha256": "fe07d31df9fdf9ccc6cfc128e2d652aeca9f1b03e9d3eb60fba9f2add4694fc0"
     },
     "deploy/cloudflare/pyproject.toml": {
-      "bytes": 416,
-      "sha256": "5ba876ffa31e5a7ac8c7f6c71f68e3c927ca2e20f1de4355f7dcf2f20706ecb4"
+      "bytes": 303,
+      "sha256": "cc5f6b73d548a8af79f7fef6b57d6f7b151b615ae64dd14c5ee6317e19e35f92"
+    },
+    "deploy/cloudflare/r2_check.py": {
+      "bytes": 4166,
+      "sha256": "39f60a562446e9e9288944f67cf6e52e6c428164d0531bbe9abf44bbb830b5cc"
+    },
+    "deploy/cloudflare/resource_module.py": {
+      "bytes": 1610,
+      "sha256": "d7debc038c2e24c35800780fbb19ec9ec4a5c906a96c71f6c9191b5f84befd9d"
+    },
+    "deploy/cloudflare/runtime/__init__.py": {
+      "bytes": 77,
+      "sha256": "6fd0da6faa28374a59c7f32ebff39f4555dee97183d7f63090a9e195cc090d4f"
+    },
+    "deploy/cloudflare/runtime/bridge.py": {
+      "bytes": 3340,
+      "sha256": "3263c576fe79b2e8a0cb98e38797615d136b0bbc21434cd0860461cb224c4703"
+    },
+    "deploy/cloudflare/runtime/cleanup.py": {
+      "bytes": 2813,
+      "sha256": "c2ed3da88d92507f9504d0138354b36bc1445f87263ca32b90db91b9a246788c"
+    },
+    "deploy/cloudflare/runtime/diagnostics.py": {
+      "bytes": 1623,
+      "sha256": "324db056f40717ddc72bd542531b7f719c39858ac8f9cc7830940d8ca36d43ea"
+    },
+    "deploy/cloudflare/runtime/entrypoint.py": {
+      "bytes": 3527,
+      "sha256": "70b64f1203dda1aef6dafdbc4f4f620871894b762874c21d906d3e031c2fbf52"
+    },
+    "deploy/cloudflare/runtime/routing.py": {
+      "bytes": 569,
+      "sha256": "2f9372d4a6ad19bc86931662fe4a617d9d393788a74bb2ba8931227920ab040d"
+    },
+    "deploy/cloudflare/runtime/setup.py": {
+      "bytes": 6729,
+      "sha256": "5b063645b8f512ed6826a02ece65576daf14929f593a02f44114f66da7e1bafc"
+    },
+    "deploy/cloudflare/runtime/snapshot.py": {
+      "bytes": 1066,
+      "sha256": "34ecc9607ceb2d5c41b347d9069939ad108cc2572f82eaa70dc9705aea587e61"
+    },
+    "deploy/cloudflare/runtime/storage-status.js": {
+      "bytes": 866,
+      "sha256": "72983b1281d31b1f58ff6494f904fcde11d93a8236d868beb52b94c22f8b34e4"
+    },
+    "deploy/cloudflare/runtime/storage.py": {
+      "bytes": 863,
+      "sha256": "e9a8ed86e9807ff0e39eb709fa0b3cf1db9afe14c8443ee766df60d4f78e5087"
+    },
+    "deploy/cloudflare/runtime/transfer.py": {
+      "bytes": 5085,
+      "sha256": "f3125865e425829e11e3d02d93dd1eea366c2451b5c35acf1bda5a77b7037ca9"
+    },
+    "deploy/cloudflare/smoke.py": {
+      "bytes": 4682,
+      "sha256": "835258972d004f170b45c84a236362d7ac8b7ed7db4f9203c4f57513c68b619e"
+    },
+    "deploy/cloudflare/startup_check.py": {
+      "bytes": 4100,
+      "sha256": "42590249f81a8a81824884c4d2a60ceea0d0ba6b386a532eac7b097a3fad640a"
+    },
+    "deploy/cloudflare/tests/ffi_probe.py": {
+      "bytes": 3617,
+      "sha256": "20cad6c48a7e7436f863193705d507b112ad4f87bf687ab226b80e78d0251052"
+    },
+    "deploy/cloudflare/tests/native_bindings.cjs": {
+      "bytes": 2709,
+      "sha256": "7ff60952b3db1318981141fc0400095b08cb9085ffe6a26d56b05c3a03e600f8"
+    },
+    "deploy/cloudflare/tests/native_bindings.py": {
+      "bytes": 1157,
+      "sha256": "f5f2a1565ff5c3f18176eb1d0cfa6c49dd533e3bf0e14629e8e8d9ecd3e73f05"
+    },
+    "deploy/cloudflare/tests/test_acceptance_step5.py": {
+      "bytes": 4823,
+      "sha256": "2988970ced2969fdd43c130eef49147e0acfef1a12fd630b12f584f05d8afd98"
+    },
+    "deploy/cloudflare/tests/test_build_step1.py": {
+      "bytes": 3934,
+      "sha256": "2b4602e8594b1c9ad26be97d1ef1f2181b1785db4bbd3806d92a5054e8320daf"
+    },
+    "deploy/cloudflare/tests/test_build_without_sqlite.py": {
+      "bytes": 2981,
+      "sha256": "8505509efa109112afcc9b620f7a9914a7ba6502595c984ae000776fc0eabfeb"
+    },
+    "deploy/cloudflare/tests/test_d1_setup.py": {
+      "bytes": 5633,
+      "sha256": "202287d6c27b75d11846d0923aaddf55bb7408685c88541339e94ffc2d403536"
+    },
+    "deploy/cloudflare/tests/test_diagnostics.py": {
+      "bytes": 1661,
+      "sha256": "424d0afc356be6f1a43fad7a28edd6429d8fad7bdbaccbfd6e2f82715c091bc6"
+    },
+    "deploy/cloudflare/tests/test_domains.py": {
+      "bytes": 2607,
+      "sha256": "39814b0e46eea2edef09967ad1210c19db944dfc30d3bae6272d5a327ee9c60f"
+    },
+    "deploy/cloudflare/tests/test_lazy_transfer_state.py": {
+      "bytes": 3838,
+      "sha256": "28317555545338906ab88fed716164470badcf61be92ffb72a007bee3421066f"
+    },
+    "deploy/cloudflare/tests/test_pipeline_step2.py": {
+      "bytes": 6291,
+      "sha256": "c5f5511d84b9f665834fbb235452ebc772beeb917efee0aeee4bd1993b1b46cb"
+    },
+    "deploy/cloudflare/tests/test_r2_check.py": {
+      "bytes": 3300,
+      "sha256": "ce8199c1ed53ae711817015c5ca2b7d8cd48b69ebc7fd5e25ad5f1354b5fe547"
+    },
+    "deploy/cloudflare/tests/test_resource_module.py": {
+      "bytes": 2536,
+      "sha256": "78dc5d6eabe07b63f1e2d7a0825854ce72332b9cf13b6e7e15e709b94e4aa518"
+    },
+    "deploy/cloudflare/tests/test_runtime_step3.py": {
+      "bytes": 7280,
+      "sha256": "a797beb2f9a9c1ca893968222452819cc35a3eec9a3c18d76259f3c9e34db6ae"
+    },
+    "deploy/cloudflare/tests/test_split_loading.py": {
+      "bytes": 2984,
+      "sha256": "e5642ccc9794607695eb3c2d2c63107dc8ea6cb9a96fa734118ebf88bd11f80b"
+    },
+    "deploy/cloudflare/tests/test_startup_acceptance.py": {
+      "bytes": 2638,
+      "sha256": "1a329d70dcde3353ac81c7eac3a1a590364eabbf19ec188f79de9bceaf7acace"
+    },
+    "deploy/cloudflare/tests/test_startup_check.py": {
+      "bytes": 1503,
+      "sha256": "4f3db9af8a7fe62f34e8b3f42e531144f8884f0f5ad0bfc18286d88b720fa461"
+    },
+    "deploy/cloudflare/tests/test_startup_lazy.py": {
+      "bytes": 2723,
+      "sha256": "68ece62f7a6a158affbd912854c015c731498090a58568c7ed039701fdd9cc92"
+    },
+    "deploy/cloudflare/tests/test_transfer_step4.py": {
+      "bytes": 6603,
+      "sha256": "01e8bd96920007fe0365c0d03a146d98e6ad6fe131065f2c67c0c7b10d170701"
+    },
+    "deploy/cloudflare/uv.lock": {
+      "bytes": 74032,
+      "sha256": "e7e01cbd8e0933b40bdae96cf9dcf056a9c89ef01052c93e034c539c03bc9159"
     },
     "deploy/linux/README.md": {
       "bytes": 12026,
@@ -678,8 +874,8 @@
       "sha256": "58171f040ebdc6b905996164a087c4c2b13ad3a73ba8fbdef8714ad8737a4032"
     },
     "deploy/shared/worker_package.py": {
-      "bytes": 5891,
-      "sha256": "781e28a0d5b4a8834e69318c910fb08c532961ac95804a4f5461f1f6d7aad48b"
+      "bytes": 7223,
+      "sha256": "16f6eb515c8e03ce538cdba825c3affa9daa1391361ac071afd8d42a9114e6d2"
     },
     "deploy/vps/Caddyfile.example": {
       "bytes": 863,
@@ -3652,6 +3848,14 @@
     "tests/test_paper_translation_step4.py": {
       "bytes": 5517,
       "sha256": "0e3d08d538bec285ae5b2068f83bf003e456272dc2585ffe3449ff07ce5df9b1"
+    },
+    "tests/test_password_compatibility.py": {
+      "bytes": 3606,
+      "sha256": "393d5a39036a189f21202eb243eb1a533fca9d5a9b92300955e24cf5e51fa5ee"
+    },
+    "tests/test_password_policy.py": {
+      "bytes": 2355,
+      "sha256": "1f3db6ae23b7a24345b6c62835a0ddbf1f25dbcbea38ec6ff1cefb856dac3a4c"
     },
     "tests/test_pip_source_v111.py": {
       "bytes": 3860,

@@ -5,9 +5,29 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse
 from backend.app.native.auth import Auth
 from backend.app.native.catalog import Error
-from backend.app.native.web import payload
+from backend.app.native.web import payload, IntegrityError
+from .diagnostics import emit, failure, phase
 
 PATH = '/setup'
+
+
+class SetupHashFailure(Exception):
+    """Distinguish password calculation from later transactional writes."""
+
+
+class SetupPasswords:
+    def __init__(self, passwords):
+        self.passwords = passwords
+
+    async def hash(self, password):
+        try:
+            with phase('SETUP-HASH'):
+                return await self.passwords.hash(password)
+        except Error:
+            raise
+        except Exception as exc:
+            raise SetupHashFailure() from exc
+
 
 
 def page(message='', status=200, form=False):
@@ -20,10 +40,9 @@ def page(message='', status=200, form=False):
     body = '''<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>首次设置 / Initial setup</title><style>body{font:16px/1.6 system-ui;background:#f2f5f7;color:#203041;margin:0;padding:32px 16px}main{max-width:520px;margin:4vh auto;background:white;padding:28px;border-radius:16px}h1{font-size:24px;margin-top:0}label{display:block;margin:16px 0}input,button{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bccbd3;border-radius:8px;font:inherit}button{background:#195f63;color:white;cursor:pointer}p{overflow-wrap:anywhere}a{color:#195f63}</style>
 <main><h1>首次设置 / Initial setup</h1><p>仅用于空账号库。创建后入口自动关闭。<br>For the first administrator only; closes after setup.</p>'''
-    # 'Referrer-Policy':'no-referrer'
     return HTMLResponse(body+'<p role="status">'+html.escape(message)+'</p>'+fields+'</main></html>',
                         status_code=status, headers={'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow',
-                                                     'Referrer-Policy':'Referrer-Policy'})
+                                                     'Referrer-Policy':'same-origin'})
 
 
 def install(app, factory):
@@ -38,9 +57,10 @@ def install(app, factory):
             users = await r.sql.query('SELECT uid FROM auth_users LIMIT 1')
             marker = await r.sql.query('SELECT id FROM auth_bootstrap_state LIMIT 1')
         except Exception as exc:
+            emit('SETUP-CHECK', 'ERROR', exceptions=failure(exc))
             if 'no such table' in str(exc).lower():
                 return None, None, page('请先在 D1 中导入 database/schema.sql，再返回此页面。 / Initialize D1 with database/schema.sql first.', 503)
-            raise
+            return None, None, page('无法检查初始化状态，请查看 SETUP-CHECK 日志后刷新页面。 / Cannot check setup state; inspect SETUP-CHECK logs and reload.', 503)
         if users or marker:
             return None, None, page('初始化已完成，入口已关闭。 / Setup is complete and closed.', 404)
         return r, secret, None
@@ -55,8 +75,10 @@ def install(app, factory):
         r, secret, blocked = await available(request)
         if blocked is not None:
             return blocked
-        if request.headers.get('origin') != r.config.origin:
-            return page('请求来源不匹配 / Origin mismatch.', 403)
+        origin = request.headers.get('origin')
+        if origin != r.config.origin:
+            emit('SETUP-ORIGIN', 'REJECTED', reason='missing' if not origin else 'null' if origin == 'null' else 'mismatch')
+            return page('请求来源不匹配，请从配置的主域名重新打开本页；检查 TEACHER_ORIGIN 和页面来源策略。 / Origin mismatch. Reopen using the configured site origin; check TEACHER_ORIGIN and referrer policy.', 403)
         try:
             data = await payload(request, limit=8192)
             token = data.get('token', '')
@@ -64,9 +86,18 @@ def install(app, factory):
                 return page('初始化密钥不正确 / Invalid setup token.', 403, form=True)
             if data.get('password') != data.get('confirm'):
                 return page('两次密码不一致 / Passwords do not match.', 422, form=True)
-            await Auth(r.sql, r.passwords).bootstrap(data.get('username', ''), data.get('password', ''))
+            with phase('SETUP-BOOTSTRAP'):
+                await Auth(r.sql, SetupPasswords(r.passwords)).bootstrap(data.get('username', ''), data.get('password', ''))
         except Error as exc:
             return page(exc.message, exc.status, form=True)
+        except SetupHashFailure:
+            return page('密码计算失败，尚未写入管理员。请检查 SETUP-HASH 日志与部署版本，修复后重新打开本页。 / Password hashing failed before administrator writes. Check SETUP-HASH logs and deployment version, then reload after fixing.', 503)
+        except IntegrityError:
+            # Preserve the existing app's local SQLite conflict handler (409).
+            raise
+        except Exception as exc:
+            emit('SETUP-SUBMIT', 'ERROR', exceptions=failure(exc))
+            return page('初始化未能确认完成。请查看 SETUP-SUBMIT 日志并重新打开本页确认状态，不要清空数据库。 / Setup completion could not be confirmed. Inspect SETUP-SUBMIT logs and reload to check state; do not reset the database.', 500)
         return page('管理员已创建。请访问 /auth/login 登录，并在 Cloudflare 删除 TEACHER_SETUP_TOKEN。 / Administrator created. Sign in at /auth/login and remove the setup secret.')
 
     # The existing /{lang} route must not consume /setup before this handler.

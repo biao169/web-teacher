@@ -156,3 +156,11 @@ python deploy/cloudflare/smoke.py --origin https://你的实际测试域名
 - Python 3.13.15 完整 bundle 通过：快照副作用检查、依赖锁、Wrangler dry-run、本地 R2 双前缀读写删除、本地 D1 127 对象与清理。
 - 新增 CPU-DIAGNOSTICS.md；未部署到用户账号或宣称线上 CPU/Pyodide 故障已消失。平台强制终止不保证能输出应用 ERROR，elapsed_ms 不是 CPU 时间。
 - 本轮只修改 deploy，数据库与业务源码未改；打包例行更新校验清单。
+
+## 统一密码第四步最终验证
+
+- 部署、密码策略、跨平台计算、账号、公开注册/登录相关测试共 206 项通过；随后补充改密与会话撤销测试，14 项初始化/改密复验通过。既有 Starlette 弃用提示不影响结果。
+- 锁定 Pyodide Python 实际执行更新后的 ffi_probe.py 成功：D1/R2 使用本地 JS 替身，密码使用真实 Web Crypto 与原 Worker derive，100000 次固定摘要一致。
+- Python 3.13.15 完整 build.py bundle 成功：快照副作用检查、依赖锁、Wrangler dry-run、本地 R2 两前缀读写删除、本地 D1 127 对象检查与清理。未执行远程 SQL、远程部署或实际 Windows 测试。
+- 共用密码模块统一100000次，无旧版本迁移；/setup 使用 same-origin、严格 Origin 校验及脱敏诊断；未知提交结果不假定未写入。
+- 完整使用说明见根 README、Cloudflare README 与 PASSWORD-COMPATIBILITY.md。上线后仍需完成真实首次初始化、登录、设密、改密与会话撤销验收。

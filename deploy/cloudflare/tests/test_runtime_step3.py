@@ -46,11 +46,13 @@ def test_setup_then_existing_login_and_public_pages(site):
     c,r,_=site
     page=c.get('/setup');assert page.status_code==200 and TOKEN not in page.text
     assert page.headers['x-robots-tag']=='noindex, nofollow'
+    assert page.headers['referrer-policy']=='same-origin'
+    assert page.headers['cache-control']=='no-store'
     result=submit(c);assert result.status_code==200
     assert 'Administrator created' in result.text and PASSWORD not in result.text and TOKEN not in result.text
     users=run(r.sql.query('SELECT username,status,password_hash FROM auth_users'))
     assert len(users)==1 and users[0]['status']=='active'
-    assert users[0]['password_hash'].startswith('pbkdf2_sha256$600000$')
+    assert users[0]['password_hash'].startswith('pbkdf2_sha256$100000$')
     auth=Auth(r.sql,r.passwords);token=run(auth.login('first-admin',PASSWORD,'test'))
     c.cookies.set(r.config.name('session'),token)
     assert c.get('/admin/profiles').status_code==200
@@ -78,7 +80,7 @@ def test_bad_token_does_not_create_user(site):
 def test_missing_or_foreign_origin(site):
     c,r,_=site
     data={'token':TOKEN,'username':'first-admin','password':PASSWORD,'confirm':PASSWORD}
-    for headers in ({},{'Origin':'https://other.test'}):
+    for headers in ({},{'Origin':'null'},{'Origin':'https://other.test'}):
         assert c.post('/setup',data=data,headers=headers).status_code==403
     assert not run(r.sql.query('SELECT uid FROM auth_users'))
 
@@ -118,3 +120,60 @@ def test_schema_missing_gives_instructions(site):
     response=c.get('/setup')
     assert response.status_code==503 and 'database/schema.sql' in response.text
     assert 'D1_ERROR' not in response.text
+
+
+def test_hash_failure_has_safe_message_and_no_writes(site, capsys):
+    c,r,_=site
+    class Broken:
+        async def hash(self, password):
+            raise RuntimeError('NotSupportedError Pbkdf2 '+password+' '+TOKEN)
+    r.passwords=Broken()
+    response=submit(c)
+    assert response.status_code==503 and 'SETUP-HASH' in response.text
+    assert 'before administrator writes' in response.text
+    output=capsys.readouterr().out
+    assert 'SETUP-HASH' in output and 'RuntimeError' in output
+    for text in (output,response.text):
+        assert PASSWORD not in text and TOKEN not in text and 'NotSupportedError' not in text
+    assert not run(r.sql.query('SELECT uid FROM auth_users'))
+    assert not run(r.sql.query('SELECT id FROM auth_bootstrap_state'))
+
+
+def test_unknown_write_failure_does_not_claim_no_writes(site, monkeypatch, capsys):
+    c,r,_=site
+    async def broken(*args, **kwargs):raise RuntimeError('private-db-message '+TOKEN)
+    monkeypatch.setattr(r.sql, 'batch', broken)
+    response=submit(c)
+    assert response.status_code==500 and 'could not be confirmed' in response.text
+    assert 'before administrator writes' not in response.text
+    output=capsys.readouterr().out
+    assert 'SETUP-SUBMIT' in output
+    assert 'private-db-message' not in output+response.text and TOKEN not in output+response.text
+
+
+def test_query_failure_has_safe_diagnostic(site, capsys):
+    c,r,_=site
+    class Broken:
+        async def query(self,*args):raise RuntimeError('secret-query '+TOKEN)
+    r.sql=Broken()
+    response=c.get('/setup')
+    assert response.status_code==503 and 'SETUP-CHECK' in response.text
+    output=capsys.readouterr().out
+    assert 'SETUP-CHECK' in output
+    assert TOKEN not in output+response.text and 'secret-query' not in output+response.text
+
+
+def test_password_change_uses_shared_cost_and_revokes_old_session(site):
+    c,r,_=site
+    assert submit(c).status_code==200
+    auth=Auth(r.sql,r.passwords)
+    token=run(auth.login('first-admin',PASSWORD,'change-test'))
+    principal=run(auth.principal(token))
+    new_password='Changed-密码-100000'
+    run(auth.password(principal,PASSWORD,new_password))
+    assert run(auth.principal(token)) is None
+    from backend.app.native.catalog import Error
+    with pytest.raises(Error):run(auth.login('first-admin',PASSWORD,'change-old'))
+    assert run(auth.login('first-admin',new_password,'change-new'))
+    row=run(r.sql.query('SELECT password_hash FROM auth_users'))[0]
+    assert row['password_hash'].startswith('pbkdf2_sha256$100000$')

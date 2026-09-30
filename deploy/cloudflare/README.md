@@ -255,7 +255,7 @@ python deploy/cloudflare/prepare.py --output /tmp/teacher-worker-manual --databa
 - 71 项部署、初始化、主站、媒体与快传 HTTP/路由测试通过，覆盖管理员创建、登录、管理页面、中英文公开页面、重复初始化阻止、事务回滚和错误提示。新增快传测试覆盖码配对、在线块确认、文件夹、实时权限、清理租约和失败检查点。HTTP 测试使用可丢弃的本地 SQLite 和存储替身。
 - 实际 Pyodide FFI 检查通过：D1 参数空值/布尔值/数组/嵌套结果，以及 R2 缺失对象、二进制往返、大小限制和删除。同时验证 SDK 绑定包装解包及 R2 按任务前缀分批清理、正式媒体隔离。绑定服务使用 JavaScript 测试替身，不代表云端 D1/R2 已验收。
 - 本地 JavaScript workerd 的真实 D1/R2 绑定验收通过：原始 127 条 SQL、事务回滚、JSON/空值、R2 范围读取及前缀隔离；此结果不能代替 Python Worker 整站运行。
-- 实际 Pyodide 验证原有 600000 次 PBKDF2 的结果；独立 JavaScript Workerd 探针也确认该 Web Crypto 参数可执行。
+- 历史本地探针曾通过 600000 次，但用户生产 Workers 明确拒绝超过 100000 次；这说明本地成功不能证明生产限额允许。当前已统一 100000 次，并更新 FFI 探针。
 - 本地 Python Workers 启动因当前测试环境无法解析 `pyodide-capnp-bin.edgeworker.net` 而受阻。未完成完整 Python Workerd 请求链、真实线上 D1/R2 业务或 Windows 实机验收；没有发布至用户账号。
 
 第五步的代码、教程和本地可执行验收已完成。真实云端验收未完成：请按 [ACCEPTANCE.md](ACCEPTANCE.md) 在独立测试 Worker 验证，确认后再用于生产。全部文件改动见 [CHANGES.md](CHANGES.md)。
@@ -296,3 +296,23 @@ python deploy/cloudflare/prepare.py --output /tmp/teacher-worker-manual --databa
 ## 启动修复第四步：最终验收
 
 新增 [STARTUP-ACCEPTANCE.md](STARTUP-ACCEPTANCE.md)，记录当前公开站点 Hello world 响应、活动部署核对及双端验收步骤。smoke.py 新增 --repeat-startup 重复访问模式，并提示默认 Hello world 响应。新增首次 HTTP 请求到真实登录表单的本地端到端测试。公开 GET 检查和本地测试不替代云端发布或真实双端验收。
+
+
+## 统一密码第三步：初始化来源与失败提示
+
+`runtime/setup.py` 的响应策略改为 `Referrer-Policy: same-origin`，修复普通表单提交来源变成 null 的问题。仍严格比较 Origin 与配置主地址，拒绝缺失、null 及其他来源；不增加宽松回退。来源错误提示会指导检查 TEACHER_ORIGIN，日志只记录缺失/null/不一致分类。
+
+初始化继续复用 Auth.bootstrap 的事务流程与统一 100000 次密码服务。SETUP-HASH 记录密码计算阶段；SETUP-BOOTSTRAP 记录初始化过程；SETUP-CHECK/SETUP-SUBMIT 记录查询或提交异常，复用有界脱敏堆栈，不输出异常原文、密码或密钥。
+
+密码计算失败返回 503，明确尚未开始管理员写入；未知提交异常返回 500，提示重新打开页面确认状态，不宣称事务一定未提交。表单不回填密码和密钥；no-store、禁止索引和初始化后关闭入口规则保留。平台 CPU 强制终止仍可能来不及执行这些错误提示。
+
+重新部署后重新打开 /setup，不从浏览器旧页面直接重提。构建变量不变；TEACHER_ORIGIN 必须与实际访问的 HTTPS 主地址一致。本次不重置数据库、不修改表结构。完整线上初始化与登录仍需第四步验收。
+
+
+## 统一密码第四步：最终验证与发布
+
+本轮已完成本地回归、跨平台计算比较及完整 bundle，详见 ACCEPTANCE.md。请上传完整解压源码到 web-py 分支，保持 Root directory=deploy/cloudflare、Build command=python build.py check、Deploy command=python build.py deploy。
+
+确认运行时 TEACHER_ORIGIN 与访问域名一致，并设置运行时 Secret TEACHER_SETUP_TOKEN。重新打开 /setup 创建管理员，然后验证 /auth/login、后台设密、改密及旧密码拒绝；成功后移除初始化 Secret。不要把 Secret 写入仓库，也不需要更换数据库或重置媒体。
+
+本包尚未发布到你的账号，Windows 实机与云端完整业务仍需验证。若出现错误，请提供对应 POST 请求的 SETUP-CHECK、SETUP-HASH、SETUP-BOOTSTRAP 或 SETUP-SUBMIT 阶段日志，不提供密码或密钥。

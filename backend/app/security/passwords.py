@@ -5,7 +5,8 @@ import re
 import secrets
 from backend.app.native.catalog import Error as ContentError
 
-ITERATIONS = 600_000
+# Shared by local Python and Workers Web Crypto; one portable password format.
+ITERATIONS = 100_000
 
 def validate_password(password):
     """检查密码长度和输入类型，避免无效密码进入派生过程。"""
@@ -24,7 +25,7 @@ class Passwords:
 
     async def verify(self,password,encoded):
         # Bound stored parameters too: corrupt/unsupported encodings never choose KDF cost.
-        """核对发布清单中的路径、文件大小与摘要。"""
+        """按统一参数验证密码；不接受其他迭代次数的哈希。"""
         valid=isinstance(password,str) and 1 <= len(password) <= 128 and len(password.encode('utf-8'))<=512
         try:
             algorithm,iterations,salt,expected=encoded.split('$')

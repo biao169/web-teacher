@@ -5,7 +5,7 @@
 新闻详情封面、私密留言入口、可切换时区的时间录入及浏览器本地时间显示、后台列表快速修改排序，已完成跨功能联调。新增同一条新闻连续修改时间、提交留言、调整排序及切换发布状态的回归用例，验证字段互不覆盖及未公开内容的访问限制。详见 [验收与更新说明](docs/news-acceptance-v119.md)。
 
 数据库结构与 v0.15.114 一致，无需重建。v0.15.117 起新增 tzdata 依赖；从更早版本升级须同步依赖，Linux 使用整站更新，Windows 保留数据启动使用 `deploy/windows/start-existing.cmd`。本版不增加依赖。
- 
+
 ## 后台排序快速编辑（v0.15.118）
 
 具有 sort_order 或 display_order 的功能列表可直接修改排序数字。更改后按 Enter 或点击 ✓ 保存；Esc 恢复当前已知保存值；离开输入框不自动保存。排序值越小通常越靠前，实际列表按当前选定列和方向排列，相同数值保留既有次级排序。没有编辑权限或该字段被导航固定时只显示数字。
@@ -648,3 +648,12 @@ sudo tweb update --repo https://github.com/biao169/web-teacher.git --branch web-
 设置保存、任务筛选/分页、批量暂停/恢复/撤销/清理、缓存扫描与删除继续使用现有快传接口。列表刷新不会替换设置区域或清空草稿。全站管理仍需快传查看、编辑及删除权限；仅有查看权限时只展示自己的任务。旧 `/transfer/admin` 地址验证权限后跳转到新入口，并保留筛选参数。
 
 数据库结构与 v0.15.96 完全一致，无需初始化或重置。详见 [后台整合说明](docs/transfer-admin-v97.md)。
+
+
+## 统一密码与首次管理员（v0.15.119 密码修复）
+
+Windows、Ubuntu/Debian 与 Cloudflare 统一使用 PBKDF2-HMAC-SHA256、100000 次、随机盐和 32 字节摘要。数据库表结构不变；当前为新站开发版本，不支持旧次数哈希迁移。不要手动修改数据库里的哈希次数。
+
+本地沿用现有管理员创建脚本；Cloudflare 设置运行时 Secret `TEACHER_SETUP_TOKEN`（32—256 字符），从 `TEACHER_ORIGIN` 对应地址打开 `/setup`，输入初始化密钥、账号与两次密码。创建后访问 `/auth/login`，确认成功后删除该 Secret；已有账号时初始化入口自动关闭。重新部署后重新打开页面，不从旧页面重提。
+
+Cloudflare 构建根目录和命令保持原值，无需重置 D1 或 R2。初始化失败时参照 [密码与平台兼容说明](deploy/cloudflare/PASSWORD-COMPATIBILITY.md) 及 [Cloudflare 教程](deploy/cloudflare/README.md)。100000 次是本项目的平台兼容折中，不代表通用密码安全推荐参数。
