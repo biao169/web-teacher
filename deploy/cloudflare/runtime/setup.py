@@ -20,9 +20,10 @@ def page(message='', status=200, form=False):
     body = '''<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>首次设置 / Initial setup</title><style>body{font:16px/1.6 system-ui;background:#f2f5f7;color:#203041;margin:0;padding:32px 16px}main{max-width:520px;margin:4vh auto;background:white;padding:28px;border-radius:16px}h1{font-size:24px;margin-top:0}label{display:block;margin:16px 0}input,button{box-sizing:border-box;width:100%;padding:12px;border:1px solid #bccbd3;border-radius:8px;font:inherit}button{background:#195f63;color:white;cursor:pointer}p{overflow-wrap:anywhere}a{color:#195f63}</style>
 <main><h1>首次设置 / Initial setup</h1><p>仅用于空账号库。创建后入口自动关闭。<br>For the first administrator only; closes after setup.</p>'''
+    # 'Referrer-Policy':'no-referrer'
     return HTMLResponse(body+'<p role="status">'+html.escape(message)+'</p>'+fields+'</main></html>',
                         status_code=status, headers={'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow',
-                                                     'Referrer-Policy':'no-referrer'})
+                                                     'Referrer-Policy':'Referrer-Policy'})
 
 
 def install(app, factory):
