@@ -1,0 +1,51 @@
+{% extends 'admin/layout.html' %}
+{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.123"></script>{% endblock %}
+{% block content %}
+<div id="site-sync" data-csrf="{{ csrf }}">
+<div class="native-title"><h1>两站同步</h1><span class="native-muted">双向预览 · 审批 · 定时拉取</span></div>
+<p><a href="/admin/data_tools">← 数据与备份</a></p>
+<section class="panel native-editor-section"><h2>对端连接</h2>
+<p class="native-muted">两站均需安装 v0.15.123、填写对方 HTTPS 地址，并设置相同的随机共享密钥。开启后，对端可读取业务数据（包括非公开内容），不能直接修改本站；实际执行需接收方管理员确认，或由本站明确开启定时拉取策略。</p>
+<form id="sync-config"><div class="native-fields">
+<div class="native-field"><label for="sync-origin">对端网站</label><input id="sync-origin" name="origin" class="form-control" type="url" placeholder="https://example.com" value="{{ peer.get('origin','') }}" required></div>
+<div class="native-field"><label for="sync-secret">共享密钥</label><input id="sync-secret" name="secret" class="form-control" type="password" autocomplete="new-password" minlength="32" maxlength="128"><small>已保存的密钥不回显；留空保留。</small><button type="button" id="sync-generate" class="btn btn-outline-secondary btn-sm">生成并复制新密钥</button></div>
+</div><label><input name="enabled" type="checkbox" {% if peer.get('enabled') %}checked{% endif %}> 启用业务数据读取</label> <label><input name="allow_proposals" type="checkbox" {% if allow_proposals %}checked{% endif %}> 接收对端的待批准推送（仅保存提案，不自动执行）</label>
+<div class="native-helper-actions"><button class="btn btn-primary btn-sm" type="submit">保存连接</button><button type="button" class="btn btn-outline-primary btn-sm" id="sync-test">测试已保存连接</button></div>
+</form></section>
+<section class="panel native-editor-section"><h2>后台推进与定时拉取</h2>
+<form id="sync-schedule" data-value='{{ schedule|tojson }}'>
+<p class="native-muted">只有接收站开启定时拉取：对端为当前内容来源，本站所选模块与其保持一致（包含删除及必要依赖）。切换主站前先关闭原接收站的定时拉取，避免两端互相覆盖。待批准推送始终需要人工批准。</p>
+<div class="native-fields"><div class="native-field"><label><input name="enabled" type="checkbox" {% if schedule.enabled %}checked{% endif %}> 关闭页面后继续推进已确认任务</label><label><input name="auto_pull" type="checkbox" {% if schedule.auto_pull %}checked{% endif %}> 定期从对端拉取，按所选模块自动同步增删</label></div>
+<div class="native-field"><label for="sync-interval">拉取间隔（分钟，完成本轮后计算）</label><input class="form-control form-control-sm" id="sync-interval" name="interval" type="number" min="5" max="10080" value="{{ schedule.interval or 60 }}"></div></div>
+<div class="data-table-choices">{% for t in sync_tables %}<label><input name="schedule-scope" type="checkbox" value="{{ t.key }}" {% if t.key in (schedule.scopes or []) %}checked{% endif %}> {{ t.label }}</label>{% endfor %}</div>
+<div class="native-field"><label for="sync-schedule-confirm">开启或修改自动拉取时，确认包含新增、更新、删除及依赖</label><input id="sync-schedule-confirm" name="confirmation" class="form-control form-control-sm" placeholder="输入：允许定时拉取并同步增删" autocomplete="off"></div>
+<div class="native-helper-actions"><button type="submit" class="btn btn-primary btn-sm">保存后台策略</button><button id="sync-schedule-refresh" type="button" class="btn btn-outline-secondary btn-sm">刷新后台状态</button></div>
+<p id="sync-schedule-status" role="status" aria-live="polite"></p>
+<p class="native-muted">默认关闭。授权不依赖浏览器登录期限；管理员密码、账号角色或对端连接变化后需重新保存。关闭策略会停止后续批次，不回滚已提交内容。执行遇错会暂停，可打开对应任务重试或取消。Windows/Linux 服务运行时自动检查；Worker 依赖每分钟 Cron。每轮只推进一个分页或分片，首次完成可能需数分钟。</p>
+</form></section>
+<section id="sync-inbox" class="panel native-editor-section" data-value='{{ incoming|tojson }}'><h2>接收到的推送提案</h2><p id="sync-inbox-info" role="status"></p>
+<div class="native-helper-actions"><button id="sync-inbox-refresh" type="button" class="btn btn-outline-secondary btn-sm">刷新待批准提案</button><button id="sync-review" type="button" class="btn btn-primary btn-sm">重新读取最新差异并核对</button><button id="sync-reject" type="button" class="btn btn-outline-secondary btn-sm">拒绝当前提案</button></div>
+<p class="native-muted">同方向最新提案替换尚未批准的旧提案，不累加选择；已批准任务保持独立。必须先重新预览，再在下方批准执行。历史提案不会因等待时间长而自动获准。</p></section>
+<section class="panel native-editor-section"><h2>生成同步预览</h2>
+<p>选择作为同步内容的模块。依赖检查会读取其他模块；它们不会自动成为同步范围。账号权限、留言、部署密钥、运行日志和快传临时文件不参与。</p>
+<div class="data-table-choices">{% for t in sync_tables %}<label><input type="checkbox" name="sync-scope" value="{{ t.key }}" checked> {{ t.label }}</label>{% endfor %}</div>
+<div class="native-helper-actions"><button type="button" class="btn btn-primary btn-sm" data-direction="pull">对端 → 本站 · 预览</button><button type="button" class="btn btn-outline-primary btn-sm" data-direction="push">本站 → 对端 · 预览</button><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-pause" disabled>暂停读取/执行</button></div>
+<p class="native-muted">“新增/更新/删除”均相对于接收方。本站 → 对端可在下方发送提案，等待对端管理员批准；对端 → 本站由本站确认执行。先校验媒体，再提交内容，最后处理删除。</p>
+<label for="sync-history">最近预览</label><select id="sync-history" class="form-select form-select-sm"><option value="">选择保存的预览</option>{% for job in sync_jobs %}<option value="{{ job.uid }}">{{ job.created_at }} · {{ job.execution_phase or job.status }}</option>{% endfor %}</select><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-resume">打开 / 继续读取</button>
+</section>
+<p id="sync-status" class="alert alert-info" role="status" aria-live="polite">请先配置并测试连接。</p>
+<section id="sync-result" class="panel native-editor-section" hidden><h2 id="sync-direction">差异清单</h2>
+<div class="native-helper-actions"><input id="sync-search" type="search" class="form-control form-control-sm" placeholder="搜索名称、模块或 UID" aria-label="搜索差异"><select id="sync-action" class="form-select form-select-sm" aria-label="操作筛选"><option value="">全部操作</option><option value="add">新增</option><option value="update">更新</option><option value="delete">删除</option></select><select id="sync-sort" class="form-select form-select-sm" aria-label="排序"><option value="title">名称升序</option><option value="-title">名称降序</option><option value="table">模块</option><option value="action">操作</option></select><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-all">选择全部筛选结果</button><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-none">清空选择</button></div>
+<div class="native-table-scroll"><table class="native-table"><thead><tr><th>选择</th><th>模块 / 名称</th><th>操作</th><th>变更字段</th><th>前置依赖 / 阻止原因</th></tr></thead><tbody id="sync-rows"></tbody></table></div>
+<div class="native-helper-actions"><button type="button" id="sync-prev" class="btn btn-outline-secondary btn-sm">上一页</button><span id="sync-page"></span><button type="button" id="sync-next" class="btn btn-outline-secondary btn-sm">下一页</button></div>
+<p id="sync-selection" role="status"></p><p class="native-muted">勾选项会连带选中必要依赖，并明确显示。全部选择只针对所选模块，范围外仅通过依赖加入。勾选仅保存预览；必须再确认实际拉取。发送提案也不会直接更新对端内容。</p>
+</section>
+<section id="sync-outgoing" class="panel native-editor-section" hidden><h2>提交到对端审批</h2><p>仅发送本次选择及范围，不写入对端业务内容。再次成功提交会替换对端尚未批准的提案；已执行或正在执行的任务不会被改写。</p>
+<div class="native-helper-actions"><button id="sync-send" type="button" class="btn btn-primary btn-sm">发送 / 重试发送提案</button><button id="sync-receipt" type="button" class="btn btn-outline-secondary btn-sm">查询对端审批与进度</button></div><p id="sync-outgoing-info" role="status">尚未发送。</p></section>
+<section id="sync-execution" class="panel native-editor-section" hidden><h2>实际拉取到本站</h2>
+<p>只执行当前勾选项及其依赖，包含删除；同时校验所选内容引用的已有媒体文件。最多500个变更项；媒体单个20MiB、单次总计24MiB。两站数据变化时停止旧任务；同名不同内容的文件不会覆盖。</p>
+<div class="native-fields"><div class="native-field"><label for="sync-confirm">确认方向与已选增删范围</label><input id="sync-confirm" class="form-control form-control-sm" autocomplete="off" placeholder="输入：从对端同步到本站"></div></div>
+<div class="native-helper-actions"><button id="sync-begin" type="button" class="btn btn-primary btn-sm">确认并开始拉取</button><button id="sync-continue" type="button" class="btn btn-outline-primary btn-sm" disabled>继续 / 重试任务</button><button id="sync-cancel" type="button" class="btn btn-outline-secondary btn-sm" disabled>取消剩余步骤并清理暂存</button></div>
+<p id="sync-progress" role="status" aria-live="polite">尚未执行。</p><p class="native-muted">可使用上方“暂停读取/执行”。未开启后台推进时，刷新、关闭页面或登录过期会暂停后续步骤；重新登录后打开最近任务继续。上方暂停仅停止当前浏览器，停止后台需关闭后台策略。数据库已提交时，取消不会回滚已完成的内容；尚未删除的旧媒体会保留。后台执行进度可在上方刷新查看，或重新打开最近任务。</p>
+</section></div>
+{% endblock %}

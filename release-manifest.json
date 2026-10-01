@@ -10,8 +10,8 @@
       "sha256": "1bb1b2af56ecd35a42a615b8ca2051a63893dd3db513ff7361ede6316c67f10f"
     },
     "README.md": {
-      "bytes": 64593,
-      "sha256": "c8b7f80068e277c3c822fd0aa84130273c2a8bf944ea54d1d1b21cff16fd28c8"
+      "bytes": 67616,
+      "sha256": "bcf7de07a58a95d7fa91858e8083b91d2d0c6b59c118b234bf4577327d018e1c"
     },
     "backend/__init__.py": {
       "bytes": 0,
@@ -122,8 +122,8 @@
       "sha256": "b1ef8f9d2be8784bbac9f7ed030f51c4c1484e2add6a115da32154ee0ededf37"
     },
     "backend/app/native/data_restore.py": {
-      "bytes": 21073,
-      "sha256": "089aba1307232b7729dc58e49b9dfa6e5805eb2e493a965d3a50e3d22f5b923b"
+      "bytes": 21194,
+      "sha256": "5b57656bb21688a683a0873f04ff33642904043a51d6986fca493ab1f80fd674"
     },
     "backend/app/native/data_tools.py": {
       "bytes": 7789,
@@ -362,16 +362,16 @@
       "sha256": "35abf0aec80c6516f262cd7cc8e9e97351330d9f4b1557ce182c0ac9e69a1024"
     },
     "backend/app/native/schema_migrations.py": {
-      "bytes": 2817,
-      "sha256": "d74da98da08cc2fbfb54373000d273f5cfcaf445cdee3fe35a2516e07250f60f"
+      "bytes": 3009,
+      "sha256": "1ed8cb3cc87613799d60071c40da0b1f1f897fe6b9cf5b2c1f53e109962cbc3f"
     },
     "backend/app/native/schema_sources.py": {
       "bytes": 1317,
       "sha256": "710d32b81a410e03a4cd6a93d822f5c3850bfbbcc51b71dc7f5f81d4c5d8cadf"
     },
     "backend/app/native/schema_upgrade.py": {
-      "bytes": 1938,
-      "sha256": "c33eedfd7bb7aaa7180cc265dae12e4572736791aca0c4b6fd6a0b959c879756"
+      "bytes": 1996,
+      "sha256": "3db199f4d9f0a5b39f62861503bf336522a5bdeb4891c2850ea0ed1ce5670d2c"
     },
     "backend/app/native/service_config.py": {
       "bytes": 1911,
@@ -392,6 +392,38 @@
     "backend/app/native/sessions.py": {
       "bytes": 8530,
       "sha256": "b17227902037fce7c2f81a3f858f35715d9f1c9ddfbb0861bd83c455776f29cd"
+    },
+    "backend/app/native/site_sync.py": {
+      "bytes": 7031,
+      "sha256": "0774dae507282282e5485d06fe3217eb2d83299e7b048b178f5cb0e999d02a91"
+    },
+    "backend/app/native/site_sync_admin.py": {
+      "bytes": 6205,
+      "sha256": "858cc7e06ca7c124829d19e73f9ecd74b8325f4d4d4b96a4feaf0666def7fb38"
+    },
+    "backend/app/native/site_sync_apply.py": {
+      "bytes": 17471,
+      "sha256": "99ea4c22a1f7b6a835e1a5da4196781c3023b540434e6fd0b177433a44e1f052"
+    },
+    "backend/app/native/site_sync_media.py": {
+      "bytes": 2714,
+      "sha256": "592521a64465d3997c0913ff4f085613ef9cc0ff6e8e6f7daa451cd35172b9ce"
+    },
+    "backend/app/native/site_sync_proposals.py": {
+      "bytes": 12256,
+      "sha256": "69dca314a8cec10935cbeeb608f7cc7924e3527c6b08f14d985d1429e48738ec"
+    },
+    "backend/app/native/site_sync_schedule.py": {
+      "bytes": 10875,
+      "sha256": "eb30d8769686eee2f54c5af4af35c3a4754254180f2873418ea220144888263f"
+    },
+    "backend/app/native/site_sync_tasks.py": {
+      "bytes": 7803,
+      "sha256": "0895dadebc0e98cdcedd1865978c56abb754571691d48d8cd145da8e45bcfd52"
+    },
+    "backend/app/native/site_sync_transport.py": {
+      "bytes": 5060,
+      "sha256": "5607f63213d121f01a1a1d76ce8a367e2a25fc44c3b6194d458ebad3966709af"
     },
     "backend/app/native/source_links.py": {
       "bytes": 2573,
@@ -462,8 +494,8 @@
       "sha256": "e16b7d164d2eb8d86b08ef7bc3c123d409054bae8c5d1e29f438816a0b1a69e4"
     },
     "backend/app/native/web.py": {
-      "bytes": 67401,
-      "sha256": "21e7ed934369b47e17d9f209b9c0583ec0e90391c3025e7ec598a44c237f9949"
+      "bytes": 67512,
+      "sha256": "431f292ca7a0212f212e34be938c71c609d300d4f40dd5a5f3f2d4320c8ef6a2"
     },
     "backend/app/ports/__init__.py": {
       "bytes": 0,
@@ -518,8 +550,8 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "backend/entrypoints/vps.py": {
-      "bytes": 552,
-      "sha256": "7ef6b03a197f3a7b0153c4a15417080e2f8cc18d93dde31c465fb4bbe87f36e4"
+      "bytes": 637,
+      "sha256": "d23e3a6af4446fc9c1da7c1cdfca7a0f3316d7f0d5af66afba715a33e2656ef7"
     },
     "backend/entrypoints/worker.py": {
       "bytes": 2405,
@@ -569,6 +601,10 @@
       "bytes": 60475,
       "sha256": "18b1a58ca2d2732b0f29eee2896c51702620201342029920df46ebf297cd911e"
     },
+    "database/native/teacher-v0.15.119.json": {
+      "bytes": 210569,
+      "sha256": "71d6d02df539427072e3b45fc0cdfa2f9890e3e81b36d742ae43880ccf655951"
+    },
     "database/native/teacher-v0.15.37.json": {
       "bytes": 178534,
       "sha256": "b89cb70444f69816ec77097c6c3c6ce418ccbd3ce883ba7a0aa9f9fd84746f4a"
@@ -590,8 +626,8 @@
       "sha256": "3504a9f58d6f33ee5667d0916435131ac94caa5a20cc1e29949444d4769c2def"
     },
     "database/native/teacher.json": {
-      "bytes": 210569,
-      "sha256": "71d6d02df539427072e3b45fc0cdfa2f9890e3e81b36d742ae43880ccf655951"
+      "bytes": 211610,
+      "sha256": "8f4f13af6817eac8a4383c19f1479e89fa232e817c08b208e827fcc3d62cb7e3"
     },
     "database/native/transfer-defaults.json": {
       "bytes": 1581,
@@ -606,8 +642,8 @@
       "sha256": "1e9ce85f5af8b97b51df08b44a5bf27227eea03a800295ddd7c9e846606e7804"
     },
     "database/schema.sql": {
-      "bytes": 62996,
-      "sha256": "62a6394dec64cee7c77b9dfec316bf470ebeb7e1ef8b2d3259f8c82c986e7ca5"
+      "bytes": 63768,
+      "sha256": "ee4536f652ca57015b1f22db6665a87ee42d8ad0a7661e3f1f49a0155b9795f1"
     },
     "deploy/cloudflare/ACCEPTANCE.md": {
       "bytes": 16390,
@@ -646,8 +682,8 @@
       "sha256": "88de91a6be53b2026a81d0910cf3da475835b8fede97957eb382f441eec8b926"
     },
     "deploy/cloudflare/d1_setup.py": {
-      "bytes": 5231,
-      "sha256": "abcc5045e68450975afd6d26c3cfb5d8a15a0455a0f60ccf1700b0aedf1dcb8f"
+      "bytes": 6225,
+      "sha256": "4aec56b78093110a18dda1b7b5b80343511bdc4695985adae7248c00ce8b7f2a"
     },
     "deploy/cloudflare/domains.py": {
       "bytes": 2758,
@@ -706,8 +742,8 @@
       "sha256": "324db056f40717ddc72bd542531b7f719c39858ac8f9cc7830940d8ca36d43ea"
     },
     "deploy/cloudflare/runtime/entrypoint.py": {
-      "bytes": 3527,
-      "sha256": "70b64f1203dda1aef6dafdbc4f4f620871894b762874c21d906d3e031c2fbf52"
+      "bytes": 3791,
+      "sha256": "0aaa74f8a8da69a785fe86831bb206205e4a1b6500e5257798670e998741720b"
     },
     "deploy/cloudflare/runtime/routing.py": {
       "bytes": 569,
@@ -728,6 +764,10 @@
     "deploy/cloudflare/runtime/storage.py": {
       "bytes": 863,
       "sha256": "e9a8ed86e9807ff0e39eb709fa0b3cf1db9afe14c8443ee766df60d4f78e5087"
+    },
+    "deploy/cloudflare/runtime/sync_schedule.py": {
+      "bytes": 857,
+      "sha256": "ff43d5ab450d086859b0d8f0ec306ce0c33a81a1981b2c04d23770c7eaab647f"
     },
     "deploy/cloudflare/runtime/transfer.py": {
       "bytes": 5085,
@@ -766,8 +806,8 @@
       "sha256": "8505509efa109112afcc9b620f7a9914a7ba6502595c984ae000776fc0eabfeb"
     },
     "deploy/cloudflare/tests/test_d1_setup.py": {
-      "bytes": 5633,
-      "sha256": "202287d6c27b75d11846d0923aaddf55bb7408685c88541339e94ffc2d403536"
+      "bytes": 6304,
+      "sha256": "3407e7a7d564206280b1fcd9e017d613dd45427e610d4044dce94e7001d53396"
     },
     "deploy/cloudflare/tests/test_diagnostics.py": {
       "bytes": 1661,
@@ -798,8 +838,8 @@
       "sha256": "a797beb2f9a9c1ca893968222452819cc35a3eec9a3c18d76259f3c9e34db6ae"
     },
     "deploy/cloudflare/tests/test_split_loading.py": {
-      "bytes": 2984,
-      "sha256": "e5642ccc9794607695eb3c2d2c63107dc8ea6cb9a96fa734118ebf88bd11f80b"
+      "bytes": 3193,
+      "sha256": "ea7fba03a30dc0055976731585ead0927b102dc31f5c24cd10c590ec1c2c06bf"
     },
     "deploy/cloudflare/tests/test_startup_acceptance.py": {
       "bytes": 2638,
@@ -812,6 +852,10 @@
     "deploy/cloudflare/tests/test_startup_lazy.py": {
       "bytes": 2723,
       "sha256": "68ece62f7a6a158affbd912854c015c731498090a58568c7ed039701fdd9cc92"
+    },
+    "deploy/cloudflare/tests/test_sync_schedule.py": {
+      "bytes": 2436,
+      "sha256": "f7ea67c75edca72a932aee308db4321879f0f8e046e807a1a5b091ba3497c81f"
     },
     "deploy/cloudflare/tests/test_transfer_step4.py": {
       "bytes": 6603,
@@ -1809,6 +1853,22 @@
       "bytes": 2766,
       "sha256": "c74771b4b9b687c7ef38d84075a705883a1abe9f68ebfca40fac4bd5b6d76c75"
     },
+    "docs/site-sync-v120.md": {
+      "bytes": 7663,
+      "sha256": "19fa37b84cea891788fc56b175c25bc0bb9f9bf4df6fcf7baf59d2da2ea00dd7"
+    },
+    "docs/site-sync-v121.md": {
+      "bytes": 7431,
+      "sha256": "477504b22676c1db3483e63d1b9b311aaf8051b5ade7c200314cabf783e1c9db"
+    },
+    "docs/site-sync-v122.md": {
+      "bytes": 6294,
+      "sha256": "37a8d3ac84a291c793b127f433efa62e7e5dc920154f5860c6044121c3780735"
+    },
+    "docs/site-sync-v123.md": {
+      "bytes": 6645,
+      "sha256": "2fff2efed9d51b878269142f2bdef2377d99dd6c26c70048bf4aa639e386238d"
+    },
     "docs/timezones-v117.md": {
       "bytes": 2938,
       "sha256": "71602b412b5f6cd3ac9d80994b3068f41579a615004255cd59f9222248e718f5"
@@ -2025,6 +2085,10 @@
       "bytes": 6288,
       "sha256": "d814c3c0499d85b7544cb91c8a7c8591a1027479d30a281a05c8e9c55c5d2e15"
     },
+    "frontend/admin/static/js/native-site-sync.js": {
+      "bytes": 12906,
+      "sha256": "119921d40d3867915d2880a007506c90d14ac8ad58eec4e0371fd7e93ae31266"
+    },
     "frontend/admin/static/js/native-source-focus.js": {
       "bytes": 947,
       "sha256": "cc73265853181f7c60e0959641e2e567ad0ae9390a75203ddf52143bdf7d3a31"
@@ -2106,8 +2170,8 @@
       "sha256": "053f3957844ea0ccedd79406feac8344000d086194e35a8d5d30801936f67e7c"
     },
     "frontend/admin/templates/native-data-tools.html": {
-      "bytes": 7058,
-      "sha256": "280affda69f0d63aec8248cad410e93ecdf4d886769c2c757a6c6a91ef1bf316"
+      "bytes": 7196,
+      "sha256": "1e2692912b530fe033f538d570eac02dea5748a967401b46886b90b3172dd40f"
     },
     "frontend/admin/templates/native-draft-review.html": {
       "bytes": 618,
@@ -2252,6 +2316,10 @@
     "frontend/admin/templates/native-sessions.html": {
       "bytes": 7159,
       "sha256": "bdb952d1fd42e6f6236090d1eda4f45de442ce249e676be0015ad73c8e45336e"
+    },
+    "frontend/admin/templates/native-site-sync.html": {
+      "bytes": 10794,
+      "sha256": "e9f87bb4cce49636b6f46df34d40f3cb7e9c20e0d518fb0d73fba696821c4750"
     },
     "frontend/admin/templates/native-student-category.html": {
       "bytes": 2226,
@@ -3539,7 +3607,7 @@
     },
     "pyproject.toml": {
       "bytes": 257,
-      "sha256": "965265d0ff12ff1b541e95c6c4ed8882de727238656216813433a24126b99c93"
+      "sha256": "2b0cd28a99cf9c4d0a29a4e989180dd2d2ce31dc7b29a12a039e88668fe5339a"
     },
     "start-transfer.sh": {
       "bytes": 156,
@@ -3728,6 +3796,10 @@
     "tests/run_dom_tests.cjs": {
       "bytes": 635,
       "sha256": "08e7e3e31fe899f154b3d95b81fcfde9d98ac653c8b8599860f98eee0517eca2"
+    },
+    "tests/site-sync-dom.test.cjs": {
+      "bytes": 8187,
+      "sha256": "6e77df5d70a8b58f1e9332125ec25382018905f7fdb8210faad50656a2fca3b6"
     },
     "tests/test_accounts_regression.py": {
       "bytes": 8629,
@@ -3979,7 +4051,23 @@
     },
     "tests/test_schema_unified_v74.py": {
       "bytes": 6070,
-      "sha256": "d159ac68114a3d9218338d4e1e84efc422ec045f45f72fd39f4e47618bc88f31"
+      "sha256": "1f977e3e6ef0f2fb22ceb51de25c28ffeb4031460e41650695d904dec24c5edd"
+    },
+    "tests/test_site_sync_v120.py": {
+      "bytes": 7339,
+      "sha256": "bfcfe2fa0b3feea7d52ccbdd249d4f778c46e950f88524a5fad034358ce0e6d5"
+    },
+    "tests/test_site_sync_v121.py": {
+      "bytes": 9969,
+      "sha256": "b78bcdf7b76902ba314c36ead741462566d7885b34b2389a536b4c8f9706b385"
+    },
+    "tests/test_site_sync_v122.py": {
+      "bytes": 8025,
+      "sha256": "2d95e84158fa3d41956a55ac41f9f21e1df12990e895d4c5e272ced32d53a3df"
+    },
+    "tests/test_site_sync_v123.py": {
+      "bytes": 8330,
+      "sha256": "2a664f0ca94d3ff4253c6adc2810ccfd8d385c9b2f46ff75184ad1fba5ede522"
     },
     "tests/test_time_fields_v117.py": {
       "bytes": 3454,

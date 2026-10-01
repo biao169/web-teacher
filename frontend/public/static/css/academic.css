@@ -244,7 +244,7 @@ body.section-public .patent-record{display:flex;flex-wrap:wrap;gap:3px 10px;min-
 body.section-public .patent-records:empty,body.section-public .patent-people:empty{display:none}
 body.section-public .patent-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;margin:4px 0 0;white-space:normal;overflow-wrap:anywhere;font-size:var(--public-project-meta);line-height:var(--public-project-line);color:var(--public-muted)}
 /* Citation display remains independent of the copy-format choice. */
-body.section-public .publication-citation strong{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;font-weight:400;}    /*  font-weight:var(--public-weight-emphasis)  */
+body.section-public .publication-citation strong{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;font-weight:var(--public-weight-emphasis)}
 body.section-public .publication-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 14px;margin-top:5px}
 body.section-public .publication-footer .publication-links{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0;min-width:0;overflow-wrap:anywhere}
 body.section-public .publication-footer .content-tags{margin:0 0 0 auto;justify-content:flex-end;min-width:0;overflow-wrap:anywhere}
@@ -332,5 +332,5 @@ body.section-public .content-detail-cover :is(img,video){display:block;width:aut
 body.section-public .public-media :is(img,video,span)[hidden]{display:none;}
 body.section-public .academic-card-media video{display:block;width:130px;height:92px;max-width:100%;object-fit:contain;background:transparent;border:0;border-radius:5px;}
 body.section-public .content-detail-cover [data-media-fallback]{font-size:inherit;font-weight:inherit;line-height:inherit;padding:8px 0;}
-body.section-public .news-contact{margin-block:1.5rem;margin-inline:auto;}  /* max-width:860px;  */
+body.section-public .news-contact{margin-block:1.5rem;max-width:860px;margin-inline:auto;}
 body.section-public .news-contact textarea{min-height:7rem;}

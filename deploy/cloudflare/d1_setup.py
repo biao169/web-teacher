@@ -59,8 +59,8 @@ def execute_json(command, cwd, env):
 
 def setup(node, wrangler, stage, env, config, log, *, publish, query=execute_json):
     mode = env.get('TEACHER_D1_INIT', 'auto').strip().lower()
-    if mode not in ('auto', 'check'):
-        raise ValueError('TEACHER_D1_INIT 仅支持 auto 或 check / Expected auto or check')
+    if mode not in ('auto', 'check', 'upgrade'):
+        raise ValueError('TEACHER_D1_INIT 仅支持 auto、check 或 upgrade / Expected auto or check or upgrade')
     # Minimal dedicated configuration avoids loading the application for SQL commands.
     cfg = stage / 'd1-check.json'
     cfg.write_text(json.dumps({'name': config['name'], 'compatibility_date': '2026-09-01',
@@ -85,6 +85,21 @@ def setup(node, wrangler, stage, env, config, log, *, publish, query=execute_jso
         log('D1-INIT', '空库初始化 / Initialize empty database')
         # No IF NOT EXISTS rewrite: concurrent/partial initialization must fail closed.
         query([*remote, '--file', str(stage/'initialize.sql'), '--yes'], stage, env)
+        actual = query([*remote, '--command', CATALOG], stage, env)
+    if mode == 'upgrade' and actual:
+        # v120 adds only these internal tables. Never infer destructive/general migrations.
+        names = {'sync_peers','sync_tasks','sync_task_items'}
+        base_expected = [r for r in expected if r['name'] not in names]
+        base_actual = [r for r in actual if r['name'] not in names]
+        validate(base_expected, base_actual)
+        existing = {r['name']:r for r in actual if r['name'] in names}
+        for row in expected:
+            if row['name'] in existing:validate([row], [existing[row['name']]])
+        for name in ('sync_peers','sync_tasks','sync_task_items'):
+            if name not in existing:
+                row = next(r for r in expected if r['name']==name)
+                log('D1-UPGRADE', '新增同步内部表 / Add sync internal table', table=name)
+                query([*remote, '--command', row['sql']], stage, env)
         actual = query([*remote, '--command', CATALOG], stage, env)
     validate(expected, actual)
     log('D1-READY', '结构检查通过；不重置、不覆盖已有记录 / Schema verified; existing records preserved', objects=len(actual))

@@ -1,8 +1,8 @@
 """Versioned additive upgrades. Caller owns the lock, backup, transaction and verification."""
 from .schema_sources import current_objects
 
-SUPPORTED = ('0.15.37', '0.15.45', '0.15.52', '0.15.65', '0.15.66')
-TARGET = '0.15.67'  # Latest structural revision; application releases can be newer.
+SUPPORTED = ('0.15.37', '0.15.45', '0.15.52', '0.15.65', '0.15.66', '0.15.119')
+TARGET = '0.15.120'  # Latest structural revision; application releases can be newer.
 
 
 def media_original_filename():
@@ -34,6 +34,8 @@ def statements_for(version):
     """An explicit known predecessor is required; this is not a generic schema differ."""
     if version not in SUPPORTED:
         raise ValueError('Unsupported schema predecessor')
+    sync = [current_objects()[name] for name in ('sync_peers','sync_tasks','sync_task_items')]
+    if version == '0.15.119':return sync
     position = SUPPORTED.index(version)
     statements = []
     if position == 0:
@@ -47,12 +49,13 @@ def statements_for(version):
         statements += [ddl[name] for name in INTEGRATED_OBJECTS]
     statements += [ddl[name] for name in CHUNK_OBJECTS]
     statements += [ddl[name] for name in ('transfer_codes','transfer_code_target','transfer_code_expiry')]
-    return statements
+    return statements + sync
 
 
 def apply(connection, version):
     """Execute individual statements so a failure can roll back DDL and data together."""
     for statement in statements_for(version):
         connection.execute(statement)
+    if version == '0.15.119':return
     from transfer.backend.chunks import index_legacy
     index_legacy(connection)

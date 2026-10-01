@@ -130,3 +130,17 @@ def test_successful_import_without_tables_is_rejected(tmp_path):
                  dict(name='teacher', dbname='db', database='12345678-1234-1234-1234-123456789abc'),
                  lambda *a, **k: None, publish=True, query=query)
     assert remote_reads==2
+
+
+def test_v120_explicit_additive_upgrade(database):
+    remote, calls, run, sql = database
+    remote.executescript(sql)
+    remote.execute("INSERT INTO students(uid,name) VALUES('keep','Keep')")
+    for table in ('sync_task_items','sync_tasks','sync_peers'):
+        remote.execute('DROP TABLE '+table)
+    with pytest.raises(ValueError, match='Schema mismatch'):run()
+    run(mode='upgrade')
+    assert remote.execute('SELECT name FROM students').fetchone()[0]=='Keep'
+    assert remote.execute("SELECT count(*) FROM sqlite_schema WHERE name LIKE 'sync_%'").fetchone()[0]==3
+    run(mode='upgrade')
+    assert not any('--remote' in c and '--file' in c for c in calls)

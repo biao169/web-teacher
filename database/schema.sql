@@ -984,3 +984,28 @@ CREATE TABLE transfer_codes (
 ) STRICT;
 CREATE UNIQUE INDEX transfer_code_target ON transfer_codes(mode,target,instance) WHERE state='active';
 CREATE INDEX transfer_code_expiry ON transfer_codes(expires_at);
+
+
+-- v0.15.120: internal synchronization previews; excluded from business export/catalog.
+CREATE TABLE sync_peers (
+ id INTEGER PRIMARY KEY CHECK(id=1),
+ local_id TEXT NOT NULL,
+ origin TEXT NOT NULL,
+ secret TEXT NOT NULL,
+ enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
+ revision TEXT NOT NULL
+) STRICT;
+CREATE TABLE sync_tasks (
+ uid TEXT PRIMARY KEY,
+ status TEXT NOT NULL CHECK(status IN ('reading','ready','expired')),
+ state TEXT NOT NULL,
+ created_at TEXT NOT NULL
+) STRICT;
+CREATE TABLE sync_task_items (
+ task_uid TEXT NOT NULL REFERENCES sync_tasks(uid) ON DELETE CASCADE,
+ side TEXT NOT NULL CHECK(side IN ('local','remote')),
+ module TEXT NOT NULL,
+ record_uid TEXT NOT NULL,
+ payload TEXT NOT NULL,
+ PRIMARY KEY(task_uid,side,module,record_uid)
+) STRICT;

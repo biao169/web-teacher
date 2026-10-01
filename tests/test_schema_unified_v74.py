@@ -28,7 +28,7 @@ def test_only_one_source_sql_and_current_fresh_schema(tmp_path):
     assert files==['database/schema.sql']
     assert INITIAL_SCHEMA==ROOT/'database/schema.sql'
     db=Database(tmp_path/'fresh.sqlite');db.initialize();db.initialize()
-    assert db.verify()=={'tables':42,'schema':'exact'}
+    assert db.verify()=={'tables':45,'schema':'exact'}
     with closing(db.connect()) as c:
         assert c.execute('SELECT count(*) FROM auth_users').fetchone()[0]==0
     with pytest.raises(ValueError,match='Unknown database kind'):initialization_sql('../teacher')
@@ -38,7 +38,7 @@ def test_only_one_source_sql_and_current_fresh_schema(tmp_path):
 def test_every_predecessor_preserves_records_backup_and_repeatability(tmp_path,version):
     path=tmp_path/'legacy.sqlite';old=predecessor(path,version);db=Database(path)
     result=migrate(db);assert result['upgraded'] is True
-    assert db.verify()['tables']==42
+    assert db.verify()['tables']==45
     with closing(db.connect()) as c:
         assert c.execute("SELECT name FROM students WHERE uid='keep-student'").fetchone()[0]=='Original student'
         assert c.execute("SELECT site_name FROM site_settings WHERE uid='keep-site'").fetchone()[0]=='Original site'
@@ -93,7 +93,7 @@ def test_worker_package_has_one_generated_installer_and_preserves_schema(tmp_pat
             path=tmp_path/('d1-'+version+'.sqlite');predecessor(path,version)
             with closing(sqlite3.connect(path)) as c,c:
                 for statement in statements:c.execute(statement)
-            assert Database(path).verify()['tables']==42
+            assert Database(path).verify()['tables']==45
 
 
 def test_development_reset_creates_fresh_site_without_backup_or_touching_other_files(tmp_path):
@@ -102,7 +102,7 @@ def test_development_reset_creates_fresh_site_without_backup_or_touching_other_f
         c.execute("INSERT INTO students(uid,name) VALUES ('old-dev','Previous development student')")
     media=tmp_path/'media.txt';media.write_text('keep media')
     db.initialize(reset=True)
-    assert db.verify()['tables']==42
+    assert db.verify()['tables']==45
     with closing(db.connect()) as c:
         assert c.execute('SELECT count(*) FROM students').fetchone()[0]==0
         assert c.execute('SELECT count(*) FROM auth_users').fetchone()[0]==0

@@ -15,7 +15,7 @@ def migrate(db):
         version=next((v for v in SUPPORTED if original==expected('teacher-v'+v+'.json')),None)
         if version is None:raise ValueError('Unknown schema; no changes made. Inspect before upgrading.')
         if c.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or c.execute('PRAGMA foreign_key_check').fetchone():raise ValueError('Database integrity check failed')
-        backup=db.path.with_name(db.path.name+'.before-v0.15.67.sqlite3')
+        backup=db.path.with_name(db.path.name+('.before-v0.15.120.sqlite3' if version=='0.15.119' else '.before-v0.15.67.sqlite3'))
         fd=os.open(backup,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600);os.close(fd)
         try:
             with closing(sqlite3.connect(backup)) as target:c.backup(target)

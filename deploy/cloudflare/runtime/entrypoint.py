@@ -65,7 +65,12 @@ class Default(WorkerEntrypoint):
             bindings = Environment(self.env)
             sql = D1SQL(getattr(bindings, str(bindings.TEACHER_DATABASE_BINDING)))
             store = TransferStore(getattr(bindings, str(bindings.TEACHER_MEDIA_BINDING)), 'transfer/media/')
-            result = await cleanup(sql, store)
+            # Independent jobs: a transfer cleanup failure must not skip approved sync work.
+            try:
+                result = await cleanup(sql, store)
+            finally:
+                from worker_runtime.sync_schedule import run as sync_schedule
+                await sync_schedule(sql, bindings)
             # Skip reasons are internal enums; do not log returned arbitrary content.
             reason = result.get('skipped')
             emit('CRON', 'SKIPPED' if reason else 'OK',

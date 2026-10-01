@@ -817,24 +817,6 @@
       "name": "transfer_code_expiry",
       "tbl_name": "transfer_codes",
       "sql": "CREATE INDEX transfer_code_expiry ON transfer_codes(expires_at)"
-    },
-    {
-      "type": "table",
-      "name": "sync_peers",
-      "tbl_name": "sync_peers",
-      "sql": "CREATE TABLE sync_peers (\n id INTEGER PRIMARY KEY CHECK(id=1),\n local_id TEXT NOT NULL,\n origin TEXT NOT NULL,\n secret TEXT NOT NULL,\n enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),\n revision TEXT NOT NULL\n) STRICT"
-    },
-    {
-      "type": "table",
-      "name": "sync_tasks",
-      "tbl_name": "sync_tasks",
-      "sql": "CREATE TABLE sync_tasks (\n uid TEXT PRIMARY KEY,\n status TEXT NOT NULL CHECK(status IN ('reading','ready','expired')),\n state TEXT NOT NULL,\n created_at TEXT NOT NULL\n) STRICT"
-    },
-    {
-      "type": "table",
-      "name": "sync_task_items",
-      "tbl_name": "sync_task_items",
-      "sql": "CREATE TABLE sync_task_items (\n task_uid TEXT NOT NULL REFERENCES sync_tasks(uid) ON DELETE CASCADE,\n side TEXT NOT NULL CHECK(side IN ('local','remote')),\n module TEXT NOT NULL,\n record_uid TEXT NOT NULL,\n payload TEXT NOT NULL,\n PRIMARY KEY(task_uid,side,module,record_uid)\n) STRICT"
     }
   ],
   "tables": {

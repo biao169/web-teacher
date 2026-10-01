@@ -318,6 +318,8 @@ def create_app(factory,static_root=None):
     install_examples(app,resources,csrf,render)
     from .data_admin import install as install_data_admin
     install_data_admin(app,resources,csrf,render)
+    from .site_sync_admin import install as install_site_sync
+    install_site_sync(app,resources,csrf,render)
     from .session_admin import install as install_session_admin
     install_session_admin(app,resources,csrf,resolve,navigation_stamp,check_navigation_current)
     from .translation_group_admin import install as install_translation_groups

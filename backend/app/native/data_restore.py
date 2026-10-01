@@ -39,7 +39,7 @@ async def discard(r,token):
     await cleanup(r,token,value)
 
 
-async def prepare(r,document,tables,mode):
+async def prepare(r,document,tables,mode,*,removed=None):
     """Normalize up to 500 rows and compare the prospective graph before allowing execution."""
     tables=selection(tables);authorize(r,'edit',tables)
     if mode not in ('merge','replace'):raise Error('导入模式无效')
@@ -83,7 +83,7 @@ async def prepare(r,document,tables,mode):
         for action,n in (('create',added),('edit',updated),('delete',deleted)):
             if n:r.auth.require(r.p,table,action)
         counts.append({'table':table,'create':added,'update':updated,'delete':deleted});result[table]=target
-    if not errors:errors.extend(await references(r,result,mode))
+    if not errors:errors.extend(await references(r,result,mode,removed=removed))
     if 'media_assets' in result:
         from .media_locks import purge_key
         protected={v['uid'] for v in await r.sql.query("SELECT uid FROM admin_mutation_guards WHERE uid LIKE 'media:purge:%'")}
@@ -109,7 +109,7 @@ async def prepare(r,document,tables,mode):
     return {'counts':counts,'errors':errors[:100],'error_count':len(errors),'rows':result,'state':state,'media':[item|{'key':assets[item['uid']]['object_key']} for item in media]}
 
 
-async def references(r,result,mode):
+async def references(r,result,mode,*,removed=None):
     """Validate final foreign keys/types and body media; protect references outside selected tables."""
     from .media_policy import check_type
     from backend.app.domain.richtext import body_references
@@ -129,6 +129,7 @@ async def references(r,result,mode):
             removed=set(existing)-{v['uid'] for v in result[table]}
             for uid in removed:
                 if await MediaReferences(r.content).used(existing[uid]):errors.append({'table':table,'row':uid,'message':'媒体仍被使用；请先解除引用，文件不会由数据恢复删除'})
+        for uid in (removed or {}).get(table,[]):view[table].pop(uid,None)
         view[table].update({v['uid']:v for v in result.get(table,[])})
     keys={v['object_key']:v for v in view['media_assets'].values()}
     for table,rows in view.items():

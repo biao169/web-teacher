@@ -38,6 +38,9 @@ def test_cron_does_not_build_http_app(entry, monkeypatch, capsys):
     import worker_runtime.storage as storage
     import worker_runtime.cleanup as cleanup
     import backend.app.adapters.d1.sql as d1
+    import worker_runtime.sync_schedule as sync_schedule
+    sync_run=AsyncMock(return_value=None)
+    monkeypatch.setattr(sync_schedule, 'run', sync_run)
     build = Mock(side_effect=AssertionError('cron built HTTP app'))
     monkeypatch.setattr(entry, 'build_application', build)
     monkeypatch.setattr(bridge, 'Environment', lambda env: env)
@@ -53,6 +56,7 @@ def test_cron_does_not_build_http_app(entry, monkeypatch, capsys):
     asyncio.run(worker.scheduled(None))
     build.assert_not_called()
     run.assert_awaited_once_with(sql, store)
+    sync_run.assert_awaited_once_with(sql,worker.env)
     import json
     log = json.loads(capsys.readouterr().out)
     assert log["stage"] == "CRON" and log["status"] == "SKIPPED" and log["reason"] == "interval"
