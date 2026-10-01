@@ -1,9 +1,41 @@
 """One bounded HTTPS transport; no redirects or arbitrary database commands."""
-import asyncio,hashlib,hmac,ipaddress,json,secrets,time
+import asyncio,hashlib,hmac,ipaddress,json,secrets,time,logging
 from urllib.parse import urlsplit
 from .catalog import Error
 from .data_tools import encoded
 LIMIT=1100000
+TIMEOUT=30
+
+def failure(code,message,status=502):return Error(message,status,'sync_'+code)
+
+def classify(exc,stage='request'):
+    if isinstance(exc,Error):return exc
+    name=type(exc).__name__
+    if isinstance(exc,TimeoutError):return failure('timeout',f'读取对端超时（最多{TIMEOUT}秒）；请检查对端负载与网络后重试')
+    if name=='gaierror':return failure('dns','无法解析对端域名；请检查 DNS 和域名拼写')
+    if name=='SSLCertVerificationError':return failure('certificate','对端 HTTPS 证书验证失败；请检查证书域名、有效期和证书链')
+    if name in ('SSLError','CertificateError'):return failure('tls','对端 TLS 握手失败；请检查 HTTPS 配置')
+    if isinstance(exc,ConnectionRefusedError):return failure('refused','对端拒绝连接；请检查 HTTPS 服务及443端口')
+    if isinstance(exc,(ConnectionError,OSError)):return failure('network','对端连接中断或网络不可达；请检查网络、代理及防火墙')
+    if isinstance(exc,(ValueError,UnicodeError)) and stage=='parse':return failure('json','对端返回的内容不是有效 JSON；可能是登录页、验证页或代理错误页')
+    if stage=='fetch':return failure('worker_fetch','Worker 请求对端失败；请检查对端可达性、HTTPS及平台请求限制')
+    if stage=='stream':return failure('stream','读取对端响应流失败；请检查网络及 Worker 运行日志')
+    return failure('runtime','同步请求运行异常；请按诊断编号查看日志')
+
+def diagnosed(exc,kind,url,op,started):
+    error=classify(exc);ref=secrets.token_hex(6)
+    code=error.code or 'sync_request'
+    cause=exc
+    for _ in range(5):
+        if cause.__context__ is None:break
+        cause=cause.__context__
+    frame=cause.__traceback__
+    while frame and frame.tb_next:frame=frame.tb_next
+    location=(frame.tb_frame.f_code.co_filename.rsplit('/',1)[-1]+':'+str(frame.tb_lineno)) if frame else 'unknown'
+    logging.getLogger(__name__).warning('sync_transport id=%s code=%s platform=%s host=%s operation=%s elapsed_ms=%d exception=%s location=%s',
+        ref,code,kind,urlsplit(url).hostname,op if op in ('hello','page','media-head','media-range','proposal-submit','proposal-status') else 'request',int((time.monotonic()-started)*1000),type(cause).__name__,location)
+    return Error(error.message+'；诊断编号：'+ref,error.status,code)
+
 
 def origin(value):
     try:
@@ -25,71 +57,110 @@ def envelope(secret,payload):
     return {**value,'signature':signature(secret,value)}
 
 def verify(secret,value):
-    if not isinstance(value,dict):raise Error('对端认证失败',403)
+    if not isinstance(value,dict):raise failure('protocol','对端响应结构无效，请确认两站版本和接口地址',403)
     fields={k:value.get(k) for k in ('time','nonce','payload')}
-    if type(fields['time']) is not int or abs(time.time()-fields['time'])>120 or not isinstance(fields['nonce'],str) or len(fields['nonce'])!=32 or not hmac.compare_digest(str(value.get('signature','')),signature(secret,fields)):
-        raise Error('对端认证失败或服务器时钟误差超过120秒',403)
+    if type(fields['time']) is not int:raise failure('protocol','对端响应缺少有效时间戳',403)
+    if abs(time.time()-fields['time'])>120:raise failure('clock','两站服务器时钟误差超过120秒；请同步系统时间（不是修改显示时区）',403)
+    if not isinstance(fields['nonce'],str) or len(fields['nonce'])!=32:raise failure('protocol','对端认证格式无效',403)
+    if not hmac.compare_digest(str(value.get('signature','')),signature(secret,fields)):
+        raise failure('signature','对端签名校验失败；请确认两站共享密钥完全一致',403)
     return fields['payload']
 
 def response_json(status,body):
+    if 300<=status<400:raise failure('redirect','对端返回HTTP '+str(status)+' 重定向；请配置最终 HTTPS 根域名，接口不能跳转')
     if status!=200:
+        hints={401:'对端要求认证，请检查同步配置或前置访问认证',403:'对端拒绝请求，请检查共享密钥、服务器时间或访问规则',404:'同步接口不存在，请检查域名、反向代理及两站版本',429:'对端请求过于频繁，请稍后重试'}
+        hint=hints.get(status,'对端服务异常，请查看对端运行日志' if status>=500 else '请检查对端服务')
         try:
             message=json.loads(body).get('error','')
-            message=message[:400] if isinstance(message,str) else ''
-        except (ValueError,AttributeError):message=''
-        raise Error('对端返回HTTP '+str(status)+('：'+message if message else '；请检查连接和对端服务'),502)
-    return json.loads(body)
-
+            if isinstance(message,str) and message:hint+='；'+''.join(c for c in message[:400] if c.isprintable())
+        except (ValueError,AttributeError,UnicodeError):pass
+        raise failure('http_'+str(status),'对端返回HTTP '+str(status)+'：'+hint)
+    try:result=json.loads(body)
+    except (ValueError,UnicodeError) as exc:raise classify(exc,'parse') from None
+    if not isinstance(result,dict):raise failure('protocol','对端 JSON 结构不正确，预期为同步接口对象')
+    return result
 
 async def post(kind,url,data):
-    raw=encoded(data);url=origin(url)+'/api/site-sync/peer'
+    raw=encoded(data);url=origin(url)+'/api/site-sync/peer';started=time.monotonic()
     try:
         if kind=='local':return await asyncio.to_thread(_local,url,raw)
         return await _worker(url,raw)
-    except Error:raise
-    except Exception:raise Error('无法读取对端：请检查HTTPS、连接密钥、网络和服务器时间；请查看任务已保存的阶段',502) from None
+    except Exception as exc:
+        raise diagnosed(exc,kind,url,data.get('payload',{}).get('op'),started) from None
 
 def _local(url,raw):
     import socket,ssl,http.client
-    host=urlsplit(url).hostname
+    host=urlsplit(url).hostname;deadline=time.monotonic()+TIMEOUT
     addresses=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
-    if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):raise Error('对端域名解析到非公网地址',403)
-    # Pin the checked IP while keeping the original hostname for TLS validation.
-    sock=socket.create_connection((addresses[0][4][0],443),timeout=15)
-    conn=http.client.HTTPSConnection(host,timeout=15)
-    try:
-        conn.sock=ssl.create_default_context().wrap_socket(sock,server_hostname=host)
-        conn.request('POST','/api/site-sync/peer',body=raw,headers={'Content-Type':'application/json','Accept':'application/json'})
-        response=conn.getresponse()
-        body=response.read(LIMIT+1)
-        if len(body)>LIMIT:raise Error('对端响应过大，已停止本次读取')
-        return response_json(response.status,body)
-    finally:conn.close();sock.close()
+    if not addresses:raise failure('dns','对端域名没有可连接的 IP 地址')
+    if any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):raise failure('address','对端域名解析到非公网地址',403)
+    # Only retry TCP/TLS connection establishment. Never replay a submitted proposal.
+    ips=list(dict.fromkeys(a[4][0] for a in addresses))[:4];last=None
+    for ip in ips:
+        sock=None;conn=http.client.HTTPSConnection(host,timeout=TIMEOUT)
+        try:
+            remaining=deadline-time.monotonic()
+            if remaining<=0:raise TimeoutError()
+            try:
+                sock=socket.create_connection((ip,443),timeout=min(5,remaining))
+                sock.settimeout(max(.01,deadline-time.monotonic()))
+                conn.sock=ssl.create_default_context().wrap_socket(sock,server_hostname=host)
+            except ssl.SSLCertVerificationError:raise
+            except (OSError,TimeoutError) as exc:
+                last=exc;continue
+            conn.sock.settimeout(max(.01,deadline-time.monotonic()))
+            tls=conn.sock
+            conn.request('POST','/api/site-sync/peer',body=raw,headers={'Content-Type':'application/json','Accept':'application/json'})
+            response=conn.getresponse();chunks=[];size=0
+            while not response.isclosed():
+                remaining=deadline-time.monotonic()
+                if remaining<=0:raise TimeoutError()
+                # HTTPResponse may own the socket after Connection: close.
+                tls.settimeout(remaining)
+                part=response.read1(min(65536,LIMIT+1-size))
+                if not part:break
+                chunks.append(part);size+=len(part)
+                if size>LIMIT:raise failure('size','对端响应超过读取上限，已停止')
+            return response_json(response.status,b''.join(chunks))
+        finally:
+            conn.close()
+            if sock is not None:sock.close()
+    raise last or TimeoutError()
 
 async def _worker(url,raw):
     from js import fetch,AbortController,Object
     from pyodide.ffi import to_js
     controller=AbortController.new()
     async def run():
-        opts=to_js({'method':'POST','redirect':'error','headers':{'Content-Type':'application/json','Accept':'application/json'},'body':raw.decode()},dict_converter=Object.fromEntries)
-        opts.signal=controller.signal;response=await fetch(url,opts)
+        opts=to_js({'method':'POST','redirect':'manual','headers':{'Content-Type':'application/json','Accept':'application/json'},'body':raw.decode()},dict_converter=Object.fromEntries)
+        opts.signal=controller.signal
+        try:response=await fetch(url,opts)
+        except Exception as exc:raise classify(exc,'fetch') from None
+        if 300<=int(response.status)<400:return response_json(int(response.status),b'')
         reader=response.body.getReader();parts=[];size=0
         try:
             while True:
                 part=await reader.read()
                 if part.done:break
                 data=bytes(part.value.to_py());size+=len(data)
-                if size>LIMIT:raise Error('对端响应过大')
+                if size>LIMIT:raise failure('size','对端响应超过读取上限，已停止')
                 parts.append(data)
-        finally:await reader.cancel()
+        except Exception as exc:raise classify(exc,'stream') from None
+        finally:
+            try:await reader.cancel()
+            except Exception:pass
         return response_json(int(response.status),b''.join(parts))
-    try:return await asyncio.wait_for(run(),15)
-    finally:controller.abort()
+    try:return await asyncio.wait_for(run(),TIMEOUT)
+    finally:
+        try:controller.abort()
+        except Exception:pass
 
 async def call(r,peer,payload):
     message=envelope(peer['secret'],payload)
     response=await post(r.kind,peer['origin'],message)
-    answer=verify(peer['secret'],response)
+    try:answer=verify(peer['secret'],response)
+    except Error as exc:raise diagnosed(exc,r.kind,peer['origin'],payload.get('op'),time.monotonic()) from None
     if not isinstance(answer,dict) or answer.get('request_nonce')!=message['nonce']:raise Error('对端响应与本次请求不匹配',409)
     if answer.get('site_id')==peer['local_id']:raise Error('不能将本站配置为自己的对端')
     return answer

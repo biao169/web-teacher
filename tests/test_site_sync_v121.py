@@ -92,7 +92,7 @@ def test_pause_retry_cancel_and_changed_target(pair,monkeypatch):
  async def offline(*args):raise Error('Network offline',502)
  monkeypatch.setattr(transport,'post',offline)
  assert api('pull-tick',{'uid':uid},ok=False).status_code==502
- assert api('get',{'uid':uid})['execution']['error']=='Network offline'
+ assert api('get',{'uid':uid})['execution']['error'].startswith('Network offline；阶段：download；数据库尚未提交')
  monkeypatch.setattr(transport,'post',network)
  api('pull-tick',{'uid':uid});api('pull-tick',{'uid':uid}) # download + promotion
  assert run(ra.media_store.get('new.jpg'))==raw

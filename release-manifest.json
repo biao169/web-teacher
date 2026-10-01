@@ -10,8 +10,8 @@
       "sha256": "1bb1b2af56ecd35a42a615b8ca2051a63893dd3db513ff7361ede6316c67f10f"
     },
     "README.md": {
-      "bytes": 67616,
-      "sha256": "bcf7de07a58a95d7fa91858e8083b91d2d0c6b59c118b234bf4577327d018e1c"
+      "bytes": 68057,
+      "sha256": "e4c7812f15491267b55033280ad061b9a069194d8a3f67ebd76f82aedc0800be"
     },
     "backend/__init__.py": {
       "bytes": 0,
@@ -402,8 +402,8 @@
       "sha256": "858cc7e06ca7c124829d19e73f9ecd74b8325f4d4d4b96a4feaf0666def7fb38"
     },
     "backend/app/native/site_sync_apply.py": {
-      "bytes": 17471,
-      "sha256": "99ea4c22a1f7b6a835e1a5da4196781c3023b540434e6fd0b177433a44e1f052"
+      "bytes": 17754,
+      "sha256": "dc2694ce3318fe063f4a1530c025095a26241069e35184cf181ac3c94d8afa1f"
     },
     "backend/app/native/site_sync_media.py": {
       "bytes": 2714,
@@ -422,8 +422,8 @@
       "sha256": "0895dadebc0e98cdcedd1865978c56abb754571691d48d8cd145da8e45bcfd52"
     },
     "backend/app/native/site_sync_transport.py": {
-      "bytes": 5060,
-      "sha256": "5607f63213d121f01a1a1d76ce8a367e2a25fc44c3b6194d458ebad3966709af"
+      "bytes": 10252,
+      "sha256": "45491f251bce37db1588bae0d878388e2b3b8f1b719a454a62e5412a1115ffaa"
     },
     "backend/app/native/source_links.py": {
       "bytes": 2573,
@@ -1869,6 +1869,10 @@
       "bytes": 6645,
       "sha256": "2fff2efed9d51b878269142f2bdef2377d99dd6c26c70048bf4aa639e386238d"
     },
+    "docs/site-sync-v124.md": {
+      "bytes": 2910,
+      "sha256": "b9f011fc25930aaeebf68f310086032093bd0790d6c4023f0c2cc8726ce88b06"
+    },
     "docs/timezones-v117.md": {
       "bytes": 2938,
       "sha256": "71602b412b5f6cd3ac9d80994b3068f41579a615004255cd59f9222248e718f5"
@@ -2086,8 +2090,8 @@
       "sha256": "d814c3c0499d85b7544cb91c8a7c8591a1027479d30a281a05c8e9c55c5d2e15"
     },
     "frontend/admin/static/js/native-site-sync.js": {
-      "bytes": 12906,
-      "sha256": "119921d40d3867915d2880a007506c90d14ac8ad58eec4e0371fd7e93ae31266"
+      "bytes": 13796,
+      "sha256": "e871f0961d8fe3e89db85b8a973364aa7bcd11964644a1e893434f5894344b8d"
     },
     "frontend/admin/static/js/native-source-focus.js": {
       "bytes": 947,
@@ -2319,7 +2323,7 @@
     },
     "frontend/admin/templates/native-site-sync.html": {
       "bytes": 10794,
-      "sha256": "e9f87bb4cce49636b6f46df34d40f3cb7e9c20e0d518fb0d73fba696821c4750"
+      "sha256": "c0eab9bf3825b7ddd975b935ad481c3454712486439d516db810248f5e04b321"
     },
     "frontend/admin/templates/native-student-category.html": {
       "bytes": 2226,
@@ -3607,7 +3611,7 @@
     },
     "pyproject.toml": {
       "bytes": 257,
-      "sha256": "2b0cd28a99cf9c4d0a29a4e989180dd2d2ce31dc7b29a12a039e88668fe5339a"
+      "sha256": "eb6ac2dac93b6834eebd233207b9a511cc010ec5c795c35d725e15be5ba58eff"
     },
     "start-transfer.sh": {
       "bytes": 156,
@@ -3798,8 +3802,8 @@
       "sha256": "08e7e3e31fe899f154b3d95b81fcfde9d98ac653c8b8599860f98eee0517eca2"
     },
     "tests/site-sync-dom.test.cjs": {
-      "bytes": 8187,
-      "sha256": "6e77df5d70a8b58f1e9332125ec25382018905f7fdb8210faad50656a2fca3b6"
+      "bytes": 9014,
+      "sha256": "df37d09ce8f78b9aaec85b40d91abcf0d1bb043b17c1461ab2eeca3a4a46ece2"
     },
     "tests/test_accounts_regression.py": {
       "bytes": 8629,
@@ -4058,8 +4062,8 @@
       "sha256": "bfcfe2fa0b3feea7d52ccbdd249d4f778c46e950f88524a5fad034358ce0e6d5"
     },
     "tests/test_site_sync_v121.py": {
-      "bytes": 9969,
-      "sha256": "b78bcdf7b76902ba314c36ead741462566d7885b34b2389a536b4c8f9706b385"
+      "bytes": 10024,
+      "sha256": "8f32d7fee74aa2c5d082f8810ac08a1011df3c11cb6f5280cd045fcf15d72e4d"
     },
     "tests/test_site_sync_v122.py": {
       "bytes": 8025,
@@ -4068,6 +4072,10 @@
     "tests/test_site_sync_v123.py": {
       "bytes": 8330,
       "sha256": "2a664f0ca94d3ff4253c6adc2810ccfd8d385c9b2f46ff75184ad1fba5ede522"
+    },
+    "tests/test_site_sync_v124.py": {
+      "bytes": 4251,
+      "sha256": "c0503b5b9f4b0b9fb9ca255ef75b6849d38266a161bedaa5babba48f2427fafb"
     },
     "tests/test_time_fields_v117.py": {
       "bytes": 3454,

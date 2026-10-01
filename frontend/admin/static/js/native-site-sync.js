@@ -1,14 +1,15 @@
 import {adminFetch} from './native-access.js?v=0.15.28';
+import {notify} from './native-notifications.js';
 const root=document.querySelector('#site-sync');
 if(root){
  const q=s=>root.querySelector(s),status=q('#sync-status'),labels={add:'新增',update:'更新',delete:'删除'};
  let uid='',items=[],selected=new Set(),requested=new Set(),automatic=new Set(),page=1,busy=false,pause=false,execution=null,direction='',approval=null,outgoing=null,pending=null;
  async function api(action,data={}){
   const response=await adminFetch('/api/admin/site-sync/'+action,{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-Token':root.dataset.csrf},body:JSON.stringify(data)});
-  let result;try{result=await response.json()}catch{throw Error('服务器响应无法读取；预览未完成。')}
+  let result;try{result=await response.json()}catch{throw Error('本站接口返回HTTP '+response.status+'，响应不是有效JSON；请检查本站运行日志，刷新任务核对已保存进度。')}
   if(!response.ok)throw Error(result.error?.message||result.error||'请求失败');return result;
  }
- async function run(fn){if(busy)return;busy=true;root.querySelectorAll('button').forEach(b=>b.disabled=true);q('#sync-pause').disabled=false;try{await fn()}catch(e){status.textContent=e.message}finally{busy=false;root.querySelectorAll('button').forEach(b=>b.disabled=false);q('#sync-pause').disabled=true;draw()}}
+ async function run(fn){if(busy)return;busy=true;notify('正在处理同步操作…','progress',{id:'site-sync'});root.querySelectorAll('button').forEach(b=>b.disabled=true);q('#sync-pause').disabled=false;try{await fn();notify(status.textContent,/完成|通过|已保存|已送达|已拒绝/.test(status.textContent)?'success':'info',{id:'site-sync'})}catch(e){const message=e instanceof TypeError?'浏览器无法连接本站接口；请检查网络并刷新任务核对进度。':e.message;status.textContent=message;notify(message,'error',{id:'site-sync'});status.scrollIntoView?.({block:'nearest',behavior:'smooth'})}finally{busy=false;root.querySelectorAll('button').forEach(b=>b.disabled=false);q('#sync-pause').disabled=true;draw()}}
  function filtered(){const term=q('#sync-search').value.trim().toLowerCase(),action=q('#sync-action').value,sort=q('#sync-sort').value,field=sort.replace('-','');return items.filter(x=>(x.in_scope||selected.has(x.id))&&(!action||x.action===action)&&(!term||[x.title,x.table,x.module_label,x.uid].join(' ').toLowerCase().includes(term))).sort((a,b)=>String(a[field]).localeCompare(String(b[field]))*(sort.startsWith('-')?-1:1))}
  function cell(row,value){const td=document.createElement('td');td.textContent=value;row.append(td);return td}
  function draw(){
@@ -33,6 +34,7 @@ if(root){
   execution=result.execution||execution;if(!execution){q('#sync-progress').textContent='尚未执行。';return}
   const phases={download:'下载与校验媒体',commit:'提交内容及引用',delete:'复核并删除旧媒体',cleanup:'清理分片暂存',done:'同步完成',cancelled:'任务已取消，已完成内容保留'};
   q('#sync-progress').textContent=`${phases[execution.phase]||execution.phase} · 已下载 ${Math.round((execution.bytes||0)/1024)} KB · 已处理旧媒体 ${execution.delete_index||0} 项 · ${execution.committed?'数据库已提交':'数据库尚未提交'}${execution.error?' · '+execution.error:''}${execution.retained_files?.length?' · 保留了 '+execution.retained_files.length+' 个已变化文件，请到媒体目录核对':''}`;
+  if(execution.error)notify(q('#sync-progress').textContent,'error',{id:'site-sync-task'});
  }
  async function execute(){
   pause=false;
@@ -62,7 +64,8 @@ if(root){
  q('#sync-review').onclick=()=>run(async()=>{const job=await api('proposal-review',{request_id:pending.request_id});uid=job.uid;q('#sync-history').prepend(new Option('审批预览 · '+new Date().toLocaleString(),uid));q('#sync-history').value=uid;q('#sync-result').hidden=true;q('#sync-execution').hidden=true;q('#sync-outgoing').hidden=true;execution=null;items=[];await read()});
  q('#sync-reject').onclick=()=>{if(confirm('拒绝当前提案？不会修改两站业务数据。'))run(async()=>{await api('proposal-reject',{request_id:pending.request_id});inboxView(await api('proposal-inbox'));status.textContent='提案已拒绝；旧提案重发不会恢复审批，来源需提交新版提案。'})};
  const scheduleForm=q('#sync-schedule');let scheduleRevision=null;
- function scheduleView(value){scheduleRevision=value.revision||null;const s=value.state||{};q('#sync-schedule-status').textContent=`${value.enabled?'后台已开启':'后台已关闭'} · ${value.auto_pull?'自动拉取':'仅推进已确认任务'}${s.message?' · '+s.message:''}${s.next_due?' · 下次拉取检查 '+s.next_due:''}${s.updated_at?' · 最近检查 '+s.updated_at:''}${s.task_uid?' · 任务 '+s.task_uid:''}${s.error?' · '+s.error:''}`;}
+ let lastScheduleError='';
+ function scheduleView(value){const currentError=value.state?.error||'';if(currentError&&currentError!==lastScheduleError)notify('后台同步暂停：'+currentError,'error',{id:'site-sync-background'});lastScheduleError=currentError;scheduleRevision=value.revision||null;const s=value.state||{};q('#sync-schedule-status').textContent=`${value.enabled?'后台已开启':'后台已关闭'} · ${value.auto_pull?'自动拉取':'仅推进已确认任务'}${s.message?' · '+s.message:''}${s.next_due?' · 下次拉取检查 '+s.next_due:''}${s.updated_at?' · 最近检查 '+s.updated_at:''}${s.task_uid?' · 任务 '+s.task_uid:''}${s.error?' · '+s.error:''}`;}
  scheduleForm.addEventListener('submit',e=>{e.preventDefault();run(async()=>{const f=new FormData(scheduleForm);scheduleView(await api('schedule-save',{revision:scheduleRevision,enabled:f.has('enabled'),auto_pull:f.has('auto_pull'),interval:Number(f.get('interval')),scopes:f.getAll('schedule-scope'),confirmation:f.get('confirmation')}));q('#sync-schedule-confirm').value='';status.textContent='后台策略已保存。';})});
  q('#sync-schedule-refresh').onclick=()=>run(async()=>scheduleView(await api('schedule-status')));
  scheduleView(JSON.parse(scheduleForm.dataset.value));

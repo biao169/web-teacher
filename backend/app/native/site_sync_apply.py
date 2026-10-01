@@ -18,7 +18,7 @@ TERMINAL=('done','cancelled')
 
 def progress(task):
     e=task['state'].get('execution',{})
-    return {'uid':task['uid'],'execution':{k:e.get(k) for k in ('phase','file_index','offset','bytes','committed','delete_index','cleanup_index','cancelled','error','retained_files')},
+    return {'uid':task['uid'],'execution':{k:e.get(k) for k in ('phase','file_index','offset','bytes','committed','delete_index','cleanup_index','cancelled','error','error_code','retained_files')},
             'media_count':len(e.get('media',[])),'delete_count':len(e.get('deletes',[]))}
 
 async def persist(r,task):
@@ -239,7 +239,10 @@ async def tick(r,uid,cancel=False):
         except Exception as exc:
             # Reload: a transaction/file operation may have committed before its response was lost.
             task=await tasks.get(r.sql,uid)
-            task['state']['execution']['error']=exc.message if isinstance(exc,Error) else '操作未完成；进度已保留，可重试。请检查服务日志。'
+            saved=task['state']['execution']
+            detail=exc.message if isinstance(exc,Error) else '操作未完成；进度已保留，可重试。请检查服务日志。'
+            saved['error']=detail+'；阶段：'+saved['phase']+'；'+('数据库已提交，后续步骤未完成' if saved['committed'] else '数据库尚未提交')
+            saved['error_code']=exc.code if isinstance(exc,Error) else 'sync_runtime'
             await persist(r,task)
             if isinstance(exc,Error):raise
             import logging
