@@ -61,3 +61,47 @@ test('transport failure uses shared top notice and keeps on-page error',async t=
  w.eval(source);d.querySelector('#sync-test').click();await tick();
  const last=notices.at(-1);assert.equal(last.state,'error');assert.equal(last.options.id,'site-sync');assert.match(last.message,/诊断编号/);assert.match(d.querySelector('#sync-status').textContent,/证书验证失败/);
 });
+
+for(const sample of [
+ {status:502,body:{detail:'Upstream timed out'},want:/Upstream timed out/},
+ {status:403,body:{title:'Access denied',detail:'Cloudflare blocked',error_code:1010,instance:'abc-EWR'},want:/1010.*abc-EWR/},
+ {status:422,body:{detail:[{msg:'missing',input:'must-not-display'}]},want:/请求参数校验失败/},
+ {status:500,body:{error:{message:'服务端诊断编号：sample'}},want:/服务端诊断编号：sample/},
+ {status:502,body:null,want:/未提供错误详情/},
+ {status:502,invalid:true,want:/不是有效JSON/}
+])test('sync error retains HTTP and safe details '+JSON.stringify(sample),async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};
+ w.adminFetch=async()=>({ok:false,status:sample.status,headers:{get:()=>null},json:async()=>{if(sample.invalid)throw Error('HTML');return sample.body;}});
+ w.eval(source);d.querySelector('#sync-test').click();await tick();
+ const text=d.querySelector('#sync-status').textContent;
+ assert.match(text,new RegExp('HTTP '+sample.status));assert.match(text,/阶段：test/);assert.match(text,sample.want);assert(!text.includes('must-not-display'));
+});
+
+test('successful connection clearly excludes business data validation',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ w.notify=()=>{};w.adminFetch=async url=>{calls.push(url.split('/').pop());return {ok:true,json:async()=>({protocol:2,data_check:1,site_id:'peer'})};};
+ w.eval(source);d.querySelector('#sync-test').click();await tick();
+ assert.deepEqual(calls,['test']);assert.match(d.querySelector('#sync-status').textContent,/尚未读取或校验业务数据/);
+});
+
+for(const direction of ['pull','push'])test(direction+' verification pauses before mutation and resumes from the same action',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;let checks=0;
+ const item={id:'students:s',table:'students',module_label:'学生',title:'学生',action:'add',fields:['姓名'],dependencies:[],blocked:[],in_scope:true};
+ const opWanted=direction==='pull'?'pull-begin':'proposal-send',button=direction==='pull'?'#sync-begin':'#sync-send';
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{
+  const op=url.split('/').pop(),data=JSON.parse(options.body);let result={};
+  if(op==='start')result={uid:'task',status:'reading'};
+  if(op==='advance')result={uid:'task',status:'ready',direction,items:[item],selection:{selected:[item.id],automatic:[]}};
+  if(op===opWanted){checks++;assert.equal(data.uid,'task');if(direction==='pull')assert.equal(data.confirmation,'从对端同步到本站');
+   if(checks===1){d.querySelector('#sync-pause').click();result={checking:true}}
+   else if(checks===2)result={checking:true};
+   else result=direction==='pull'?{execution:{phase:'done',committed:true}}:{outgoing:{status:'pending',sequence:1}};
+  }
+  return {ok:true,json:async()=>result};
+ };
+ w.eval(source);d.querySelector('[data-direction="'+direction+'"]').click();await tick();
+ d.querySelector('#sync-confirm').value='从对端同步到本站';d.querySelector(button).click();await tick();
+ assert.equal(checks,1);assert.match(d.querySelector('#sync-status').textContent,/复核已暂停/);assert(!d.querySelector(button).disabled);
+ d.querySelector(button).click();await tick();assert.equal(checks,3);assert.doesNotMatch(d.querySelector('#sync-status').textContent,/复核已暂停/);
+});

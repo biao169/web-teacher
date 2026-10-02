@@ -83,7 +83,7 @@ def test_two_site_http(tmp_path,monkeypatch):
  assert a.post('/api/admin/site-sync/start',json={},headers={'Accept':'application/json'}).status_code==403
  assert a.post('/api/site-sync/peer',json={},headers={'Accept':'application/json'}).status_code==403
  assert 'a'*64 not in a.get('/admin/data-tools/sync').text
- v=transport.envelope('a'*64,{'op':'execute','schema':core.schema(),'protocol':1})
+ v=transport.envelope('a'*64,{'op':'execute','schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1})
  assert a.post('/api/site-sync/peer',json=v).status_code==404
 
 def test_changed_snapshot(tmp_path,monkeypatch):
@@ -91,13 +91,15 @@ def test_changed_snapshot(tmp_path,monkeypatch):
  r=SimpleNamespace(sql=db,kind='local')
  run(tasks.save(db,{'origin':'https://b.example.org','secret':'a'*64,'enabled':True}))
  async def fake(r,p,data):
-  result={'site_id':'other','schema':core.schema(),'protocol':1,'revision':await core.revision(remote)}
-  if data['op']=='page':result.update(await core.page(remote,data['table'],data['after'],data['revision']))
+  result={'site_id':'other','schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'revision':await core.revision(remote)}
+  if data['op']=='revision-page':result.update(await core.revision_page(remote,data['table'],data['after']))
+  if data['op']=='page':result.update(await core.page(remote,data['table'],data['after']))
   return result
  monkeypatch.setattr(tasks,'call',fake)
  job=run(tasks.start(r,'pull',['students']))
+ while run(tasks.get(db,job['uid']))['state']['phase']=='baseline':run(tasks.advance(r,job['uid']))
  run(remote.batch([("INSERT INTO students(uid,name) VALUES('new','New')",())]))
- with pytest.raises(Error,match='变化'):
+ with pytest.raises(Error,match='变化|不完整|不一致'):
   for _ in range(100):run(tasks.advance(r,job['uid']))
  assert run(tasks.get(db,job['uid']))['status']=='reading'
  assert run(db.query('SELECT * FROM students'))==[]
@@ -116,9 +118,10 @@ def test_incomplete_signed_page_cannot_create_delete_preview(tmp_path,monkeypatc
  run(remote.batch([("INSERT INTO students(uid,name) VALUES('remote-student','Remote')",())]))
  r=SimpleNamespace(sql=db,kind='local');run(tasks.save(db,{'origin':'https://b.example.org','secret':'a'*64,'enabled':True}))
  async def fake(r,p,data):
-  result={'site_id':'other','schema':core.schema(),'protocol':1,'revision':await core.revision(remote)}
+  result={'site_id':'other','schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'revision':await core.revision(remote)}
+  if data['op']=='revision-page':result.update(await core.revision_page(remote,data['table'],data['after']))
   if data['op']=='page':
-   result.update(await core.page(remote,data['table'],data['after'],data['revision']))
+   result.update(await core.page(remote,data['table'],data['after']))
    if data['table']=='students':result['rows']=[];result['next']=None
   return result
  monkeypatch.setattr(tasks,'call',fake);job=run(tasks.start(r,'pull',['students']))

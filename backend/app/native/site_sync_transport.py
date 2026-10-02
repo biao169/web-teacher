@@ -33,7 +33,7 @@ def diagnosed(exc,kind,url,op,started):
     while frame and frame.tb_next:frame=frame.tb_next
     location=(frame.tb_frame.f_code.co_filename.rsplit('/',1)[-1]+':'+str(frame.tb_lineno)) if frame else 'unknown'
     logging.getLogger(__name__).warning('sync_transport id=%s code=%s platform=%s host=%s operation=%s elapsed_ms=%d exception=%s location=%s',
-        ref,code,kind,urlsplit(url).hostname,op if op in ('hello','page','media-head','media-range','proposal-submit','proposal-status') else 'request',int((time.monotonic()-started)*1000),type(cause).__name__,location)
+        ref,code,kind,urlsplit(url).hostname,op if op in ('hello','inspect','revision-page','page','media-head','media-range','media-record','proposal-submit','proposal-status') else 'request',int((time.monotonic()-started)*1000),type(cause).__name__,location)
     return Error(error.message+'；诊断编号：'+ref,error.status,code)
 
 
@@ -77,9 +77,10 @@ def response_json(status,body,headers=None):
             value=json.loads(body)
             if isinstance(value,dict):
                 platform=str(value.get('error_code') or platform)
-                ray=ray or str(value.get('ray_id') or '')
+                ray=ray or str(value.get('ray_id') or value.get('instance') or '')
                 for key in ('error','title','detail'):
                     message=value.get(key)
+                    if isinstance(message,dict):message=message.get('message')
                     if isinstance(message,str) and message:hint+='；'+''.join(c for c in message[:240] if c.isprintable())
         except (ValueError,UnicodeError):pass
         descriptions={'1010':'Cloudflare按客户端签名拦截，请检查安全事件','1101':'对端Worker未处理异常，请查看对端堆栈','1102':'对端Worker CPU或内存超限，请查看对端调用状态'}

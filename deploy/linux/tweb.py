@@ -63,7 +63,8 @@ class Layout:
 
 
 def run(argv, **kwargs):
-    return subprocess.run([str(x) for x in argv], check=True, **kwargs)
+    kwargs.setdefault('check',True)
+    return subprocess.run([str(x) for x in argv], **kwargs)
 
 
 def repository(value):
@@ -258,6 +259,7 @@ class Manager:
 
     def write_command(self,state):
         no_symlinks(self.l.command)
+        self.l.command.parent.mkdir(parents=True,exist_ok=True)
         if self.l.command.exists() and hashlib.sha256(self.l.command.read_bytes()).hexdigest()!=state['owned_files'].get(str(self.l.command)):
             raise ValueError('tweb 入口已被外部修改 / Manager entry was modified externally')
         command=shlex.quote(state['python'])+' '+shlex.quote(str(self.l.base/'tweb.py'))+' "$@"'
@@ -429,6 +431,132 @@ location / {{
 }}
 ''')
         self.run(['systemctl','daemon-reload'])
+
+    def remnants(self):
+        """Read-only discovery also works when install.json or ownership markers were removed."""
+        paths=[p for p in (self.l.base,self.l.config,self.l.unit,self.l.command)
+               if p.exists() or p.is_symlink()]
+        import grp
+        try:account=pwd.getpwnam(USER)
+        except KeyError:account=None
+        try:group=grp.getgrnam(USER)
+        except KeyError:group=None
+        loaded=self.run(['systemctl','show','--property=LoadState','--value',SERVICE],capture_output=True,text=True).stdout.strip()
+        return paths,account,group,loaded not in ('','not-found')
+
+    def recovery_guard(self,account,group):
+        # Never adopt a normal login account or delete an unrelated service/command.
+        fragment=self.run(['systemctl','show','--property=FragmentPath','--value',SERVICE],capture_output=True,text=True).stdout.strip()
+        if fragment not in ('','not-found') and Path(fragment)!=self.l.unit:
+            raise ValueError('同名服务来自其他位置，未接管: '+fragment)
+        if account and (account.pw_uid==0 or account.pw_dir!=str(self.l.data) or
+                        account.pw_shell not in ('/usr/sbin/nologin','/sbin/nologin','/bin/false')):
+            raise ValueError('同名账号不是本站专用账号；未接管 / Account identity mismatch')
+        if group and (group.gr_mem or any(u.pw_gid==group.gr_gid and u.pw_name!=USER for u in pwd.getpwall())):
+            raise ValueError('同名组有额外成员，未删除 / Group has additional members')
+        no_symlinks(self.l.config/'generated')
+        for p in (self.l.base,self.l.config,self.l.data):
+            no_symlinks(p)
+            if p.exists() and not p.is_dir():raise ValueError('安装目录不是目录: '+str(p))
+            if p.exists():
+                for parent,dirs,_ in os.walk(p,followlinks=False):
+                    if os.path.ismount(parent):raise ValueError('安装目录包含挂载点，未自动处理: '+parent)
+                    for name in dirs:
+                        if os.path.ismount(Path(parent)/name):raise ValueError('安装目录包含挂载点')
+        for p,required in ((self.l.command,str(self.l.base/'tweb.py')),(self.l.unit,str(self.l.base/'current'))):
+            no_symlinks(p)
+            if p.exists() and (not p.is_file() or required not in p.read_text()):
+                raise ValueError('入口或服务不属于本站，未覆盖: '+str(p))
+
+    def clean_remnants(self,supplied=None):
+        paths,account,group,loaded=self.remnants();self.recovery_guard(account,group)
+        heading('将删除全部本站数据 / Delete ALL website data')
+        for p in (self.l.base,self.l.config,self.l.unit,self.l.command):print(p)
+        print('包括数据库、媒体、快传文件及专用账号；不删除共享软件或代理配置。')
+        confirm('DELETE',supplied)
+        if loaded or self.l.unit.exists():self.run(['systemctl','disable','--now',SERVICE])
+        if account:
+            probe=self.run(['pgrep','-u',str(account.pw_uid)],check=False,capture_output=True,text=True)
+            if probe.returncode==0:raise ValueError('专用账号仍有进程，已停止清理，请检查 PID: '+probe.stdout.strip())
+            if probe.returncode!=1:raise ValueError('无法确认账号进程状态，停止清理')
+        # Remove the account before data, so a failed userdel cannot leave half-deleted data.
+        if account:self.run(['userdel',USER])
+        import grp
+        try:grp.getgrnam(USER)
+        except KeyError:pass
+        else:self.run(['groupdel',USER])
+        self.l.unit.unlink(missing_ok=True);self.l.command.unlink(missing_ok=True)
+        # systemctl disable normally removes this link; also cover manually deleted units.
+        link=self.l.unit.parent/'multi-user.target.wants'/SERVICE
+        if link.is_symlink() and link.resolve()==self.l.unit.resolve():link.unlink()
+        for p in dict.fromkeys((self.l.data,self.l.config,self.l.base)):
+            if p.exists():shutil.rmtree(p)
+        self.run(['systemctl','daemon-reload'])
+        self.run(['systemctl','reset-failed',SERVICE],check=False)
+        print('本站残留清理完成 / Website remnants removed')
+
+    def repair_install(self):
+        """Fetch verified source, preserve storage/env, recover missing local deployment files."""
+        paths,account,group,loaded=self.remnants();self.recovery_guard(account,group)
+        no_symlinks(self.l.state)
+        try:state=json.loads(self.l.state.read_text())
+        except (FileNotFoundError,ValueError):
+            raise ValueError('安装记录缺失或损坏，无法猜测原配置；请选择清理重装 / Missing installation state')
+        repository(state['repo']);branch_name(state['branch']);hostname(state['domain']);port_number(state.get('port',8003))
+        if not Path(state['python']).is_absolute():raise ValueError('解释器路径无效')
+        import tomllib
+        storage=self.l.config/'storage.toml';no_symlinks(storage)
+        if storage.exists():
+            values=tomllib.loads(storage.read_text())['storage']
+            defaults={'data_dir':self.l.data,'database_path':self.l.data/'database/site.sqlite3',
+                'cache_dir':self.l.data/'cache','media_dir':self.l.data/'media',
+                'transfer_media_dir':self.l.base/'transfer-data/files','transfer_cache_dir':self.l.base/'transfer-data/cache'}
+            if any(values.get(k)!=str(v) for k,v in defaults.items()):
+                raise ValueError('非默认存储路径，需要按原配置人工修复；不会改写 / Custom storage paths')
+        # Fetch and verify BEFORE stopping a working service or changing permissions.
+        (self.l.base/'releases').mkdir(parents=True,exist_ok=True)
+        release,commit=self.fetch(state['repo'],state['branch'])
+        if loaded or self.l.unit.exists():self.run(['systemctl','stop',SERVICE])
+        if account is None:
+            if group:self.run(['useradd','--system','--gid',USER,'--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',USER])
+            else:self.run(['useradd','--system','--user-group','--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',USER])
+        # Repair markers only after checking the layout and obtaining a valid state.
+        for p in dict.fromkeys((self.l.base,self.l.config,self.l.data)):
+            p.mkdir(parents=True,exist_ok=True)
+            no_symlinks(p/'.tweb-owned');(p/'.tweb-owned').write_text(MARKER)
+        state.setdefault('owned_files',{});state['user_created']=True;state['phase']='repairing';self.save(state)
+        for p in (self.l.data/'media',self.l.data/'cache',self.l.base/'transfer-data/files',self.l.base/'transfer-data/cache'):
+            no_symlinks(p);p.mkdir(parents=True,exist_ok=True)
+        saved={}
+        for name in ('storage.toml','teacher-site.env'):
+            p=self.l.config/name;no_symlinks(p)
+            if p.exists():saved[name]=p.read_text()
+        self.prepare(release,state['python']);self.switch(release);self.generate(release,state)
+        for name,value in saved.items():write(self.l.config/name,value,0o640)
+        self.permissions(repair=True)
+        # init is idempotent; never resets existing user/content data.
+        self.db(release,'init');self.run(['systemctl','enable',SERVICE]);self.start()
+        state.update(phase='ready',commit=commit);self.save(state)
+        write(self.l.base/'tweb.py',(release/'deploy/linux/tweb.py').read_text())
+        if self.l.command.exists():state['owned_files'][str(self.l.command)]=hashlib.sha256(self.l.command.read_bytes()).hexdigest()
+        self.write_command(state)
+        print('修复完成；已有数据库和媒体保留。被手动删除的数据无法凭空恢复 / Repair complete; deleted data cannot be recovered')
+
+    def install_entry(self,args):
+        paths,account,group,loaded=self.remnants()
+        if not (paths or account or group or loaded):return self.install(args)
+        heading('检测到旧安装或残留 / Existing installation or remnants')
+        for p in paths:print(p)
+        if account:print('账号 / Account: '+USER)
+        if group:print('用户组 / Group: '+USER)
+        if not sys.stdin.isatty():raise ValueError('请在交互终端选择修复或清理重装；不会自动删除数据')
+        print('1. 修复/续装，保留已有数据 / Repair, preserve data')
+        print('2. 彻底清理后重新安装 / Delete all website data and reinstall')
+        choice=input('选择 / Choice [Enter = exit]: ').strip()
+        if not choice:return
+        if choice=='1':return self.repair_install()
+        if choice=='2':self.clean_remnants();return self.install(args)
+        raise ValueError('无效选项，已退出 / Invalid choice; exited')
 
     def install(self,args):
         repository(args.repo);branch_name(args.branch);hostname(args.domain)
@@ -739,27 +867,7 @@ location / {{
         print('数据库重建完成；磁盘媒体保留。' if reset else '数据库初始化/结构核验完成。')
 
     def uninstall(self,supplied=None):
-        state=self.load()
-        heading('完整卸载范围 / Complete uninstall targets')
-        for path in (self.l.base,self.l.config,self.l.unit,self.l.command):print(str(path))
-        confirm('DELETE',supplied)
-        # Refuse altered external files before stopping service or removing anything.
-        for name,digest in state['owned_files'].items():
-            p=Path(name)
-            if p not in (self.l.command,self.l.unit):raise ValueError('无效卸载清单')
-            no_symlinks(p)
-            if p.exists() and hashlib.sha256(p.read_bytes()).hexdigest()!=digest:raise ValueError('管理文件已修改，未删除: '+name)
-        self.run(['systemctl','disable','--now',SERVICE]) if self.l.unit.exists() else None
-        for name in state['owned_files']:Path(name).unlink(missing_ok=True)
-        self.run(['systemctl','daemon-reload'])
-        if state['user_created']:
-            self.run(['userdel',USER])
-            import grp
-            try:grp.getgrnam(USER)
-            except KeyError:pass
-            else:self.run(['groupdel',USER])
-        for p in (self.l.data,self.l.config,self.l.base):owned(p);shutil.rmtree(p)
-        print('已删除本工具管理的源码、依赖、数据库、媒体、快传缓存、配置、服务及命令。系统共用软件/日志、外部代理配置不删除。')
+        return self.clean_remnants(supplied)
 
     def refresh_logging(self,state):
         """Upgrade only the owned service command; preserve storage/env/proxy settings."""
@@ -818,7 +926,9 @@ MENU = [
  ('proxy','代理示例 / Proxy examples','查看 nginx / Caddy 配置 / Show nginx / Caddy snippets'),
  ('remove','分项删除 / Remove','选择文件类别或完整卸载 / Choose data category or uninstall'),
  ('pip-source','Python 依赖源 / Package source','清华或官方 HTTPS 源 / Tsinghua or official HTTPS index'),
- ('resume-install','继续失败的安装 / Resume installation','仅限激活前依赖阶段失败 / Pre-activation dependency failure only'),
+ ('resume-install','继续失败的安装 / Resume installation','仅限激活前阶段 / Pre-activation stage only'),
+ ('repair','修复部署 / Repair','恢复缺失的源码、入口和服务，保留数据 / Restore deployment, preserve data'),
+ ('clean-remnants','彻底清理残留 / Clean remnants','删除本站全部数据和账号，支持记录缺失 / Delete website data and account'),
 ]
 UPDATE_MENU = [
  ('all','整站更新 / Full update','源码、锁定依赖和数据库核验 / Source, locked dependencies and DB verification'),
@@ -856,6 +966,8 @@ def parser():
     install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--python',default='/usr/bin/python3');install.add_argument('--port',type=port_number,default=8003);install.add_argument('--pip-source',choices=tuple(PIP_SOURCES),default=DEFAULT_PIP_SOURCE)
     source=sub.add_parser('pip-source');source.add_argument('name',choices=tuple(PIP_SOURCES),nargs='?')
     sub.add_parser('resume-install')
+    sub.add_parser('repair')
+    sub.add_parser('clean-remnants').add_argument('--confirm')
     update=sub.add_parser('update');update.add_argument('--repo');update.add_argument('--branch');update.add_argument('--scope',choices=tuple(x[0] for x in UPDATE_MENU),default='all');update.add_argument('--reset',action='store_true');update.add_argument('--confirm')
     for name in ('db-reset','uninstall'):sub.add_parser(name).add_argument('--confirm')
     remove=sub.add_parser('remove');remove.add_argument('--scope',choices=tuple(x[0] for x in REMOVE_MENU),required=True);remove.add_argument('--confirm')
@@ -874,7 +986,9 @@ def execute(a):
     with open('/run/lock/teacher-site-manager.lock','a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         m=Manager()
-        if a.action=='install':m.install(a)
+        if a.action=='install':m.install_entry(a)
+        elif a.action=='repair':m.repair_install()
+        elif a.action=='clean-remnants':m.clean_remnants(a.confirm)
         elif a.action=='pip-source':m.pip_source(a.name)
         elif a.action=='resume-install':m.resume_install()
         elif a.action=='update':

@@ -120,7 +120,7 @@ def test_receiver_opt_in_required_and_peer_cannot_approve(peers):
  api,b,preview,review,ra,rb,a,client_b,_=peers
  b('save',{'origin':'https://a.example.org','secret':'s'*64,'enabled':True,'allow_proposals':False})
  uid=preview(['students'],lambda x:x['action']=='add',direction='push')
- assert api('proposal-send',{'uid':uid},ok=False).status_code==422
+ assert api('proposal-send',{'uid':uid},ok=False).status_code==409
  peer=run(rb.sql.query('SELECT local_id FROM sync_peers'))[0]
  data={'op':'proposal-approve','schema':core.schema(),'protocol':core.PROTOCOL,'target_id':peer['local_id']}
  v=client_b.post('/api/site-sync/peer',headers={'Accept':'application/json'},json=transport.envelope('s'*64,data))

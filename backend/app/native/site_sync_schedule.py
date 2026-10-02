@@ -102,7 +102,9 @@ async def step(r,policy,s):
         s.pop('preview_uid',None);s['next_due']=now(seconds=policy['interval']*60);s['last_finished']=now();s['message']='无差异';return
     # Never partial silent success: blocked dependencies/limits stop for review.
     await tasks.choose(r.sql,uid,ids)
-    await apply.begin(r,uid,'从对端同步到本站')
+    result=await apply.begin(r,uid,'从对端同步到本站')
+    if result.get('checking'):
+        s['message']='分批复核确认前版本，尚未开始执行';return
     s['task_uid']=uid;s['message']='按本站预先授权的定时拉取策略开始执行'
 
 async def tick(base):

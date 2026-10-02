@@ -15,8 +15,18 @@ def pair(tmp_path,monkeypatch):
   text=c.get('/admin/data-tools/sync').text
   return {'Accept':'application/json','Origin':str(c.base_url).rstrip('/'),'X-CSRF-Token':re.search('id="site-sync" data-csrf="([^"]+)"',text)[1]}
  ha,hb=headers(a),headers(b)
- def api(op,data=None,client=a,h=ha,ok=True):
+ def api(op,data=None,client=a,h=ha,ok=True,drain=True):
   v=client.post('/api/admin/site-sync/'+op,headers=h,json=data or {})
+  # Model the UI's sequential checking requests; drain=False tests individual budgets.
+  if drain and op in ('proposal-send','pull-tick','pull-begin','proposal-approve'):
+   for _ in range(100):
+    if v.status_code!=200:break
+    result=v.json()
+    if result.get('checking'):next_op=op
+    elif result.get('execution',{}).get('phase')=='verify-commit':next_op='pull-tick'
+    else:break
+    v=client.post('/api/admin/site-sync/'+next_op,headers=h,json=data if result.get('checking') else {'uid':data['uid']})
+   else:pytest.fail('Verification did not finish')
   if ok:assert v.status_code==200,v.text
   return v.json() if ok else v
  for c,h,url in ((a,ha,'https://b.example.org'),(b,hb,'https://a.example.org')):
@@ -45,7 +55,7 @@ def finish(api,uid,max_ticks=100):
 
 def seed_media(r,uid,key,data):
  run(r.media_store.put(key,data))
- run(r.sql.batch([('INSERT INTO media_assets(uid,object_key,title,mime_type,size,storage_kind,status,checksum) VALUES(?,?,?,?,?,?,?,?)',(uid,key,key,'image/jpeg',len(data),'local','active',hashlib.sha256(data).hexdigest()))]))
+ run(r.sql.batch([('INSERT INTO media_assets(uid,object_key,title,mime_type,size,storage_kind,status,checksum) VALUES(?,?,?,?,?,?,?,?)',(uid,key,key,'image/jpeg',len(data),r.kind,'active',hashlib.sha256(data).hexdigest()))]))
 
 def test_replacement_commit_then_physical_delete(pair):
  api,preview,ra,rb,*_=pair
@@ -97,7 +107,6 @@ def test_pause_retry_cancel_and_changed_target(pair,monkeypatch):
  api('pull-tick',{'uid':uid});api('pull-tick',{'uid':uid}) # download + promotion
  assert run(ra.media_store.get('new.jpg'))==raw
  run(ra.sql.batch([("INSERT INTO students(uid,name) VALUES('changed','Changed')",())]))
- api('pull-tick',{'uid':uid}) # enter commit
  assert api('pull-tick',{'uid':uid},ok=False).status_code==409
  assert run(ra.sql.query("SELECT * FROM media_assets WHERE object_key='new.jpg'"))==[]
  api('pull-cancel',{'uid':uid});finish(api,uid)
@@ -124,7 +133,8 @@ def test_commit_ack_lost_is_not_replayed(pair,monkeypatch):
   await original(statements)
   raise OSError('simulated lost acknowledgement')
  monkeypatch.setattr(ra.sql,'restore_batch',lost)
- assert api('pull-tick',{'uid':uid},ok=False).status_code==502
+ failure=api('pull-tick',{'uid':uid},ok=False)
+ assert failure.status_code==500 and '服务端诊断编号' in failure.text
  assert api('get',{'uid':uid})['execution']['committed'] is True
  monkeypatch.setattr(ra.sql,'restore_batch',original)
  finish(api,uid)

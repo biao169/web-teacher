@@ -1,5 +1,6 @@
 """D1 SQL adapter with atomic batches and native domain errors; no schema translation."""
 from backend.app.native.catalog import Error
+from backend.app.native.site_sync_diagnostics import database
 
 def plain(value):
     """Normalize Pyodide JS values into plain Python records."""
@@ -14,7 +15,8 @@ class D1SQL:
     def statement(self,sql,args):
         """预处理SQL并绑定参数，不拼接用户输入。"""
         statement=self.binding.prepare(sql);return statement.bind(*args) if args else statement
-    async def query(self,sql,args=()):"""执行查询并返回规范化的记录列表。""";return rows(await self.statement(sql,args).all())
+    async def query(self,sql,args=()):
+        with database(((sql,args),)):return rows(await self.statement(sql,args).all())
     async def batch(self,statements):
         """以一个数据库事务提交有界SQL批次，保持原子性。"""
         return await self._batch(statements,25)
@@ -23,8 +25,10 @@ class D1SQL:
         return await self._batch(statements,64)
     async def _batch(self,statements,limit):
         """Enforce the caller-specific transaction budget in either native adapter."""
-        if not 1<=len(statements)<=limit:raise ValueError('Too many statements per transaction')
-        try:return [rows(result) for result in plain(await self.binding.batch([self.statement(sql,args) for sql,args in statements]))]
+        try:
+            with database(statements):
+                if not 1<=len(statements)<=limit:raise ValueError('Too many statements per transaction')
+                return [rows(result) for result in plain(await self.binding.batch([self.statement(sql,args) for sql,args in statements]))]
         except Exception as exc:
             if 'constraint' in str(exc).lower():raise Error('数据、权限或引用已变化，请刷新检查',409) from None
             raise

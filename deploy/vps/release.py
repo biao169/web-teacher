@@ -42,7 +42,13 @@ def verify(root):
  expected=json.loads((root/'release-manifest.json').read_text())
  if expected.get('format')!='teacher-release-v1':raise ValueError('发布清单格式错误')
  actual=inventory(root)
- if actual!=expected['files']:raise ValueError('发布文件被修改、缺失或多出；拒绝验收')
+ if actual!=expected['files']:
+  recorded=expected['files'];groups={'missing':sorted(set(recorded)-set(actual)),
+   'extra':sorted(set(actual)-set(recorded)),
+   'changed':sorted(k for k in set(actual)&set(recorded) if actual[k]!=recorded[k])}
+  report={k:{'count':len(v),'paths':v[:40]} for k,v in groups.items() if v}
+  raise ValueError('发布清单不一致 / Release manifest mismatch: '+json.dumps(report,ensure_ascii=False)+
+   '\n请在发布源码中执行 python -B deploy/vps/release.py manifest --root . --refresh，再执行 verify 并一起提交清单；安装端不会自动认可已改变的代码。')
  return {'verified':True,'files':len(actual),'source_bytes':sum(x['bytes'] for x in actual.values())}
 
 def stage(source,destination):

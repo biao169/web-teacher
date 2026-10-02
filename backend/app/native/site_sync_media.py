@@ -2,7 +2,7 @@
 import base64,hashlib
 from pathlib import PurePosixPath
 from .catalog import Error
-from . import site_sync as core
+from .data_tools import digest
 from .media_inventory_store import inventory
 from .media import signature
 
@@ -13,15 +13,17 @@ TOTAL_LIMIT=24*1024*1024
 def chunk_key(task,index,offset):return f'site-sync/{task}/{index}/{offset}.bin'
 
 async def serve(r,data):
-    if data.get('revision')!=await core.revision(r.sql):raise Error('来源数据已变化，请重新预览',409)
     uid=data.get('uid')
     if not isinstance(uid,str) or len(uid)>120:raise Error('媒体标识无效')
     rows=await r.sql.query('SELECT * FROM media_assets WHERE uid=?',(uid,))
+    if data['op']=='media-record':return {'uid':uid,'exists':bool(rows)}
     if not rows or rows[0]['storage_kind'] not in ('local','r2'):raise Error('媒体不是受管理原文件',409)
-    row=rows[0];store=inventory(r.media_store);head=await store.head(row['object_key'])
+    row=rows[0];record_version=digest(row)
+    if data['op']=='media-range' and data.get('record_version')!=record_version:raise Error('来源媒体登记已变化，停止读取分片',409)
+    store=inventory(r.media_store);head=await store.head(row['object_key'])
     if not head or head['size']!=row['size']:raise Error('来源媒体缺失或大小不符',409)
     if not 0<head['size']<=FILE_LIMIT:raise Error('同步单文件最多20MiB',413)
-    if data['op']=='media-head':return {'uid':uid,**head,'checksum':row.get('checksum')}
+    if data['op']=='media-head':return {'uid':uid,**head,'checksum':row.get('checksum'),'record_version':record_version}
     offset=data.get('offset');version=data.get('version')
     if type(offset) is not int or offset<0 or offset%CHUNK or offset>=head['size'] or version!=head['version']:raise Error('媒体区间或版本无效',409)
     length=min(CHUNK,head['size']-offset);parts=[]

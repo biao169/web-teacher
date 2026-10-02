@@ -1,0 +1,21 @@
+{
+  "version": "0.15.131",
+  "date": "2026-10-02",
+  "protocol": 4,
+  "schema_changed": false,
+  "tests_passed": 40,
+  "adapter_matrix": {
+    "cases": 15,
+    "pairs": [
+      "worker-to-ubuntu",
+      "ubuntu-to-worker",
+      "worker-to-worker"
+    ],
+    "bindings": "isolated doubles",
+    "production_adapters": true
+  },
+  "diagnostics_startup_schedule_cases": 25,
+  "live_acceptance": "not_run",
+  "live_cpu_measurement": "not_run",
+  "production_mutations": false
+}

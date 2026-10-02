@@ -11,7 +11,7 @@ def enable(api,auto=False,scopes=None):
  current=api('schedule-status')
  return api('schedule-save',{'revision':current.get('revision'),'enabled':True,'auto_pull':auto,'interval':5,'scopes':scopes or ['students'],'confirmation':scheduler.CONFIRM})
 
-def drive(r,limit=150):
+def drive(r,limit=250):
  for _ in range(limit):
   result=run(scheduler.tick(r))
   assert result.get('status')!='paused',result

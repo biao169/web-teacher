@@ -79,26 +79,35 @@ async def send(r,uid):
     async with lease(r,'site-sync:proposal-send','edit'):
         task=await tasks.get(r.sql,uid);s=task['state'];p=await tasks.peer(r.sql)
         if task['status']!='ready' or s['direction']!='push':raise Error('请先完成“本站 → 对端”的预览')
-        remote=await tasks.hello(r,p)
-        if remote.get('proposals')!=1:raise Error('对端需更新到v0.15.122并开启接收待批准推送')
-        if p['revision']!=s['peer_revision'] or remote['site_id']!=s['remote_id'] or remote['revision']!=s['remote_revision'] or await core.revision(r.sql)!=s['local_revision']:raise Error('预览或对端配置已变化，请重新预览',409)
+        if p['revision']!=s['peer_revision']:raise Error('对端配置已变化，请重新预览',409)
         chosen=core.select(s['items'],s.get('selection',{}).get('selected',[]))
         if chosen['blocked'] or not chosen['selected']:raise Error('请选择条目并处理依赖问题')
         ids=sorted(set(chosen['selected'])-set(s['selection'].get('automatic',[])))
         if not 1<=len(ids)<=500:raise Error('提案最多500个主动选择项')
         fingerprint=digest([ids,s['scopes'],s['local_revision'],s['remote_revision'],p['revision']])
         outgoing=s.get('outgoing')
+        if s.get('proposal_check_fingerprint')!=fingerprint:
+            s.pop('proposal_check',None);s['proposal_check_fingerprint']=fingerprint
+        if 'proposal_check' not in s:
+            remote=await tasks.hello(r,p)
+            if remote['site_id']!=s['remote_id'] or remote.get('proposals')!=1:raise Error('对端身份已变化或未开启接收待批准推送',409)
+        if not await tasks.check_step(r,task,'proposal_check',peer_config=p):
+            await tasks.persist(r.sql,task,status=task['status'])
+            return {'checking':True,'phase':'verify-proposal'}
+        remote=await tasks.hello(r,p)
+        if remote['site_id']!=s['remote_id'] or remote.get('proposals')!=1:raise Error('对端身份已变化或未开启接收待批准推送',409)
         if not outgoing or outgoing.get('confirmed') or outgoing['fingerprint']!=fingerprint:
             key='site-sync:sequence:'+p['local_id']+':'+s['remote_id']
             seq=(await r.sql.batch([("INSERT INTO service_meta(key,value) VALUES(?,'1') ON CONFLICT(key) DO UPDATE SET value=CAST(CAST(value AS INTEGER)+1 AS TEXT) RETURNING value",(key,))]))[0][0]['value']
             payload={'op':'proposal-submit','schema':core.schema(),'protocol':core.PROTOCOL,'source_id':p['local_id'],'target_id':s['remote_id'],
                      'sequence':int(seq),'request_id':secrets.token_hex(16),'ids':ids,'scopes':s['scopes'],'created_at':now()}
             outgoing={'fingerprint':fingerprint,'payload':payload,'confirmed':False};s['outgoing']=outgoing
-            await r.sql.batch([('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(s).decode(),uid))])
+            await tasks.persist(r.sql,task,status=task['status'])
         answer=await call(r,p,outgoing['payload'])
         if answer.get('site_id')!=s['remote_id'] or answer.get('request_id')!=outgoing['payload']['request_id']:raise Error('提案回执不匹配',409)
         outgoing.update(confirmed=True,receipt=answer)
-        await r.sql.batch([('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(s).decode(),uid)),r.content.audit(r.p,'data_tools','sync_proposal_send',uid,{'sequence':outgoing['payload']['sequence']})])
+        s.pop('proposal_check',None);s.pop('proposal_check_fingerprint',None)
+        await tasks.persist(r.sql,task,[r.content.audit(r.p,'data_tools','sync_proposal_send',uid,{'sequence':outgoing['payload']['sequence']})],status=task['status'])
         return {'outgoing':answer}
 
 async def sent_status(r,uid):

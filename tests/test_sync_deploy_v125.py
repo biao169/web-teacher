@@ -58,9 +58,10 @@ def test_safe_server_diagnostic(caplog):
 def test_peer_error_is_structured_http_500(pair,monkeypatch):
  from backend.app.native import site_sync as core
  api,_,ra,rb,a,b,network=pair
- async def broken(sql):raise RuntimeError('private runtime problem')
- monkeypatch.setattr(core,'revision',broken)
- result=api('test',ok=False)
+ async def broken(*args):raise RuntimeError('private runtime problem')
+ monkeypatch.setattr(core,'revision_page',broken)
+ job=api('start',{'direction':'pull','scopes':['students']})
+ result=api('advance',{'uid':job['uid']},ok=False)
  assert result.status_code==500
  assert '服务端诊断编号' in result.json()['error']
  assert 'private runtime' not in result.text

@@ -49,7 +49,7 @@ def install(app,resources,csrf,render):
                 if data.get('confirmation')!='同意对端推送':raise Error('请输入“同意对端推送”确认最新差异和删除范围')
                 from .site_sync_apply import begin
                 result=await begin(r,str(data.get('uid','')),'从对端同步到本站',approval=True)
-                await proposals.update_progress(r,result)
+                if 'execution' in result:await proposals.update_progress(r,result)
             elif action=='pull-begin':
                 from .site_sync_apply import begin
                 result=await begin(r,str(data.get('uid','')),data.get('confirmation'))
@@ -69,20 +69,21 @@ def install(app,resources,csrf,render):
             # Peer capability is separate from browser sessions and only exports read-only manifests.
             r=await resources(request);p=await tasks.peer(r.sql);value=await payload(request,131072)
             data=verify(p['secret'],value)
-            if not isinstance(data,dict) or data.get('schema')!=core.schema() or data.get('protocol')!=core.PROTOCOL:raise Error('同步协议或业务字段结构不一致',409)
+            if not isinstance(data,dict) or data.get('schema')!=core.schema() or data.get('protocol')!=core.PROTOCOL:raise Error('同步协议或业务字段结构不一致，请将两站配套更新至v0.15.130或后续兼容版本',409)
             op=data.get('op')
-            with operation('peer:'+op if op in ('hello','page','proposal-submit','proposal-status','media-head','media-range') else 'peer:unknown'):
-                if op=='hello':result={'schema':core.schema(),'protocol':core.PROTOCOL,'revision':await core.revision(r.sql),'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0}
-                elif op=='page':
-                    t=data.get('table');after=data.get('after','');stamp=data.get('revision')
-                    core.columns(t)
-                    if not isinstance(after,str) or len(after)>120 or not isinstance(stamp,str) or len(stamp)!=64:raise Error('分页参数无效')
-                    result=await core.page(r.sql,t,after,stamp)
+            with operation('peer:'+op if op in ('hello','inspect','revision-page','page','proposal-submit','proposal-status','media-head','media-range','media-record') else 'peer:unknown'):
+                if op in ('hello','inspect'):
+                    result={'schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0}
+                    if op=='inspect':result['revision']=await core.revision(r.sql)
+                elif op in ('page','revision-page'):
+                    table=data.get('table');after=data.get('after','');core.columns(table)
+                    if not isinstance(after,str) or len(after)>120:raise Error('分页参数无效')
+                    result=await (core.revision_page(r.sql,table,after) if op=='revision-page' else core.page(r.sql,table,after))
                 elif op=='proposal-submit':result=await proposals.receive(r,p,data)
                 elif op=='proposal-status':
                     proposals.validate(data,p)
                     result=await proposals.receipt(r,data)
-                elif op in ('media-head','media-range'):
+                elif op in ('media-head','media-range','media-record'):
                     from .site_sync_media import serve
                     result=await serve(r,data)
                 else:raise Error('对端不支持此操作，不能直接执行内容写入',404)

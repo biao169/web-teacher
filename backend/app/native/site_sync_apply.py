@@ -4,6 +4,7 @@ The execution state lives inside the v120 internal tables, never in a login sess
 Every tick requires current administrator authorization. No remote write API exists.
 """
 import base64,hashlib,json
+from .site_sync_diagnostics import operation
 from .catalog import Error,TABLES,now,defaults
 from .data_tools import encoded,authorize,FORMAT,OMIT
 from . import site_sync as core,site_sync_tasks as tasks,data_restore as restore
@@ -22,7 +23,7 @@ def progress(task):
             'media_count':len(e.get('media',[])),'delete_count':len(e.get('deletes',[]))}
 
 async def persist(r,task):
-    await r.sql.batch([('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(task['state']).decode(),task['uid']))])
+    await tasks.persist(r.sql,task,status=task['status'])
 
 async def active(sql):
     return await sql.query("SELECT uid FROM sync_tasks WHERE json_extract(state,'$.execution.phase') IS NOT NULL AND json_extract(state,'$.execution.phase') NOT IN ('done','cancelled') LIMIT 1")
@@ -33,12 +34,11 @@ async def snapshots(r,task):
         result[row['side']][row['module']][row['record_uid']]=json.loads(row['payload'])
     return result
 
-async def remote_check(r,task,local=False):
+async def remote_check(r,task):
     s=task['state'];p=await tasks.peer(r.sql)
     if p['revision']!=s['peer_revision']:raise Error('连接配置变化，请取消旧任务后重新预览',409)
-    result=await tasks.hello(r,p)
+    result=await tasks.hello(r,p,with_revision=True)
     if result['site_id']!=s['remote_id'] or result['revision']!=s['remote_revision']:raise Error('对端内容已变化，请取消旧任务并重新预览',409)
-    if local and await core.revision(r.sql)!=s['local_revision']:raise Error('本站内容已变化，未提交；请取消后重新预览',409)
     return p,result
 
 async def begin(r,uid,confirmation,*,approval=False):
@@ -53,7 +53,13 @@ async def begin(r,uid,confirmation,*,approval=False):
         selected=core.select(s['items'],s.get('selection',{}).get('selected',[]))
         if selected['blocked'] or (not selected['selected'] and not (approval and not s['items'])):raise Error('请选择条目并处理依赖阻止原因')
         if len(selected['selected'])>500:raise Error('本阶段每次实际同步最多500个变更项，请分批选择')
-        _,hello=await remote_check(r,task,True)
+        if s.get('begin_selection')!=selected['selected']:
+            s.pop('begin_check',None);s['begin_selection']=selected['selected']
+        if not await tasks.check_step(r,task,'begin_check'):
+            await persist(r,task)
+            return {'uid':uid,'checking':True,'phase':'verify-begin'}
+        p=await tasks.peer(r.sql);hello=await tasks.hello(r,p)
+        if p['revision']!=s['peer_revision'] or hello['site_id']!=s['remote_id']:raise Error('对端配置已变化，请重新预览',409)
         if hello.get('media_ranges')!=1:raise Error('对端需更新到v0.15.121或兼容版本')
         snap=await snapshots(r,task);media=[];deletes=[]
         chosen={v['id']:v for v in s['items'] if v['id'] in selected['selected']}
@@ -83,34 +89,37 @@ async def begin(r,uid,confirmation,*,approval=False):
             media.append({'uid':row['uid'],'key':row['object_key'],'size':size,'mime_type':row['mime_type'],
                           'source_checksum':row.get('checksum'),'version':None,'sha256':None,'created_version':None})
         if len(media)>100 or sum(x['size'] for x in media)>TOTAL_LIMIT:raise Error('单次同步媒体最多100个、总计24MiB，请分批选择')
+        s.pop('begin_check',None);s.pop('begin_selection',None)
         approval_sql=[]
         if approval:
             from .site_sync_proposals import approval_statements
             approval_sql=await approval_statements(r,task)
         s['execution']={'phase':'download' if selected['selected'] else 'done','selected':selected['selected'],'media':media,'deletes':deletes,
                         'file_index':0,'offset':0,'bytes':0,'committed':False,'delete_index':0,'cleanup_index':0,'cleanup_offset':0,'cancelled':False}
-        await r.sql.batch([*approval_sql,('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(s).decode(),uid)),
-                           r.content.audit(r.p,'data_tools','sync_pull_begin',uid,{'selected':len(chosen),'media':len(media)})])
+        await tasks.persist(r.sql,task,[*approval_sql,
+                           r.content.audit(r.p,'data_tools','sync_pull_begin',uid,{'selected':len(chosen),'media':len(media)})],status=task['status'])
         return progress(task)
 
 async def fetch(r,task,data):
     s=task['state'];p=await tasks.peer(r.sql)
     if p['revision']!=s['peer_revision']:raise Error('连接配置已变化',409)
-    result=await call(r,p,{'schema':core.schema(),'protocol':core.PROTOCOL,'revision':s['remote_revision'],**data})
+    result=await call(r,p,{'schema':core.schema(),'protocol':core.PROTOCOL,**data})
     if result.get('site_id')!=s['remote_id']:raise Error('对端身份已变化',409)
     return result
 
 async def download(r,task):
     e=task['state']['execution'];index=e['file_index']
-    if index>=len(e['media']):e['phase']='commit';await persist(r,task);return
+    if index>=len(e['media']):e['phase']='verify-commit';await persist(r,task);return
     item=e['media'][index]
     if item['version'] is None:
         result=await fetch(r,task,{'op':'media-head','uid':item['uid']})
         if result.get('size')!=item['size'] or result.get('key')!=item['key'] or result.get('checksum')!=item['source_checksum']:raise Error('来源媒体登记已变化',409)
-        item['version']=result['version'];await persist(r,task);return
+        token=result.get('record_version')
+        if not isinstance(token,str) or len(token)!=64:raise Error('对端缺少媒体记录版本，请配套更新两站',409)
+        item['record_version']=token;item['version']=result['version'];await persist(r,task);return
     offset=e['offset']
     if offset<item['size']:
-        result=await fetch(r,task,{'op':'media-range','uid':item['uid'],'version':item['version'],'offset':offset})
+        result=await fetch(r,task,{'op':'media-range','uid':item['uid'],'version':item['version'],'record_version':item.get('record_version'),'offset':offset})
         raw=base64.b64decode(result.get('bytes',''),validate=True)
         if result.get('offset')!=offset or result.get('uid')!=item['uid'] or result.get('version')!=item['version'] or len(raw)!=min(CHUNK,item['size']-offset) or hashlib.sha256(raw).hexdigest()!=result.get('sha256'):raise Error('媒体分片校验失败')
         await r.cache_store.put(chunk_key(task['uid'],index,offset),raw)
@@ -142,11 +151,17 @@ async def document(r,task):
         tables.setdefault(t,[]).append(row)
     return {'format':FORMAT,'tables':tables},removed
 
+async def verify_commit(r,task):
+    if await tasks.check_step(r,task,'commit_check'):
+        task['state']['execution']['phase']='commit' if task['state']['execution']['selected'] else 'done'
+        task['state'].pop('commit_check',None)
+    await persist(r,task)
+
 async def commit(r,task):
-    s=task['state'];e=s['execution'];await remote_check(r,task,True)
+    s=task['state'];e=s['execution']
     doc,removed=await document(r,task);tables=list(doc['tables'])
     async with lease(r,REFERENCE_LOCK,'edit') as owner:
-        await remote_check(r,task,True)
+        await remote_check(r,task)
         store=inventory(r.media_store)
         for item in e['media']:
             head=await store.head(item['key'])
@@ -155,7 +170,7 @@ async def commit(r,task):
         else:
             plan={'rows':{},'state':await restore.snapshot(r),'errors':await restore.references(r,{},'merge',removed=removed)}
         if plan['errors']:raise Error('最终引用或字段校验未通过：'+str(plan['errors'][0]['message']))
-        if await core.revision(r.sql)!=s['local_revision']:raise Error('本站数据已变化，未提交',409)
+        if core.revision_state(plan['state'])!=s['local_revision']:raise Error('本站数据已变化，未提交',409)
         condition,args=restore.inventory_condition(plan['state']);lock,la=live_lease(REFERENCE_LOCK,owner)
         condition+=' AND '+lock;args+=la
         gid,guard=r.auth.guard(r.p,'data_tools','edit',condition,args)
@@ -184,8 +199,10 @@ async def commit(r,task):
 async def purge(r,task):
     e=task['state']['execution'];i=e['delete_index']
     if i>=len(e['deletes']):e['phase']='cleanup';await persist(r,task);return
-    await remote_check(r,task)
-    item=e['deletes'][i];rows=await r.sql.query('SELECT * FROM media_assets WHERE uid=?',(item['uid'],))
+    item=e['deletes'][i]
+    source=await fetch(r,task,{'op':'media-record','uid':item['uid']})
+    if source.get('exists') is not False:raise Error('来源重新出现待删除媒体，保留本站文件，请重新预览',409)
+    rows=await r.sql.query('SELECT * FROM media_assets WHERE uid=?',(item['uid'],))
     if not rows:e['delete_index']+=1;await persist(r,task);return
     row=rows[0]
     if row['updated_at'] not in (item['stamp'],item.get('trash_stamp')):raise Error('待删除媒体已被修改，保留文件；请取消后重新预览',409)
@@ -235,7 +252,8 @@ async def tick(r,uid,cancel=False):
         if cancel:e['cancelled']=True;e['phase']='cleanup';e.pop('error',None);await persist(r,task)
         try:
             e.pop('error',None)
-            await {'download':download,'commit':commit,'delete':purge,'cleanup':cleanup}[e['phase']](r,task)
+            with operation('execution:'+e['phase']):
+                await {'download':download,'verify-commit':verify_commit,'commit':commit,'delete':purge,'cleanup':cleanup}[e['phase']](r,task)
         except Exception as exc:
             # Reload: a transaction/file operation may have committed before its response was lost.
             task=await tasks.get(r.sql,uid)

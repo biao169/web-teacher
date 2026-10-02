@@ -1,10 +1,12 @@
 """Read-only, platform-neutral business snapshots and dependency-aware differences."""
 from functools import lru_cache
+from .site_sync_diagnostics import traced
 from .catalog import TABLES, SECRET, TITLE, MODULES, label, Error
 from .data_tools import digest, encoded
 from backend.app.domain.richtext import body_references
 
-PROTOCOL=1
+PROTOCOL=4
+REV_PAGE=100
 PAGE=20
 MAX_ROWS=2000
 MAX_BYTES=4*1024*1024
@@ -35,26 +37,46 @@ def canonical(table,row):
         value['storage_kind']='managed'
     return value
 
+def revision_fold(stamp,table,part):
+    return digest([stamp,table,part])
+
+@traced('revision:page')
+async def revision_page(sql,table,after=''):
+    columns(table)
+    rows=await sql.query('SELECT uid,updated_at FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT 101',(after,))
+    values=rows[:REV_PAGE]
+    return {'hash':digest(values),'count':len(values),'next':values[-1]['uid'] if len(rows)>REV_PAGE else None}
+
+@traced('revision:read')
 async def revision(sql):
-    # Application mutation paths issue monotonically changing updated_at values.
+    # Retain a bounded final execution guard; preview uses revision_page across requests.
     rows=await sql.query(' UNION ALL '.join(
         "SELECT '"+t+"' AS name,uid,updated_at FROM \""+t+'\"' for t in SCOPES)+' ORDER BY name,uid LIMIT 2001')
     if len(rows)>MAX_ROWS:raise Error('本阶段预览最多2000条；未截断数据，也不会生成删除清单')
-    return digest(rows)
+    return revision_state({table:[{k:r[k] for k in ('uid','updated_at')} for r in rows if r['name']==table] for table in SCOPES})
 
-async def page(sql,table,after='',expected=None):
-    before=await revision(sql)
-    if expected and before!=expected:raise Error('数据已变化，请重新生成预览',409)
-    # Bound rows before fetching large text values (D1 and SQLite share this SQL).
+def revision_state(state):
+    """Reuse the already captured restore inventory instead of querying it again."""
+    if any(t not in state for t in SCOPES):raise Error('版本清单缺少业务表，未提交',409)
+    if sum(len(state[t]) for t in SCOPES)>MAX_ROWS:raise Error('同步记录超过2000条，未提交')
+    stamp=''
+    for table in sorted(SCOPES):
+        values=sorted(state[table],key=lambda r:r['uid'])
+        for offset in range(0,max(len(values),1),REV_PAGE):
+            stamp=revision_fold(stamp,table,digest(values[offset:offset+REV_PAGE]))
+    return stamp
+
+@traced('page:read')
+async def page(sql,table,after=''):
+    # No global version scan or COUNT per content page. Preview finalization verifies all data.
     names=columns(table)
     size='+'.join('length(coalesce(CAST("'+c+'" AS BLOB),x\'\'))' for c in names)
     stats=await sql.query('SELECT uid,('+size+') AS bytes FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT 21',(after,))
     if any(r['bytes']>200000 for r in stats):raise Error('单条记录超过200KB，预览停止；没有忽略该记录')
     rows=await sql.query('SELECT '+','.join('"'+c+'"' for c in names)+' FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT 20',(after,))
     if len(encoded(rows))>1024*1024:raise Error('本页字段过大，请缩小记录内容后重试')
-    total=(await sql.query('SELECT count(*) AS n FROM \"'+table+'\"'))[0]['n']
-    if await revision(sql)!=before:raise Error('读取期间数据变化，请重新预览',409)
-    return {'revision':before,'total':total,'rows':rows,'next':rows[-1]['uid'] if len(stats)>PAGE else None}
+    return {'rows':rows,'next':rows[-1]['uid'] if len(stats)>PAGE and rows else None}
+
 
 def references(table,row,inventory):
     refs=set(); unknown=[]

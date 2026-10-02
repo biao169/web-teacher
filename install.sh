@@ -7,8 +7,8 @@ set -Eeuo pipefail
 repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' python='/usr/bin/python3' port='' pip_source='tuna'
 usage() {
   printf '%s\n' 'Usage: install.sh --domain example.org [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003] [--pip-source tuna|pypi]' \
-    'Installs git, ca-certificates, python3, python3-venv; then installs the single teacher website service.' \
-    'Existing managed installation: use sudo tweb update instead.' \
+    'Installs git, ca-certificates, python3, python3-venv, procps; then installs the single teacher website service.' \
+    'Existing installation: choose repair or confirmed clean reinstall.' \
     '--domain also configures /robots.txt and /sitemap.xml automatically / 域名同时用于自动生成爬虫规则与站点地图。'
 }
 while (($#)); do
@@ -39,9 +39,8 @@ port=$((10#$port))
 # Distribution ID is a system-owned file, not an imported website configuration.
 . /etc/os-release
 [[ $ID == ubuntu || $ID == debian ]] || { printf 'Only Ubuntu/Debian is supported.\n' >&2; exit 1; }
-[[ ! -e /usr/local/bin/tweb && ! -L /usr/local/bin/tweb ]] || { printf 'tweb already exists. Use sudo tweb update.\n' >&2; exit 1; }
 apt-get update
-apt-get install -y --no-install-recommends git ca-certificates python3 python3-venv
+apt-get install -y --no-install-recommends git ca-certificates python3 python3-venv procps
 "$python" -c 'import sys; assert sys.version_info >= (3,12), "Python 3.12+ required: provide --python /path/to/python3.12 with venv support"'
 # Temporary download always gets cleaned; run manager as a child so the trap runs.
 work=$(mktemp -d /tmp/teacher-install.XXXXXXXX)
