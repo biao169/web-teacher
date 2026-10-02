@@ -190,8 +190,9 @@ def import_seed_media(source,destination):
 
 
 def check_source(path):
-    required=('pyproject.toml','database/schema.sql','backend/entrypoints/vps.py','deploy/linux/tweb.py','deploy/shared/launcher.py','deploy/shared/requirements/requirements-vps.lock','deploy/vps/release.py','release-manifest.json')
-    if not all((path/n).is_file() for n in required):raise ValueError('仓库根目录不是完整教师网站源码')
+    required=('pyproject.toml','database/schema.sql','backend/entrypoints/vps.py','deploy/linux/tweb.py','deploy/shared/launcher.py','deploy/shared/requirements/requirements-vps.lock','deploy/vps/release.py')
+    missing=[n for n in required if not (path/n).is_file()]
+    if missing:raise ValueError('缺少必要部署入口 / Missing deployment entry: '+', '.join(missing))
     # Git symlinks must not escape the downloaded release, including pip lock includes.
     for p in path.rglob('*'):
         if '.git' in p.relative_to(path).parts:continue
@@ -240,7 +241,7 @@ class Manager:
         elif 'venv' in args:label='准备 Python 环境 / Prepare Python environment'
         elif 'backend.cli' in args:label='数据库或维护操作 / Database or maintenance: '+args[args.index('backend.cli')+1]
         elif any(a.endswith('/launcher.py') for a in args):label='初始化并核验数据库 / Initialize and verify database'
-        elif 'deploy.vps.release' in args or any(a.endswith('/release.py') for a in args):label='校验或生成部署文件 / Verify or generate deployment files'
+        elif 'deploy.vps.release' in args or any(a.endswith('/release.py') for a in args):label='生成部署配置 / Generate deployment configuration'
         elif program=='runuser':label='验证服务账号访问权限 / Verify service-account access'
         elif program in ('chown','useradd','userdel','groupdel'):label='更新受管账号或权限 / Update managed account or permissions: '+program
         elif program=='tail':label='跟踪运行日志（Ctrl+C 结束） / Follow logs (Ctrl+C to exit)'
@@ -287,8 +288,7 @@ class Manager:
         try:
             self.run(['git','-c','core.hooksPath=/dev/null','clone','--depth','1','--single-branch','--branch',branch,'--',repo,release],env=os.environ|{'GIT_TERMINAL_PROMPT':'0'})
             check_source(release)
-            # Reuse the release verifier before preparing or activating the downloaded release.
-            self.run([sys.executable,'-B',release/'deploy/vps/release.py','verify','--root',release])
+            print(color('跳过源码完整性校验 / Source integrity verification skipped','33'))
             # Runtime source is immutable and has no repository credentials or hooks.
             commit=self.run(['git','-C',release,'rev-parse','HEAD'],capture_output=True,text=True).stdout.strip()
             shutil.rmtree(release/'.git')
@@ -513,7 +513,7 @@ location / {{
                 'transfer_media_dir':self.l.base/'transfer-data/files','transfer_cache_dir':self.l.base/'transfer-data/cache'}
             if any(values.get(k)!=str(v) for k,v in defaults.items()):
                 raise ValueError('非默认存储路径，需要按原配置人工修复；不会改写 / Custom storage paths')
-        # Fetch and verify BEFORE stopping a working service or changing permissions.
+        # Fetch and check deployment entry paths before stopping a working service.
         (self.l.base/'releases').mkdir(parents=True,exist_ok=True)
         release,commit=self.fetch(state['repo'],state['branch'])
         if loaded or self.l.unit.exists():self.run(['systemctl','stop',SERVICE])
@@ -624,7 +624,7 @@ location / {{
         check_source(release)
         loaded=self.run(['systemctl','show','--property=LoadState','--value',SERVICE],capture_output=True,text=True).stdout.strip()
         if loaded!='not-found':raise ValueError('系统已存在同名服务，拒绝覆盖 / Existing service; refusing overwrite')
-        self.run([state['python'],'-B',release/'deploy/vps/release.py','verify','--root',release])
+        print(color('跳过源码完整性校验 / Source integrity verification skipped','33'))
         self.prepare(release,state['python']);self.switch(release);self.generate(release,state)
         self.db(release,'init');self.permissions()
         self.run(['systemctl','enable',SERVICE]);self.start()

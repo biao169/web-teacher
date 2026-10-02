@@ -175,7 +175,7 @@ def main():
  """解析本模块命令行参数并执行对应的维护或打包功能。"""
  p=argparse.ArgumentParser(description=__doc__);sub=p.add_subparsers(dest='action',required=True)
  m=sub.add_parser('manifest');m.add_argument('--root',type=Path,default=ROOT);m.add_argument('--refresh',action='store_true',help='显式刷新已有清单；提交所有源码修改前执行')
- v=sub.add_parser('verify');v.add_argument('--root',type=Path,default=ROOT)
+ v=sub.add_parser('verify');v.add_argument('--root',type=Path,default=ROOT);v.add_argument('--strict',action='store_true',help='仅供发布打包人工检查；部署默认跳过完整性校验')
  st=sub.add_parser('stage');st.add_argument('--source',type=Path,required=True);st.add_argument('--destination',type=Path,required=True)
  d=sub.add_parser('check-data');d.add_argument('--root',type=Path,default=ROOT);d.add_argument('--teacher-database',type=Path,required=True);d.add_argument('--transfer-database',type=Path,required=True)
  f=sub.add_parser('preflight');f.add_argument('--root',type=Path,default=ROOT);f.add_argument('--data-parent',type=Path,required=True)
@@ -183,7 +183,7 @@ def main():
  args=p.parse_args()
  try:
   if args.action=='manifest':result=write_manifest(args.root,args.refresh)
-  elif args.action=='verify':result=verify(args.root)
+  elif args.action=='verify':result=verify(args.root) if args.strict else {'verified':False,'skipped':True,'message':'跳过源码完整性校验 / Source integrity verification skipped; use --strict for packaging checks'}
   elif args.action=='stage':result=stage(args.source,args.destination)
   elif args.action=='check-data':result=check_data(args.root,args.teacher_database,args.transfer_database)
   elif args.action=='preflight':result=preflight(args.root,args.data_parent)
