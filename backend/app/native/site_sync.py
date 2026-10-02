@@ -1,4 +1,5 @@
 """Read-only, platform-neutral business snapshots and dependency-aware differences."""
+from functools import lru_cache
 from .catalog import TABLES, SECRET, TITLE, MODULES, label, Error
 from .data_tools import digest, encoded
 from backend.app.domain.richtext import body_references
@@ -20,6 +21,7 @@ def columns(table):
     return [c for c in TABLES[table]['columns'] if c not in OMIT and
             (table!='global_settings' or c in PUBLIC_GLOBAL|{'uid'})]
 
+@lru_cache(maxsize=1)
 def schema():
     return digest({t:{c:TABLES[t]['columns'][c] for c in columns(t)} for t in SCOPES})
 

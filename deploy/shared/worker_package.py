@@ -58,5 +58,5 @@ def prepare(transfer=False,argv=None,*,migration_plan=True):
     if transfer:variables['TEACHER_ORIGIN']=a.teacher_origin.rstrip('/')
     buckets=[{'binding':a.media_binding,'bucket_name':a.bucket}]
     if cache!=a.media_binding:buckets.append({'binding':cache,'bucket_name':a.cache_bucket or a.bucket})
-    config={'name':a.worker_name or ('teacher-transfer' if transfer else 'teacher-site'),'main':'main.py','compatibility_date':'2026-09-14','compatibility_flags':['python_workers', 'global_fetch_strictly_public'],'vars':variables,'assets':{'directory':'./assets','binding':'ASSETS'},'d1_databases':[{'binding':a.database_binding,'database_name':a.database_name,'database_id':a.database_id}],'r2_buckets':buckets}
+    config={'name':a.worker_name or ('teacher-transfer' if transfer else 'teacher-site'),'main':'main.py','compatibility_date':'2026-09-14','compatibility_flags':['python_workers','global_fetch_strictly_public'],'vars':variables,'assets':{'directory':'./assets','binding':'ASSETS'},'d1_databases':[{'binding':a.database_binding,'database_name':a.database_name,'database_id':a.database_id}],'r2_buckets':buckets}
     (out/'wrangler.json').write_text(json.dumps(config,indent=2),encoding='utf-8');print('Prepared '+str(out)+'. initialize.sql is for an EMPTY database; nothing deployed.');return out

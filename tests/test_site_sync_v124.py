@@ -43,7 +43,7 @@ def test_local_second_address_without_post_replay(monkeypatch):
   return sock
  monkeypatch.setattr(socket,'create_connection',connect)
  monkeypatch.setattr(ssl,'create_default_context',lambda:SimpleNamespace(wrap_socket=lambda *a,**k:sock))
- body=json.dumps(t.envelope('s'*40,{'ok':True})).encode();response=SimpleNamespace(status=200,isclosed=lambda:False,read1=Mock(side_effect=[body,b'']))
+ body=json.dumps(t.envelope('s'*40,{'ok':True})).encode();response=SimpleNamespace(status=200,getheaders=lambda:[],isclosed=lambda:False,read1=Mock(side_effect=[body,b'']))
  connections=[]
  def connection(*args,**kwargs):
   c=Mock();c.getresponse.return_value=response;connections.append(c);return c
@@ -64,7 +64,7 @@ def test_local_second_address_without_post_replay(monkeypatch):
 def test_worker_stream_error_survives_cleanup_failure(monkeypatch):
  js=ModuleType('js');ffi=ModuleType('pyodide.ffi')
  reader=SimpleNamespace(read=AsyncMock(side_effect=RuntimeError('stream secret')),cancel=AsyncMock(side_effect=RuntimeError('cleanup secret')))
- js.fetch=AsyncMock(return_value=SimpleNamespace(status=200,body=SimpleNamespace(getReader=lambda:reader)))
+ js.fetch=AsyncMock(return_value=SimpleNamespace(status=200,headers=SimpleNamespace(get=lambda key:None),body=SimpleNamespace(getReader=lambda:reader)))
  js.AbortController=SimpleNamespace(new=lambda:SimpleNamespace(signal=object(),abort=Mock()))
  js.Object=SimpleNamespace(fromEntries=object());ffi.to_js=lambda *a,**k:SimpleNamespace()
  monkeypatch.setitem(sys.modules,'js',js);monkeypatch.setitem(sys.modules,'pyodide.ffi',ffi)

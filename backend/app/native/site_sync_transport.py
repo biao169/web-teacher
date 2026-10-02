@@ -66,15 +66,25 @@ def verify(secret,value):
         raise failure('signature','对端签名校验失败；请确认两站共享密钥完全一致',403)
     return fields['payload']
 
-def response_json(status,body):
+def response_json(status,body,headers=None):
     if 300<=status<400:raise failure('redirect','对端返回HTTP '+str(status)+' 重定向；请配置最终 HTTPS 根域名，接口不能跳转')
     if status!=200:
-        hints={401:'对端要求认证，请检查同步配置或前置访问认证',403:'对端拒绝请求，请检查共享密钥、服务器时间或访问规则',404:'同步接口不存在，请检查域名、反向代理及两站版本',429:'对端请求过于频繁，请稍后重试'}
+        hints={401:'对端要求认证，请检查同步配置或前置访问认证',403:'对端拒绝请求，请检查共享密钥、服务器时间或访问规则',404:'请求未找到接口，也可能未进入目标Worker；请检查公网地址、Worker间请求配置及部署版本',429:'对端请求过于频繁，请稍后重试'}
         hint=hints.get(status,'对端服务异常，请查看对端运行日志' if status>=500 else '请检查对端服务')
+        headers={str(k).lower():str(v) for k,v in (headers or {}).items()}
+        ray=headers.get('cf-ray','');platform=headers.get('cf-error-type','')
         try:
-            message=json.loads(body).get('error','')
-            if isinstance(message,str) and message:hint+='；'+''.join(c for c in message[:400] if c.isprintable())
-        except (ValueError,AttributeError,UnicodeError):pass
+            value=json.loads(body)
+            if isinstance(value,dict):
+                platform=str(value.get('error_code') or platform)
+                ray=ray or str(value.get('ray_id') or '')
+                for key in ('error','title','detail'):
+                    message=value.get(key)
+                    if isinstance(message,str) and message:hint+='；'+''.join(c for c in message[:240] if c.isprintable())
+        except (ValueError,UnicodeError):pass
+        descriptions={'1010':'Cloudflare按客户端签名拦截，请检查安全事件','1101':'对端Worker未处理异常，请查看对端堆栈','1102':'对端Worker CPU或内存超限，请查看对端调用状态'}
+        if platform in descriptions:hint+='；'+platform+' '+descriptions[platform]
+        if ray and len(ray)<=64 and all(c.isalnum() or c=='-' for c in ray):hint+='；对端Ray ID：'+ray
         raise failure('http_'+str(status),'对端返回HTTP '+str(status)+'：'+hint)
     try:result=json.loads(body)
     except (ValueError,UnicodeError) as exc:raise classify(exc,'parse') from None
@@ -122,7 +132,7 @@ def _local(url,raw):
                 if not part:break
                 chunks.append(part);size+=len(part)
                 if size>LIMIT:raise failure('size','对端响应超过读取上限，已停止')
-            return response_json(response.status,b''.join(chunks))
+            return response_json(response.status,b''.join(chunks),dict(response.getheaders()))
         finally:
             conn.close()
             if sock is not None:sock.close()
@@ -137,7 +147,8 @@ async def _worker(url,raw):
         opts.signal=controller.signal
         try:response=await fetch(url,opts)
         except Exception as exc:raise classify(exc,'fetch') from None
-        if 300<=int(response.status)<400:return response_json(int(response.status),b'')
+        headers={k:response.headers.get(k) or '' for k in ('cf-ray','cf-error-type','content-type')}
+        if 300<=int(response.status)<400:return response_json(int(response.status),b'',headers)
         reader=response.body.getReader();parts=[];size=0
         try:
             while True:
@@ -150,7 +161,7 @@ async def _worker(url,raw):
         finally:
             try:await reader.cancel()
             except Exception:pass
-        return response_json(int(response.status),b''.join(parts))
+        return response_json(int(response.status),b''.join(parts),headers)
     try:return await asyncio.wait_for(run(),TIMEOUT)
     finally:
         try:controller.abort()

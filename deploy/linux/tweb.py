@@ -119,6 +119,75 @@ def confirm(token, supplied):
     if input(color('不可撤销 / Irreversible — 输入 / type '+token+': ','1;31')).strip()!=token:raise ValueError('已取消 / Cancelled')
 
 
+# Only prepackaged media may be imported from a release's data directory.
+SEED_EXTENSIONS={'.jpg','.jpeg','.png','.gif','.webp','.avif','.bmp','.ico','.svg','.mp4','.webm','.mov','.mp3','.wav','.ogg','.m4a','.pdf'}
+
+def seed_media(source):
+    """Validate all source seeds before any copy; database/cache/credentials stay forbidden."""
+    result={};root=source/'data';transfer=source/'transfer-data'
+    for folder in (root,transfer):
+        if folder.is_symlink():raise ValueError('预置数据目录不能为符号链接')
+        if folder.exists() and not folder.is_dir():raise ValueError('预置 data/transfer-data 必须是目录')
+    if transfer.exists():
+        for p in transfer.rglob('*'):
+            if p.is_symlink() or (p.is_file() and not (p.name=='.gitkeep' and p.stat().st_size==0)):
+                raise ValueError('不能随源码分发快传运行数据；预置媒体请放 data/media/')
+    if not root.exists():return []
+    total=0
+    for p in sorted(root.rglob('*')):
+        rel=p.relative_to(root)
+        if p.is_symlink():raise ValueError('预置媒体不能包含符号链接: '+str(rel))
+        if p.is_dir():continue
+        if not p.is_file():raise ValueError('预置媒体必须为普通文件: '+str(rel))
+        if p.name=='.gitkeep' and p.stat().st_size==0:continue
+        # Accept legacy data/photo.jpg as well as recommended data/media/photo.jpg.
+        target=Path(*rel.parts[1:]) if rel.parts[0]=='media' else rel
+        if rel.parts[0] in ('database','cache','logs','tmp','backups') or any(x.startswith('.') for x in target.parts) or p.suffix.lower() not in SEED_EXTENSIONS:
+            raise ValueError('data 中仅允许预置媒体，不能包含数据库、缓存或配置: '+str(rel))
+        size=p.stat().st_size;total+=size
+        if size>512*1024*1024 or total>2*1024*1024*1024:raise ValueError('预置媒体超出单文件512MiB/合计2GiB，请安装后上传')
+        key=target.as_posix()
+        if key in result:raise ValueError('预置媒体目标路径重复: '+key)
+        result[key]=(p,target)
+    return list(result.values())
+
+def file_digest(path):
+    value=hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda:stream.read(1048576),b''):value.update(block)
+    return value.digest()
+
+def import_seed_media(source,destination):
+    """Add only missing files, preserve existing bytes, and remain safe to retry."""
+    files=seed_media(source);no_symlinks(destination)
+    for original,rel in files:
+        target=destination/rel;no_symlinks(target)
+        if target.exists() and (not target.is_file() or file_digest(target)!=file_digest(original)):
+            raise ValueError('预置媒体与现有文件冲突，未覆盖: '+str(rel))
+        for parent in target.parents:
+            if parent==destination.parent:break
+            if parent.exists() and not parent.is_dir():raise ValueError('媒体目录与现有文件冲突: '+str(rel))
+    created=[]
+    for original,rel in files:
+        target=destination/rel
+        if target.exists():continue
+        target.parent.mkdir(parents=True,exist_ok=True)
+        temp=target.with_name('.seed-'+uuid.uuid4().hex)
+        try:
+            with original.open('rb') as src,temp.open('xb') as dst:shutil.copyfileobj(src,dst,1048576)
+            temp.chmod(0o640)
+            # link fails if an upload won the race; never overwrite a live file.
+            try:os.link(temp,target)
+            except FileExistsError:
+                if not target.is_file() or file_digest(target)!=file_digest(original):raise ValueError('媒体导入期间文件已变化: '+str(rel))
+            else:created.append(target)
+        finally:temp.unlink(missing_ok=True)
+    # Runtime paths will be replaced by the installer's existing persistent-data links.
+    for name in ('data','transfer-data'):
+        if (source/name).exists():shutil.rmtree(source/name)
+    return created
+
+
 def check_source(path):
     required=('pyproject.toml','database/schema.sql','backend/entrypoints/vps.py','deploy/linux/tweb.py','deploy/shared/launcher.py','deploy/shared/requirements/requirements-vps.lock','deploy/vps/release.py','release-manifest.json')
     if not all((path/n).is_file() for n in required):raise ValueError('仓库根目录不是完整教师网站源码')
@@ -126,7 +195,7 @@ def check_source(path):
     for p in path.rglob('*'):
         if '.git' in p.relative_to(path).parts:continue
         if p.is_symlink():raise ValueError('源码包不能包含符号链接: '+str(p.relative_to(path)))
-    if any((path/name).exists() for name in ('data','transfer-data')):raise ValueError('源码包含运行数据 data/transfer-data')
+    seed_media(path)
 
 
 def protected_digest(root,names=('backend','database','transfer','deploy','pyproject.toml')):
@@ -230,8 +299,18 @@ class Manager:
         self.run([python,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         self.run([python,'-m','venv',release/'.venv'])
         self.install_dependencies(release)
+        self.import_media(release)
         (release/'data').symlink_to(self.l.data,target_is_directory=True)
         (release/'transfer-data').symlink_to(self.l.base/'transfer-data',target_is_directory=True)
+
+    def import_media(self,release):
+        files=import_seed_media(release,self.l.data/'media')
+        for path in files:
+            self.run(['chown',f'{USER}:{USER}',path])
+            parent=path.parent
+            while parent!=self.l.data:
+                self.run(['chown',f'{USER}:{USER}',parent]);parent.chmod(0o750);parent=parent.parent
+        if files:print('预置媒体导入 / Seed media imported: '+str(len(files))+'；请在后台媒体目录核对中收录 / Register via media audit')
 
     def pip_source(self,value=None):
         state=self.load();selected=value or state.get('pip_source',DEFAULT_PIP_SOURCE)
@@ -394,7 +473,7 @@ location / {{
             print('安装完成。应用健康检查通过；公网 HTTPS 需按 tweb proxy 输出接入。')
             self.paths(state)
         except BaseException:
-            print('安装未完成。依赖阶段失败且尚未建立 current 时可 tweb resume-install；已建立 current 时使用日志诊断 / Install incomplete; resume-install supports the pre-activation dependency stage.',file=sys.stderr)
+            print('安装未完成。下载/校验/依赖阶段失败且尚未建立 current 时可用新版管理脚本 resume-install；已建立 current 时使用日志诊断 / Install incomplete; resume-install supports the pre-activation dependency stage.',file=sys.stderr)
             raise
 
     def resume_install(self):
@@ -406,18 +485,24 @@ location / {{
             raise ValueError('已有当前版本或服务，拒绝覆盖 / Existing active release or unit; refusing overwrite')
         directory=self.l.base/'releases';no_symlinks(directory)
         candidates=list(directory.iterdir())
+        if not candidates:
+            release,commit=self.fetch(state['repo'],state['branch']);state['commit']=commit;self.save(state)
+            candidates=[release]
         if len(candidates)!=1 or candidates[0].is_symlink() or not candidates[0].is_dir():
             raise ValueError('无法唯一确定失败的源码目录 / Cannot identify a single staged release')
         release=candidates[0]
         for name in ('data','transfer-data'):
-            if (release/name).exists() or (release/name).is_symlink():raise ValueError('暂存版本已有数据链接，需检查安装阶段 / Staged data links already exist')
+            if (release/name).is_symlink():raise ValueError('暂存版本已有数据链接，需检查安装阶段 / Staged data links already exist')
+        check_source(release)
         loaded=self.run(['systemctl','show','--property=LoadState','--value',SERVICE],capture_output=True,text=True).stdout.strip()
         if loaded!='not-found':raise ValueError('系统已存在同名服务，拒绝覆盖 / Existing service; refusing overwrite')
         self.run([state['python'],'-B',release/'deploy/vps/release.py','verify','--root',release])
         self.prepare(release,state['python']);self.switch(release);self.generate(release,state)
         self.db(release,'init');self.permissions()
         self.run(['systemctl','enable',SERVICE]);self.start()
+        state['owned_files'][str(self.l.unit)]=hashlib.sha256(self.l.unit.read_bytes()).hexdigest()
         state['phase']='ready';self.save(state)
+        write(self.l.base/'tweb.py',(release/'deploy/linux/tweb.py').read_text());self.write_command(state)
         print(color('续装完成 / Installation resumed successfully','32'))
 
     def update(self,args):
@@ -539,6 +624,7 @@ location / {{
             was_active=self.active();self.run(['systemctl','stop',SERVICE]);stopped=True
             # Keep the installed venv at its original path; console-script shebangs stay valid.
             # Only canonical source objects are replaced. Runtime paths are never traversed.
+            if args.scope=='source':self.import_media(fresh)
             names=['frontend'] if args.scope=='frontend' else [p.name for p in fresh.iterdir()]
             for name in names:
                 if name in ('data','transfer-data','.venv','.git'):raise ValueError('源码包含运行目录 / Source contains runtime paths')

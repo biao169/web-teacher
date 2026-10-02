@@ -101,3 +101,14 @@ def test_accidental_source_exposure_and_missing_static_block_release(stage):
     with pytest.raises(ValueError,match='Private source'):pipeline.verify_stage(out)
     exposed.unlink();(out/'assets/transfer-static/portal.js').unlink()
     with pytest.raises(ValueError,match='asset mismatch'):pipeline.verify_stage(out)
+
+
+@pytest.mark.parametrize('missing',['public-fetch','api-route'])
+def test_sync_worker_configuration_is_required(stage,missing):
+    out,cfg=stage
+    assert 'global_fetch_strictly_public' in cfg['compatibility_flags']
+    assert '/api/*' in cfg['assets']['run_worker_first']
+    if missing=='public-fetch':cfg['compatibility_flags'].remove('global_fetch_strictly_public')
+    else:cfg['assets']['run_worker_first'].remove('/api/*')
+    (out/'wrangler.jsonc').write_text(json.dumps(cfg))
+    with pytest.raises(ValueError):pipeline.verify_stage(out)

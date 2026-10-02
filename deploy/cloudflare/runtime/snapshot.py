@@ -17,3 +17,6 @@ from worker_runtime.transfer import install as install_transfer
 from worker_runtime.cleanup import run as cleanup
 # These modules are otherwise first imported inside app_factory's installation.
 from transfer.backend import folders, receivers, lan, relay, codes
+
+# Sync definitions are deterministic; no peer requests or background grants run here.
+from backend.app.native import site_sync_admin

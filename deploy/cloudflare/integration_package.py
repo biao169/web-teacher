@@ -17,7 +17,7 @@ def extend(root, stage, config):
         f.write('\nTRANSFER_TEMPLATES = '+repr(templates)+'\nTRANSFER_DEFAULTS = '+repr(defaults)+'\nTRANSFER_CATALOG = '+repr(catalog)+'\n')
     # Only the platform-specific storage status view differs from the local UI.
     shutil.copyfile(Path(__file__).parent/'runtime/storage-status.js', stage/'assets/transfer-static/storage-status.js')
-    config['assets']['run_worker_first'] = ['/setup','/transfer','/transfer/*','/admin/*']
+    config['assets']['run_worker_first'] = ['/setup','/transfer','/transfer/*','/admin/*','/api/*']
     config['durable_objects'] = {'bindings':[{'name':'TRANSFER_COORDINATOR','class_name':'TransferCoordinator'}]}
     config['migrations'] = [{'tag':'teacher-transfer-v1','new_sqlite_classes':['TransferCoordinator']}]
     config['triggers'] = {'crons':['* * * * *']}
@@ -30,6 +30,8 @@ def verify(root, stage, config):
     """Gate missing exports/bindings/assets before a real deployment can start."""
     from resource_module import verify as verify_resources
     verify_resources(root, stage)
+    if 'global_fetch_strictly_public' not in config.get('compatibility_flags',[]):
+        raise ValueError('Missing public Worker-to-Worker fetch routing flag')
     expected = {'bindings':[{'name':'TRANSFER_COORDINATOR','class_name':'TransferCoordinator'}]}
     if config.get('durable_objects') != expected:
         raise ValueError('Missing or changed transfer coordinator binding')
@@ -37,7 +39,7 @@ def verify(root, stage, config):
         raise ValueError('Transfer coordinator registration changed')
     if config.get('triggers') != {'crons':['* * * * *']}:
         raise ValueError('Missing transfer cleanup schedule')
-    if not {'/setup','/transfer','/transfer/*','/admin/*'}.issubset(config.get('assets',{}).get('run_worker_first',[])):
+    if not {'/setup','/transfer','/transfer/*','/admin/*','/api/*'}.issubset(config.get('assets',{}).get('run_worker_first',[])):
         raise ValueError('Private/application routes must reach Worker first')
     if (stage/'src/main.py').read_text().strip() != 'from worker_runtime.entrypoint import Default, TransferCoordinator':
         raise ValueError('Missing Python Worker exports')
