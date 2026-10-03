@@ -79,7 +79,7 @@ async def send(r,uid):
     authorize(r,'export',core.SCOPES)
     async with lease(r,'site-sync:proposal-send','edit'):
         task=await tasks.get(r.sql,uid);s=task['state'];p=await tasks.peer(r.sql)
-        if s.get('lightweight') and not s.get('prepared'):raise Error('请先准备所选内容并核对依赖，再确认执行或发送',409)
+        if s.get('lightweight') and not s.get('prepared'):raise Error('请先准备所选内容并核对依赖，再确认执行或发送；若已经准备，请从最近预览打开对应的执行准备任务',409,'sync_prepare_required')
         if task['status']!='ready' or s['direction']!='push':raise Error('请先完成“本站 → 对端”的预览')
         if p['revision']!=s['peer_revision']:raise Error('对端配置已变化，请重新预览',409)
         chosen=s['selection'] if s.get('incremental') else core.select(s['items'],s.get('selection',{}).get('selected',[]))

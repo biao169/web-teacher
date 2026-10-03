@@ -1,5 +1,5 @@
 {% extends 'admin/layout.html' %}
-{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.143"></script>{% endblock %}
+{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.144"></script>{% endblock %}
 {% block content %}
 <div id="site-sync" data-csrf="{{ csrf }}" data-interval-ms="{{ sync_policy.request_interval_ms }}" data-retry-seconds='{{ sync_policy.retry_seconds|tojson }}' data-retry-codes='{{ sync_policy.retry_codes|tojson }}'>
 <div class="native-title"><h1>两站同步</h1><span class="native-muted">双向预览 · 审批 · 定时拉取</span></div>
@@ -10,7 +10,7 @@
 <button id="sync-restart" type="button" class="btn btn-outline-secondary btn-sm" disabled>按原范围重新开始</button><small>审批预览请使用“重新读取最新差异并核对”，不继承旧批准。新预览需要重新选择与确认。</small>
 <p><a href="/admin/data_tools">← 数据与备份</a></p>
 <section class="panel native-editor-section"><h2>对端连接</h2>
-<p class="native-muted">使用简要预览时，两站均需安装 v0.15.143、填写对方 HTTPS 地址，并设置相同的随机共享密钥。开启后，对端可读取业务数据（包括非公开内容），不能直接修改本站；实际执行需接收方管理员确认，或由本站明确开启定时拉取策略。</p>
+<p class="native-muted">使用简要预览时，两站均需安装 v0.15.144、填写对方 HTTPS 地址，并设置相同的随机共享密钥。开启后，对端可读取业务数据（包括非公开内容），不能直接修改本站；实际执行需接收方管理员确认，或由本站明确开启定时拉取策略。</p>
 <form id="sync-config"><div class="native-fields">
 <div class="native-field"><label for="sync-origin">对端网站</label><input id="sync-origin" name="origin" class="form-control" type="url" placeholder="https://example.com" value="{{ peer.get('origin','') }}" required></div>
 <div class="native-field"><label for="sync-secret">共享密钥</label><input id="sync-secret" name="secret" class="form-control" type="password" autocomplete="new-password" minlength="32" maxlength="128"><small>已保存的密钥不回显；留空保留。</small><button type="button" id="sync-generate" class="btn btn-outline-secondary btn-sm">生成并复制新密钥</button></div>

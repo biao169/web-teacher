@@ -196,3 +196,45 @@ test('prepared incremental approval allows subset selection and displays step ti
  assert.deepEqual(calls.filter(c=>c.op==='select').at(-1).data.ids,['students:two']);assert(!calls.some(c=>c.op==='proposal-approve'));
  assert.equal(d.querySelector('#sync-confirm').placeholder,'输入：同意对端推送');
 });
+
+for(const stopped of ['pause','failure'])test('preparation '+stopped+' cannot enable proposal send',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ const item={id:'students:one',uid:'one',table:'students',module_label:'学生',title:'one',action:'add',fields:[],dependencies:[],blocked:[],in_scope:true};
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{const op=url.split('/').pop(),data=JSON.parse(options.body);calls.push(op);let value={};
+ if(op==='start')value={uid:'parent',status:'reading'};
+ if(op==='advance'&&data.uid==='parent')value={uid:'parent',status:'ready',direction:'push',lightweight:true,items:[item],selection:{selected:[item.id],automatic:[]}};
+ if(op==='prepare-preview')value={uid:'child',status:'reading'};
+ if(op==='advance'&&data.uid==='child'){
+  if(stopped==='failure')return {ok:false,status:409,json:async()=>({error:'来源变化',code:'sync_conflict'})};
+  d.querySelector('#sync-pause').click();value={uid:'child',status:'reading',phase:'selected-load'};
+ }
+ return {ok:true,json:async()=>value};};w.eval(source);
+ d.querySelector('[data-direction=push]').click();await tick();d.querySelector('#sync-prepare').click();await tick();
+ assert.equal(d.querySelector('#sync-send').disabled,true);assert.equal(d.querySelector('#sync-outgoing').hidden,true);
+ d.querySelector('#sync-send').click();await tick();assert(!calls.includes('proposal-send'));
+});
+
+test('opening original preview follows prepared child without sending',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ const item={id:'students:one',uid:'one',table:'students',module_label:'学生',title:'one',action:'add',fields:[],dependencies:[],blocked:[],in_scope:true};
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{const op=url.split('/').pop(),data=JSON.parse(options.body);calls.push({op,data});let result={};
+ if(op==='get')result=data.uid==='parent'?{uid:'parent',status:'ready',prepared_uid:'child'}:{uid:'child',status:'ready',direction:'push',lightweight:true,prepared:true,items:[item],selection:{selected:[item.id],automatic:[]}};
+ if(op==='proposal-send')result={outgoing:{status:'pending'}};
+ return {ok:true,json:async()=>result};};w.eval(source);
+ const history=d.querySelector('#sync-history');history.append(new w.Option('Original','parent'));history.value='parent';d.querySelector('#sync-resume').click();await tick();
+ assert.equal(history.value,'child');assert(!calls.some(c=>c.op==='proposal-send'));assert.equal(d.querySelector('#sync-send').disabled,false);
+ d.querySelector('#sync-send').click();await tick();assert.equal(calls.find(c=>c.op==='proposal-send').data.uid,'child');
+});
+
+test('stale send preparation error opens child and requires another explicit click',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ const item={id:'students:one',uid:'one',table:'students',module_label:'学生',title:'one',action:'add',fields:[],dependencies:[],blocked:[],in_scope:true};
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{const op=url.split('/').pop(),data=JSON.parse(options.body);calls.push({op,data});let result={};
+ if(op==='start')result={uid:'parent',status:'reading'};
+ if(op==='advance')result={uid:'parent',status:'ready',direction:'push',items:[item],selection:{selected:[item.id],automatic:[]}};
+ if(op==='proposal-send'&&data.uid==='parent')return {ok:false,status:409,json:async()=>({error:'请先准备所选内容',code:'sync_prepare_required'})};
+ if(op==='get')result=data.uid==='parent'?{uid:'parent',status:'ready',prepared_uid:'child'}:{uid:'child',status:'ready',direction:'push',lightweight:true,prepared:true,items:[item],selection:{selected:[item.id],automatic:[]}};
+ return {ok:true,json:async()=>result};};w.eval(source);
+ d.querySelector('[data-direction=push]').click();await tick();d.querySelector('#sync-send').click();await tick();
+ assert.equal(calls.filter(c=>c.op==='proposal-send').length,1);assert.equal(d.querySelector('#sync-history').value,'child');assert.match(d.querySelector('#sync-status').textContent,/再次确认/);
+});

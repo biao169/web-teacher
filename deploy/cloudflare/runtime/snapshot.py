@@ -19,4 +19,4 @@ from worker_runtime.cleanup import run as cleanup
 from transfer.backend import folders, receivers, lan, relay, codes
 
 # Sync definitions are deterministic; no peer requests or background grants run here.
-from backend.app.native import site_sync_admin
+from backend.app.native import site_sync_admin, site_sync_preview, site_sync_incremental, site_sync_execute_plan

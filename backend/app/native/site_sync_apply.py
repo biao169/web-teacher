@@ -41,7 +41,7 @@ async def begin(r,uid,confirmation,*,approval=False):
     if confirmation!='从对端同步到本站':raise Error('请输入“从对端同步到本站”确认方向及删除范围')
     async with lease(r,'site-sync:run','edit'):
         task=await tasks.get(r.sql,uid);s=task['state']
-        if s.get('lightweight') and not s.get('incremental'):raise Error('请先准备所选内容并核对依赖，再确认执行或发送',409)
+        if s.get('lightweight') and not s.get('incremental'):raise Error('请先准备所选内容并核对依赖，再确认执行或发送；若已经准备，请打开对应的执行准备任务',409,'sync_prepare_required')
         if task['status']!='ready' or s['direction']!='pull':raise Error('只有完整的“对端 → 本站”预览可以执行')
         if bool(s.get('approval'))!=bool(approval):raise Error('此任务需要通过对应的本地审批入口确认',409)
         if 'execution' in s:return progress(task)
