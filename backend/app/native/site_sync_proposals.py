@@ -79,20 +79,18 @@ async def send(r,uid):
     authorize(r,'export',core.SCOPES)
     async with lease(r,'site-sync:proposal-send','edit'):
         task=await tasks.get(r.sql,uid);s=task['state'];p=await tasks.peer(r.sql)
+        if s.get('lightweight') and not s.get('prepared'):raise Error('请先准备所选内容并核对依赖，再确认执行或发送',409)
         if task['status']!='ready' or s['direction']!='push':raise Error('请先完成“本站 → 对端”的预览')
         if p['revision']!=s['peer_revision']:raise Error('对端配置已变化，请重新预览',409)
-        chosen=core.select(s['items'],s.get('selection',{}).get('selected',[]))
+        chosen=s['selection'] if s.get('incremental') else core.select(s['items'],s.get('selection',{}).get('selected',[]))
         if chosen['blocked'] or not chosen['selected']:raise Error('请选择条目并处理依赖问题')
         ids=sorted(set(chosen['selected'])-set(s['selection'].get('automatic',[])))
         if not 1<=len(ids)<=500:raise Error('提案最多500个主动选择项')
-        fingerprint=digest([ids,s['scopes'],s['local_revision'],s['remote_revision'],p['revision']])
+        fingerprint=digest([ids,s['scopes'],s.get('local_revision',uid),s.get('remote_revision',uid),p['revision']])
         outgoing=s.get('outgoing')
         if s.get('proposal_check_fingerprint')!=fingerprint:
             s.pop('proposal_check',None);s['proposal_check_fingerprint']=fingerprint
-        if 'proposal_check' not in s:
-            remote=await tasks.hello(r,p)
-            if remote['site_id']!=s['remote_id'] or remote.get('proposals')!=1:raise Error('对端身份已变化或未开启接收待批准推送',409)
-        if not await tasks.check_step(r,task,'proposal_check',peer_config=p):
+        if not s.get('incremental') and not await tasks.check_step(r,task,'proposal_check',peer_config=p):
             await tasks.persist(r.sql,task,status=task['status'])
             return {'checking':True,'phase':'verify-proposal'}
         remote=await tasks.hello(r,p)
@@ -135,7 +133,7 @@ async def review(r,request_id):
     authorize(r,'export',core.SCOPES)
     old,value,p=await current(r,request_id);peer=await tasks.peer(r.sql)
     if not await enabled(r.sql) or peer['revision']!=p['peer_revision']:raise Error('接收配置已变化，请要求对端重新发起',409)
-    job=await tasks.start(r,'pull',p['scopes']);task=await tasks.get(r.sql,job['uid'])
+    job=await tasks.start(r,'pull',p['scopes'],requested=p['ids']);task=await tasks.get(r.sql,job['uid'])
     if task['state']['remote_id']!=p['source_id']:raise Error('提案来源已变化',409)
     task['state']['approval']={'request_id':request_id,'sequence':p['sequence'],'ready':False}
     p['review_uid']=job['uid']
@@ -149,10 +147,13 @@ async def finish_review(r,uid):
     if not link or link['ready']:return
     old,value,p=await current(r,link['request_id'])
     if p['review_uid']!=uid:raise Error('已有更新的审批预览，请打开最新预览',409)
-    ids={x['id'] for x in s['items']};requested=[x for x in p['ids'] if x in ids]
-    selection=core.select(s['items'],requested)
-    allowed=set(selection['selected']);s['items']=[x for x in s['items'] if x['id'] in allowed]
-    s['selection']=selection;link.update(ready=True,skipped=len(p['ids'])-len(requested))
+    if s.get('incremental'):
+        link.update(ready=True,skipped=s.get('skipped',0))
+    else:
+        ids={x['id'] for x in s['items']};requested=[x for x in p['ids'] if x in ids]
+        selection=core.select(s['items'],requested)
+        allowed=set(selection['selected']);s['items']=[x for x in s['items'] if x['id'] in allowed]
+        s['selection']=selection;link.update(ready=True,skipped=len(p['ids'])-len(requested))
     p['skipped']=link['skipped']
     gid,guard=r.auth.guard(r.p,'data_tools','edit','EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(INBOX,old))
     await r.sql.batch([guard,('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(s).decode(),uid)),('UPDATE service_meta SET value=? WHERE key=?',(encoded(value).decode(),INBOX)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])

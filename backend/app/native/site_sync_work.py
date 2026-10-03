@@ -3,7 +3,7 @@
 A small JSON patch stores step metadata without serializing the whole task again.
 The existing database lease prevents two executors from advancing the same task.
 """
-import json
+import json,time
 from functools import wraps
 from contextlib import asynccontextmanager
 from .catalog import Error,now
@@ -97,16 +97,17 @@ def step(name):
                       'table_index':before['table_index'],'count':before['count'] or 0}
                 if uncertain:work['retry_count']=uncertain
                 await mark(r.sql,uid,owner,work)
+                started=time.monotonic()
                 try:
                     with operation('task:'+name):result=await fn(r,uid,*args,**kwargs)
                 except Error as exc:
                     # 1102 termination may skip this handler; the last running checkpoint survives.
-                    work.update(status='paused',failed_at=now(),error=exc.message[:800],error_code=exc.code,**retry_state(exc,prior))
+                    work.update(status='paused',elapsed_ms=round((time.monotonic()-started)*1000),failed_at=now(),error=exc.message[:800],error_code=exc.code,**retry_state(exc,prior))
                     try:await mark(r.sql,uid,owner,work)
                     except Exception:pass  # Preserve the original diagnostic if storage is unavailable.
                     raise
                 after=await position(r.sql,uid)
-                work.update(status='saved',completed_at=now(),completed_steps=work['completed_steps']+1,
+                work.update(status='saved',elapsed_ms=round((time.monotonic()-started)*1000),completed_at=now(),completed_steps=work['completed_steps']+1,
                             phase=stage(after,name),side=after['side'],
                             table_index=after['table_index'],count=after['count'] or 0)
                 work.pop('retry_count',None)

@@ -17,19 +17,21 @@ async def serve(r,data):
     if data['op']=='media-record':return {'uid':uid,'exists':bool(rows)}
     if not rows or rows[0]['storage_kind'] not in ('local','r2'):raise Error('媒体不是受管理原文件',409)
     row=rows[0];record_version=digest(row)
-    if data['op']=='media-range' and data.get('record_version')!=record_version:raise Error('来源媒体登记已变化，停止读取分片',409)
+    if data['op'] in ('media-range','media-range-binary') and data.get('record_version')!=record_version:raise Error('来源媒体登记已变化，停止读取分片',409)
     store=inventory(r.media_store);head=await store.head(row['object_key'])
     if not head or head['size']!=row['size']:raise Error('来源媒体缺失或大小不符',409)
     if not 0<head['size']<=FILE_LIMIT:raise Error('同步单文件最多20MiB',413)
-    if data['op']=='media-head':return {'uid':uid,**head,'checksum':row.get('checksum'),'record_version':record_version}
+    if data['op']=='media-head':return {'uid':uid,**head,'checksum':row.get('checksum'),'record_version':record_version,'binary_ranges':1}
     offset=data.get('offset');version=data.get('version')
     if type(offset) is not int or offset<0 or offset%CHUNK or offset>=head['size'] or version!=head['version']:raise Error('媒体区间或版本无效',409)
-    length=min(CHUNK,head['size']-offset);parts=[]
-    # Local inventory uses 64KiB reads, R2 accepts the same safe bound.
-    for n in range(offset,offset+length,65536):parts.append(await store.read_range(row['object_key'],n,min(65536,offset+length-n),version))
-    raw=b''.join(parts)
+    length=min(CHUNK,head['size']-offset)
+    raw=await store.read_range(row['object_key'],offset,length,version)
     if await store.head(row['object_key'])!=head:raise Error('来源文件读取期间发生变化',409)
-    return {'uid':uid,'version':version,'offset':offset,'size':length,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':base64.b64encode(raw).decode()}
+    if len(raw)!=length:raise Error('来源媒体分片长度不符',409)
+    result={'uid':uid,'version':version,'offset':offset,'size':length,'sha256':hashlib.sha256(raw).hexdigest()}
+    if data['op']=='media-range-binary':result['raw']=raw
+    else:result['bytes']=base64.b64encode(raw).decode()
+    return result
 
 COMPOSE_FANOUT=4
 

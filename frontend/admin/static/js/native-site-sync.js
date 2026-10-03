@@ -4,9 +4,10 @@ const root=document.querySelector('#site-sync');
 if(root){
  const q=s=>root.querySelector(s),status=q('#sync-status'),labels={add:'新增',update:'更新',delete:'删除'};
  let uid='',items=[],selected=new Set(),requested=new Set(),automatic=new Set(),page=1,busy=false,pause=false,execution=null,direction='',approval=null,outgoing=null,pending=null;
+ let lightweight=false,prepared=false,nextCursor=null,cursors=[['','']],candidateCount=0;
  const intervalMs=Number(root.dataset.intervalMs)||0;let nextBatchAt=0;
  const paced=new Set(['advance','pull-begin','proposal-approve','pull-tick','proposal-send']);
- function checkpoint(value){const target=q('#sync-checkpoint'),w=value?.work;if(!target||!w)return;target.textContent=`阶段：${w.phase||w.operation||'准备'} · 已保存步骤 ${w.completed_steps||0} · 已读 ${w.count||0} 条${w.completed_at?' · 最近保存 '+w.completed_at:''}${w.status==='running'?' · 上次步骤尚未确认完成；可稍后打开原任务继续':''}${w.error?' · '+w.error:''}`;}
+ function checkpoint(value){const target=q('#sync-checkpoint'),w=value?.work;if(!target||!w)return;target.textContent=`阶段：${w.phase||w.operation||'准备'} · 已保存步骤 ${w.completed_steps||0} · 已读 ${w.count||0} 条${Number.isFinite(w.elapsed_ms)?' · 最近步骤耗时 '+w.elapsed_ms+' ms':''}${w.completed_at?' · 最近保存 '+w.completed_at:''}${w.status==='running'?' · 上次步骤尚未确认完成；可稍后打开原任务继续':''}${w.error?' · '+w.error:''}`;}
  function rayText(response,value={}){
   const ray=response.headers?.get?.('cf-ray')||value.ray_id||value.instance||'';
   return typeof ray==='string'&&/^[a-zA-Z0-9-]{1,64}$/.test(ray)?'；本站响应Ray ID：'+ray:'';
@@ -44,30 +45,30 @@ if(root){
   }
  }
  async function run(fn){if(busy)return;busy=true;notify('正在处理同步操作…','progress',{id:'site-sync'});root.querySelectorAll('button').forEach(b=>b.disabled=true);q('#sync-pause').disabled=false;try{await fn();notify(status.textContent,/完成|通过|已保存|已送达|已拒绝/.test(status.textContent)?'success':'info',{id:'site-sync'})}catch(e){const message=e instanceof TypeError?'浏览器无法连接本站接口；请检查网络并刷新任务核对进度。':e.message;status.textContent=message;notify(message,e.name==='AbortError'?'info':'error',{id:'site-sync'});status.scrollIntoView?.({block:'nearest',behavior:'smooth'})}finally{busy=false;root.querySelectorAll('button').forEach(b=>b.disabled=false);q('#sync-pause').disabled=true;draw()}}
- function filtered(){const term=q('#sync-search').value.trim().toLowerCase(),action=q('#sync-action').value,sort=q('#sync-sort').value,field=sort.replace('-','');return items.filter(x=>(x.in_scope||selected.has(x.id))&&(!action||x.action===action)&&(!term||[x.title,x.table,x.module_label,x.uid].join(' ').toLowerCase().includes(term))).sort((a,b)=>String(a[field]).localeCompare(String(b[field]))*(sort.startsWith('-')?-1:1))}
+ function filtered(){if(lightweight)return items;const term=q('#sync-search').value.trim().toLowerCase(),action=q('#sync-action').value,sort=q('#sync-sort').value,field=sort.replace('-','');return items.filter(x=>(x.in_scope||selected.has(x.id))&&(!action||x.action===action)&&(!term||[x.title,x.table,x.module_label,x.uid].join(' ').toLowerCase().includes(term))).sort((a,b)=>String(a[field]).localeCompare(String(b[field]))*(sort.startsWith('-')?-1:1))}
  function cell(row,value){const td=document.createElement('td');td.textContent=value;row.append(td);return td}
  function draw(){
-  const rows=filtered(),pages=Math.max(1,Math.ceil(rows.length/20));page=Math.min(page,pages);q('#sync-rows').replaceChildren();
-  for(const item of rows.slice((page-1)*20,page*20)){
-   const tr=document.createElement('tr'),td=cell(tr,''),box=document.createElement('input');box.type='checkbox';box.checked=selected.has(item.id);box.disabled=busy||!!execution||automatic.has(item.id);box.setAttribute('aria-label','选择 '+item.title);box.addEventListener('change',()=>run(async()=>{box.checked?requested.add(item.id):requested.delete(item.id);await choose()}));td.append(box);
-   cell(tr,item.module_label+' / '+item.title);cell(tr,labels[item.action]);cell(tr,item.fields.join('、'));
+  const rows=filtered(),pages=lightweight?page+(nextCursor?1:0):Math.max(1,Math.ceil(rows.length/20));page=Math.min(page,pages);q('#sync-rows').replaceChildren();
+  for(const item of (lightweight?rows:rows.slice((page-1)*20,page*20))){
+   const tr=document.createElement('tr'),td=cell(tr,''),box=document.createElement('input');box.type='checkbox';box.checked=selected.has(item.id);box.disabled=busy||(prepared&&!approval)||!!execution||automatic.has(item.id);box.setAttribute('aria-label','选择 '+item.title);box.addEventListener('change',()=>run(async()=>{box.checked?requested.add(item.id):requested.delete(item.id);await choose()}));td.append(box);
+   cell(tr,item.module_label+' / '+item.title);cell(tr,lightweight&&item.action==='update'?'覆盖候选':labels[item.action]);cell(tr,prepared?'按已准备版本覆盖':lightweight?'准备时再读取正文':item.fields.join('、'));
    cell(tr,[automatic.has(item.id)?'自动选择的前置依赖':'',...item.dependencies.map(d=>'依赖 '+(items.find(x=>x.id===d)?.title||d)),...item.blocked,...(item.media_check?['媒体原文件待传输阶段校验']:[])].filter(Boolean).join('；'));q('#sync-rows').append(tr);
   }
-  q('#sync-page').textContent=`${page} / ${pages} · ${rows.length} 项`;q('#sync-prev').disabled=busy||page===1;q('#sync-next').disabled=busy||page===pages;
-  q('#sync-all').disabled=busy||!!execution;q('#sync-none').disabled=busy||!!execution;
-  q('#sync-begin').disabled=busy||!!execution||(!selected.size&&(!approval||items.length>0));q('#sync-confirm').disabled=!!execution;
+  q('#sync-page').textContent=lightweight?`第 ${page} 页 · 本页 ${rows.length} 项 · 未筛选候选总数 ${candidateCount}`:`${page} / ${pages} · ${rows.length} 项`;q('#sync-prev').disabled=busy||page===1;q('#sync-next').disabled=busy||page===pages;
+  q('#sync-all').disabled=busy||(prepared&&!approval)||!!execution;q('#sync-none').disabled=busy||(prepared&&!approval)||!!execution;
+  q('#sync-begin').disabled=busy||(lightweight&&!prepared)||!!execution||(!selected.size&&(!approval||items.length>0));q('#sync-confirm').disabled=!!execution;
   const active=execution&&!['done','cancelled'].includes(execution.phase);q('#sync-restart').disabled=busy||!uid||!!approval;q('#sync-continue').disabled=busy||!active;q('#sync-cancel').disabled=busy||!active;
-  q('#sync-send').disabled=busy||!selected.size;q('#sync-receipt').disabled=busy||!outgoing;
+  q('#sync-send').disabled=busy||(lightweight&&!prepared)||!selected.size;q('#sync-prepare').hidden=!lightweight||prepared;q('#sync-prepare').disabled=busy||!selected.size;q('#sync-sort').disabled=busy||lightweight;q('#sync-receipt').disabled=busy||!outgoing;
   q('#sync-review').disabled=busy||pending?.status!=='pending';q('#sync-reject').disabled=busy||pending?.status!=='pending';
  }
  async function choose(){const s=await api('select',{uid,ids:[...requested]});selected=new Set(s.selected);automatic=new Set(s.automatic);q('#sync-selection').textContent=`已选择 ${selected.size} 项，其中依赖 ${automatic.size} 项；存在阻止原因 ${Object.keys(s.blocked).length} 项。仅保存预览。`;draw()}
- function show(result){approval=result.approval||null;outgoing=result.outgoing||null;execution=result.execution||null;direction=result.direction;items=result.items||[];const s=result.selection||{};selected=new Set(s.selected||[]);automatic=new Set(s.automatic||[]);requested=new Set([...selected].filter(k=>!automatic.has(k)));q('#sync-result').hidden=false;q('#sync-direction').textContent=result.direction==='pull'?'对端 → 本站：差异清单':'本站 → 对端：差异清单';q('#sync-selection').textContent=`已保存选择 ${selected.size} 项；依赖 ${automatic.size} 项。`;status.textContent=execution?'已打开保存的实际同步任务。':'完整预览已生成；没有执行业务数据或媒体增删。';q('#sync-execution').hidden=direction!=='pull';q('#sync-outgoing').hidden=direction!=='push';q('#sync-confirm').placeholder=approval?'输入：同意对端推送':'输入：从对端同步到本站';q('#sync-confirm').value='';q('#sync-begin').textContent=approval?'同意并执行最新差异':'确认并开始拉取';if(approval&&!execution)status.textContent='已重新读取最新差异，请核对后批准。已无差异或不再适用的原选择：'+(approval.skipped||0)+' 项。';outgoingView(outgoing);report(result);draw()}
- async function read(){pause=false;let result;do{result=await api('advance',{uid});status.textContent=`${({baseline:'建立版本基准',content:'读取内容',verify:'复核版本',done:'准备分析',references:'分批分析引用',compare:'分批比较差异',dependencies:'分批整理依赖',publish:'发布预览'})[result.phase]||'正在分批读取'} ${result.side||''} ${result.table||''}，已读取 ${result.count||0} 条${result.analyzed!==undefined?'，已分析 '+result.analyzed+' 项':''}`;if(pause&&result.status==='reading'){status.textContent='已暂停，稍后可打开最近预览继续。';return}}while(result.status==='reading');if(result.status==='ready')show(result.items?result:await api('get',{uid}));else throw Error('预览已失效，请重新生成。')}
+ function show(result){lightweight=!!result.lightweight;prepared=!!result.prepared;if(lightweight){q('#sync-sort').value='table';q('#sync-search').value='';q('#sync-action').value=''}nextCursor=result.next||null;candidateCount=result.candidate_count||0;cursors=[['','']];page=1;approval=result.approval||null;outgoing=result.outgoing||null;execution=result.execution||null;direction=result.direction;items=result.items||[];const s=result.selection||{};selected=new Set(s.selected||[]);automatic=new Set(s.automatic||[]);requested=new Set([...selected].filter(k=>!automatic.has(k)));q('#sync-result').hidden=false;q('#sync-direction').textContent=result.direction==='pull'?'对端 → 本站：差异清单':'本站 → 对端：差异清单';q('#sync-selection').textContent=`已保存选择 ${selected.size} 项；依赖 ${automatic.size} 项。`;status.textContent=execution?'已打开保存的实际同步任务。':prepared?'所选记录及依赖已准备。相同内容也会覆盖；请核对后确认逐条执行，已完成条目不会整体回滚。':lightweight?'简要候选已生成：相同编号列为覆盖候选，未比较正文。请选择条目，再准备执行数据；此过程不写入业务内容。':'执行数据准备完成，请核对实际差异及自动加入的依赖，然后确认；没有执行业务数据或媒体增删。';q('#sync-execution').hidden=(lightweight&&!prepared)||direction!=='pull';q('#sync-outgoing').hidden=(lightweight&&!prepared)||direction!=='push';q('#sync-confirm').placeholder=approval?'输入：同意对端推送':'输入：从对端同步到本站';q('#sync-confirm').value='';q('#sync-begin').textContent=approval?'同意并执行最新差异':'确认并开始拉取';if(approval&&!execution)status.textContent=prepared?'提案条目及依赖已逐条准备，可勾选后批准。相同内容也会覆盖；已不存在或不再适用的原选择：'+(approval.skipped||0)+' 项。':'已重新读取最新差异，请核对后批准。已无差异或不再适用的原选择：'+(approval.skipped||0)+' 项。';outgoingView(outgoing);report(result);draw()}
+ async function read(){pause=false;let result;do{result=await api('advance',{uid});status.textContent=`${({'selected-load':'按需读取所选条目及引用','selected-check':'核对所选依赖',brief:'读取简要信息',candidates:'整理候选',baseline:'建立版本基准',content:'读取内容',verify:'复核版本',done:'准备分析',references:'分批分析引用',compare:'分批比较差异',dependencies:'分批整理依赖',publish:'发布预览'})[result.phase]||'正在分批读取'} ${result.side||''} ${result.table||''}，已读取 ${result.count||0} 条${result.analyzed!==undefined?'，已分析 '+result.analyzed+' 项':''}`;if(pause&&result.status==='reading'){status.textContent='已暂停，稍后可打开最近预览继续。';return}}while(result.status==='reading');if(result.status==='ready')show(result.items?result:await api('get',{uid}));else throw Error('预览已失效，请重新生成。')}
 
  function report(result){
   execution=result.execution||execution;if(!execution){q('#sync-progress').textContent='尚未执行。';return}
-  const phases={'prepare-rows':'分批准备内容','validate-rows':'分批校验引用',download:'下载与校验媒体','verify-commit':'分批复核提交前版本',commit:'提交内容及引用',cleanup:'清理分片暂存',done:'同步完成',cancelled:'任务已取消，已完成内容保留'};
-  q('#sync-progress').textContent=`${phases[execution.phase]||execution.phase} · 已下载 ${Math.round((execution.bytes||0)/1024)} KB · ${execution.committed?'数据库已提交':'数据库尚未提交'}${execution.error?' · '+execution.error:''}${execution.retained_files?.length?' · 保留了 '+execution.retained_files.length+' 个已变化文件，请到媒体目录核对':''}`;
+  const phases={'write-record':'逐条写入并保存进度','prepare-rows':'分批准备内容','validate-rows':'分批校验引用',download:'下载与校验媒体','verify-commit':'分批复核提交前版本',commit:'提交内容及引用',cleanup:'清理分片暂存',done:'同步完成',cancelled:'任务已取消，已完成内容保留'};
+  q('#sync-progress').textContent=`${phases[execution.phase]||execution.phase} · 已下载 ${Math.round((execution.bytes||0)/1024)} KB · ${Number.isInteger(execution.applied)?'已逐条提交 '+execution.applied+' 条（已完成内容保留）':execution.committed?'数据库已提交':'数据库尚未提交'}${execution.error?' · '+execution.error:''}${execution.retained_files?.length?' · 保留了 '+execution.retained_files.length+' 个已变化文件，请到媒体目录核对':''}`;
   if(execution.error)notify(q('#sync-progress').textContent,'error',{id:'site-sync-task'});
  }
  async function execute(){
@@ -102,8 +103,14 @@ if(root){
  q('#sync-test').onclick=()=>run(async()=>{await api('test');status.textContent='连接、签名、同步协议和站点身份检查通过；尚未读取或校验业务数据，开始预览时再检查。'});
  root.querySelectorAll('[data-direction]').forEach(b=>b.onclick=()=>run(async()=>{q('#sync-result').hidden=true;q('#sync-execution').hidden=true;q('#sync-outgoing').hidden=true;approval=null;outgoing=null;execution=null;items=[];const result=await api('start',{direction:b.dataset.direction,scopes:[...root.querySelectorAll('[name=sync-scope]:checked')].map(c=>c.value)});uid=result.uid;const option=new Option('当前预览 · '+new Date().toLocaleString(),uid);q('#sync-history').prepend(option);q('#sync-history').value=uid;await read()}));
  q('#sync-pause').onclick=()=>{pause=true};q('#sync-resume').onclick=()=>run(async()=>{uid=q('#sync-history').value;if(!uid)throw Error('请选择预览');const result=await api('get',{uid});if(result.status==='reading'){pause=false;await api('resume',{uid});await read();}else if(result.status==='ready')show(result);else throw Error('预览已失效，请重新生成。')});
- for(const id of ['#sync-search','#sync-action','#sync-sort'])q(id).addEventListener('input',()=>{page=1;draw()});
- q('#sync-all').onclick=()=>run(async()=>{for(const x of filtered())requested.add(x.id);await choose()});q('#sync-none').onclick=()=>run(async()=>{requested.clear();await choose()});
+ function listOptions(after=['','']){return {uid,after,search:q('#sync-search').value.trim(),action:q('#sync-action').value}}
+ async function loadPage(after){const value=await api('get',listOptions(after));items=value.items;nextCursor=value.next;candidateCount=value.candidate_count;draw()}
+ for(const id of ['#sync-search','#sync-action','#sync-sort'])q(id).addEventListener('change',()=>{if(lightweight)run(async()=>{page=1;cursors=[['','']];await loadPage(cursors[0])});else{page=1;draw()}});
+ q('#sync-prepare').onclick=()=>run(async()=>{pause=false;const job=await api('prepare-preview',{uid});uid=job.uid;lightweight=false;q('#sync-history').prepend(new Option('执行准备 · '+new Date().toLocaleString(),uid));q('#sync-history').value=uid;q('#sync-result').hidden=true;await read()});
+ q('#sync-all').onclick=()=>run(async()=>{
+  pause=false;const ids=new Set(requested),filters=listOptions();if(lightweight){let after=['',''];do{const value=await api('get',{...filters,after});for(const x of value.items)ids.add(x.id);if(ids.size>500)throw Error('筛选结果超过500项，请缩小筛选范围；原选择保持不变');after=value.next;if(after)await waitFor(intervalMs)}while(after)}else for(const x of filtered())ids.add(x.id);
+  requested=ids;await choose()
+ });q('#sync-none').onclick=()=>run(async()=>{requested.clear();await choose()});
 
  const proposalLabels={pending:'待接收方批准',approved:'已批准',rejected:'已拒绝',superseded:'已由新提案替换',superseded_or_unknown:'已替换或回执不在保留范围',unconfirmed:'发送结果待确认'};
  function outgoingView(value){if(value)outgoing=value;q('#sync-outgoing-info').textContent=outgoing?`第 ${outgoing.sequence||'?'} 版 · ${proposalLabels[outgoing.status]||outgoing.status}${outgoing.phase?' · 执行阶段 '+outgoing.phase:''}`:'尚未发送。'}
@@ -124,5 +131,5 @@ if(root){
  q('#sync-schedule-refresh').onclick=()=>run(async()=>scheduleView(await api('schedule-status')));
  scheduleView(JSON.parse(scheduleForm.dataset.value));
  inboxView(JSON.parse(q('#sync-inbox').dataset.value));
- q('#sync-prev').onclick=()=>{page--;draw()};q('#sync-next').onclick=()=>{page++;draw()};
+ q('#sync-prev').onclick=()=>{if(lightweight)run(async()=>{page--;await loadPage(cursors[page-1])});else{page--;draw()}};q('#sync-next').onclick=()=>{if(lightweight)run(async()=>{cursors[page]=nextCursor;page++;await loadPage(cursors[page-1])});else{page++;draw()}};
 }

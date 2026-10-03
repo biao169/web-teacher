@@ -152,3 +152,47 @@ test('restart creates fresh preview without silently confirming it',async t=>{
  d.querySelector('#sync-restart').click();await tick();
  assert.equal(d.querySelector('#sync-history').value,'new');assert(calls.includes('restart'));assert(!calls.includes('pull-begin'));assert.equal(d.querySelector('#sync-confirm').value,'');
 });
+
+test('brief preview pages on server, preserves cross-page choices and only prepares after clicking',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];let chosen=[];
+ const item=i=>({id:'students:'+i,uid:String(i),table:'students',module_label:'学生',title:'Candidate '+i,action:'update',fields:[],dependencies:[],blocked:[],in_scope:true,candidate:true});
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{
+  const op=url.split('/').pop(),data=JSON.parse(options.body);calls.push({op,data});let result={};
+  if(op==='start')result={uid:'brief',status:'reading'};
+  if(op==='advance')result=data.uid==='brief'?{uid:'brief',status:'ready',direction:'pull',lightweight:true,items:[item(1)],next:['@candidate:students','1'],candidate_count:2,selection:{selected:[],automatic:[]}}:{uid:'prepared',status:'ready',direction:'pull',lightweight:true,prepared:true,incremental:true,items:[item(1),item(2)],selection:{selected:chosen,automatic:[]}};
+  if(op==='get'){assert.equal(data.uid,'brief');const second=!!data.after?.[0];result={lightweight:true,items:[item(second?2:1)],next:second?null:['@candidate:students','1'],candidate_count:2}}
+  if(op==='select'){chosen=data.ids;result={selected:chosen,automatic:[],blocked:{}}}
+  if(op==='prepare-preview')result={uid:'prepared',status:'reading'};
+  if(op==='pull-begin'){assert.equal(data.confirmation,'从对端同步到本站');result={uid:'prepared',execution:{phase:'done',committed:true,applied:2}}}
+  return {ok:true,json:async()=>result};
+ };
+ w.eval(source);d.querySelector('[data-direction="pull"]').click();await tick();
+ assert.equal(d.querySelectorAll('#sync-rows tr').length,1);assert.match(d.querySelector('#sync-rows').textContent,/覆盖候选/);
+ assert(d.querySelector('#sync-execution').hidden);assert(d.querySelector('#sync-sort').disabled);
+ d.querySelector('#sync-rows input').click();await tick();d.querySelector('#sync-next').click();await tick();
+ assert.match(d.querySelector('#sync-rows').textContent,/Candidate 2/);d.querySelector('#sync-rows input').click();await tick();
+ assert.deepEqual(chosen,['students:1','students:2']);assert(!calls.some(x=>x.op==='pull-begin'||x.op==='prepare-preview'));
+ d.querySelector('#sync-prepare').click();await tick();
+ assert(calls.some(x=>x.op==='prepare-preview'));assert(!calls.some(x=>x.op==='pull-begin'));
+ assert.equal(d.querySelector('#sync-execution').hidden,false);assert(d.querySelector('#sync-prepare').hidden);
+ assert(d.querySelector('#sync-all').disabled);assert([...d.querySelectorAll('#sync-rows input')].every(x=>x.disabled));
+ d.querySelector('#sync-confirm').value='从对端同步到本站';d.querySelector('#sync-begin').click();await tick();
+ assert.equal(calls.filter(x=>x.op==='pull-begin').length,1);assert.match(d.querySelector('#sync-progress').textContent,/已逐条提交 2 条/);
+});
+
+test('prepared incremental approval allows subset selection and displays step time',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://b.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ const items=['one','two'].map(k=>({id:'students:'+k,uid:k,table:'students',module_label:'学生',title:k,action:'add',fields:[],dependencies:[],blocked:[],in_scope:true}));
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{const op=url.split('/').pop(),data=JSON.parse(options.body);calls.push({op,data});let value={};
+ if(op==='proposal-inbox')value={proposal:{request_id:'request',status:'pending',requested_count:2}};
+ if(op==='proposal-review')value={uid:'review',status:'reading'};
+ if(op==='advance')value={uid:'review',status:'ready',direction:'pull',lightweight:true,prepared:true,incremental:true,approval:{ready:true,skipped:0},items,selection:{selected:items.map(x=>x.id),automatic:[]},work:{phase:'complete',elapsed_ms:12}};
+ if(op==='select')value={selected:data.ids,automatic:[],blocked:{}};
+ return {ok:true,json:async()=>value};};w.eval(source);
+ d.querySelector('#sync-inbox-refresh').click();await tick();d.querySelector('#sync-review').click();await tick();
+ const boxes=d.querySelectorAll('#sync-rows input[type=checkbox]');assert.equal(boxes.length,2);assert.equal(boxes[0].disabled,false);assert.equal(d.querySelector('#sync-prepare').hidden,true);
+ assert.match(d.querySelector('#sync-checkpoint').textContent,/12 ms/);
+ boxes[0].checked=false;boxes[0].dispatchEvent(new w.Event('change'));await tick();
+ assert.deepEqual(calls.filter(c=>c.op==='select').at(-1).data.ids,['students:two']);assert(!calls.some(c=>c.op==='proposal-approve'));
+ assert.equal(d.querySelector('#sync-confirm').placeholder,'输入：同意对端推送');
+});

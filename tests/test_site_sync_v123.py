@@ -19,19 +19,19 @@ def drive(r,limit=800):
   if state.get('last_finished'):return state
  pytest.fail('Background sync failed to finish')
 
-def test_unattended_pull_after_logout_and_repeat_noop(pair):
+def test_unattended_pull_after_logout_and_repeat_incremental(pair):
  api,preview,ra,rb,a,*_=pair
  enable(api,True)
  # No auth session, CSRF token or browser driving the sync from here on.
  run(ra.sql.batch([("UPDATE auth_sessions SET revoked_at=?,revoke_reason='logout'",(now(),))]))
  drive(ra)
  assert run(ra.sql.query('SELECT uid FROM students ORDER BY uid'))==run(rb.sql.query('SELECT uid FROM students ORDER BY uid'))
- assert len(run(ra.sql.query("SELECT uid FROM operation_logs WHERE action='sync_pull_commit'")))==1
+ assert len(run(ra.sql.query("SELECT uid FROM operation_logs WHERE action LIKE 'sync_record_%'")))==6
  assert run(scheduler.tick(ra)).get('skipped')=='interval'
  state=run(scheduler.load(ra.sql,scheduler.STATE));state.pop('last_finished',None);state['next_due']=''
  run(ra.sql.batch([scheduler.put(scheduler.STATE,state)]));drive(ra)
- assert len(run(ra.sql.query("SELECT uid FROM operation_logs WHERE action='sync_pull_commit'")))==1
- assert run(scheduler.load(ra.sql,scheduler.STATE))['message']=='无差异'
+ assert len(run(ra.sql.query("SELECT uid FROM operation_logs WHERE action LIKE 'sync_record_%'")))==9
+ assert run(scheduler.load(ra.sql,scheduler.STATE))['message']=='执行阶段：done'
 
 def test_only_approved_jobs_no_implicit_preview_execution(peers):
  api,b,preview,review,ra,rb,*_=peers

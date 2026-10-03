@@ -3,6 +3,15 @@ from . import site_sync_analysis as snapshots
 from .catalog import Error
 from .site_sync_media import FILE_LIMIT,TOTAL_LIMIT
 
+def media_entry(row,old):
+    if old and (old['object_key']!=row['object_key'] or (old['storage_kind']=='external')!=(row['storage_kind']=='external')):
+        raise Error('已有媒体的存储路径或类型发生变化；请以新媒体条目替换引用后同步，避免覆盖旧文件')
+    if row['storage_kind']=='external':return None
+    size=row['size']
+    if type(size) is not int or not 0<size<=FILE_LIMIT:raise Error('同步单个媒体文件须为1字节至20MiB')
+    return {'uid':row['uid'],'key':row['object_key'],'size':size,'mime_type':row['mime_type'],
+            'source_checksum':row.get('checksum'),'version':None,'sha256':None,'created_version':None}
+
 async def prepare_selection(r,task,selected):
     s=task['state'];uid=task['uid']
     p=s.setdefault('begin_plan',{'index':0,'keys':[],'media_index':0,'media':[],'bytes':0})
@@ -23,15 +32,11 @@ async def prepare_selection(r,task,selected):
         row=await snapshots.get(r.sql,uid,'remote','media_assets',key)
         old=await snapshots.get(r.sql,uid,'local','media_assets',key)
         if not row:raise Error('媒体快照不完整，请重新预览',409)
-        if old and (old['object_key']!=row['object_key'] or (old['storage_kind']=='external')!=(row['storage_kind']=='external')):
-            raise Error('已有媒体的存储路径或类型发生变化；请以新媒体条目替换引用后同步，避免覆盖旧文件')
-        if row['storage_kind']!='external':
-            size=row['size']
-            if type(size) is not int or not 0<size<=FILE_LIMIT:raise Error('同步单个媒体文件须为1字节至20MiB')
-            p['bytes']+=size
+        media=media_entry(row,old)
+        if media:
+            p['bytes']+=media['size']
             if len(p['media'])>=100 or p['bytes']>TOTAL_LIMIT:raise Error('单次同步媒体最多100个、总计24MiB，请分批选择')
-            p['media'].append({'uid':row['uid'],'key':row['object_key'],'size':size,'mime_type':row['mime_type'],
-                'source_checksum':row.get('checksum'),'version':None,'sha256':None,'created_version':None})
+            p['media'].append(media)
         p['media_index']+=1
         return False
     return True

@@ -69,8 +69,16 @@ def test_waiting_request_reviews_latest_content_and_new_change_blocks_commit(pee
  run(ra.sql.batch([("UPDATE students SET name='Latest',updated_at='2026-10-02T00:00:00.000Z' WHERE uid=?",(student,))]))
  job=review(receipt['request_id']);assert any(x['title']=='Latest' for x in job['items'])
  run(ra.sql.batch([("UPDATE students SET name='Changed again',updated_at='2026-10-03T00:00:00.000Z' WHERE uid=?",(student,))]))
- assert b('proposal-approve',{'uid':job['uid'],'confirmation':'同意对端推送'},ok=False).status_code==409
- assert len(run(rb.sql.query('SELECT uid FROM students')))==3
+ b('proposal-approve',{'uid':job['uid'],'confirmation':'同意对端推送'})
+ for _ in range(60):
+  result=b('pull-tick',{'uid':job['uid']},ok=False)
+  if result.status_code!=200:break
+ assert result.status_code==409
+ assert not run(rb.sql.query('SELECT uid FROM students WHERE uid=?',(student,)))
+ b('pull-cancel',{'uid':job['uid']});finish(b,job['uid'])
+ from tests.test_sync_incremental_v141 import prepare
+ uid,_=prepare(api,['students'],lambda x:x['uid']==student,'push')
+ receipt=api('proposal-send',{'uid':uid})['outgoing']
  job=review(receipt['request_id']);approve(b,job['uid'])
  assert run(rb.sql.query('SELECT name FROM students WHERE uid=?',(student,)))[0]['name']=='Changed again'
 
@@ -104,16 +112,16 @@ def test_lost_delivery_ack_reuses_sequence(peers,monkeypatch):
  assert out['sequence']==first['sequence'] and out['request_id']==first['request_id']
  assert len(run(rb.sql.query('SELECT uid FROM students')))==3
 
-def test_noop_review_can_be_acknowledged_without_business_write(peers):
+def test_same_content_remains_explicit_overwrite_candidate(peers):
  api,b,preview,review,ra,rb,*_=peers
  row=run(ra.sql.query('SELECT * FROM students ORDER BY uid LIMIT 1'))[0]
  uid=preview(['students'],lambda x:x['uid']==row['uid'],direction='push');sent=api('proposal-send',{'uid':uid})['outgoing']
  cols=[k for k in row if k!='id']
  run(rb.sql.batch([('INSERT INTO students('+','.join(cols)+') VALUES('+','.join('?' for _ in cols)+')',tuple(row[k] for k in cols))]))
  before=run(core.revision(rb.sql));job=review(sent['request_id'])
- assert job['items']==[] and job['approval']['skipped']==1
- result=approve(b,job['uid']);assert result['execution']['phase']=='done' and not result['execution']['committed']
- assert run(core.revision(rb.sql))==before
+ assert len(job['items'])==1 and job['items'][0]['action']=='update' and job['approval']['skipped']==0
+ approve(b,job['uid'])
+ assert len(run(rb.sql.query('SELECT uid FROM students WHERE uid=?',(row['uid'],))))==1
  assert api('proposal-status',{'uid':uid})['outgoing']['phase']=='done'
 
 def test_receiver_opt_in_required_and_peer_cannot_approve(peers):

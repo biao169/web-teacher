@@ -40,14 +40,32 @@ async def hello(r,p,*,with_revision=False):
         return result
 
 @traced('preview:start')
-async def start(r,direction,scopes,*,previous=None):
+async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_parent=None,requested=None):
     if direction not in ('pull','push') or not isinstance(scopes,list) or not scopes or any(t not in core.SCOPES for t in scopes):raise Error('同步方向或范围无效')
     p=await peer(r.sql);remote=await hello(r,p)
+    if lightweight and remote.get('brief_preview')!=1:raise Error('简要预览需要两站更新至 v0.15.140；请先更新对端',409)
     uid=secrets.token_hex(16)
     state={'preview_format':TASK_FORMAT,'policy':policy(),'work':{'status':'saved','completed_steps':0,'created_at':now()},'direction':direction,'scopes':scopes,'remote_id':remote['site_id'],'peer_revision':p['revision'],
         'phase':'baseline','side':'local','table_index':0,'after':'','count':0,'bytes':0,'table_count':0,
         'version_hash':'','version_count':0,'totals':{'local':{},'remote':{}}}
+    if lightweight:
+        from .site_sync_preview import initialize
+        initialize(state)
     extra=[]
+    if requested is not None:
+        if remote.get('selected_execute')!=1:raise Error('按需审批需要两站更新至 v0.15.141 或后续版本',409)
+        from .site_sync_incremental import initialize as initialize_selected
+        initialize_selected(state,{'uid':'','selection':{'selected':requested}})
+        state.update(skip_missing=True,skipped=0)
+    if prepare_parent:
+        parent=prepare_parent['state'];parent['prepared_uid']=uid
+        if remote.get('selected_execute')!=1:raise Error('按需准备需要两站更新至 v0.15.141',409)
+        from .site_sync_incremental import initialize as initialize_selected
+        initialize_selected(state,dict(parent,uid=prepare_parent['uid']))
+        gid,guard=r.auth.guard(r.p,'data_tools','edit',
+            'EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND state=?)',(prepare_parent['uid'],prepare_parent['_raw_state']))
+        extra=[guard,('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(parent).decode(),prepare_parent['uid'])),
+               ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]
     if previous:
         old=previous['state'];old['restart_uid']=uid
         gid,guard=r.auth.guard(r.p,'data_tools','edit',
@@ -55,7 +73,7 @@ async def start(r,direction,scopes,*,previous=None):
         extra=[guard,('UPDATE sync_tasks SET status=?,state=? WHERE uid=?',('expired',encoded(old).decode(),previous['uid'])),
                ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]
     # Retire completed/replaced previews only; keep this restart's receipt for retries.
-    await r.sql.batch([*extra,("DELETE FROM sync_tasks WHERE ((status='ready' AND coalesce(json_extract(state,'$.work.status'),'saved')='saved') OR (status='expired' AND json_extract(state,'$.restart_uid') IS NOT NULL)) AND coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','cancelled') AND uid<>? AND uid NOT IN (SELECT uid FROM sync_tasks ORDER BY created_at DESC LIMIT 9)",(previous['uid'] if previous else '',)),
+    await r.sql.batch([*extra,("DELETE FROM sync_tasks WHERE ((status='ready' AND coalesce(json_extract(state,'$.work.status'),'saved')='saved') OR (status='expired' AND json_extract(state,'$.restart_uid') IS NOT NULL)) AND coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','cancelled') AND uid<>? AND uid NOT IN (SELECT uid FROM sync_tasks ORDER BY created_at DESC LIMIT 9)",(previous['uid'] if previous else prepare_parent['uid'] if prepare_parent else '',)),
         ('INSERT INTO sync_tasks(uid,status,state,created_at) VALUES(?,?,?,?)',(uid,'reading',encoded(state).decode(),now()))])
     return {'uid':uid,'status':'reading','policy':state['policy'],'work':state['work'],'request_interval_ms':REQUEST_INTERVAL_MS}
 
@@ -73,7 +91,7 @@ async def restart(r,uid):
             if s.get('approval'):raise Error('审批预览请使用“重新读取最新差异并核对”；不能继承旧批准',409)
             e=s.get('execution')
             if e and e['phase'] not in ('done','cancelled'):raise Error('请先取消旧执行并完成暂存清理，再重新开始',409)
-            return await start(r,s['direction'],s['scopes'],previous=task)
+            return await start(r,s['direction'],s['scopes'],previous=task,lightweight=bool(s.get('lightweight')))
 
 async def resume(r,uid):
     from .site_sync_work import task_lease
@@ -159,8 +177,14 @@ async def check_step(r,task,key,*,peer_config=None):
 @traced('preview:page')
 async def advance(r,uid):
     task=await get(r.sql,uid);s=task['state'];p=await peer(r.sql)
-    if task['status']!='reading':return {'uid':uid,'status':task['status'],'approval':s.get('approval')}
+    if task['status']!='reading':return {'uid':uid,'status':task['status'],'approval':s.get('approval'),'lightweight':bool(s.get('lightweight'))}
     if s['peer_revision']!=p['revision']:raise Error('对端配置已变化，请重新预览',409)
+    if s.get('incremental'):
+        from .site_sync_incremental import advance as selected_advance
+        return await selected_advance(r,task,p)
+    if s.get('lightweight'):
+        from .site_sync_preview import advance as brief_advance
+        return await brief_advance(r,task,p)
     if s['phase'] in ('done','references','compare','dependencies','publish'):return await finish(r,uid,task)
     if s['phase'] in ('baseline','verify'):
         await version_step(r,p,s);await persist(r.sql,task)
@@ -215,6 +239,9 @@ async def choose(r,uid,ids):
     if task['state'].get('execution'):raise Error('实际同步已确认，不能修改这份选择；请新建预览',409)
     p=await peer(sql)
     if task['state']['peer_revision']!=p['revision']:raise Error('配置已变化，请重新预览',409)
-    result=core.select(task['state']['items'],ids);task['state']['selection']=result
+    if task['state'].get('lightweight'):
+        from .site_sync_preview import choose as brief_choose
+        return await brief_choose(r,task,ids)
+    result=core.select(task['state']['items'],ids);task['state']['selection']=result;task['state'].pop('candidate_requested',None)
     await persist(sql,task,status=task['status'])
     return result

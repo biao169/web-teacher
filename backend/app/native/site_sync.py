@@ -94,19 +94,22 @@ async def page(sql,table,after='',limit=None):
     return {'rows':kept,'next':kept[-1]['uid'] if len(stats)>len(kept) else None,'bytes':used}
 
 
-def reference_inputs(table,row):
+def reference_inputs(table,row,with_kind=False):
     """Share field/body semantics between indexed preview and execution verification."""
     inputs=[];errors=[]
     for field,spec in TABLES[table]['columns'].items():
         target=spec.get('references',{});value=row.get(field)
         if value and target.get('table') in SCOPES:
-            inputs.append((target['table'],target.get('column',target.get('field','uid')),value,field+' 引用不存在'))
+            item=(target['table'],target.get('column',target.get('field','uid')),value,field+' 引用不存在')
+            inputs.append(item+((field,None),) if with_kind else item)
     bodies=[]
     if table=='news':bodies=[(row.get('content',''),row.get('content_format','html'))]
     if table=='translation_cache':bodies=[(row.get('translated_text',''),'html'),(row.get('translated_text',''),'markdown')]
     for text,fmt in bodies:
         try:
-            for uid in body_references(text or '',fmt):inputs.append(('media_assets','uid',uid,'正文媒体不存在: '+uid))
+            for uid,kind in body_references(text or '',fmt).items():
+                item=('media_assets','uid',uid,'正文媒体不存在: '+uid)
+                inputs.append(item+((None,kind),) if with_kind else item)
         except Exception:errors.append('正文引用无法确认')
     return inputs,errors
 

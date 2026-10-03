@@ -19,7 +19,7 @@ TERMINAL=('done','cancelled')
 
 def progress(task):
     e=task['state'].get('execution',{})
-    return {'uid':task['uid'],'execution':{k:e.get(k) for k in ('phase','file_index','offset','bytes','committed','cleanup_index','cancelled','error','error_code','retained_files')},
+    return {'uid':task['uid'],'execution':{k:e.get(k) for k in ('phase','file_index','offset','bytes','committed','cleanup_index','cancelled','error','error_code','retained_files','applied')},
             'media_count':len(e.get('media',[]))}
 
 async def persist(r,task):
@@ -41,10 +41,14 @@ async def begin(r,uid,confirmation,*,approval=False):
     if confirmation!='从对端同步到本站':raise Error('请输入“从对端同步到本站”确认方向及删除范围')
     async with lease(r,'site-sync:run','edit'):
         task=await tasks.get(r.sql,uid);s=task['state']
+        if s.get('lightweight') and not s.get('incremental'):raise Error('请先准备所选内容并核对依赖，再确认执行或发送',409)
         if task['status']!='ready' or s['direction']!='pull':raise Error('只有完整的“对端 → 本站”预览可以执行')
         if bool(s.get('approval'))!=bool(approval):raise Error('此任务需要通过对应的本地审批入口确认',409)
         if 'execution' in s:return progress(task)
         if await active(r.sql):raise Error('已有同步任务，请先继续或取消该任务',409)
+        if s.get('incremental'):
+            from .site_sync_incremental import begin as begin_selected
+            return await begin_selected(r,task,approval)
         selected=core.select(s['items'],s.get('selection',{}).get('selected',[]))
         if selected['blocked'] or (not selected['selected'] and not (approval and not s['items'])):raise Error('请选择条目并处理依赖阻止原因')
         if len(selected['selected'])>500:raise Error('本阶段每次实际同步最多500个变更项，请分批选择')
@@ -81,19 +85,19 @@ async def fetch(r,task,data):
 
 async def download(r,task):
     e=task['state']['execution'];index=e['file_index']
-    if index>=len(e['media']):e['phase']='prepare-rows';await persist(r,task);return
+    if index>=len(e['media']):e['phase']='write-record' if task['state'].get('incremental') else 'prepare-rows';await persist(r,task);return
     item=e['media'][index]
     if item['version'] is None:
         result=await fetch(r,task,{'op':'media-head','uid':item['uid']})
         if result.get('size')!=item['size'] or result.get('key')!=item['key'] or result.get('checksum')!=item['source_checksum']:raise Error('来源媒体登记已变化',409)
         token=result.get('record_version')
         if not isinstance(token,str) or len(token)!=64:raise Error('对端缺少媒体记录版本，请配套更新两站',409)
-        item['record_version']=token;item['version']=result['version'];await persist(r,task);return
+        item['binary_ranges']=result.get('binary_ranges')==1;item['record_version']=token;item['version']=result['version'];await persist(r,task);return
     offset=e['offset']
     if offset<item['size']:
-        result=await fetch(r,task,{'op':'media-range','uid':item['uid'],'version':item['version'],'record_version':item.get('record_version'),'offset':offset})
-        raw=base64.b64decode(result.get('bytes',''),validate=True)
-        if result.get('offset')!=offset or result.get('uid')!=item['uid'] or result.get('version')!=item['version'] or len(raw)!=min(CHUNK,item['size']-offset) or hashlib.sha256(raw).hexdigest()!=result.get('sha256'):raise Error('媒体分片校验失败')
+        result=await fetch(r,task,{'op':'media-range-binary' if item.get('binary_ranges') else 'media-range','uid':item['uid'],'version':item['version'],'record_version':item.get('record_version'),'offset':offset})
+        raw=result['raw'] if item.get('binary_ranges') else base64.b64decode(result.get('bytes',''),validate=True)
+        if result.get('offset')!=offset or result.get('uid')!=item['uid'] or result.get('version')!=item['version'] or len(raw)!=min(CHUNK,item['size']-offset) or (not item.get('binary_ranges') and hashlib.sha256(raw).hexdigest()!=result.get('sha256')):raise Error('媒体分片校验失败')
         await r.cache_store.put(chunk_key(task['uid'],index,offset),raw)
         e['offset']+=len(raw);e['bytes']+=len(raw);await persist(r,task);return
     from .site_sync_media import finalize_step
@@ -153,7 +157,7 @@ async def cleanup(r,task):
     from .site_sync_media import cleanup_step
     if await cleanup_step(r,task,i,item,CLEANUP_BATCH):
         # Cancel removes only our version of unregistered staged media, never referenced/live files.
-        if not e['committed'] and item.get('created_version'):
+        if (task['state'].get('incremental') or not e['committed']) and item.get('created_version'):
             async with lease(r,REFERENCE_LOCK,'edit'):
                 if not await r.sql.query('SELECT 1 FROM media_assets WHERE object_key=?',(item['key'],)):
                     store=inventory(r.media_store);head=await store.head(item['key'])
@@ -175,13 +179,14 @@ async def tick(r,uid,cancel=False):
             e.pop('error',None)
             with operation('execution:'+e['phase']):
                 from .site_sync_execute_plan import prepare_rows,validate_rows
-                await {'prepare-rows':prepare_rows,'validate-rows':validate_rows,'download':download,'verify-commit':verify_commit,'commit':commit,'cleanup':cleanup}[e['phase']](r,task)
+                from .site_sync_incremental import write_one
+                await {'write-record':write_one,'prepare-rows':prepare_rows,'validate-rows':validate_rows,'download':download,'verify-commit':verify_commit,'commit':commit,'cleanup':cleanup}[e['phase']](r,task)
         except Exception as exc:
             # Reload: a transaction/file operation may have committed before its response was lost.
             task=await tasks.get(r.sql,uid)
             saved=task['state']['execution']
             detail=exc.message if isinstance(exc,Error) else '操作未完成；进度已保留，可重试。请检查服务日志。'
-            saved['error']=detail+'；阶段：'+saved['phase']+'；'+('数据库已提交，后续步骤未完成' if saved['committed'] else '数据库尚未提交')
+            saved['error']=detail+'；阶段：'+saved['phase']+'；'+(('已逐条提交 '+str(saved.get('applied',0))+' 条，已完成内容保留') if task['state'].get('incremental') else ('数据库已提交，后续步骤未完成' if saved['committed'] else '数据库尚未提交'))
             saved['error_code']=exc.code if isinstance(exc,Error) else 'sync_runtime'
             await persist(r,task)
             if isinstance(exc,Error):raise

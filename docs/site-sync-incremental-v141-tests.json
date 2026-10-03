@@ -1,0 +1,56 @@
+{
+  "version": "0.15.141",
+  "date": "2026-10-03",
+  "schema_changed": false,
+  "protocol": 7,
+  "task_format": 8,
+  "unique_tests_passed": 83,
+  "suites": [
+    {
+      "scope": "selected execution, brief preview, simulated D1/R2",
+      "passed": 21
+    },
+    {
+      "scope": "legacy execution, approvals, references, recovery",
+      "passed": 35
+    },
+    {
+      "scope": "Worker startup",
+      "passed": 7
+    },
+    {
+      "scope": "admin DOM",
+      "passed": 20
+    }
+  ],
+  "real_worker_cpu_or_memory_measured": false,
+  "production_ubuntu_deployed": false,
+  "production_mutations": false,
+  "changes": [
+    "README.md",
+    "backend/app/native/site_sync.py",
+    "backend/app/native/site_sync_admin.py",
+    "backend/app/native/site_sync_apply.py",
+    "backend/app/native/site_sync_execute_plan.py",
+    "backend/app/native/site_sync_incremental.py",
+    "backend/app/native/site_sync_preview.py",
+    "backend/app/native/site_sync_proposals.py",
+    "backend/app/native/site_sync_tasks.py",
+    "deploy/cloudflare/runtime/snapshot.py",
+    "docs/site-sync-incremental-v141.md",
+    "frontend/admin/static/js/native-site-sync.js",
+    "frontend/admin/templates/native-site-sync.html",
+    "pyproject.toml",
+    "tests/site-sync-dom.test.cjs",
+    "tests/test_sync_incremental_platform_v141.py",
+    "tests/test_sync_incremental_v141.py",
+    "tests/test_sync_preview_v140.py",
+    "docs/site-sync-incremental-v141-tests.json"
+  ],
+  "limits": [
+    "Selected source row is still parsed as one bounded record (200KB)",
+    "Media encoding, merging and limits unchanged until step 3",
+    "Old tasks, incoming approval review and scheduled pulls retain legacy execution",
+    "Atomicity is per record, not whole-job rollback"
+  ]
+}

@@ -94,17 +94,38 @@ async def step(r,policy,s):
     if not policy['auto_pull']:s['message']='等待已确认任务；不自动拉取或批准推送';return
     if not s.get('preview_uid'):
         if s.get('next_due','')>now():return
-        job=await tasks.start(r,'pull',policy['scopes']);s['preview_uid']=job['uid'];s['last_started']=now();s['message']='分批读取最新差异';return
+        job=await tasks.start(r,'pull',policy['scopes'],lightweight=True);s.pop('auto_selection',None);s['preview_uid']=job['uid'];s['last_started']=now();s['message']='分批读取最新差异';return
     uid=s['preview_uid'];job=await tasks.get(r.sql,uid)
     if job['state'].get('restart_uid'):
-        s['preview_uid']=job['state']['restart_uid'];s['message']='旧预览已重新开始，改用新预览';return
+        s['preview_uid']=job['state']['restart_uid'];s.pop('auto_selection',None);s['message']='旧预览已重新开始，改用新预览';return
     from .site_sync_work import can_retry
     if job['state'].get('work',{}).get('status')=='paused' and not can_retry(job['state']['work']):
         s['task_uid']=uid;s['message']='原任务已保留，请打开最近预览重试或重新开始';return
     if job['status']=='reading':
         await tasks.advance(r,uid);s['message']='分批读取最新差异';return
     if job['status']!='ready':raise Error('定时预览已失效，将在下一周期重新读取',409)
-    items=job['state']['items'];ids=[x['id'] for x in items if x['in_scope']]
+    state=job['state']
+    if state.get('lightweight'):
+        if not state.get('incremental'):
+            from . import site_sync_preview as preview
+            selection=s.setdefault('auto_selection',{'ids':[],'after':['',''],'ready':False})
+            if not selection['ready']:
+                part=await preview.listing(r.sql,job,{'after':selection['after']})
+                ids=selection['ids']+[v['id'] for v in part['items']]
+                if len(ids)>500:raise Error('定时候选超过500项，请缩小模块范围或手动分批；尚未执行业务写入',409)
+                selection.update(ids=ids,after=part['next'],ready=part['next'] is None)
+                s['message']='分批收集候选：'+str(len(ids))+' 项';return
+            if not selection['ids']:
+                s.pop('preview_uid',None);s.pop('auto_selection',None)
+                s.update(next_due=now(seconds=policy['interval']*60),last_finished=now(),message='无可同步候选');return
+            if not state.get('prepared_uid') and state['selection']['selected']!=sorted(selection['ids']):
+                await tasks.choose(r,uid,selection['ids']);s['message']='已保存定时选择';return
+            child=await preview.prepare(r,uid)
+            s['preview_uid']=child['uid'];s.pop('auto_selection',None);s['message']='逐条准备所选内容和依赖';return
+        result=await apply.begin(r,uid,'从对端同步到本站')
+        s['task_uid']=uid;s['message']='按预先授权策略逐条执行';return
+    # Existing detailed tasks retain their checkpoints; newly created jobs use the path above.
+    items=state['items'];ids=[x['id'] for x in items if x['in_scope']]
     if not ids:
         s.pop('preview_uid',None);s['next_due']=now(seconds=policy['interval']*60);s['last_finished']=now();s['message']='无差异';return
     # Never partial silent success: blocked dependencies/limits stop for review.

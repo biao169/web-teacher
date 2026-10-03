@@ -5,6 +5,25 @@ from .catalog import Error
 from .data_tools import encoded
 LIMIT=1100000
 TIMEOUT=30
+from .site_sync_work import MEDIA_CHUNK_BYTES
+BINARY_TYPE='application/vnd.teacher-site.sync-chunk'
+FRAME_HEADER_LIMIT=8192
+FRAME_LIMIT=8+FRAME_HEADER_LIMIT+MEDIA_CHUNK_BYTES
+
+class BinaryReply:
+    def __init__(self,metadata,raw):self.metadata=metadata;self.raw=raw
+
+def binary_frame(secret,metadata,raw):
+    # Only the small metadata is canonicalized/HMACed; its signed digest binds the body.
+    header=encoded(envelope(secret,metadata))
+    if len(header)>FRAME_HEADER_LIMIT or not 0<len(raw)<=MEDIA_CHUNK_BYTES:raise failure('size','媒体分片超过读取上限')
+    return b'TSC1'+len(header).to_bytes(4,'big')+header+raw
+
+def binary_reply(body):
+    if len(body)<9 or len(body)>FRAME_LIMIT or body[:4]!=b'TSC1':raise failure('protocol','二进制分片格式无效')
+    length=int.from_bytes(body[4:8],'big')
+    if not 0<length<=FRAME_HEADER_LIMIT or not 0<len(body)-8-length<=MEDIA_CHUNK_BYTES:raise failure('size','二进制分片长度无效')
+    return BinaryReply(response_json(200,body[8:8+length]),body[8+length:])
 
 def failure(code,message,status=502):return Error(message,status,'sync_'+code)
 
@@ -33,7 +52,7 @@ def diagnosed(exc,kind,url,op,started):
     while frame and frame.tb_next:frame=frame.tb_next
     location=(frame.tb_frame.f_code.co_filename.rsplit('/',1)[-1]+':'+str(frame.tb_lineno)) if frame else 'unknown'
     logging.getLogger(__name__).warning('sync_transport id=%s code=%s platform=%s host=%s operation=%s elapsed_ms=%d exception=%s location=%s',
-        ref,code,kind,urlsplit(url).hostname,op if op in ('hello','inspect','revision-page','page','media-head','media-range','media-record','proposal-submit','proposal-status') else 'request',int((time.monotonic()-started)*1000),type(cause).__name__,location)
+        ref,code,kind,urlsplit(url).hostname,op if op in ('hello','inspect','revision-page','page','media-head','media-range','media-range-binary','media-record','proposal-submit','proposal-status') else 'request',int((time.monotonic()-started)*1000),type(cause).__name__,location)
     return Error(error.message+'；诊断编号：'+ref,error.status,code)
 
 
@@ -67,11 +86,11 @@ def verify(secret,value):
     return fields['payload']
 
 def response_json(status,body,headers=None):
+    headers={str(k).lower():str(v) for k,v in (headers or {}).items()}
     if 300<=status<400:raise failure('redirect','对端返回HTTP '+str(status)+' 重定向；请配置最终 HTTPS 根域名，接口不能跳转')
     if status!=200:
         hints={401:'对端要求认证，请检查同步配置或前置访问认证',403:'对端拒绝请求，请检查共享密钥、服务器时间或访问规则',404:'请求未找到接口，也可能未进入目标Worker；请检查公网地址、Worker间请求配置及部署版本',429:'对端请求过于频繁，请稍后重试'}
         hint=hints.get(status,'对端服务异常，请查看对端运行日志' if status>=500 else '请检查对端服务')
-        headers={str(k).lower():str(v) for k,v in (headers or {}).items()}
         ray=headers.get('cf-ray','');platform=headers.get('cf-error-type','')
         try:
             value=json.loads(body)
@@ -87,6 +106,7 @@ def response_json(status,body,headers=None):
         if platform in descriptions:hint+='；'+platform+' '+descriptions[platform]
         if ray and len(ray)<=64 and all(c.isalnum() or c=='-' for c in ray):hint+='；对端Ray ID：'+ray
         raise failure('http_'+str(status),'对端返回HTTP '+str(status)+'：'+hint)
+    if (headers or {}).get('content-type','').split(';')[0]==BINARY_TYPE:return binary_reply(body)
     try:result=json.loads(body)
     except (ValueError,UnicodeError) as exc:raise classify(exc,'parse') from None
     if not isinstance(result,dict):raise failure('protocol','对端 JSON 结构不正确，预期为同步接口对象')
@@ -95,12 +115,13 @@ def response_json(status,body,headers=None):
 async def post(kind,url,data):
     raw=encoded(data);url=origin(url)+'/api/site-sync/peer';started=time.monotonic()
     try:
-        if kind=='local':return await asyncio.to_thread(_local,url,raw)
-        return await _worker(url,raw)
+        limit=FRAME_LIMIT if data.get('payload',{}).get('op')=='media-range-binary' else LIMIT
+        if kind=='local':return await asyncio.to_thread(_local,url,raw,limit)
+        return await _worker(url,raw,limit)
     except Exception as exc:
         raise diagnosed(exc,kind,url,data.get('payload',{}).get('op'),started) from None
 
-def _local(url,raw):
+def _local(url,raw,limit=LIMIT):
     import socket,ssl,http.client
     host=urlsplit(url).hostname;deadline=time.monotonic()+TIMEOUT
     addresses=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
@@ -122,29 +143,29 @@ def _local(url,raw):
                 last=exc;continue
             conn.sock.settimeout(max(.01,deadline-time.monotonic()))
             tls=conn.sock
-            conn.request('POST','/api/site-sync/peer',body=raw,headers={'Content-Type':'application/json','Accept':'application/json'})
+            conn.request('POST','/api/site-sync/peer',body=raw,headers={'Content-Type':'application/json','Accept':BINARY_TYPE+', application/json'})
             response=conn.getresponse();chunks=[];size=0
             while not response.isclosed():
                 remaining=deadline-time.monotonic()
                 if remaining<=0:raise TimeoutError()
                 # HTTPResponse may own the socket after Connection: close.
                 tls.settimeout(remaining)
-                part=response.read1(min(65536,LIMIT+1-size))
+                part=response.read1(min(65536,limit+1-size))
                 if not part:break
                 chunks.append(part);size+=len(part)
-                if size>LIMIT:raise failure('size','对端响应超过读取上限，已停止')
+                if size>limit:raise failure('size','对端响应超过读取上限，已停止')
             return response_json(response.status,b''.join(chunks),dict(response.getheaders()))
         finally:
             conn.close()
             if sock is not None:sock.close()
     raise last or TimeoutError()
 
-async def _worker(url,raw):
+async def _worker(url,raw,limit=LIMIT):
     from js import fetch,AbortController,Object
     from pyodide.ffi import to_js
     controller=AbortController.new()
     async def run():
-        opts=to_js({'method':'POST','redirect':'manual','headers':{'Content-Type':'application/json','Accept':'application/json'},'body':raw.decode()},dict_converter=Object.fromEntries)
+        opts=to_js({'method':'POST','redirect':'manual','headers':{'Content-Type':'application/json','Accept':BINARY_TYPE+', application/json'},'body':raw.decode()},dict_converter=Object.fromEntries)
         opts.signal=controller.signal
         try:response=await fetch(url,opts)
         except Exception as exc:raise classify(exc,'fetch') from None
@@ -155,8 +176,9 @@ async def _worker(url,raw):
             while True:
                 part=await reader.read()
                 if part.done:break
+                if int(getattr(part.value,'byteLength',0))>limit-size:raise failure('size','对端响应超过读取上限，已停止')
                 data=bytes(part.value.to_py());size+=len(data)
-                if size>LIMIT:raise failure('size','对端响应超过读取上限，已停止')
+                if size>limit:raise failure('size','对端响应超过读取上限，已停止')
                 parts.append(data)
         except Exception as exc:raise classify(exc,'stream') from None
         finally:
@@ -171,8 +193,13 @@ async def _worker(url,raw):
 async def call(r,peer,payload):
     message=envelope(peer['secret'],payload)
     response=await post(r.kind,peer['origin'],message)
-    try:answer=verify(peer['secret'],response)
+    binary=response if isinstance(response,BinaryReply) else None
+    if (payload.get('op')=='media-range-binary')!=bool(binary):raise failure('protocol','对端分片响应类型不匹配')
+    try:answer=verify(peer['secret'],binary.metadata if binary else response)
     except Error as exc:raise diagnosed(exc,r.kind,peer['origin'],payload.get('op'),time.monotonic()) from None
     if not isinstance(answer,dict) or answer.get('request_nonce')!=message['nonce']:raise Error('对端响应与本次请求不匹配',409)
     if answer.get('site_id')==peer['local_id']:raise Error('不能将本站配置为自己的对端')
+    if binary:
+        if type(answer.get('size')) is not int or answer['size']!=len(binary.raw) or not hmac.compare_digest(str(answer.get('sha256','')),hashlib.sha256(binary.raw).hexdigest()):raise failure('chunk','媒体分片校验失败')
+        answer['raw']=binary.raw
     return answer

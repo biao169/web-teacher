@@ -1,0 +1,58 @@
+{
+  "version": "0.15.143",
+  "date": "2026-10-03",
+  "schema_changed": false,
+  "protocol": 7,
+  "task_format": 8,
+  "unique_tests_passed": 111,
+  "python_tests": 90,
+  "dom_tests": 21,
+  "runs": [
+    {
+      "scope": "initial approval, schedule, incremental regressions",
+      "passed": 27,
+      "failed_then_resolved": 1,
+      "note": "Changed-record recovery test needed a fresh source proposal after cancelling an approved task; rechecked in subsequent run."
+    },
+    {
+      "scope": "new entry points, adapter matrix, incremental execution and changed-record approval regression",
+      "passed": 23
+    },
+    {
+      "scope": "final entry points, adapter matrix, schedule permissions/recovery, media and Worker startup checks",
+      "passed": 72
+    },
+    {
+      "scope": "admin DOM including prepared approval selection and step timing",
+      "passed": 21
+    }
+  ],
+  "real_worker_cpu_or_memory_measured": false,
+  "production_mutations": false,
+  "changes": [
+    "README.md",
+    "backend/app/native/site_sync_incremental.py",
+    "backend/app/native/site_sync_preview.py",
+    "backend/app/native/site_sync_proposals.py",
+    "backend/app/native/site_sync_schedule.py",
+    "backend/app/native/site_sync_tasks.py",
+    "backend/app/native/site_sync_work.py",
+    "docs/site-sync-unified-v143-tests.json",
+    "docs/site-sync-unified-v143.md",
+    "frontend/admin/static/js/native-site-sync.js",
+    "frontend/admin/templates/native-site-sync.html",
+    "pyproject.toml",
+    "tests/site-sync-dom.test.cjs",
+    "tests/test_site_sync_v122.py",
+    "tests/test_site_sync_v123.py",
+    "tests/test_sync_unified_platform_v143.py",
+    "tests/test_sync_unified_v143.py"
+  ],
+  "limits": [
+    "Existing detailed tasks retain their checkpoints and legacy execution",
+    "Candidates overwrite even when body content is unchanged, including automatic runs",
+    "Maximum 500 records/dependencies, one record commit per tick; oversized runs stop",
+    "Native whole-file media checksum/publication still occupy one request each",
+    "Step elapsed_ms is elapsed wall time, not Cloudflare CPU time"
+  ]
+}

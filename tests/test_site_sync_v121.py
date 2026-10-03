@@ -16,6 +16,8 @@ def pair(tmp_path,monkeypatch):
   return {'Accept':'application/json','Origin':str(c.base_url).rstrip('/'),'X-CSRF-Token':re.search('id="site-sync" data-csrf="([^"]+)"',text)[1]}
  ha,hb=headers(a),headers(b)
  def api(op,data=None,client=a,h=ha,ok=True,drain=True):
+  # Historical execution tests exercise the retained detailed preparation path.
+  if op=='start':data={'preview_mode':'detailed',**(data or {})}
   v=client.post('/api/admin/site-sync/'+op,headers=h,json=data or {})
   # Model the UI's sequential checking requests; drain=False tests individual budgets.
   if drain and op in ('proposal-send','pull-tick','pull-begin','proposal-approve'):
@@ -34,7 +36,7 @@ def pair(tmp_path,monkeypatch):
  async def network(kind,url,data):
   v=(b if url=='https://b.example.org' else a).post('/api/site-sync/peer',headers={'Accept':'application/json'},json=data)
   if v.status_code!=200:raise Error(v.json()['error'],v.status_code)
-  return v.json()
+  return transport.response_json(v.status_code,v.content,dict(v.headers))
  monkeypatch.setattr(transport,'post',network)
  def preview(scopes,selector=lambda x:True,direction='pull'):
   job=api('start',{'direction':direction,'scopes':scopes})
