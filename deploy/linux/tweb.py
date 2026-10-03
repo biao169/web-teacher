@@ -31,6 +31,7 @@ DEFAULT_PIP_SOURCE = 'tuna'
 MARKER = 'teacher-site-managed-v1\n'
 SERVICE = 'teacher-site.service'
 USER = 'teacher-site'
+MULTI_LAYOUT_VERSION = 1
 
 
 def port_number(value):
@@ -55,11 +56,168 @@ class Layout:
     data: Path = Path('/opt/teacher-site/data')
     unit: Path = Path('/etc/systemd/system/teacher-site.service')
     command: Path = Path('/usr/local/bin/tweb')
+    instance: str = ''
+    user: str = USER
 
     @property
     def current(self): return self.base / 'current'
     @property
     def state(self): return self.config / 'install.json'
+
+
+def layout_identity(layout):
+    return {'instance':layout.instance,'base':str(layout.base),'command':layout.command.name}
+
+
+def layout_arguments(layout):
+    if not layout.instance:return []
+    return ['--instance',layout.instance,'--base',str(layout.base),'--command',layout.command.name]
+
+
+def instance_layout(instance,base=None,command=None):
+    if not re.fullmatch(r'[a-z][a-z0-9-]{0,18}',instance):
+        raise ValueError('实例名须为小写字母开头，最多19位字母、数字、连字符')
+    command=command or instance
+    if not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}',command) or command in ('sudo','sh','bash','python','python3','caddy','nginx','systemctl','test','true','false','echo','cd','exit','exec','eval','export','read','alias','set','source'):
+        raise ValueError('管理关键字无效或为保留命令 / Invalid management command')
+    base=base or ('/opt/teacher-site' if command=='tweb' else '/opt/teacher-site-'+instance)
+    if not re.fullmatch(r'/(?:opt|srv)/[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*',str(base)):
+        raise ValueError('目录须为 /opt 或 /srv 下的独立目录，仅支持字母、数字、下划线、连字符')
+    layout=Layout(base=Path(base),config=Path('/etc/teacher-site-'+instance),data=Path(base)/'data',
+                  unit=Path('/etc/systemd/system/teacher-site-'+instance+'.service'),
+                  command=Path('/usr/local/bin')/command,instance=instance,user='teacher-'+instance)
+    no_symlinks(layout.base)
+    # Forbid nesting inside, or enclosing, an existing managed instance.
+    roots=[Path('/opt/teacher-site')]
+    for marker in Path('/etc').glob('teacher-site*/.tweb-instance.json'):
+        no_symlinks(marker)
+        try:roots.append(Path(json.loads(marker.read_text())['base']))
+        except (ValueError,KeyError):raise ValueError('实例标记损坏，请先人工核对: '+str(marker))
+    for parent in layout.base.parents:
+        if (parent/'.tweb-owned').exists() or (parent/'.tweb-instance.json').exists():
+            raise ValueError('不能在已有实例内部安装另一个实例')
+    for other in roots:
+        if other!=layout.base and (other in layout.base.parents or layout.base in other.parents):
+            raise ValueError('实例目录不可相互嵌套: '+str(other))
+    return layout
+
+
+def argument_layout(args):
+    if not args.instance:
+        if args.base or args.command_name:raise ValueError('--base/--command 需要 --instance')
+        return Layout()
+    return instance_layout(args.instance,args.base,args.command_name)
+
+
+def check_identity(layout,recovery=False):
+    if not layout.instance:return
+    expected=layout_identity(layout);found=False
+    for folder in (layout.base,layout.config):
+        marker=folder/'.tweb-instance.json';no_symlinks(marker)
+        if marker.exists():
+            if json.loads(marker.read_text())!=expected:raise ValueError('实例身份不匹配 / Instance identity mismatch: '+str(folder))
+            found=True
+    if recovery:
+        # Arbitrary user-selected directories must never inherit legacy cleanup rules.
+        for folder in (layout.base,layout.config):
+            if folder.exists() and any(folder.iterdir()):
+                marker=folder/'.tweb-instance.json'
+                state=layout.state
+                evidence=marker.exists()
+                if not evidence and state.is_file():
+                    no_symlinks(state)
+                    evidence=json.loads(state.read_text()).get('layout')==expected
+                if not evidence:raise ValueError('无法确认目录属于本站，不自动删除；请选择新目录: '+str(folder))
+    if not found and not recovery:raise ValueError('缺少实例身份文件，请通过安装入口修复')
+
+
+def check_port(port):
+    port=port_number(port)
+    try:
+        with socket.socket() as sock:sock.bind(('127.0.0.1',port))
+    except OSError as exc:raise ValueError(f'端口 {port} 已被占用或不可用 / Port unavailable') from exc
+    return port
+
+
+def choose_port(port=8003):
+    while True:
+        try:return check_port(port)
+        except ValueError:
+            suggestion=next((p for p in range(port+1,min(port+101,65536)) if port_available(p)),None)
+            if not sys.stdin.isatty():raise
+            if suggestion is None:raise ValueError('附近没有可用端口，请指定 --port')
+            print(color(f'端口 {port} 已被占用 / Port occupied','33'))
+            port=port_number(input(f'应用端口 / Application port [{suggestion}]: ').strip() or suggestion)
+
+
+def port_available(port):
+    try:check_port(port);return True
+    except ValueError:return False
+
+
+def command_available(layout):
+    existing=shutil.which(layout.command.name)
+    if existing and Path(existing)!=layout.command:raise ValueError('关键字与现有命令冲突: '+existing)
+    no_symlinks(layout.command)
+    if layout.command.exists():
+        check_identity(layout,recovery=True)
+        text=layout.command.read_text()
+        if str(layout.base/'tweb.py') not in text or '--instance '+layout.instance not in text:
+            raise ValueError('管理关键字已被占用，请选择其他名称: '+str(layout.command))
+
+
+def suggest_base(base):
+    n=2
+    while Path(str(base)+'-'+str(n)).exists():n+=1
+    return str(base)+'-'+str(n)
+
+
+def select_install_layout(args):
+    interactive=sys.stdin.isatty()
+    command=args.command_name or (input('管理关键字 / Management command [tweb]: ').strip() if interactive else '') or 'tweb'
+    instance=args.instance or command.replace('_','-')
+    base=args.base or ('/opt/teacher-site' if command=='tweb' else '/opt/teacher-site-'+instance)
+    if interactive and not args.base:
+        base=input(f'安装目录 / Installation directory [{base}]: ').strip() or base
+    while True:
+        layout=instance_layout(instance,base,command)
+        try:command_available(layout)
+        except ValueError as exc:
+            if not interactive:raise
+            print(color(str(exc),'33'))
+            command=input('输入新的管理关键字 / New command [Enter = exit]: ').strip()
+            if not command:raise ValueError('已取消 / Cancelled')
+            instance=command.replace('_','-')
+            base=args.base or '/opt/teacher-site-'+instance
+            continue
+        m=Manager(layout);paths,account,group,loaded=m.remnants()
+        nonempty=any(p.is_file() or p.is_symlink() or (p.is_dir() and any(p.iterdir())) for p in paths)
+        if not (nonempty or account or group or loaded):break
+        if not interactive:raise ValueError('已有目录或实例；请交互选择新目录、恢复或重装')
+        print(color('发现已有文件 / Existing files: '+str(layout.base),'33'))
+        suggestion=suggest_base(layout.base)
+        print(f'1. 使用新目录 / New directory [{suggestion}]\n2. 删除本实例后重装 / Delete instance and reinstall\n3. 修复或续装（保留数据） / Repair or resume\n0. 退出 / Exit')
+        choice=input('选择 / Choice [0]: ').strip()
+        if choice=='1':
+            base=input(f'新目录 / New directory [{suggestion}]: ').strip() or suggestion
+            # A live instance keeps its namespace; the new one needs another command/service.
+            if layout.config.exists() or layout.command.exists() or account or group or loaded:
+                command=input('新实例管理关键字 / New command [Enter = exit]: ').strip()
+                if not command:raise ValueError('已取消 / Cancelled')
+                instance=command.replace('_','-')
+            continue
+        if choice=='2':m.clean_remnants();break
+        if choice=='3':
+            m.recovery_guard(account,group)
+            args.action='resume-install' if account is not None and layout.state.is_file() and json.loads(layout.state.read_text()).get('phase')=='preparing' and not layout.current.is_symlink() and not layout.unit.exists() else 'repair'
+            break
+        raise ValueError('已取消 / Cancelled')
+    if args.action=='install':
+        if interactive:
+            args.port=port_number(input(f'应用端口 / Application port [{args.port}]: ').strip() or args.port)
+        args.port=choose_port(args.port)
+    args.instance=instance;args.base=str(layout.base);args.command_name=command
+    return layout
 
 
 def run(argv, **kwargs):
@@ -216,6 +374,7 @@ def protected_digest(root,names=('backend','database','transfer','deploy','pypro
 class Manager:
     def __init__(self, layout=Layout(), runner=run):
         self.l=layout;self.runner=runner;self.sequence=0
+        self.service=layout.unit.name if layout.instance else SERVICE;self.user=layout.user
 
     def step(self,label,action,*args,**kwargs):
         self.sequence+=1;number=self.sequence;started=time.monotonic()
@@ -252,24 +411,27 @@ class Manager:
         for p in (self.l.base,self.l.config,self.l.data):owned(p)
         no_symlinks(self.l.state)
         state=json.loads(self.l.state.read_text())
+        check_identity(self.l)
         port_number(state.get('port',8003))
         repository(state['repo']);branch_name(state['branch']);hostname(state['domain'])
         return state
 
-    def save(self,state):write(self.l.state,json.dumps(state,ensure_ascii=False,indent=2)+'\n',0o600)
+    def save(self,state):
+        if self.l.instance:state['layout']=layout_identity(self.l)
+        write(self.l.state,json.dumps(state,ensure_ascii=False,indent=2)+'\n',0o600)
 
     def write_command(self,state):
         no_symlinks(self.l.command)
         self.l.command.parent.mkdir(parents=True,exist_ok=True)
         if self.l.command.exists() and hashlib.sha256(self.l.command.read_bytes()).hexdigest()!=state['owned_files'].get(str(self.l.command)):
             raise ValueError('tweb 入口已被外部修改 / Manager entry was modified externally')
-        command=shlex.quote(state['python'])+' '+shlex.quote(str(self.l.base/'tweb.py'))+' "$@"'
+        command=shlex.join([state['python'],str(self.l.base/'tweb.py'),*layout_arguments(self.l)])+' "$@"'
         write(self.l.command,'#!/bin/sh\n# Teacher website manager; sudo may request your OS password.\n'
               'if [ "$(id -u)" -ne 0 ]; then exec sudo -- '+command+'; fi\nexec '+command+'\n',0o755)
         state['owned_files'][str(self.l.command)]=hashlib.sha256(self.l.command.read_bytes()).hexdigest();self.save(state)
 
     def active(self):
-        return subprocess.run(['systemctl','is-active','--quiet',SERVICE],check=False).returncode==0
+        return subprocess.run(['systemctl','is-active','--quiet',self.service],check=False).returncode==0
 
     def switch(self, release):
         if release.parent!=self.l.base/'releases' or release.is_symlink() or not release.is_dir():raise ValueError('无效版本目录')
@@ -288,6 +450,8 @@ class Manager:
         try:
             self.run(['git','-c','core.hooksPath=/dev/null','clone','--depth','1','--single-branch','--branch',branch,'--',repo,release],env=os.environ|{'GIT_TERMINAL_PROMPT':'0'})
             check_source(release)
+            if self.l.instance and 'MULTI_LAYOUT_VERSION = 1' not in (release/'deploy/linux/tweb.py').read_text():
+                raise ValueError('目标分支缺少多实例管理支持；请先上传部署补丁 / Upload multi-instance patch first')
             print(color('跳过源码完整性校验 / Source integrity verification skipped','33'))
             # Runtime source is immutable and has no repository credentials or hooks.
             commit=self.run(['git','-C',release,'rev-parse','HEAD'],capture_output=True,text=True).stdout.strip()
@@ -308,10 +472,10 @@ class Manager:
     def import_media(self,release):
         files=import_seed_media(release,self.l.data/'media')
         for path in files:
-            self.run(['chown',f'{USER}:{USER}',path])
+            self.run(['chown',f'{self.user}:{self.user}',path])
             parent=path.parent
             while parent!=self.l.data:
-                self.run(['chown',f'{USER}:{USER}',parent]);parent.chmod(0o750);parent=parent.parent
+                self.run(['chown',f'{self.user}:{self.user}',parent]);parent.chmod(0o750);parent=parent.parent
         if files:print('预置媒体导入 / Seed media imported: '+str(len(files))+'；请在后台媒体目录核对中收录 / Register via media audit')
 
     def pip_source(self,value=None):
@@ -335,7 +499,7 @@ class Manager:
     def db(self, release, mode):
         # Reset and init both reuse the native schema, lock and admin prompt.
         env=['env','-i','PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','PYTHONUTF8=1','PYTHONDONTWRITEBYTECODE=1',f'TEACHER_CONFIG={self.l.config}/storage.toml']
-        prefix=['runuser','-u',USER,'--',*env,release/'.venv/bin/python']
+        prefix=['runuser','-u',self.user,'--',*env,release/'.venv/bin/python']
         if mode=='update':self.run([*prefix,'-m','backend.cli','migrate'],cwd=release)
         if mode=='reset':self.run([*prefix,'-m','backend.cli','reset-data','--include-transfer'],cwd=release)
         self.run([*prefix,release/'deploy/shared/launcher.py','init','--ready','--no-browser'],cwd=release)
@@ -369,11 +533,12 @@ class Manager:
         raise RuntimeError(f'健康检查失败 / Health check failed: {url}; Host={state["domain"]}; {last}。检查 tweb logs；若无应用日志，执行 sudo journalctl -u teacher-site.service -n 80 --no-pager')
 
     def start(self):
-        self.run(['systemctl','start',SERVICE])
+        if self.l.instance and not self.active():check_port(self.load().get('port',8003))
+        self.run(['systemctl','start',self.service])
         self.step('检查网站健康状态 / Check website health',self.healthy)
 
     def restart(self):
-        self.run(['systemctl','stop',SERVICE]);self.refresh_logging(self.load());self.start()
+        self.run(['systemctl','stop',self.service]);self.refresh_logging(self.load());self.start()
         print(color('[跳过 / SKIP] 防火墙 / Firewall — 规则未变，无需重启 / Rules unchanged; no restart needed','33'),flush=True)
         print(color('[跳过 / SKIP] nginx/Caddy — 配置未变，无需重启 / Configuration unchanged; no restart needed','33'),flush=True)
 
@@ -381,7 +546,7 @@ class Manager:
         # Existing shared renderer keeps service and bounded HTTP defaults consistent.
         output=self.l.config/'generated'
         if output.exists():shutil.rmtree(output)
-        self.run([release/'.venv/bin/python','-m','deploy.vps.release','render','--output',output,'--base',self.l.base,'--python',self.l.current/'.venv/bin/python','--teacher-domain',state['domain'],'--port',str(state.get('port',8003))],cwd=release)
+        self.run([release/'.venv/bin/python','-m','deploy.vps.release','render','--output',output,'--base',self.l.base,'--python',self.l.current/'.venv/bin/python','--teacher-domain',state['domain'],'--port',str(state.get('port',8003)),*(['--service-name',self.service,'--service-user',self.user,'--config-dir',str(self.l.config)] if self.l.instance else [])],cwd=release)
         storage=f'''[storage]
 data_dir = "{self.l.data}"
 database_path = "{self.l.data}/database/site.sqlite3"
@@ -394,13 +559,15 @@ transfer_cache_dir = "{self.l.base}/transfer-data/cache"
 '''
         write(self.l.config/'storage.toml',storage,0o640)
         write(self.l.config/'teacher-site.env',f'TEACHER_CONFIG={self.l.config}/storage.toml\nTEACHER_ORIGIN=https://{state["domain"]}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n',0o640)
-        unit=(output/SERVICE).read_text().replace('/etc/teacher-site',str(self.l.config)).replace('/var/lib/teacher-site',str(self.l.data)).replace(f'{self.l.base}/data',str(self.l.data))
+        unit=(output/self.service).read_text()
+        if not self.l.instance:unit=unit.replace('/etc/teacher-site',str(self.l.config))
+        unit=unit.replace('/var/lib/teacher-site',str(self.l.data)).replace(f'{self.l.base}/data',str(self.l.data))
         unit=unit.replace(f'{self.l.base}/current/transfer-data',f'{self.l.base}/transfer-data')
-        write(output/SERVICE,unit)
+        write(output/self.service,unit)
         write(self.l.unit,unit)
         state['owned_files'][str(self.l.unit)]=hashlib.sha256(self.l.unit.read_bytes()).hexdigest();self.save(state)
         # All paths the account can write are outside root-owned code/config files.
-        self.run(['chown',f'root:{USER}',self.l.config,self.l.config/'storage.toml',self.l.config/'teacher-site.env'])
+        self.run(['chown',f'root:{self.user}',self.l.config,self.l.config/'storage.toml',self.l.config/'teacher-site.env'])
         self.l.config.chmod(0o750)
         nginx=f'''# HTTPS snippet: include INSIDE an existing TLS server for {state['domain']}.
 # Configure listen 443 ssl and valid certificates in that server; do not publish HTTP login.
@@ -437,22 +604,23 @@ location / {{
         paths=[p for p in (self.l.base,self.l.config,self.l.unit,self.l.command)
                if p.exists() or p.is_symlink()]
         import grp
-        try:account=pwd.getpwnam(USER)
+        try:account=pwd.getpwnam(self.user)
         except KeyError:account=None
-        try:group=grp.getgrnam(USER)
+        try:group=grp.getgrnam(self.user)
         except KeyError:group=None
-        loaded=self.run(['systemctl','show','--property=LoadState','--value',SERVICE],capture_output=True,text=True).stdout.strip()
+        loaded=self.run(['systemctl','show','--property=LoadState','--value',self.service],capture_output=True,text=True).stdout.strip()
         return paths,account,group,loaded not in ('','not-found')
 
     def recovery_guard(self,account,group):
+        check_identity(self.l, recovery=True)
         # Never adopt a normal login account or delete an unrelated service/command.
-        fragment=self.run(['systemctl','show','--property=FragmentPath','--value',SERVICE],capture_output=True,text=True).stdout.strip()
+        fragment=self.run(['systemctl','show','--property=FragmentPath','--value',self.service],capture_output=True,text=True).stdout.strip()
         if fragment not in ('','not-found') and Path(fragment)!=self.l.unit:
             raise ValueError('同名服务来自其他位置，未接管: '+fragment)
         if account and (account.pw_uid==0 or account.pw_dir!=str(self.l.data) or
                         account.pw_shell not in ('/usr/sbin/nologin','/sbin/nologin','/bin/false')):
             raise ValueError('同名账号不是本站专用账号；未接管 / Account identity mismatch')
-        if group and (group.gr_mem or any(u.pw_gid==group.gr_gid and u.pw_name!=USER for u in pwd.getpwall())):
+        if group and (group.gr_mem or any(u.pw_gid==group.gr_gid and u.pw_name!=self.user for u in pwd.getpwall())):
             raise ValueError('同名组有额外成员，未删除 / Group has additional members')
         no_symlinks(self.l.config/'generated')
         for p in (self.l.base,self.l.config,self.l.data):
@@ -473,26 +641,29 @@ location / {{
         heading('将删除全部本站数据 / Delete ALL website data')
         for p in (self.l.base,self.l.config,self.l.unit,self.l.command):print(p)
         print('包括数据库、媒体、快传文件及专用账号；不删除共享软件或代理配置。')
-        confirm('DELETE',supplied)
-        if loaded or self.l.unit.exists():self.run(['systemctl','disable','--now',SERVICE])
+        if self.l.instance and supplied is None:
+            if not sys.stdin.isatty() or input('确认删除以上实例全部数据？ / Delete this instance? [y/N]: ').strip().lower()!='y':
+                raise ValueError('已取消 / Cancelled')
+        else:confirm('DELETE',supplied)
+        if loaded or self.l.unit.exists():self.run(['systemctl','disable','--now',self.service])
         if account:
             probe=self.run(['pgrep','-u',str(account.pw_uid)],check=False,capture_output=True,text=True)
             if probe.returncode==0:raise ValueError('专用账号仍有进程，已停止清理，请检查 PID: '+probe.stdout.strip())
             if probe.returncode!=1:raise ValueError('无法确认账号进程状态，停止清理')
         # Remove the account before data, so a failed userdel cannot leave half-deleted data.
-        if account:self.run(['userdel',USER])
+        if account:self.run(['userdel',self.user])
         import grp
-        try:grp.getgrnam(USER)
+        try:grp.getgrnam(self.user)
         except KeyError:pass
-        else:self.run(['groupdel',USER])
+        else:self.run(['groupdel',self.user])
         self.l.unit.unlink(missing_ok=True);self.l.command.unlink(missing_ok=True)
         # systemctl disable normally removes this link; also cover manually deleted units.
-        link=self.l.unit.parent/'multi-user.target.wants'/SERVICE
+        link=self.l.unit.parent/'multi-user.target.wants'/self.service
         if link.is_symlink() and link.resolve()==self.l.unit.resolve():link.unlink()
         for p in dict.fromkeys((self.l.data,self.l.config,self.l.base)):
             if p.exists():shutil.rmtree(p)
         self.run(['systemctl','daemon-reload'])
-        self.run(['systemctl','reset-failed',SERVICE],check=False)
+        self.run(['systemctl','reset-failed',self.service],check=False)
         print('本站残留清理完成 / Website remnants removed')
 
     def repair_install(self):
@@ -516,10 +687,10 @@ location / {{
         # Fetch and check deployment entry paths before stopping a working service.
         (self.l.base/'releases').mkdir(parents=True,exist_ok=True)
         release,commit=self.fetch(state['repo'],state['branch'])
-        if loaded or self.l.unit.exists():self.run(['systemctl','stop',SERVICE])
+        if loaded or self.l.unit.exists():self.run(['systemctl','stop',self.service])
         if account is None:
-            if group:self.run(['useradd','--system','--gid',USER,'--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',USER])
-            else:self.run(['useradd','--system','--user-group','--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',USER])
+            if group:self.run(['useradd','--system','--gid',self.user,'--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',self.user])
+            else:self.run(['useradd','--system','--user-group','--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',self.user])
         # Repair markers only after checking the layout and obtaining a valid state.
         for p in dict.fromkeys((self.l.base,self.l.config,self.l.data)):
             p.mkdir(parents=True,exist_ok=True)
@@ -535,7 +706,7 @@ location / {{
         for name,value in saved.items():write(self.l.config/name,value,0o640)
         self.permissions(repair=True)
         # init is idempotent; never resets existing user/content data.
-        self.db(release,'init');self.run(['systemctl','enable',SERVICE]);self.start()
+        self.db(release,'init');self.run(['systemctl','enable',self.service]);self.start()
         state.update(phase='ready',commit=commit);self.save(state)
         write(self.l.base/'tweb.py',(release/'deploy/linux/tweb.py').read_text())
         if self.l.command.exists():state['owned_files'][str(self.l.command)]=hashlib.sha256(self.l.command.read_bytes()).hexdigest()
@@ -547,8 +718,8 @@ location / {{
         if not (paths or account or group or loaded):return self.install(args)
         heading('检测到旧安装或残留 / Existing installation or remnants')
         for p in paths:print(p)
-        if account:print('账号 / Account: '+USER)
-        if group:print('用户组 / Group: '+USER)
+        if account:print('账号 / Account: '+self.user)
+        if group:print('用户组 / Group: '+self.user)
         if not sys.stdin.isatty():raise ValueError('请在交互终端选择修复或清理重装；不会自动删除数据')
         print('1. 修复/续装，保留已有数据 / Repair, preserve data')
         print('2. 彻底清理后重新安装 / Delete all website data and reinstall')
@@ -570,25 +741,27 @@ location / {{
         for p in (self.l.command,self.l.unit):
             no_symlinks(p)
             if p.exists():raise ValueError('入口已存在，拒绝覆盖: '+str(p))
-        loaded=self.run(['systemctl','show','--property=LoadState','--value',SERVICE],capture_output=True,text=True).stdout.strip()
+        loaded=self.run(['systemctl','show','--property=LoadState','--value',self.service],capture_output=True,text=True).stdout.strip()
         if loaded!='not-found':raise ValueError('系统已存在同名服务，拒绝覆盖')
-        try:pwd.getpwnam(USER)
+        try:pwd.getpwnam(self.user)
         except KeyError:pass
         else:raise ValueError('teacher-site 用户已存在，拒绝接管')
         self.run([args.python,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         with socket.socket() as sock:sock.bind(('127.0.0.1',port))
         state={'format':1,'port':port,'pip_source':pip_source,'repo':args.repo,'branch':args.branch,'domain':args.domain,'python':args.python,'user_created':False,'phase':'preparing','owned_files':{}}
         for p in (self.l.base,self.l.config,self.l.data):claim(p)
+        if self.l.instance:
+            for folder in (self.l.base,self.l.config):write(folder/'.tweb-instance.json',json.dumps(layout_identity(self.l)),0o600)
         self.save(state)
         # Install manager early so failed/interrupted setup can be cleanly uninstalled.
         write(self.l.base/'tweb.py',Path(__file__).read_text())
         self.write_command(state)
         try:
-            self.run(['useradd','--system','--user-group','--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',USER])
+            self.run(['useradd','--system','--user-group','--home-dir',self.l.data,'--no-create-home','--shell','/usr/sbin/nologin',self.user])
             state['user_created']=True;self.save(state)
             (self.l.base/'releases').mkdir()
             for p in (self.l.data/'cache',self.l.data/'media',self.l.base/'transfer-data/files',self.l.base/'transfer-data/cache'):p.mkdir(parents=True)
-            self.run(['chown','-R',f'{USER}:{USER}',self.l.data,self.l.base/'transfer-data'])
+            self.run(['chown','-R',f'{self.user}:{self.user}',self.l.data,self.l.base/'transfer-data'])
             self.l.data.chmod(0o700);(self.l.base/'transfer-data').chmod(0o700)
             release,commit=self.fetch(args.repo,args.branch)
             self.prepare(release,args.python);self.switch(release)
@@ -596,7 +769,7 @@ location / {{
             state['owned_files'][str(self.l.unit)]=hashlib.sha256(self.l.unit.read_bytes()).hexdigest();self.save(state)
             self.db(release,'init')
             self.permissions()
-            self.run(['systemctl','enable',SERVICE]);self.start()
+            self.run(['systemctl','enable',self.service]);self.start()
             state.update(phase='ready',commit=commit);self.save(state)
             print('安装完成。应用健康检查通过；公网 HTTPS 需按 tweb proxy 输出接入。')
             self.paths(state)
@@ -622,12 +795,12 @@ location / {{
         for name in ('data','transfer-data'):
             if (release/name).is_symlink():raise ValueError('暂存版本已有数据链接，需检查安装阶段 / Staged data links already exist')
         check_source(release)
-        loaded=self.run(['systemctl','show','--property=LoadState','--value',SERVICE],capture_output=True,text=True).stdout.strip()
+        loaded=self.run(['systemctl','show','--property=LoadState','--value',self.service],capture_output=True,text=True).stdout.strip()
         if loaded!='not-found':raise ValueError('系统已存在同名服务，拒绝覆盖 / Existing service; refusing overwrite')
         print(color('跳过源码完整性校验 / Source integrity verification skipped','33'))
         self.prepare(release,state['python']);self.switch(release);self.generate(release,state)
         self.db(release,'init');self.permissions()
-        self.run(['systemctl','enable',SERVICE]);self.start()
+        self.run(['systemctl','enable',self.service]);self.start()
         state['owned_files'][str(self.l.unit)]=hashlib.sha256(self.l.unit.read_bytes()).hexdigest()
         state['phase']='ready';self.save(state)
         write(self.l.base/'tweb.py',(release/'deploy/linux/tweb.py').read_text());self.write_command(state)
@@ -649,7 +822,7 @@ location / {{
         try:
             if args.scope=='frontend' and protected_digest(old)!=protected_digest(release):raise ValueError('后端、数据库或部署代码发生变化；请使用 update --scope all')
             self.prepare(release,state['python'])
-            self.run(['systemctl','stop',SERVICE]);stopped=True
+            self.run(['systemctl','stop',self.service]);stopped=True
             self.db(release,'reset' if args.reset else 'init')
             self.switch(release);switched=True
             self.refresh_logging(state)
@@ -661,12 +834,12 @@ location / {{
             if args.reset and stopped:
                 # The old schema may no longer match. Keep the new code stopped for repair.
                 if not switched:self.switch(release)
-                self.run(['systemctl','stop',SERVICE])
+                self.run(['systemctl','stop',self.service])
                 state.update(repo=repo,branch=branch,commit=commit,phase='reset-failed');self.save(state)
                 print('重置后的启动失败，服务保持停止；使用 tweb db-init / start 修复。',file=sys.stderr)
             else:
                 if switched:
-                    self.run(['systemctl','stop',SERVICE]);self.switch(old)
+                    self.run(['systemctl','stop',self.service]);self.switch(old)
                     write(self.l.unit,previous_unit)
                     self.run(['systemctl','daemon-reload'])
                 self.save(previous_state)
@@ -704,35 +877,35 @@ location / {{
         for path in directories:
             no_symlinks(path)
         if repair:
-            was_active=self.active();self.run(['systemctl','stop',SERVICE])
+            was_active=self.active();self.run(['systemctl','stop',self.service])
             for path in directories:
                 path.mkdir(parents=True,exist_ok=True);path.chmod(0o700)
             # Do not follow links inside writable user-data directories.
-            account=pwd.getpwnam(USER)
+            account=pwd.getpwnam(self.user)
             for root in (self.l.data,self.l.base/'transfer-data'):
                 for parent,dirs,files in os.walk(root,followlinks=False):
                     for path in [Path(parent),*[Path(parent)/n for n in dirs+files]]:
                         if path.is_symlink():continue
                         os.chown(path,account.pw_uid,account.pw_gid)
                         path.chmod(0o700 if path.is_dir() else 0o600)
-            self.run(['chown',f'root:{USER}',self.l.config,self.l.config/'storage.toml',self.l.config/'teacher-site.env'])
+            self.run(['chown',f'root:{self.user}',self.l.config,self.l.config/'storage.toml',self.l.config/'teacher-site.env'])
             self.l.config.chmod(0o750)
             for name in ('storage.toml','teacher-site.env'):(self.l.config/name).chmod(0o640)
         # Creation/removal, not just os.access(), verifies ACL and effective identity.
         code='import pathlib,tempfile,os,sys\nfor n in sys.argv[1:]:\n p=pathlib.Path(n);p.mkdir(parents=True,exist_ok=True)\n fd,name=tempfile.mkstemp(prefix=".tweb-check-",dir=p);os.close(fd);os.unlink(name)\n'
-        self.run(['runuser','-u',USER,'--',release/'.venv/bin/python','-c',code,*directories])
-        self.run(['runuser','-u',USER,'--',release/'.venv/bin/python','-c',
+        self.run(['runuser','-u',self.user,'--',release/'.venv/bin/python','-c',code,*directories])
+        self.run(['runuser','-u',self.user,'--',release/'.venv/bin/python','-c',
                   'import pathlib,sys;[pathlib.Path(p).open("rb").close() for p in sys.argv[1:]]',
                   release/'backend/entrypoints/vps.py',self.l.config/'storage.toml',self.l.config/'teacher-site.env'])
         if paths['database_path'].exists():
-            self.run(['runuser','-u',USER,'--',release/'.venv/bin/python','-c',
+            self.run(['runuser','-u',self.user,'--',release/'.venv/bin/python','-c',
                       'import os,sys;fd=os.open(sys.argv[1],os.O_RDWR|os.O_NOFOLLOW);os.close(fd)',paths['database_path']])
         if repair and was_active:self.start()
         print(color('读写权限检查通过 / Service read/write checks passed','32'))
 
     def dependencies(self):
         self.load();release=self.release();was_active=self.active()
-        self.run(['systemctl','stop',SERVICE])
+        self.run(['systemctl','stop',self.service])
         # Updating in place is deliberate: no extra virtual environments or backups.
         # On failure keep the service stopped; re-running retries the same lock file.
         self.install_dependencies(release)
@@ -749,7 +922,7 @@ location / {{
             if args.scope=='frontend':names=('backend','database','transfer','deploy','pyproject.toml')
             if protected_digest(old,names)!=protected_digest(fresh,names):
                 raise ValueError('后端/结构/依赖不兼容，请整站更新 / Incompatible schema or dependencies; use --scope all')
-            was_active=self.active();self.run(['systemctl','stop',SERVICE]);stopped=True
+            was_active=self.active();self.run(['systemctl','stop',self.service]);stopped=True
             # Keep the installed venv at its original path; console-script shebangs stay valid.
             # Only canonical source objects are replaced. Runtime paths are never traversed.
             if args.scope=='source':self.import_media(fresh)
@@ -771,7 +944,7 @@ location / {{
             state['frontend_commit' if args.scope=='frontend' else 'commit']=commit;self.save(state)
         except BaseException:
             if stopped:
-                self.run(['systemctl','stop',SERVICE]);state['phase']='partial-update-failed';self.save(state)
+                self.run(['systemctl','stop',self.service]);state['phase']='partial-update-failed';self.save(state)
                 print('局部更新失败，服务保持停止；重试或整站更新 / Partial update failed; service remains stopped',file=sys.stderr)
             raise
         finally:
@@ -783,14 +956,14 @@ location / {{
         current=port_number(state.get('port',8003));port=current if port is None else port_number(port)
         if port!=current:
             with socket.socket() as sock:sock.bind(('127.0.0.1',port))
-        paths=[self.l.unit,self.l.config/'generated'/SERVICE,self.l.config/'generated/Caddyfile.fragment',self.l.config/'generated/nginx-location.conf']
+        paths=[self.l.unit,self.l.config/'generated'/self.service,self.l.config/'generated/Caddyfile.fragment',self.l.config/'generated/nginx-location.conf']
         saved={}
         for path in paths:
             no_symlinks(path);saved[path]=path.read_text() if path.exists() else None
         unit,n=re.subn(r'--port\s+\d+',f'--port {port}',saved[self.l.unit])
         if n!=1:raise ValueError('无法识别服务端口 / Cannot identify service port')
         before=dict(state);before['owned_files']=dict(state['owned_files']);was_active=self.active()
-        self.run(['systemctl','stop',SERVICE])
+        self.run(['systemctl','stop',self.service])
         try:
             write(self.l.unit,unit);write(paths[1],unit)
             write(paths[2],f"{state['domain']} {{\n    encode zstd gzip\n    reverse_proxy 127.0.0.1:{port} {{\n        flush_interval 10ms\n    }}\n}}\n")
@@ -801,7 +974,7 @@ location / {{
             self.run(['systemctl','daemon-reload'])
             if was_active:self.start()
         except BaseException:
-            self.run(['systemctl','stop',SERVICE])
+            self.run(['systemctl','stop',self.service])
             for path,text in saved.items():
                 if text is None:path.unlink(missing_ok=True)
                 else:write(path,text)
@@ -839,14 +1012,14 @@ location / {{
         for path in selected:print(str(path))
         print('媒体/快传文件删除后，已有引用不可用；数据库删除将清除所有账号和条目。 / File references may break; database removal erases all accounts and records.')
         confirm('DELETE-'+scope.upper(),supplied)
-        was_active=self.active();self.run(['systemctl','stop',SERVICE])
+        was_active=self.active();self.run(['systemctl','stop',self.service])
         # Keep the service stopped on any filesystem failure.
         for path in selected:
             if path.is_dir():shutil.rmtree(path)
             else:path.unlink(missing_ok=True)
             if path.name!='service.log':
                 path.mkdir(parents=True,exist_ok=True);path.chmod(0o755 if scope=='source' else 0o700)
-                if scope!='source':self.run(['chown',f'{USER}:{USER}',path])
+                if scope!='source':self.run(['chown',f'{self.user}:{self.user}',path])
         if scope=='source':
             self.l.current.unlink(missing_ok=True);state['phase']='source-removed';self.save(state)
             print('保留数据、配置和 tweb；使用 update --scope all 恢复 / Data retained; restore with update --scope all')
@@ -859,7 +1032,7 @@ location / {{
     def database(self,reset=False,supplied=None,update=False):
         self.load();release=self.release()
         if reset:confirm('RESET',supplied)
-        was_active=self.active();self.run(['systemctl','stop',SERVICE])
+        was_active=self.active();self.run(['systemctl','stop',self.service])
         # Failure deliberately leaves the service stopped, never live with an empty account set.
         self.db(release,'reset' if reset else ('update' if update else 'init'))
         if was_active:self.start()
@@ -889,7 +1062,7 @@ location / {{
 
     def doctor(self):
         self.paths()
-        commands=[['systemctl','status','--no-pager',SERVICE],['ss','-ltn'],['ufw','status','verbose'],['firewall-cmd','--state'],['nft','list','ruleset'],['iptables','-S'],['nginx','-t'],['caddy','version']]
+        commands=[['systemctl','status','--no-pager',self.service],['ss','-ltn'],['ufw','status','verbose'],['firewall-cmd','--state'],['nft','list','ruleset'],['iptables','-S'],['nginx','-t'],['caddy','version']]
         for command in commands:
             if not shutil.which(command[0]):print(command[0]+': 未安装');continue
             print('\n$ '+' '.join(command),flush=True)
@@ -962,6 +1135,10 @@ def choose(title,entries):
 
 def parser():
     p=argparse.ArgumentParser(description='教师网站管理 / Teacher website manager; no command opens menu')
+    p.add_argument('--instance',default='')
+    p.add_argument('--base')
+    p.add_argument('--command',dest='command_name')
+    p.add_argument('--multi',action='store_true',help='Interactive isolated installation')
     sub=p.add_subparsers(dest='action')
     install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--python',default='/usr/bin/python3');install.add_argument('--port',type=port_number,default=8003);install.add_argument('--pip-source',choices=tuple(PIP_SOURCES),default=DEFAULT_PIP_SOURCE)
     source=sub.add_parser('pip-source');source.add_argument('name',choices=tuple(PIP_SOURCES),nargs='?')
@@ -984,9 +1161,15 @@ def execute(a):
     if not re.search(r'^ID=(?:"?)(ubuntu|debian)(?:"?)$',os_release,re.M):raise ValueError('仅支持 Ubuntu/Debian / Ubuntu or Debian required')
     os.umask(0o022)
     with open('/run/lock/teacher-site-manager.lock','a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        m=Manager()
-        if a.action=='install':m.install_entry(a)
+        try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:raise ValueError('另一部署操作正在执行，请稍后重试 / Another deployment operation is running') from None
+        layout=select_install_layout(a) if a.multi and a.action=='install' else argument_layout(a)
+        m=Manager(layout)
+        if layout.instance:
+            heading(f'实例 / Instance: {layout.instance} — {layout.command.name} — {layout.base}')
+        if a.action=='install':
+            if a.multi:m.install(a)
+            else:m.install_entry(a)
         elif a.action=='repair':m.repair_install()
         elif a.action=='clean-remnants':m.clean_remnants(a.confirm)
         elif a.action=='pip-source':m.pip_source(a.name)
@@ -1007,16 +1190,15 @@ def execute(a):
         elif a.action=='uninstall':m.uninstall(a.confirm)
         elif a.action.startswith('cleanup-'):
             m.load()
-            m.run(['runuser','-u',USER,'--','env','-i','PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','PYTHONUTF8=1','PYTHONDONTWRITEBYTECODE=1',f'TEACHER_CONFIG={m.l.config}/storage.toml',m.release()/'.venv/bin/python','-m','backend.cli',a.action],cwd=m.release())
+            m.run(['runuser','-u',m.user,'--','env','-i','PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','PYTHONUTF8=1','PYTHONDONTWRITEBYTECODE=1',f'TEACHER_CONFIG={m.l.config}/storage.toml',m.release()/'.venv/bin/python','-m','backend.cli',a.action],cwd=m.release())
         elif a.action in ('paths','doctor','proxy'):getattr(m,a.action)()
         else:
             m.load()
             if a.action=='logs':m.run(['tail','-n','100','-F',m.l.data/'logs/service.log'])
             elif a.action=='start':m.start()
             elif a.action=='restart':m.restart()
-            else:m.run(['systemctl',a.action,'--no-pager',SERVICE])
-    if a.action=='uninstall' or (a.action=='remove' and a.scope=='all'):
-        Path('/run/lock/teacher-site-manager.lock').unlink(missing_ok=True)
+            else:m.run(['systemctl',a.action,'--no-pager',m.service])
+    # Keep the shared lock inode stable: unlinking creates an inter-process race.
     return 0
 
 
@@ -1037,10 +1219,16 @@ def main(argv=None):
     # Older tweb wrappers used /usr/bin/python3 even when the app was installed
     # with a newer interpreter. Recover using the root-owned installation state.
     if sys.version_info<(3,12):
-        interpreter=Manager().load()['python']
+        interpreter=Manager(argument_layout(a)).load()['python']
         run([interpreter,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         os.execvp(interpreter,[interpreter,str(Path(__file__).resolve()),*(sys.argv[1:] if argv is None else argv)])
     heading('教师网站管理 / Teacher Website Manager')
+    if a.instance:
+        layout=argument_layout(a);heading(f'实例 / Instance: {a.instance} — {layout.command.name} — {layout.base}')
+        if layout.state.is_file():
+            try:
+                state=Manager(layout).load();print(f"https://{state['domain']} | 127.0.0.1:{state.get('port',8003)}")
+            except (ValueError,OSError):print(color('实例记录需要检查或修复 / Instance state needs inspection or repair','33'))
     if a.action:return perform(a)
     if not sys.stdin.isatty():p.print_help();return 0
     try:
@@ -1060,7 +1248,9 @@ def main(argv=None):
             if mode is None:return 0
             if mode=='repair':args+=['--repair']
     except EOFError:return 0
-    return perform(p.parse_args(args))
+    selected=p.parse_args(args)
+    for key in ('instance','base','command_name','multi'):setattr(selected,key,getattr(a,key))
+    return perform(selected)
 
 if __name__=='__main__':
     try:raise SystemExit(main())

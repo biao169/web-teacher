@@ -120,17 +120,19 @@ def domain(value):
  if len(value)>253 or not re.fullmatch(r'[a-z0-9]+(?:[a-z0-9.-]*[a-z0-9])?',value) or '.' not in value or any(not label or label.startswith('-') or label.endswith('-') or len(label)>63 for label in value.split('.')):raise ValueError('域名格式无效')
  return value
 
-def render(output,base,teacher_domain,transfer_domain,python,port=8003):
+def render(output,base,teacher_domain,transfer_domain,python,port=8003,service_name="teacher-site.service",service_user="teacher-site",config_dir="/etc/teacher-site"):
  """Generate one service, one origin and one local HTTP port; never deploy."""
  from deploy.shared.http_limits import teacher_concurrency
  if isinstance(port,bool) or not str(port).isdigit() or not 1024<=int(port)<=65535:raise ValueError("应用端口须为 1024–65535 / Invalid application port")
  port=int(port)
  base=safe_path(base);python=safe_path(python);host=domain(teacher_domain)
  if transfer_domain:domain(transfer_domain) # legacy CLI input, not a second listener
- if base=='/' or not base.startswith('/opt/'):raise ValueError('生产基目录须位于/opt下')
+ if not base.startswith(('/opt/','/srv/')):raise ValueError('生产基目录须位于 /opt 或 /srv 下')
+ config_dir=safe_path(config_dir)
+ if not re.fullmatch(r'[a-z][a-z0-9-]{0,50}\.service',service_name) or not re.fullmatch(r'[a-z][a-z0-9-]{0,30}',service_user):raise ValueError('无效服务名或账号')
  output=Path(output);output.mkdir(mode=0o700)
  (output/'storage.toml').write_text(f'[storage]\ndata_dir="{base}/data"\ndatabase_path="{base}/data/database/site.sqlite3"\ncache_dir="{base}/data/cache"\nmedia_dir="{base}/data/media"\ntransfer_database_path="{base}/data/database/legacy-transfer.sqlite3"\ntransfer_media_dir="{base}/transfer-data/files"\ntransfer_cache_dir="{base}/transfer-data/cache"\n')
- (output/'teacher-site.env').write_text(f'TEACHER_CONFIG=/etc/teacher-site/storage.toml\n# Canonical public origin also supplies robots.txt and sitemap URLs.\nTEACHER_ORIGIN=https://{host}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n')
+ (output/'teacher-site.env').write_text(f'TEACHER_CONFIG={config_dir}/storage.toml\n# Canonical public origin also supplies robots.txt and sitemap URLs.\nTEACHER_ORIGIN=https://{host}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n')
  (output/'teacher-site.env').chmod(0o600)
  unit=f"""[Unit]
 Description=Teacher website with integrated file transfer
@@ -139,10 +141,10 @@ StartLimitIntervalSec=60
 StartLimitBurst=3
 [Service]
 Type=simple
-User=teacher-site
-Group=teacher-site
+User={service_user}
+Group={service_user}
 WorkingDirectory={base}/current
-EnvironmentFile=/etc/teacher-site/teacher-site.env
+EnvironmentFile={config_dir}/teacher-site.env
 ExecStart={python} -m deploy.shared.service backend.entrypoints.vps:app --host 127.0.0.1 --port {port} --limit-concurrency {teacher_concurrency()}
 Restart=on-failure
 RestartSec=5
@@ -160,7 +162,7 @@ TasksMax=32
 [Install]
 WantedBy=multi-user.target
 """
- (output/'teacher-site.service').write_text(unit)
+ (output/service_name).write_text(unit)
  caddy=f'{host} {{\n    encode zstd gzip\n'
  for area in ('shared','public','admin'):
   caddy+=f'    handle_path /assets/{area}/* {{\n        root * {base}/current/frontend/{area}/static\n        file_server\n    }}\n'
@@ -179,7 +181,7 @@ def main():
  st=sub.add_parser('stage');st.add_argument('--source',type=Path,required=True);st.add_argument('--destination',type=Path,required=True)
  d=sub.add_parser('check-data');d.add_argument('--root',type=Path,default=ROOT);d.add_argument('--teacher-database',type=Path,required=True);d.add_argument('--transfer-database',type=Path,required=True)
  f=sub.add_parser('preflight');f.add_argument('--root',type=Path,default=ROOT);f.add_argument('--data-parent',type=Path,required=True)
- r=sub.add_parser('render');r.add_argument('--output',required=True);r.add_argument('--base',default='/opt/teacher-site');r.add_argument('--python',default='/opt/teacher-site/venv/bin/python');r.add_argument('--teacher-domain',required=True);r.add_argument('--transfer-domain');r.add_argument('--port',type=int,default=8003)
+ r=sub.add_parser('render');r.add_argument('--output',required=True);r.add_argument('--base',default='/opt/teacher-site');r.add_argument('--python',default='/opt/teacher-site/venv/bin/python');r.add_argument('--teacher-domain',required=True);r.add_argument('--transfer-domain');r.add_argument('--port',type=int,default=8003);r.add_argument('--service-name',default='teacher-site.service');r.add_argument('--service-user',default='teacher-site');r.add_argument('--config-dir',default='/etc/teacher-site')
  args=p.parse_args()
  try:
   if args.action=='manifest':result=write_manifest(args.root,args.refresh)
@@ -187,7 +189,7 @@ def main():
   elif args.action=='stage':result=stage(args.source,args.destination)
   elif args.action=='check-data':result=check_data(args.root,args.teacher_database,args.transfer_database)
   elif args.action=='preflight':result=preflight(args.root,args.data_parent)
-  else:result=render(args.output,args.base,args.teacher_domain,args.transfer_domain,args.python,args.port)
+  else:result=render(args.output,args.base,args.teacher_domain,args.transfer_domain,args.python,args.port,args.service_name,args.service_user,args.config_dir)
   print(json.dumps(result,ensure_ascii=False,indent=2))
   if args.action=='preflight' and result['blockers']:p.exit(2)
  except (ValueError,OSError) as exc:p.exit(1,str(exc)+'\n')
