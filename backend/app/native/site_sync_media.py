@@ -6,9 +6,7 @@ from .data_tools import digest
 from .media_inventory_store import inventory
 from .media import signature
 
-CHUNK=262144
-FILE_LIMIT=20*1024*1024
-TOTAL_LIMIT=24*1024*1024
+from .site_sync_work import MEDIA_CHUNK_BYTES as CHUNK,MEDIA_FILE_BYTES as FILE_LIMIT,MEDIA_TOTAL_BYTES as TOTAL_LIMIT
 
 def chunk_key(task,index,offset):return f'site-sync/{task}/{index}/{offset}.bin'
 
@@ -33,14 +31,57 @@ async def serve(r,data):
     if await store.head(row['object_key'])!=head:raise Error('来源文件读取期间发生变化',409)
     return {'uid':uid,'version':version,'offset':offset,'size':length,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':base64.b64encode(raw).decode()}
 
-async def assemble(r,task,index,item):
-    raw=bytearray()
-    for offset in range(0,item['size'],CHUNK):
-        part=await r.cache_store.get(chunk_key(task,index,offset),CHUNK)
-        if part is None or len(part)!=min(CHUNK,item['size']-offset):raise Error('暂存分片缺失，请取消后重新同步',409)
-        raw.extend(part)
-    checksum=hashlib.sha256(raw).hexdigest()
-    if item.get('source_checksum') and checksum!=item['source_checksum']:raise Error('媒体整体摘要不符，未覆盖目标文件',409)
-    mime=signature(raw,PurePosixPath(item['key']).suffix.lstrip('.').lower())
-    if not mime or mime!=item['mime_type']:raise Error('媒体内容与扩展名或登记类型不符',409)
-    return raw,checksum
+COMPOSE_FANOUT=4
+
+def merged_key(task,index,width,offset):
+    return chunk_key(task,index,offset) if width==CHUNK else f'site-sync/{task}/{index}/merge-{width}-{offset}.bin'
+
+async def finalize_step(r,task,index,item):
+    """One merge group, one checksum, or one publication per call."""
+    from .site_sync_stream import compose,checksum
+    from .media_locks import lease
+    from .media_references import REFERENCE_LOCK
+    e=task['state']['execution'];uid=task['uid']
+    width=item.get('merge_width',CHUNK);offset=item.get('merge_offset',0)
+    if width<item['size']:
+        parts=[(merged_key(uid,index,width,n),min(width,item['size']-n)) for n in range(offset,min(offset+width*COMPOSE_FANOUT,item['size']),width)]
+        await compose(r.cache_store,r.cache_store,parts,merged_key(uid,index,width*COMPOSE_FANOUT,offset))
+        offset+=width*COMPOSE_FANOUT
+        if offset>=item['size']:width*=COMPOSE_FANOUT;offset=0
+        item.update(merge_width=width,merge_offset=offset);return
+    key=merged_key(uid,index,width,0);cache=inventory(r.cache_store)
+    head=await cache.head(key)
+    if not head or head['size']!=item['size']:raise Error('合并暂存缺失，请取消后重新同步',409)
+    if not item.get('assembled_version'):
+        prefix=await cache.read_range(key,0,min(512,item['size']),head['version'])
+        mime=signature(prefix,PurePosixPath(item['key']).suffix.lstrip('.').lower())
+        if mime!=item['mime_type']:raise Error('媒体内容与登记类型不符',409)
+        value=await checksum(r.cache_store,key,item['size'])
+        if item.get('source_checksum') and value!=item['source_checksum']:raise Error('媒体整体摘要不符，未覆盖目标文件',409)
+        if await cache.head(key)!=head:raise Error('合并暂存发生变化',409)
+        item.update(sha256=value,assembled_version=head['version']);return
+    if head['version']!=item['assembled_version']:raise Error('合并暂存已变化，未写入媒体',409)
+    store=inventory(r.media_store)
+    async with lease(r,REFERENCE_LOCK,'edit'):
+        existing=await store.head(item['key'])
+        if existing:
+            if existing['size']!=item['size'] or await checksum(r.media_store,item['key'],item['size'])!=item['sha256']:
+                raise Error('目标存在同名不同内容文件；未覆盖',409)
+            if await store.head(item['key'])!=existing:raise Error('目标媒体发生变化',409)
+            target=existing
+        else:
+            await compose(r.cache_store,r.media_store,[(key,item['size'])],item['key'],exclusive=True)
+            target=await store.head(item['key']);item['created_version']=target['version']
+        if await cache.head(key)!=head:raise Error('发布期间暂存发生变化，请重新核对',409)
+        item['target_version']=target['version'];e['file_index']+=1;e['offset']=0
+
+async def cleanup_step(r,task,index,item,budget):
+    """At most budget deletes, including partially constructed merge levels."""
+    e=task['state']['execution'];width=e.get('cleanup_width',CHUNK);offset=e['cleanup_offset'];used=0
+    maximum=CHUNK
+    while maximum<item['size']:maximum*=COMPOSE_FANOUT
+    while width<=maximum and used<budget:
+        await r.cache_store.delete(merged_key(task['uid'],index,width,offset));used+=1;offset+=width
+        if offset>=item['size']:width*=COMPOSE_FANOUT;offset=0
+    e.update(cleanup_width=width,cleanup_offset=offset)
+    return width>maximum

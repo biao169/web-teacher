@@ -8,6 +8,7 @@ from .site_sync_transport import verify,envelope
 from .site_sync_diagnostics import operation
 from . import site_sync_proposals as proposals
 from . import site_sync_schedule as schedule
+from .site_sync_work import policy,REQUEST_INTERVAL_MS
 
 def install(app,resources,csrf,render):
     from .web import payload
@@ -18,7 +19,7 @@ def install(app,resources,csrf,render):
             rows=await r.sql.query('SELECT local_id,origin,enabled FROM sync_peers WHERE id=1')
             jobs=await r.sql.query("SELECT uid,status,created_at,json_extract(state,'$.execution.phase') AS execution_phase FROM sync_tasks ORDER BY CASE WHEN json_extract(state,'$.execution.phase') NOT IN ('done','cancelled') THEN 0 ELSE 1 END,created_at DESC LIMIT 10")
             return await render(r,'admin/native-site-sync.html','data_tools',title='两站同步 · 预览',
-                schedule=await schedule.status(r.sql),incoming=await proposals.inbox(r),allow_proposals=await proposals.enabled(r.sql),peer=rows[0] if rows else {},sync_tables=[{'key':t,'label':MODULES[t]} for t in core.SCOPES],sync_jobs=jobs)
+                sync_policy=policy(),schedule=await schedule.status(r.sql),incoming=await proposals.inbox(r),allow_proposals=await proposals.enabled(r.sql),peer=rows[0] if rows else {},sync_tables=[{'key':t,'label':MODULES[t]} for t in core.SCOPES],sync_jobs=jobs)
     @app.post('/api/admin/site-sync/{action}')
     async def admin(request:Request,action:str):
         with operation('admin'):
@@ -34,11 +35,13 @@ def install(app,resources,csrf,render):
             elif action=='start':
                 authorize(r,'export',core.SCOPES)
                 result=await tasks.start(r,data.get('direction'),data.get('scopes'))
+            elif action=='restart':result=await tasks.restart(r,str(data.get('uid','')))
+            elif action=='resume':result=await tasks.resume(r,str(data.get('uid','')))
             elif action=='advance':
                 authorize(r,'export',core.SCOPES)
                 result=await tasks.advance(r,str(data.get('uid','')))
                 if result['status']=='ready':
-                    await proposals.finish_review(r,result['uid'])
+                    if result.get('approval'):await proposals.finish_review(r,result['uid'])
                     result=await present(r,result['uid'])
             elif action=='proposal-send':result=await proposals.send(r,str(data.get('uid','')))
             elif action=='proposal-status':result=await proposals.sent_status(r,str(data.get('uid','')))
@@ -57,7 +60,7 @@ def install(app,resources,csrf,render):
                 from .site_sync_apply import tick
                 result=await tick(r,str(data.get('uid','')),cancel=action=='pull-cancel')
                 await proposals.update_progress(r,result)
-            elif action=='select':result=await tasks.choose(r.sql,str(data.get('uid','')),data.get('ids'))
+            elif action=='select':result=await tasks.choose(r,str(data.get('uid','')),data.get('ids'))
             elif action=='get':
                 authorize(r,'export',core.SCOPES)
                 result=await present(r,str(data.get('uid','')))
@@ -69,16 +72,16 @@ def install(app,resources,csrf,render):
             # Peer capability is separate from browser sessions and only exports read-only manifests.
             r=await resources(request);p=await tasks.peer(r.sql);value=await payload(request,131072)
             data=verify(p['secret'],value)
-            if not isinstance(data,dict) or data.get('schema')!=core.schema() or data.get('protocol')!=core.PROTOCOL:raise Error('同步协议或业务字段结构不一致，请将两站配套更新至v0.15.130或后续兼容版本',409)
+            if not isinstance(data,dict) or data.get('schema')!=core.schema() or data.get('protocol')!=core.PROTOCOL:raise Error('同步协议或业务字段结构不一致，请将两站配套更新至v0.15.139或后续兼容版本',409)
             op=data.get('op')
             with operation('peer:'+op if op in ('hello','inspect','revision-page','page','proposal-submit','proposal-status','media-head','media-range','media-record') else 'peer:unknown'):
                 if op in ('hello','inspect'):
-                    result={'schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0}
+                    result={'schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0,'policy':policy()}
                     if op=='inspect':result['revision']=await core.revision(r.sql)
                 elif op in ('page','revision-page'):
                     table=data.get('table');after=data.get('after','');core.columns(table)
-                    if not isinstance(after,str) or len(after)>120:raise Error('分页参数无效')
-                    result=await (core.revision_page(r.sql,table,after) if op=='revision-page' else core.page(r.sql,table,after))
+                    if not isinstance(after,str) or len(after)>128:raise Error('分页参数无效')
+                    result=await (core.revision_page(r.sql,table,after,data.get('limit')) if op=='revision-page' else core.page(r.sql,table,after,data.get('limit')))
                 elif op=='proposal-submit':result=await proposals.receive(r,p,data)
                 elif op=='proposal-status':
                     proposals.validate(data,p)
@@ -93,7 +96,7 @@ def install(app,resources,csrf,render):
 
 async def present(r,uid):
     task=await tasks.get(r.sql,uid);s=task['state']
-    result={'uid':uid,'status':task['status'],'items':s.get('items',[]),'selection':s.get('selection',{}),'direction':s['direction'],'approval':s.get('approval')}
+    result={'uid':uid,'status':task['status'],'items':s.get('items',[]),'selection':s.get('selection',{}),'direction':s['direction'],'scopes':s['scopes'],'approval':s.get('approval'),'work':s.get('work',{}),'policy':s.get('policy',policy()),'request_interval_ms':REQUEST_INTERVAL_MS}
     if s.get('outgoing'):result['outgoing']=s['outgoing'].get('receipt',{'status':'unconfirmed'})
     if s.get('execution'):
         from .site_sync_apply import progress

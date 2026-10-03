@@ -39,6 +39,23 @@ async def discard(r,token):
     await cleanup(r,token,value)
 
 
+def normalize_record(r,table,source,old,sensitive=False):
+    """Shared single-row normalization for restore and incremental synchronization."""
+    patch=row_values(table,source,sensitive)
+    row=defaults(table)|old|patch;row.pop('id',None)
+    row['created_at']=old.get('created_at') or patch.get('created_at') or now()
+    row['updated_at']=old.get('updated_at') or now()
+    for name in OMIT:
+        if name in row:row[name]=None
+    row=row_values(table,{k:v for k,v in row.items() if k not in OMIT and (k not in SECRET or sensitive)},sensitive)
+    for name in SECRET & set(TABLES[table]['columns']):
+        if name not in row:row[name]=old.get(name,defaults(table).get(name))
+    validate_domain(table,row)
+    if table=='media_assets' and row['storage_kind']!='external':row['storage_kind']=r.kind
+    if 'visibility' in row and row['visibility'] not in r.p['scopes']:raise Error('条目可见范围未授权')
+    return row
+
+
 async def prepare(r,document,tables,mode,*,removed=None):
     """Normalize up to 500 rows and compare the prospective graph before allowing execution."""
     tables=selection(tables);authorize(r,'edit',tables)
@@ -59,21 +76,10 @@ async def prepare(r,document,tables,mode,*,removed=None):
         current={v['uid']:v for v in await r.sql.query('SELECT * FROM "'+table+'" WHERE '+condition,(ids,))};target=[];seen=set()
         for index,source in enumerate(rows):
             try:
-                patch=row_values(table,source,document.get('sensitive',False));uid=patch['uid']
+                uid=source.get('uid') if isinstance(source,dict) else None
                 if uid in seen:raise Error('UID重复')
-                seen.add(uid);old=current.get(uid,{})
-                row=defaults(table)|old|patch;row.pop('id',None)
-                row['created_at']=old.get('created_at') or patch.get('created_at') or now()
-                row['updated_at']=old.get('updated_at') or now()
-                # Safe imports retain an existing secret and never import in-flight provider jobs.
-                for name in OMIT:
-                    if name in row:row[name]=None
-                row=row_values(table,{k:v for k,v in row.items() if k not in OMIT and (k not in SECRET or document.get('sensitive',False))},document.get('sensitive',False))
-                for name in SECRET & set(TABLES[table]['columns']):
-                    if name not in row:row[name]=old.get(name,defaults(table).get(name))
-                validate_domain(table,row)
-                if table=='media_assets' and row['storage_kind']!='external':row['storage_kind']=r.kind
-                if 'visibility' in row and row['visibility'] not in r.p['scopes']:raise Error('条目可见范围未授权')
+                seen.add(uid)
+                row=normalize_record(r,table,source,current.get(uid,{}),document.get('sensitive',False))
                 target.append(row)
             except (Error,ValueError,TypeError) as exc:
                 errors.append({'table':table,'row':index+1,'message':exc.message if isinstance(exc,Error) else '记录格式无效'})

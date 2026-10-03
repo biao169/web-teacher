@@ -74,6 +74,7 @@ async def receipt(r,data):
             result.update(phase=e.get('phase'),committed=e.get('committed'))
     return result
 
+@tasks.step('proposal-send')
 async def send(r,uid):
     authorize(r,'export',core.SCOPES)
     async with lease(r,'site-sync:proposal-send','edit'):
@@ -142,6 +143,7 @@ async def review(r,request_id):
     await r.sql.batch([guard,('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(task['state']).decode(),job['uid'])),('UPDATE service_meta SET value=? WHERE key=?',(encoded(value).decode(),INBOX)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
     return job
 
+@tasks.step('review-finish')
 async def finish_review(r,uid):
     task=await tasks.get(r.sql,uid);s=task['state'];link=s.get('approval')
     if not link or link['ready']:return

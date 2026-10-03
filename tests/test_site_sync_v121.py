@@ -19,11 +19,11 @@ def pair(tmp_path,monkeypatch):
   v=client.post('/api/admin/site-sync/'+op,headers=h,json=data or {})
   # Model the UI's sequential checking requests; drain=False tests individual budgets.
   if drain and op in ('proposal-send','pull-tick','pull-begin','proposal-approve'):
-   for _ in range(100):
+   for _ in range(800):
     if v.status_code!=200:break
     result=v.json()
     if result.get('checking'):next_op=op
-    elif result.get('execution',{}).get('phase')=='verify-commit':next_op='pull-tick'
+    elif result.get('execution',{}).get('phase') in ('prepare-rows','validate-rows','verify-commit'):next_op='pull-tick'
     else:break
     v=client.post('/api/admin/site-sync/'+next_op,headers=h,json=data if result.get('checking') else {'uid':data['uid']})
    else:pytest.fail('Verification did not finish')
@@ -38,7 +38,7 @@ def pair(tmp_path,monkeypatch):
  monkeypatch.setattr(transport,'post',network)
  def preview(scopes,selector=lambda x:True,direction='pull'):
   job=api('start',{'direction':direction,'scopes':scopes})
-  for _ in range(100):
+  for _ in range(600):
    result=api('advance',{'uid':job['uid']})
    if result['status']=='ready':break
   else:pytest.fail('Preview did not finish')
@@ -47,7 +47,7 @@ def pair(tmp_path,monkeypatch):
  yield api,preview,ra,rb,a,b,network
  a.close();b.close()
 
-def finish(api,uid,max_ticks=100):
+def finish(api,uid,max_ticks=800):
  for _ in range(max_ticks):
   p=api('pull-tick',{'uid':uid})
   if p['execution']['phase'] in ('done','cancelled'):return p
@@ -57,19 +57,19 @@ def seed_media(r,uid,key,data):
  run(r.media_store.put(key,data))
  run(r.sql.batch([('INSERT INTO media_assets(uid,object_key,title,mime_type,size,storage_kind,status,checksum) VALUES(?,?,?,?,?,?,?,?)',(uid,key,key,'image/jpeg',len(data),r.kind,'active',hashlib.sha256(data).hexdigest()))]))
 
-def test_replacement_commit_then_physical_delete(pair):
+def test_replacement_commit_retains_old_media(pair):
  api,preview,ra,rb,*_=pair
  raw=Path('tests/fixtures/media/sample.jpg').read_bytes();old='a'*32;new='b'*32
  seed_media(ra,old,'old.jpg',raw);seed_media(rb,new,'new.jpg',raw)
  for r,key in ((ra,'old.jpg'),(rb,'new.jpg')):
   run(r.sql.batch([("INSERT INTO profiles(uid,name,avatar_key) VALUES('shared-teacher','Teacher',?)",(key,)),("INSERT INTO news(uid,title,slug,content,content_format) VALUES('shared-news','News','shared-news',?,'html')",('<img src="/media/'+(old if r is ra else new)+'">',))]))
  before=run(core.revision(rb.sql))
- uid=preview(['media_assets'],lambda i:i['id']=='media_assets:'+old)
+ uid=preview(['profiles','news'])
  result=api('pull-begin',{'uid':uid,'confirmation':'从对端同步到本站'})
  assert result['media_count']==1
  assert api('select',{'uid':uid,'ids':[]},ok=False).status_code==409
  commit_seen=False
- for _ in range(50):
+ for _ in range(800):
   result=api('pull-tick',{'uid':uid})
   if result['execution']['committed'] and not commit_seen:
    commit_seen=True
@@ -78,8 +78,8 @@ def test_replacement_commit_then_physical_delete(pair):
    assert run(ra.media_store.get('old.jpg'))==raw
   if result['execution']['phase']=='done':break
  else:pytest.fail('Task did not finish')
- assert commit_seen and run(ra.media_store.get('old.jpg')) is None
- assert run(ra.sql.query('SELECT uid FROM media_assets WHERE uid=?',(old,)))==[]
+ assert commit_seen and run(ra.media_store.get('old.jpg'))==raw
+ assert run(ra.sql.query('SELECT uid FROM media_assets WHERE uid=?',(old,)))
  assert run(core.revision(rb.sql))==before
  assert api('pull-tick',{'uid':uid})['execution']['phase']=='done'
  assert len(run(ra.sql.query("SELECT uid FROM operation_logs WHERE action='sync_pull_commit' AND target_uid=?",(uid,))))==1
@@ -104,7 +104,10 @@ def test_pause_retry_cancel_and_changed_target(pair,monkeypatch):
  assert api('pull-tick',{'uid':uid},ok=False).status_code==502
  assert api('get',{'uid':uid})['execution']['error'].startswith('Network offline；阶段：download；数据库尚未提交')
  monkeypatch.setattr(transport,'post',network)
- api('pull-tick',{'uid':uid});api('pull-tick',{'uid':uid}) # download + promotion
+ for _ in range(50):
+  result=api('pull-tick',{'uid':uid},drain=False)
+  if result['execution']['file_index']==1:break
+ else:pytest.fail('media promotion not complete')
  assert run(ra.media_store.get('new.jpg'))==raw
  run(ra.sql.batch([("INSERT INTO students(uid,name) VALUES('changed','Changed')",())]))
  assert api('pull-tick',{'uid':uid},ok=False).status_code==409
@@ -113,16 +116,16 @@ def test_pause_retry_cancel_and_changed_target(pair,monkeypatch):
  assert run(ra.media_store.get('new.jpg')) is None
  assert run(ra.sql.query("SELECT name FROM students WHERE uid='changed'"))[0]['name']=='Changed'
 
-def test_new_reference_protects_old_media(pair):
+def test_target_only_media_is_absent_from_preview(pair):
  api,preview,ra,rb,*_=pair
  raw=Path('tests/fixtures/media/sample.jpg').read_bytes();seed_media(ra,'a'*32,'old.jpg',raw)
- uid=preview(['media_assets']);api('pull-begin',{'uid':uid,'confirmation':'从对端同步到本站'})
- api('pull-tick',{'uid':uid});result=api('pull-tick',{'uid':uid});assert result['execution']['committed']
- run(ra.sql.batch([("INSERT INTO profiles(uid,name,avatar_key) VALUES('late','Late','old.jpg')",())]))
- assert api('pull-tick',{'uid':uid},ok=False).status_code==409
+ uid=preview(['media_assets'])
+ from backend.app.native import site_sync_tasks as tasks
+ job=run(tasks.get(ra.sql,uid))
+ assert not any(x['table']=='media_assets' for x in job['state']['items'])
+ assert api('select',{'uid':uid,'ids':['media_assets:'+'a'*32]},ok=False).status_code==422
  assert run(ra.media_store.get('old.jpg'))==raw
- api('pull-cancel',{'uid':uid});finish(api,uid)
- assert run(ra.media_store.get('old.jpg'))==raw
+ assert run(ra.sql.query("SELECT uid FROM media_assets WHERE object_key='old.jpg'"))
 
 def test_commit_ack_lost_is_not_replayed(pair,monkeypatch):
  api,preview,ra,rb,*_=pair
@@ -146,8 +149,10 @@ def test_same_key_conflict_never_overwrites(pair):
  raw=Path('tests/fixtures/media/sample.jpg').read_bytes();seed_media(rb,'b'*32,'same.jpg',raw)
  run(ra.media_store.put('same.jpg',b'existing-unregistered-file'))
  uid=preview(['media_assets']);api('pull-begin',{'uid':uid,'confirmation':'从对端同步到本站'})
- api('pull-tick',{'uid':uid});api('pull-tick',{'uid':uid})
- assert api('pull-tick',{'uid':uid},ok=False).status_code==409
+ for _ in range(20):
+  response=api('pull-tick',{'uid':uid},ok=False)
+  if response.status_code!=200:break
+ assert response.status_code==409
  api('pull-cancel',{'uid':uid});finish(api,uid)
  assert run(ra.media_store.get('same.jpg'))==b'existing-unregistered-file'
 

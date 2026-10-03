@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),{spawnSync}=require('node:child_process');
 const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
 const source=fs.readFileSync('frontend/admin/static/js/native-site-sync.js','utf8').replace(/^import[^\n]+\n/gm,'');
-function markup(){const r=spawnSync(process.env.TEST_PYTHON||'python3',['-B','-c',"import sys,tempfile;sys.path.insert(0,'tests');from list_fixture import client_at;from pathlib import Path\nwith tempfile.TemporaryDirectory() as root:\n c,r=client_at(Path(root));page=c.get('/admin/data-tools/sync');assert page.status_code==200;print(page.text);c.close()"],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout;}
+function markup(){const r=spawnSync(process.env.TEST_PYTHON||'python3',['-B','-c',"import sys,tempfile;sys.path.insert(0,'tests');from list_fixture import client_at;from pathlib import Path\nwith tempfile.TemporaryDirectory() as root:\n c,r=client_at(Path(root));page=c.get('/admin/data-tools/sync');assert page.status_code==200;print(page.text);c.close()"],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.replace(/data-interval-ms="[0-9]+"/,'data-interval-ms="0"');}
 const tick=()=>new Promise(r=>setTimeout(r,30));
 test('preview UI selects dependencies and never exposes a business execute action',async t=>{
  const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
@@ -104,4 +104,51 @@ for(const direction of ['pull','push'])test(direction+' verification pauses befo
  d.querySelector('#sync-confirm').value='从对端同步到本站';d.querySelector(button).click();await tick();
  assert.equal(checks,1);assert.match(d.querySelector('#sync-status').textContent,/复核已暂停/);assert(!d.querySelector(button).disabled);
  d.querySelector(button).click();await tick();assert.equal(checks,3);assert.doesNotMatch(d.querySelector('#sync-status').textContent,/复核已暂停/);
+});
+
+test('low-load pacing waits between requests and pause prevents the next batch',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ d.querySelector('#site-sync').dataset.intervalMs='1000';let advances=0,waiting;
+ w.setTimeout=fn=>{waiting=fn;return 1};w.notify=()=>{};
+ w.adminFetch=async url=>{
+  const op=url.split('/').pop();let result={uid:'task',status:'reading'};
+  if(op==='advance'){advances++;result={...result,phase:'content',count:5,work:{phase:'content',completed_steps:1,count:5,completed_at:'saved'}}}
+  return {ok:true,json:async()=>result};
+ };
+ w.eval(source);d.querySelector('[data-direction="pull"]').click();await tick();
+ assert.equal(advances,1);assert.equal(typeof waiting,'function');assert.match(d.querySelector('#sync-checkpoint').textContent,/已保存步骤 1/);
+ d.querySelector('#sync-pause').click();waiting();await tick();
+ assert.equal(advances,1);assert.match(d.querySelector('#sync-status').textContent,/已暂停/);
+});
+
+for(const scenario of ['transient','permanent','pause'])test('bounded recovery: '+scenario,async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());
+ const w=dom.window,d=w.document,calls=[];let attempts=0;
+ d.querySelector('#site-sync').dataset.retrySeconds=JSON.stringify(scenario==='pause'?[.15,.15,.15]:[.001,.002,.003]);
+ w.adminFetch=async(url)=>{const op=url.split('/').pop();calls.push(op);
+  if(op==='start')return {ok:true,json:async()=>({uid:'retry-task',status:'reading'})};
+  if(op==='get')return {ok:true,json:async()=>({uid:'retry-task',status:'reading',work:{status:'saved',completed_steps:2}})};
+  if(op==='advance'){attempts++;return {ok:false,status:scenario==='permanent'?403:503,json:async()=>({error:'test failure'})}};
+  throw Error('unexpected '+op);
+ };
+ w.notify=()=>{};w.eval(source);d.querySelector('[data-direction="pull"]').click();await tick();
+ if(scenario==='pause'){d.querySelector('#sync-pause').click();await new Promise(r=>setTimeout(r,200));assert.equal(attempts,1)}
+ else if(scenario==='transient'){for(let i=0;i<20&&attempts<4;i++)await tick();assert.equal(attempts,4);assert.equal(calls.filter(x=>x==='get').length,3);await tick();assert.equal(attempts,4)}
+ else{assert.equal(attempts,1);assert(!calls.includes('get'))}
+ assert.match(d.querySelector('#sync-status').textContent,scenario==='pause'?/暂停/:/HTTP/);
+});
+
+test('restart creates fresh preview without silently confirming it',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());
+ const w=dom.window,d=w.document,calls=[];
+ w.confirm=()=>true;w.notify=()=>{};
+ w.adminFetch=async(url,options)=>{const op=url.split('/').pop(),data=JSON.parse(options.body);calls.push(op);
+  if(op==='start')return {ok:true,json:async()=>({uid:'old',status:'reading'})};
+  if(op==='restart'){assert.equal(data.uid,'old');return {ok:true,json:async()=>({uid:'new',status:'reading'})}}
+  if(op==='get'||op==='advance')return {ok:true,json:async()=>({uid:data.uid,status:'ready',direction:'pull',items:[],selection:{selected:[],automatic:[]}})};
+  throw Error('unexpected '+op);
+ };
+ w.eval(source);d.querySelector('[data-direction="pull"]').click();await tick();
+ d.querySelector('#sync-restart').click();await tick();
+ assert.equal(d.querySelector('#sync-history').value,'new');assert(calls.includes('restart'));assert(!calls.includes('pull-begin'));assert.equal(d.querySelector('#sync-confirm').value,'');
 });

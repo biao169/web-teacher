@@ -14,7 +14,7 @@ def peers(pair):
  api_b('save',{'origin':'https://a.example.org','secret':'s'*64,'enabled':True,'allow_proposals':True})
  def review(request_id):
   job=api_b('proposal-review',{'request_id':request_id})
-  for _ in range(100):
+  for _ in range(600):
    result=api_b('advance',{'uid':job['uid']})
    if result['status']=='ready':return result
   pytest.fail('Review did not finish')

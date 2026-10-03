@@ -5,11 +5,7 @@ from .catalog import TABLES, SECRET, TITLE, MODULES, label, Error
 from .data_tools import digest, encoded
 from backend.app.domain.richtext import body_references
 
-PROTOCOL=4
-REV_PAGE=100
-PAGE=20
-MAX_ROWS=2000
-MAX_BYTES=4*1024*1024
+from .site_sync_work import PROTOCOL,VERSION_ROWS as REV_PAGE,CONTENT_ROWS as PAGE,TOTAL_ROWS as MAX_ROWS,TOTAL_BYTES as MAX_BYTES,PAGE_BYTES,RECORD_BYTES
 SCOPES=tuple(t for t in TABLES if t in {
  'profiles','students','student_category_displays','research_interests','projects',
  'publications','patents','courses','news','navigation_items','site_settings',
@@ -37,15 +33,23 @@ def canonical(table,row):
         value['storage_kind']='managed'
     return value
 
-def revision_fold(stamp,table,part):
-    return digest([stamp,table,part])
+def page_limit(value,maximum):
+    if value is None:return maximum
+    if type(value) is not int or not 1<=value<=maximum:raise Error('同步分页大小无效',400)
+    return value
+
+def revision_fold(stamp,table,rows,*,first=False):
+    # Table markers include empty tables; record order, never page boundaries, defines the digest.
+    if first:stamp=digest([stamp,'table',table])
+    for row in rows:stamp=digest([stamp,'record',row['uid'],row['updated_at']])
+    return stamp
 
 @traced('revision:page')
-async def revision_page(sql,table,after=''):
-    columns(table)
-    rows=await sql.query('SELECT uid,updated_at FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT 101',(after,))
-    values=rows[:REV_PAGE]
-    return {'hash':digest(values),'count':len(values),'next':values[-1]['uid'] if len(rows)>REV_PAGE else None}
+async def revision_page(sql,table,after='',limit=None):
+    columns(table);limit=page_limit(limit,REV_PAGE)
+    rows=await sql.query('SELECT uid,updated_at FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT '+str(limit+1),(after,))
+    values=rows[:limit]
+    return {'rows':values,'count':len(values),'next':values[-1]['uid'] if len(rows)>limit else None}
 
 @traced('revision:read')
 async def revision(sql):
@@ -62,58 +66,80 @@ def revision_state(state):
     stamp=''
     for table in sorted(SCOPES):
         values=sorted(state[table],key=lambda r:r['uid'])
-        for offset in range(0,max(len(values),1),REV_PAGE):
-            stamp=revision_fold(stamp,table,digest(values[offset:offset+REV_PAGE]))
+        stamp=revision_fold(stamp,table,values,first=True)
     return stamp
 
 @traced('page:read')
-async def page(sql,table,after=''):
-    # No global version scan or COUNT per content page. Preview finalization verifies all data.
-    names=columns(table)
+async def page(sql,table,after='',limit=None):
+    # Only bounded UID/size metadata is read ahead. Oversized lookahead never blocks earlier rows.
+    names=columns(table);limit=page_limit(limit,PAGE)
     size='+'.join('length(coalesce(CAST("'+c+'" AS BLOB),x\'\'))' for c in names)
-    stats=await sql.query('SELECT uid,('+size+') AS bytes FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT 21',(after,))
-    if any(r['bytes']>200000 for r in stats):raise Error('单条记录超过200KB，预览停止；没有忽略该记录')
-    rows=await sql.query('SELECT '+','.join('"'+c+'"' for c in names)+' FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT 20',(after,))
-    if len(encoded(rows))>1024*1024:raise Error('本页字段过大，请缩小记录内容后重试')
-    return {'rows':rows,'next':rows[-1]['uid'] if len(stats)>PAGE and rows else None}
+    stats=await sql.query('SELECT uid,('+size+') AS bytes FROM "'+table+'" WHERE uid>? ORDER BY uid LIMIT '+str(limit+1),(after,))
+    chosen=[];estimate=2
+    overhead=sum(len(c.encode())*6+20 for c in names)
+    for entry in stats[:limit]:
+        cost=entry['bytes']*6+overhead
+        if chosen and (estimate+cost>PAGE_BYTES or entry['bytes']>RECORD_BYTES):break
+        if entry['bytes']>RECORD_BYTES:raise Error('单条记录超过200KB，请精简内容后重新预览：'+table+'/'+entry['uid'])
+        chosen.append(entry['uid']);estimate+=cost
+    if not chosen:return {'rows':[],'next':None,'bytes':2}
+    rows=await sql.query('SELECT '+','.join('"'+c+'"' for c in names)+' FROM "'+table+'" WHERE uid IN ('+','.join('?' for _ in chosen)+') ORDER BY uid',tuple(chosen))
+    if [r['uid'] for r in rows]!=chosen:raise Error('读取期间记录变化，请重新预览',409)
+    kept=[];used=2
+    for row in rows:
+        count=len(encoded(row))
+        if kept and (used+count+1>PAGE_BYTES or count>RECORD_BYTES):break
+        if count>RECORD_BYTES:raise Error('单条记录序列化后超过200KB，请精简内容后重新预览：'+table+'/'+row['uid'])
+        used+=count+(1 if kept else 0);kept.append(row)
+    return {'rows':kept,'next':kept[-1]['uid'] if len(stats)>len(kept) else None,'bytes':used}
 
 
-def references(table,row,inventory):
-    refs=set(); unknown=[]
+def reference_inputs(table,row):
+    """Share field/body semantics between indexed preview and execution verification."""
+    inputs=[];errors=[]
     for field,spec in TABLES[table]['columns'].items():
         target=spec.get('references',{});value=row.get(field)
-        if not value or target.get('table') not in SCOPES:continue
-        other=target['table']; key=target.get('column',target.get('field','uid'))
-        matches=[(other,k) for k,r in inventory.get(other,{}).items() if r.get(key)==value]
-        if not matches:unknown.append(field+' 引用不存在')
-        refs.update(matches)
+        if value and target.get('table') in SCOPES:
+            inputs.append((target['table'],target.get('column',target.get('field','uid')),value,field+' 引用不存在'))
     bodies=[]
     if table=='news':bodies=[(row.get('content',''),row.get('content_format','html'))]
-    # Conservative: include all retained translations, including stale ones.
     if table=='translation_cache':bodies=[(row.get('translated_text',''),'html'),(row.get('translated_text',''),'markdown')]
     for text,fmt in bodies:
         try:
-            for uid in body_references(text or '',fmt):
-                if uid in inventory.get('media_assets',{}):refs.add(('media_assets',uid))
-                else:unknown.append('正文媒体不存在: '+uid)
-        except Exception:unknown.append('正文引用无法确认')
-    return refs,unknown
+            for uid in body_references(text or '',fmt):inputs.append(('media_assets','uid',uid,'正文媒体不存在: '+uid))
+        except Exception:errors.append('正文引用无法确认')
+    return inputs,errors
+
+def references(table,row,inventory):
+    refs=set();inputs,errors=reference_inputs(table,row)
+    for other,field,value,error in inputs:
+        matches=[(other,key) for key,item in inventory.get(other,{}).items() if item.get(field)==value]
+        if matches:refs.update(matches)
+        else:errors.append(error)
+    return refs,errors
+
+def difference(table,key,a,b,scopes):
+    # Absence at the source never propagates deletion of target media.
+    if table=='media_assets' and a is None:return None
+    # Normalize each side once, including when calculating changed field labels.
+    ca=canonical(table,a or {});cb=canonical(table,b or {})
+    if a is not None and b is not None and ca==cb:return None
+    if table=='translation_cache' and not ((a or {}).get('is_manual') or (b or {}).get('is_manual')):return None
+    row=a if a is not None else b
+    return {'id':table+':'+key,'table':table,'uid':key,
+            'action':'add' if b is None else 'delete' if a is None else 'update',
+            'title':str(row.get(TITLE[table]) or key)[:240],'module_label':MODULES[table],
+            'fields':[label(table,f) for f in columns(table) if f!='uid' and ca.get(f)!=cb.get(f)],
+            'dependencies':[],'blocked':[],'in_scope':table in scopes,
+            'media_check':table=='media_assets' and row.get('storage_kind') in ('local','r2')}
 
 def compare(source,target,scopes):
     items={}
     for t in SCOPES:
         for key in sorted(source[t].keys()|target[t].keys()):
             a,b=source[t].get(key),target[t].get(key)
-            if a is not None and b is not None and canonical(t,a)==canonical(t,b):continue
-            if t=='translation_cache' and not ((a or {}).get('is_manual') or (b or {}).get('is_manual')):continue
-            action='add' if b is None else 'delete' if a is None else 'update'
-            row=a if a is not None else b
-            ident=t+':'+key
-            items[ident]={'id':ident,'table':t,'uid':key,'action':action,
-                'title':str(row.get(TITLE[t]) or key)[:240], 'module_label':MODULES[t],
-                'fields':[label(t,f) for f in columns(t) if f!='uid' and canonical(t,a or {}).get(f)!=canonical(t,b or {}).get(f)],
-                'dependencies':[],'blocked':[], 'in_scope':t in scopes,
-                'media_check':t=='media_assets' and row.get('storage_kind') in ('local','r2')}
+            item=difference(t,key,a,b,scopes)
+            if item:items[item['id']]=item
     source_refs={};target_refs={}
     for inv,out in ((source,source_refs),(target,target_refs)):
         for t in SCOPES:
@@ -134,8 +160,6 @@ def compare(source,target,scopes):
                     item['blocked'].append('来源仍被引用: '+dep)
                 elif dep in items:item['dependencies'].append(dep)
                 else:item['blocked'].append('引用无法解除: '+dep)
-            if item['table']=='media_assets' and any(errors for _,errors in target_refs.values()):
-                item['blocked'].append('部分引用无法确认，禁止删除媒体')
     return list(items.values())
 
 def select(items,requested):

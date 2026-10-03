@@ -80,7 +80,9 @@ async def step(r,policy,s):
     if jobs:
         uid=jobs[0]['uid'];s['task_uid']=uid
         task=await tasks.get(r.sql,uid)
-        if task['state']['execution'].get('error'):
+        from .site_sync_work import can_retry
+        checkpoint=task['state'].get('work',{})
+        if (task['state']['execution'].get('error') or checkpoint.get('status')=='paused') and not can_retry(checkpoint):
             s['message']='执行已暂停，请打开任务重试或取消';return
         result=await apply.tick(r,uid)
         from .site_sync_proposals import update_progress
@@ -94,6 +96,11 @@ async def step(r,policy,s):
         if s.get('next_due','')>now():return
         job=await tasks.start(r,'pull',policy['scopes']);s['preview_uid']=job['uid'];s['last_started']=now();s['message']='分批读取最新差异';return
     uid=s['preview_uid'];job=await tasks.get(r.sql,uid)
+    if job['state'].get('restart_uid'):
+        s['preview_uid']=job['state']['restart_uid'];s['message']='旧预览已重新开始，改用新预览';return
+    from .site_sync_work import can_retry
+    if job['state'].get('work',{}).get('status')=='paused' and not can_retry(job['state']['work']):
+        s['task_uid']=uid;s['message']='原任务已保留，请打开最近预览重试或重新开始';return
     if job['status']=='reading':
         await tasks.advance(r,uid);s['message']='分批读取最新差异';return
     if job['status']!='ready':raise Error('定时预览已失效，将在下一周期重新读取',409)
@@ -101,7 +108,7 @@ async def step(r,policy,s):
     if not ids:
         s.pop('preview_uid',None);s['next_due']=now(seconds=policy['interval']*60);s['last_finished']=now();s['message']='无差异';return
     # Never partial silent success: blocked dependencies/limits stop for review.
-    await tasks.choose(r.sql,uid,ids)
+    await tasks.choose(r,uid,ids)
     result=await apply.begin(r,uid,'从对端同步到本站')
     if result.get('checking'):
         s['message']='分批复核确认前版本，尚未开始执行';return
@@ -127,19 +134,22 @@ async def tick(base):
             s=await load(r.sql,STATE);before=encoded(s).decode()
             if s.get('retry_after','')>now():return {'skipped':'interval'}
             await step(r,policy,s)
-            s.pop('error',None);s.pop('retry_after',None);s['updated_at']=now()
+            s.pop('error',None);s.pop('retry_after',None);s.pop('retry_count',None);s.pop('retryable',None);s['updated_at']=now()
             gid,guard=r.auth.guard(r.p,'data_tools','edit')
             await r.sql.batch([guard,put(STATE,s),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
         return {'status':'ok',**s}
     except Exception as exc:
+        if isinstance(exc,Error) and exc.code=='sync_busy':return {'skipped':'busy'}
         # Persist bounded diagnostics without logging peer bodies or secret URLs.
         # A disabled/replaced policy must not have its new state overwritten.
         if (await load(base.sql)).get('revision')!=policy['revision']:return {'skipped':'policy-changed'}
         if await base.sql.query("SELECT 1 FROM admin_mutation_guards WHERE uid IN ('site-sync:schedule-run','site-sync:run') AND created_at>=?",(now(seconds=-300),)):
             return {'skipped':'busy'}
         s['error']=exc.message if isinstance(exc,Error) else '后台步骤未完成；请检查连接或打开任务重试'
-        s['updated_at']=now();s['retry_after']=now(seconds=policy['interval']*60)
-        if not await apply.active(base.sql):s.pop('preview_uid',None)
+        from .site_sync_work import retry_state
+        retry=retry_state(exc,s) if isinstance(exc,Error) else {'retry_count':1,'retryable':False,'retry_after':None}
+        s.update(retry);s['updated_at']=now();s['retry_after']=retry['retry_after'] or now(seconds=policy['interval']*60)
+        # Keep the same preview checkpoint after failure; never silently start over.
         s['next_due']=s['retry_after']
         await base.sql.batch([('UPDATE service_meta SET value=? WHERE key=? AND value=? AND EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(encoded(s).decode(),STATE,before,KEY,encoded(policy).decode()))])
         logging.getLogger(__name__).warning('Site sync background paused (%s)',type(exc).__name__)

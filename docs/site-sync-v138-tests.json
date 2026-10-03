@@ -1,0 +1,52 @@
+{
+  "version": "0.15.138",
+  "step": 5,
+  "status": "completed",
+  "schema_changed": false,
+  "protocol": 7,
+  "task_format": 8,
+  "unique_passed": 54,
+  "suites": [
+    {
+      "files": [
+        "test_site_sync_v123.py",
+        "test_sync_execution_v130.py"
+      ],
+      "passed": 14
+    },
+    {
+      "files": [
+        "test_sync_low_load_v133.py",
+        "test_sync_recovery_v138.py"
+      ],
+      "passed": 17,
+      "note": "Before adding the unconfirmed-runtime test; restart failures were fixed to use existing expired status and rerun successfully"
+    },
+    {
+      "files": [
+        "test_sync_recovery_v138.py"
+      ],
+      "selection": "unconfirmed",
+      "passed": 1
+    },
+    {
+      "files": [
+        "test_sync_platform_v131.py"
+      ],
+      "selection": "restart_preview",
+      "passed": 3
+    },
+    {
+      "files": [
+        "site-sync-dom.test.cjs"
+      ],
+      "passed": 19
+    }
+  ],
+  "live_worker_tested": false,
+  "limitations": [
+    "D1/R2 platform matrix uses simulated bindings",
+    "final commit remains atomic; backoff cannot guarantee elimination of CPU resource errors",
+    "browser transport retry count is per operation; durable server counters cover recorded step failures"
+  ]
+}

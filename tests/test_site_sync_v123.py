@@ -11,7 +11,7 @@ def enable(api,auto=False,scopes=None):
  current=api('schedule-status')
  return api('schedule-save',{'revision':current.get('revision'),'enabled':True,'auto_pull':auto,'interval':5,'scopes':scopes or ['students'],'confirmation':scheduler.CONFIRM})
 
-def drive(r,limit=250):
+def drive(r,limit=800):
  for _ in range(limit):
   result=run(scheduler.tick(r))
   assert result.get('status')!='paused',result
@@ -80,9 +80,9 @@ def test_media_dependency_order_in_background(pair):
  seed_media(ra,old,'old.jpg',raw);seed_media(rb,new,'new.jpg',raw)
  for r,key in ((ra,'old.jpg'),(rb,'new.jpg')):
   run(r.sql.batch([("INSERT INTO profiles(uid,name,avatar_key) VALUES('same-teacher','Teacher',?)",(key,))]))
- enable(api,True,['media_assets']);drive(ra)
+ enable(api,True,['profiles']);drive(ra)
  assert run(ra.sql.query("SELECT avatar_key FROM profiles WHERE uid='same-teacher'"))[0]['avatar_key']=='new.jpg'
- assert run(ra.media_store.get('old.jpg')) is None and run(ra.media_store.get('new.jpg'))==raw
+ assert run(ra.media_store.get('old.jpg'))==raw and run(ra.media_store.get('new.jpg'))==raw
  # Scope did not silently expand to unrelated student differences.
  assert len(run(ra.sql.query('SELECT uid FROM students')))==3
 

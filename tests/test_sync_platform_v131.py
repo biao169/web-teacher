@@ -35,6 +35,7 @@ class Bucket:
   return SimpleNamespace(key=key,size=len(data),version=version)
  async def put(self,key,data,options=None):
   if options and options.get('onlyIf') and key in self.objects:return None
+  if hasattr(data,'consume'):data=await data.consume()
   self.sequence+=1;self.objects[key]=(bytes(data),str(self.sequence));return await self.head(key)
  async def get(self,key,options=None):
   result=await self.head(key)
@@ -44,7 +45,8 @@ class Bucket:
    part=options['range'];self.ranges.append(part['length']);result.range=SimpleNamespace(**part)
    data=data[part['offset']:part['offset']+part['length']]
   async def buffer():return data
-  result.arrayBuffer=buffer
+  from tests.sync_stream_bindings import Body
+  result.body=Body(data);result.arrayBuffer=buffer
   return result
  async def delete(self,key):self.objects.pop(key,None)
 
@@ -54,6 +56,8 @@ def pair(local_pair,monkeypatch,request):
  class Bytes(bytes):
   def to_py(self):return bytes(self)
  js.Uint8Array=SimpleNamespace(new=Bytes)
+ from tests.sync_stream_bindings import install
+ install(js)
  ffi=ModuleType('pyodide.ffi');ffi.to_js=lambda x:x
  monkeypatch.setitem(sys.modules,'js',js);monkeypatch.setitem(sys.modules,'pyodide.ffi',ffi)
  for r,kind in zip(local_pair[2:4],request.param):
@@ -67,8 +71,8 @@ def pair(local_pair,monkeypatch,request):
    assert all(n<=65536 for n in r.media_store.bucket.ranges)
 
 
-def test_reference_replacement_and_deletion(pair):
- execution.test_replacement_commit_then_physical_delete(pair)
+def test_reference_replacement_retains_media(pair):
+ execution.test_replacement_commit_retains_old_media(pair)
  for r in pair[2:4]:
   if r.kind=='r2':assert not any(k.startswith('cache/site-sync/') for k in r.cache_store.bucket.objects)
 
@@ -87,3 +91,8 @@ def test_media_version_changes_stop_at_saved_offset(pair):
 
 def test_network_retry_and_cancel_preserve_changed_content(pair,monkeypatch):
  execution.test_pause_retry_cancel_and_changed_target(pair,monkeypatch)
+
+
+def test_restart_preview_is_idempotent_across_adapters(pair):
+ from tests.test_sync_recovery_v138 import test_restart_is_atomic_idempotent_and_has_no_inherited_selection
+ test_restart_is_atomic_idempotent_and_has_no_inherited_selection(pair)

@@ -1,3 +1,5 @@
+> v0.15.132更新：部署默认跳过源码完整性校验，无需更新发布清单。旧verify命令同样默认跳过；以下--strict仅供主动发布检查。详见 ../../docs/deploy-skip-integrity-v132.md。
+
 # Ubuntu / Debian 部署与 tweb 管理（0.15.111）
 
 需要运行 systemd 的 Ubuntu/Debian、Python 3.12+ 和 venv。脚本不替换系统 Python。主站与快传共用一个服务和一个内部端口；操作同一受管安装的命令互斥执行。
@@ -107,7 +109,7 @@ tweb proxy
 
 ```bash
 python -B -m deploy.vps.release manifest --refresh
-python -B -m deploy.vps.release verify
+python -B -m deploy.vps.release verify --strict
 ```
 
 清单与源码放入同一提交；使用包内 .gitattributes 避免 Windows 换行转换造成校验失败。不要上传 data、transfer-data、虚拟环境、本机配置或凭据。本交付包已生成清单。

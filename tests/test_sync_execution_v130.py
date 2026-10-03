@@ -37,8 +37,8 @@ def test_commit_checks_are_paged_and_reuse_local_inventory(pair,monkeypatch):
  api('pull-begin',{'uid':uid,'confirmation':'从对端同步到本站'})
  assert calls==[]
  result=api('pull-tick',{'uid':uid},drain=False)
- assert result['execution']['phase']=='verify-commit' and not result['execution']['committed']
- for _ in range(100):
+ assert result['execution']['phase']=='prepare-rows' and not result['execution']['committed']
+ for _ in range(800):
   result=api('pull-tick',{'uid':uid},drain=False)
   if result['execution']['phase']=='commit':break
  assert calls==[] and not result['execution']['committed']
@@ -62,14 +62,13 @@ def test_proposal_waits_for_check_and_can_resume_without_global_scan(peers,monke
  assert receipt['status']=='pending'
  assert len(run(rb.sql.query('SELECT uid FROM students')))==3
 
-def test_reappeared_source_media_prevents_local_purge(pair):
+def test_source_reappearance_creates_no_media_delete(pair):
  api,preview,ra,rb,*_=pair
  raw=Path('tests/fixtures/media/sample.jpg').read_bytes();uid='a'*32
  seed_media(ra,uid,'old.jpg',raw)
- job=preview(['media_assets']);api('pull-begin',{'uid':job,'confirmation':'从对端同步到本站'})
- api('pull-tick',{'uid':job});result=api('pull-tick',{'uid':job})
- assert result['execution']['committed']
+ job=preview(['media_assets'])
+ assert not any(x['table']=='media_assets' for x in run(tasks.get(ra.sql,job))['state']['items'])
  seed_media(rb,uid,'old.jpg',raw)
- response=api('pull-tick',{'uid':job},ok=False)
- assert response.status_code==409 and '来源重新出现' in response.json()['error']
+ job=preview(['media_assets'])
+ assert not any(x['table']=='media_assets' for x in run(tasks.get(ra.sql,job))['state']['items'])
  assert run(ra.media_store.get('old.jpg'))==raw

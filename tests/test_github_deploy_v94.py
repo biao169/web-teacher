@@ -56,7 +56,7 @@ def test_local_git_clone_retains_release_bytes(tmp_path,autocrlf):
     assert not (target/'data').exists() and not (target/'.env').exists()
 
 
-def test_fetch_checks_manifest_before_accepting_clone(tmp_path):
+def test_fetch_accepts_partial_source_updates_without_manifest_check(tmp_path):
     if os.name!='posix':pytest.skip('Linux manager')
     from deploy.linux import tweb
     for corrupt in (False,True):
@@ -75,11 +75,7 @@ def test_fetch_checks_manifest_before_accepting_clone(tmp_path):
             if 'rev-parse' in args:return subprocess.CompletedProcess(args,0,stdout='synthetic-commit\n')
             return subprocess.run(args,**kwargs,check=True,capture_output=True,text=True)
         manager=tweb.Manager(tweb.Layout(base=base),runner)
-        if corrupt:
-            with pytest.raises(subprocess.CalledProcessError):manager.fetch(tweb.DEFAULT_REPOSITORY,tweb.DEFAULT_BRANCH)
-            assert not list((base/'releases').iterdir())
-        else:
-            release,commit=manager.fetch(tweb.DEFAULT_REPOSITORY,tweb.DEFAULT_BRANCH)
-            assert commit=='synthetic-commit' and not (release/'.git').exists()
+        release,commit=manager.fetch(tweb.DEFAULT_REPOSITORY,tweb.DEFAULT_BRANCH)
+        assert commit=='synthetic-commit' and not (release/'.git').exists()
         assert events[0][events[0].index('--branch')+1]=='web-py'
-        assert any('verify' in call for call in events)
+        assert not any('verify' in call for call in events)

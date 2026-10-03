@@ -11,6 +11,15 @@ from backend.app.native.data_tools import BUSINESS
 def run(v):return asyncio.run(v)
 def empty():return {t:{} for t in core.SCOPES}
 
+def authenticated(db):
+ from backend.app.native.auth import Auth
+ from backend.app.security.passwords import Passwords
+ from backend.app.adapters.sqlite.passwords import LocalKDF
+ auth=Auth(db,Passwords(LocalKDF()))
+ run(auth.bootstrap('sync-test','Synthetic-test-only-137'))
+ token=run(auth.login('sync-test','Synthetic-test-only-137','test'))
+ return SimpleNamespace(sql=db,kind='local',auth=auth,p=run(auth.principal(token)))
+
 def test_media_replacement_dependencies():
  a,b=empty(),empty()
  b['media_assets']['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']={'uid':'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','object_key':'a.jpg','storage_kind':'local'}
@@ -19,11 +28,11 @@ def test_media_replacement_dependencies():
  a['profiles']['p']={'uid':'p','name':'教师','avatar_key':'b.jpg'}
  b['news']['n']={'uid':'n','title':'News','content':'<img src="/media/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">','content_format':'html'}
  a['news']['n']={'uid':'n','title':'News','content':'<img src="/media/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb">','content_format':'html'}
- result=core.select(core.compare(a,b,['media_assets']),['media_assets:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'])
- assert set(result['selected'])=={'media_assets:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','media_assets:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','profiles:p','news:n'}
+ result=core.select(core.compare(a,b,['profiles','news']),['profiles:p','news:n'])
+ assert set(result['selected'])=={'media_assets:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','profiles:p','news:n'}
  assert not result['blocked']
- a['profiles']['p']['avatar_key']='a.jpg'
- result=core.select(core.compare(a,b,['media_assets']),['media_assets:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'])
+ a['profiles']['p']['avatar_key']='a.jpg';a['profiles']['p']['name']='Changed'
+ result=core.select(core.compare(a,b,['profiles','news']),['profiles:p','news:n'])
  assert result['blocked']
 
 def test_canonical_fields():
@@ -70,7 +79,7 @@ def test_two_site_http(tmp_path,monkeypatch):
  post(a,ha,'test',{})
  for direction in ('pull','push'):
   job=post(a,ha,'start',{'direction':direction,'scopes':['students']})
-  for _ in range(100):
+  for _ in range(600):
    result=post(a,ha,'advance',{'uid':job['uid']})
    if result['status']=='ready':break
   else:pytest.fail('preview did not finish')
@@ -88,7 +97,7 @@ def test_two_site_http(tmp_path,monkeypatch):
 
 def test_changed_snapshot(tmp_path,monkeypatch):
  db=Database(tmp_path/'a.db');db.initialize();remote=Database(tmp_path/'b.db');remote.initialize()
- r=SimpleNamespace(sql=db,kind='local')
+ r=authenticated(db)
  run(tasks.save(db,{'origin':'https://b.example.org','secret':'a'*64,'enabled':True}))
  async def fake(r,p,data):
   result={'site_id':'other','schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'revision':await core.revision(remote)}
@@ -116,7 +125,7 @@ def test_upgrade(tmp_path):
 def test_incomplete_signed_page_cannot_create_delete_preview(tmp_path,monkeypatch):
  db=Database(tmp_path/'a.db');db.initialize();remote=Database(tmp_path/'b.db');remote.initialize()
  run(remote.batch([("INSERT INTO students(uid,name) VALUES('remote-student','Remote')",())]))
- r=SimpleNamespace(sql=db,kind='local');run(tasks.save(db,{'origin':'https://b.example.org','secret':'a'*64,'enabled':True}))
+ r=authenticated(db);run(tasks.save(db,{'origin':'https://b.example.org','secret':'a'*64,'enabled':True}))
  async def fake(r,p,data):
   result={'site_id':'other','schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'revision':await core.revision(remote)}
   if data['op']=='revision-page':result.update(await core.revision_page(remote,data['table'],data['after']))

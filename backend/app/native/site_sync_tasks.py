@@ -5,6 +5,7 @@ from .catalog import Error,now
 from .data_tools import encoded,digest
 from . import site_sync as core
 from .site_sync_transport import origin,call
+from .site_sync_work import step,policy,TASK_FORMAT,REQUEST_INTERVAL_MS
 
 async def peer(sql,enabled=True):
     rows=await sql.query('SELECT * FROM sync_peers WHERE id=1')
@@ -29,7 +30,7 @@ async def hello(r,p,*,with_revision=False):
     with operation('data:check' if with_revision else 'connection:test'):
         result=await call(r,p,{'op':'inspect' if with_revision else 'hello','schema':core.schema(),'protocol':core.PROTOCOL})
         if result.get('schema')!=core.schema() or result.get('protocol')!=core.PROTOCOL or result.get('data_check')!=1:
-            raise Error('两站同步协议或字段定义不一致，请配套更新至v0.15.130或后续兼容版本',409)
+            raise Error('两站同步协议或字段定义不一致，请配套更新至v0.15.139或后续兼容版本',409)
         if not isinstance(result.get('site_id'),str) or not 1<=len(result['site_id'])<=128:
             raise Error('对端缺少有效站点身份',409)
         if with_revision:
@@ -39,47 +40,98 @@ async def hello(r,p,*,with_revision=False):
         return result
 
 @traced('preview:start')
-async def start(r,direction,scopes):
+async def start(r,direction,scopes,*,previous=None):
     if direction not in ('pull','push') or not isinstance(scopes,list) or not scopes or any(t not in core.SCOPES for t in scopes):raise Error('同步方向或范围无效')
     p=await peer(r.sql);remote=await hello(r,p)
     uid=secrets.token_hex(16)
-    state={'preview_format':3,'direction':direction,'scopes':scopes,'remote_id':remote['site_id'],'peer_revision':p['revision'],
+    state={'preview_format':TASK_FORMAT,'policy':policy(),'work':{'status':'saved','completed_steps':0,'created_at':now()},'direction':direction,'scopes':scopes,'remote_id':remote['site_id'],'peer_revision':p['revision'],
         'phase':'baseline','side':'local','table_index':0,'after':'','count':0,'bytes':0,'table_count':0,
         'version_hash':'','version_count':0,'totals':{'local':{},'remote':{}}}
-    # At most ten previews; cascading deletes discard only old preview snapshots.
-    await r.sql.batch([("DELETE FROM sync_tasks WHERE coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','cancelled') AND uid NOT IN (SELECT uid FROM sync_tasks ORDER BY created_at DESC LIMIT 9)",()),
+    extra=[]
+    if previous:
+        old=previous['state'];old['restart_uid']=uid
+        gid,guard=r.auth.guard(r.p,'data_tools','edit',
+            'EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND state=?)',(previous['uid'],previous['_raw_state']))
+        extra=[guard,('UPDATE sync_tasks SET status=?,state=? WHERE uid=?',('expired',encoded(old).decode(),previous['uid'])),
+               ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]
+    # Retire completed/replaced previews only; keep this restart's receipt for retries.
+    await r.sql.batch([*extra,("DELETE FROM sync_tasks WHERE ((status='ready' AND coalesce(json_extract(state,'$.work.status'),'saved')='saved') OR (status='expired' AND json_extract(state,'$.restart_uid') IS NOT NULL)) AND coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','cancelled') AND uid<>? AND uid NOT IN (SELECT uid FROM sync_tasks ORDER BY created_at DESC LIMIT 9)",(previous['uid'] if previous else '',)),
         ('INSERT INTO sync_tasks(uid,status,state,created_at) VALUES(?,?,?,?)',(uid,'reading',encoded(state).decode(),now()))])
-    return {'uid':uid,'status':'reading'}
+    return {'uid':uid,'status':'reading','policy':state['policy'],'work':state['work'],'request_interval_ms':REQUEST_INTERVAL_MS}
+
+async def restart(r,uid):
+    from .site_sync_work import task_lease
+    from .media_locks import lease
+    from .data_tools import authorize
+    authorize(r,'export',core.SCOPES)
+    async with task_lease(r,uid):
+        async with lease(r,'site-sync:run','edit'):
+            task=await get(r.sql,uid);s=task['state']
+            if s.get('restart_uid'):
+                new=await get(r.sql,s['restart_uid'])
+                return {'uid':new['uid'],'status':new['status']}
+            if s.get('approval'):raise Error('审批预览请使用“重新读取最新差异并核对”；不能继承旧批准',409)
+            e=s.get('execution')
+            if e and e['phase'] not in ('done','cancelled'):raise Error('请先取消旧执行并完成暂存清理，再重新开始',409)
+            return await start(r,s['direction'],s['scopes'],previous=task)
+
+async def resume(r,uid):
+    from .site_sync_work import task_lease
+    from .data_tools import authorize
+    authorize(r,'edit',core.SCOPES)
+    async with task_lease(r,uid):
+        task=await get(r.sql,uid);s=task['state']
+        if task['status'] not in ('reading','ready'):raise Error('任务已被替代，请打开新的预览',409)
+        # Explicit manual retry selects smaller metadata/content pages, without changing digests.
+        s.setdefault('policy',policy()).update(content_rows=1,version_rows=5)
+        for key in ('begin_check','commit_check','proposal_check'):
+            if key in s:s[key].setdefault('policy',policy()).update(content_rows=1,version_rows=5)
+        work=s.setdefault('work',{})
+        for key in ('retry_count','retryable','retry_after','error','error_code'):work.pop(key,None)
+        work['status']='saved'
+        if s.get('execution'):
+            s['execution'].pop('error',None);s['execution'].pop('error_code',None)
+        await persist(r.sql,task,status=task['status'])
+        return {'uid':uid,'status':task['status'],'work':work,'policy':s['policy']}
 
 async def get(sql,uid):
     rows=await sql.query('SELECT * FROM sync_tasks WHERE uid=?',(uid,))
     if not rows:raise Error('预览不存在或已清理',404)
     task=rows[0];task['_raw_state']=task['state'];task['state']=json.loads(task['state'])
-    if task['state'].get('preview_format')!=3:raise Error('旧版同步任务不能继续，请在新版重新生成预览；不要重置业务数据库',409)
+    if task['state'].get('preview_format')!=TASK_FORMAT:raise Error('旧版同步任务不能继续，请在新版重新生成预览；不要重置业务数据库',409)
     return task
 
-async def persist(sql,task,statements=(),status='reading'):
+async def persist(sql,task,statements=(),status='reading',*,publish=False):
     # Existing guard table provides compare-and-swap inside the same atomic batch.
     # A competing browser/cron page rolls back, including its snapshot inserts.
     gid=secrets.token_hex(16);at=now();uid=task['uid']
     guard=('INSERT INTO admin_mutation_guards(uid,module,target_uid,expected_updated_at,created_at) VALUES(CASE WHEN EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND status=? AND state=?) THEN ? ELSE \'\' END,?,?,?,?)',
         (uid,task['status'],task['_raw_state'],gid,'data_tools',uid,at,at))
+    raw=encoded(task['state']).decode()
+    update=('UPDATE sync_tasks SET status=?,state=? WHERE uid=?',(status,raw,uid))
+    if publish:
+        # Publish only compact completed differences; no full business payload enters Python here.
+        update=("UPDATE sync_tasks SET status=?,state=json_set(?,'$.items',json((SELECT json_group_array(json(payload)) FROM (SELECT payload FROM sync_task_items WHERE task_uid=? AND side='local' AND module>='@diff:' AND module<'@diff;' ORDER BY module,record_uid)))) WHERE uid=?",(status,raw,uid,uid))
     with operation('snapshot:write'):
-        await sql.batch([guard,*statements,('UPDATE sync_tasks SET status=?,state=? WHERE uid=?',(status,encoded(task['state']).decode(),uid)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
-    task['_raw_state']=encoded(task['state']).decode();task['status']=status
+        await sql.batch([guard,*statements,update,('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
+    task['_raw_state']=None if publish else raw;task['status']=status
 
 async def version_step(r,p,s):
     table=sorted(core.SCOPES)[s['table_index']];side=s['side']
-    if side=='local':part=await core.revision_page(r.sql,table,s['after'])
+    limit=core.page_limit(s.get('policy',{}).get('version_rows'),core.REV_PAGE)
+    if side=='local':part=await core.revision_page(r.sql,table,s['after'],limit)
     else:
-        part=await call(r,p,{'op':'revision-page','schema':core.schema(),'protocol':core.PROTOCOL,'table':table,'after':s['after']})
+        part=await call(r,p,{'op':'revision-page','schema':core.schema(),'protocol':core.PROTOCOL,'table':table,'after':s['after'],'limit':limit})
         if part.get('site_id')!=s['remote_id']:raise Error('对端站点身份已变化',409)
-    count=part.get('count');stamp=part.get('hash');more=part.get('next')
-    if type(count) is not int or not 0<=count<=core.REV_PAGE or not isinstance(stamp,str) or len(stamp)!=64 or any(c not in '0123456789abcdef' for c in stamp):raise Error('版本分页响应不完整，停止预览',409)
-    if more is not None and (not isinstance(more,str) or not s['after']<more or len(more)>120 or count!=core.REV_PAGE):raise Error('版本分页游标无效',409)
+    count=part.get('count');rows=part.get('rows');more=part.get('next');last=s['after']
+    if not isinstance(rows,list) or type(count) is not int or count!=len(rows) or not 0<=count<=limit:raise Error('版本分页响应不完整，停止预览',409)
+    for row in rows:
+        if not isinstance(row,dict) or set(row)!={'uid','updated_at'} or not isinstance(row['uid'],str) or not last<row['uid'] or len(row['uid'])>128 or not isinstance(row['updated_at'],str) or len(row['updated_at'])>64:raise Error('版本记录格式或顺序无效',409)
+        last=row['uid']
+    if more is not None and (not rows or more!=last):raise Error('版本分页游标无效',409)
     s['version_count']+=count;s['table_count']+=count
     if s['version_count']>core.MAX_ROWS:raise Error('本阶段预览最多2000条/站；停止而非截断')
-    s['version_hash']=core.revision_fold(s['version_hash'],table,stamp)
+    s['version_hash']=core.revision_fold(s['version_hash'],table,rows,first=not s['after'])
     if more:s['after']=more;return
     if s['phase']=='baseline':s['totals'][side][table]=s['table_count']
     elif s['table_count']!=s['totals'][side][table]:raise Error('分页读取后记录数变化，请重新预览',409)
@@ -98,34 +150,41 @@ async def check_step(r,task,key,*,peer_config=None):
     if p['revision']!=s['peer_revision']:raise Error('连接配置已变化，请重新预览',409)
     if key not in s:
         s[key]={**{k:s[k] for k in ('totals','local_revision','remote_revision','remote_id')},
-                'phase':'verify','side':'local','table_index':0,'after':'','table_count':0,'version_count':0,'version_hash':''}
+                'policy':s.get('policy',policy()),'phase':'verify','side':'local','table_index':0,'after':'','table_count':0,'version_count':0,'version_hash':''}
     check=s[key]
     if check['phase']!='done':await version_step(r,p,check)
     return check['phase']=='done'
 
+@step('advance')
 @traced('preview:page')
 async def advance(r,uid):
     task=await get(r.sql,uid);s=task['state'];p=await peer(r.sql)
-    if task['status']!='reading':return {'uid':uid,'status':task['status']}
+    if task['status']!='reading':return {'uid':uid,'status':task['status'],'approval':s.get('approval')}
     if s['peer_revision']!=p['revision']:raise Error('对端配置已变化，请重新预览',409)
-    if s['phase']=='done':return await finish(r,uid)
+    if s['phase'] in ('done','references','compare','dependencies','publish'):return await finish(r,uid,task)
     if s['phase'] in ('baseline','verify'):
         await version_step(r,p,s);await persist(r.sql,task)
     else:
         table=core.SCOPES[s['table_index']]
-        if s['side']=='local':data=await core.page(r.sql,table,s['after'])
+        limit=core.page_limit(s.get('policy',{}).get('content_rows'),core.PAGE)
+        if s['side']=='local':data=await core.page(r.sql,table,s['after'],limit)
         else:
-            data=await call(r,p,{'op':'page','schema':core.schema(),'protocol':core.PROTOCOL,'table':table,'after':s['after']})
+            data=await call(r,p,{'op':'page','schema':core.schema(),'protocol':core.PROTOCOL,'table':table,'after':s['after'],'limit':limit})
             if data.get('site_id')!=s['remote_id']:raise Error('对端站点身份已变化',409)
         rows=data.get('rows');total=s['totals'][s['side']][table]
-        if not isinstance(rows,list) or len(rows)>core.PAGE:raise Error('对端分页响应无效')
-        statements=[];last=s['after']
+        if not isinstance(rows,list) or len(rows)>limit:raise Error('对端分页响应无效')
+        from .site_sync_analysis import index_statements
+        statements=[];last=s['after'];page_bytes=2;row_count=0
         for row in rows:
-            if not isinstance(row,dict) or set(row)!=set(core.columns(table)) or not isinstance(row.get('uid'),str) or row['uid']<=last:raise Error('对端记录格式或分页顺序不正确')
-            last=row['uid'];key=core.identity(table,row);raw=encoded(row).decode()
-            s['count']+=1;s['bytes']+=len(raw.encode())
+            if not isinstance(row,dict) or set(row)!=set(core.columns(table)) or not isinstance(row.get('uid'),str) or row['uid']<=last or len(row['uid'])>128:raise Error('对端记录格式或分页顺序不正确')
+            last=row['uid'];key=core.identity(table,row);payload=encoded(row);raw=payload.decode()
+            if len(payload)>core.RECORD_BYTES:raise Error('对端单条记录超过200KB，停止而非跳过')
+            page_bytes+=len(payload)+(1 if row_count else 0);row_count+=1
+            s['count']+=1;s['bytes']+=len(payload)
             if s['count']>core.MAX_ROWS*2 or s['bytes']>core.MAX_BYTES:raise Error('预览超过2000条/站或总计4MiB；停止而非截断')
             statements.append(('INSERT INTO sync_task_items(task_uid,side,module,record_uid,payload) VALUES(?,?,?,?,?)',(uid,s['side'],table,key,raw)))
+            statements.extend(index_statements(uid,s['side'],table,key,row))
+        if page_bytes>core.PAGE_BYTES and len(rows)!=1:raise Error('对端分页超过字节预算')
         s['table_count']+=len(rows)
         if s['table_count']>total:raise Error('分页记录数不一致，请重新预览')
         more=data.get('next')
@@ -142,19 +201,14 @@ async def advance(r,uid):
     return {'uid':uid,'status':'reading','phase':s['phase'],'side':s['side'],'table':core.SCOPES[s['table_index']] if s['phase']=='content' else sorted(core.SCOPES)[s['table_index']], 'count':s['count']}
 
 @traced('preview:compare')
-async def finish(r,uid):
-    task=await get(r.sql,uid);s=task['state'];p=await peer(r.sql)
-    if s['phase']!='done':raise Error('预览未完整读取及校验，不能比较删除')
-    if p['revision']!=s['peer_revision']:raise Error('连接配置已变化，请重新预览',409)
-    snapshots={'local':{t:{} for t in core.SCOPES},'remote':{t:{} for t in core.SCOPES}}
-    for row in await r.sql.query('SELECT side,module,record_uid,payload FROM sync_task_items WHERE task_uid=?',(uid,)):
-        snapshots[row['side']][row['module']][row['record_uid']]=json.loads(row['payload'])
-    source,target=(snapshots['remote'],snapshots['local']) if s['direction']=='pull' else (snapshots['local'],snapshots['remote'])
-    items=core.compare(source,target,s['scopes']);s['items']=items;s['selection']=core.select(items,[])
-    await persist(r.sql,task,status='ready')
-    return {'uid':uid,'status':'ready','items':items,'selection':s['selection'],'direction':s['direction']}
+async def finish(r,uid,task=None):
+    from .site_sync_analysis import advance
+    task=task or await get(r.sql,uid)
+    return await advance(r,task)
 
-async def choose(sql,uid,ids):
+@step('select')
+async def choose(r,uid,ids):
+    sql=r.sql
     task=await get(sql,uid)
     if task['status']!='ready':raise Error('请先完成预览',409)
     if task['state'].get('approval') and not task['state']['approval'].get('ready'):raise Error('请先完成最新审批预览',409)
@@ -162,5 +216,5 @@ async def choose(sql,uid,ids):
     p=await peer(sql)
     if task['state']['peer_revision']!=p['revision']:raise Error('配置已变化，请重新预览',409)
     result=core.select(task['state']['items'],ids);task['state']['selection']=result
-    await sql.batch([('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(task['state']).decode(),uid))])
+    await persist(sql,task,status=task['status'])
     return result

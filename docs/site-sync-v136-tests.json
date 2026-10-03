@@ -1,0 +1,55 @@
+{
+  "version": "0.15.136",
+  "step": 4,
+  "status": "partial_delivery",
+  "production_tested": false,
+  "schema_changed": false,
+  "suites": [
+    {
+      "files": [
+        "tests/test_site_sync_v121.py",
+        "tests/test_sync_execution_v130.py"
+      ],
+      "passed": 13
+    },
+    {
+      "files": [
+        "tests/test_sync_platform_v131.py"
+      ],
+      "selection": "reference_replacement",
+      "passed": 3
+    },
+    {
+      "files": [
+        "tests/test_sync_execution_v136.py",
+        "tests/test_site_sync_v122.py",
+        "tests/test_site_sync_v123.py"
+      ],
+      "passed": 26,
+      "note": "Before addition of the separate restore normalization regression"
+    },
+    {
+      "files": [
+        "tests/test_sync_execution_v136.py"
+      ],
+      "selection": "restore_still",
+      "passed": 1
+    },
+    {
+      "files": [
+        "tests/site-sync-dom.test.cjs"
+      ],
+      "passed": 15
+    }
+  ],
+  "total_passed": 58,
+  "limitations": [
+    "R2 native streams tested with simulated bindings, not deployed Worker/Pyodide",
+    "Permanent deletion reference scanning remains unchanged after automatic approval rejection",
+    "Final guarded content transaction and last remote revision/media checks are not fully batched"
+  ],
+  "retained_protection_files": [
+    "backend/app/native/media_audit.py",
+    "backend/app/native/media_references.py"
+  ]
+}

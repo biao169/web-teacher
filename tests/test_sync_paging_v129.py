@@ -25,14 +25,14 @@ def test_version_pages_match_final_guard_and_content_uses_two_queries(pair):
   after=''
   while True:
    part=run(core.revision_page(sql,table,after));total+=part['count']
-   assert part['count']<=100
-   stamp=core.revision_fold(stamp,table,part['hash'])
+   assert part['count']<=core.REV_PAGE
+   stamp=core.revision_fold(stamp,table,part['rows'],first=not after)
    if part['next'] is None:break
    after=part['next']
  assert stamp==run(core.revision(ra.sql))
- assert all('LIMIT 101' in q and 'UNION' not in q and 'count(' not in q.lower() for q in sql.calls)
+ assert all('LIMIT '+str(core.REV_PAGE+1) in q and 'UNION' not in q and 'count(' not in q.lower() for q in sql.calls)
  sql.calls.clear();page=run(core.page(sql,'students',''))
- assert len(page['rows'])==20 and page['next']
+ assert len(page['rows'])==core.PAGE and page['next']
  assert len(sql.calls)==2 and all('UNION' not in q and 'count(' not in q.lower() for q in sql.calls)
 
 def test_edit_with_same_count_after_reading_blocks_ready(pair):

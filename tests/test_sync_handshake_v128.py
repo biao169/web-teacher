@@ -28,7 +28,7 @@ def test_peer_rejects_old_protocol_and_invalid_signatures(pair):
  api,_,ra,rb,a,b,network=pair
  value=transport.envelope('s'*64,{'op':'hello','schema':core.schema(),'protocol':1})
  result=b.post('/api/site-sync/peer',json=value,headers={'Accept':'application/json'})
- assert result.status_code==409 and 'v0.15.130' in result.json()['error']
+ assert result.status_code==409 and 'v0.15.139' in result.json()['error']
  value=transport.envelope('wrong'*10,{'op':'hello','schema':core.schema(),'protocol':core.PROTOCOL})
  assert b.post('/api/site-sync/peer',json=value,headers={'Accept':'application/json'}).status_code==403
 
