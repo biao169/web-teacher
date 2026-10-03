@@ -72,8 +72,8 @@ async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_par
             'EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND state=?)',(previous['uid'],previous['_raw_state']))
         extra=[guard,('UPDATE sync_tasks SET status=?,state=? WHERE uid=?',('expired',encoded(old).decode(),previous['uid'])),
                ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]
-    # Retire completed/replaced previews only; keep this restart's receipt for retries.
-    await r.sql.batch([*extra,("DELETE FROM sync_tasks WHERE ((status='ready' AND coalesce(json_extract(state,'$.work.status'),'saved')='saved') OR (status='expired' AND json_extract(state,'$.restart_uid') IS NOT NULL)) AND coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','cancelled') AND uid<>? AND uid NOT IN (SELECT uid FROM sync_tasks ORDER BY created_at DESC LIMIT 9)",(previous['uid'] if previous else prepare_parent['uid'] if prepare_parent else '',)),
+    # History is pruned independently in bounded batches, never by a large cascade here.
+    await r.sql.batch([*extra,
         ('INSERT INTO sync_tasks(uid,status,state,created_at) VALUES(?,?,?,?)',(uid,'reading',encoded(state).decode(),now()))])
     return {'uid':uid,'status':'reading','policy':state['policy'],'work':state['work'],'request_interval_ms':REQUEST_INTERVAL_MS}
 
@@ -116,6 +116,7 @@ async def get(sql,uid):
     rows=await sql.query('SELECT * FROM sync_tasks WHERE uid=?',(uid,))
     if not rows:raise Error('预览不存在或已清理',404)
     task=rows[0];task['_raw_state']=task['state'];task['state']=json.loads(task['state'])
+    if task['state'].get('history_deleting'):raise Error('该历史记录正在清理，请新建预览',404,'sync_history_deleted')
     if task['state'].get('preview_format')!=TASK_FORMAT:raise Error('旧版同步任务不能继续，请在新版重新生成预览；不要重置业务数据库',409)
     return task
 

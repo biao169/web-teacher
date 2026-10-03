@@ -59,3 +59,18 @@ body.section-public .faculty-home-recruiting p{margin:0;white-space:pre-wrap;ove
 @media(max-width:850px){body.section-public .faculty-home .faculty-overview{grid-template-columns:minmax(0,1fr)}body.section-public .faculty-home .faculty-intro-top{grid-template-columns:180px minmax(0,1fr)}body.section-public .faculty-home .faculty-portrait{width:180px;height:214px}body.section-public .faculty-home .faculty-contact-panel .faculty-contacts{display:grid}}
 @media(max-width:575px){body.section-public .faculty-home .faculty-intro-top{grid-template-columns:108px minmax(0,1fr);gap:14px}body.section-public .faculty-home .faculty-portrait{width:108px;height:136px}}
 @media(max-width:360px){body.section-public .faculty-home .faculty-intro-top{grid-template-columns:minmax(0,1fr)}body.section-public .faculty-home .faculty-portrait{justify-self:center}}
+
+/* Academic profile values: reuse the shared typography and palette. */
+body.section-public .faculty-link-value {
+  display: inline-block;
+  margin-inline-start: 0.4em;
+  padding: 0.08em 0.45em;
+  border-radius: 0.4em;
+  background: var(--public-surface);
+  color: var(--public-accent);
+  font-size: inherit;
+  font-weight: var(--public-weight-emphasis);
+  font-variant-numeric: tabular-nums;
+  vertical-align: baseline;
+  white-space: nowrap;
+}

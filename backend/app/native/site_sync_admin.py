@@ -17,14 +17,21 @@ def install(app,resources,csrf,render):
         with operation('page'):
             r=await resources(request);authorize(r)
             rows=await r.sql.query('SELECT local_id,origin,enabled FROM sync_peers WHERE id=1')
-            jobs=await r.sql.query("SELECT uid,status,created_at,json_extract(state,'$.execution.phase') AS execution_phase FROM sync_tasks ORDER BY CASE WHEN json_extract(state,'$.execution.phase') NOT IN ('done','cancelled') THEN 0 ELSE 1 END,created_at DESC LIMIT 10")
+            from .site_sync_history import listing
+            jobs=await listing(r.sql)
             return await render(r,'admin/native-site-sync.html','data_tools',title='两站同步 · 预览',
                 sync_policy=policy(),schedule=await schedule.status(r.sql),incoming=await proposals.inbox(r),allow_proposals=await proposals.enabled(r.sql),peer=rows[0] if rows else {},sync_tables=[{'key':t,'label':MODULES[t]} for t in core.SCOPES],sync_jobs=jobs)
     @app.post('/api/admin/site-sync/{action}')
     async def admin(request:Request,action:str):
         with operation('admin'):
             r=await resources(request);data=await payload(request,262144);csrf(request,r,data);authorize(r,'edit')
-            if action=='schedule-save':result=await schedule.save(r,data)
+            if action=='history-delete':
+                r.auth.require(r.p,'data_tools','delete')
+                if data.get('confirmed') is not True:raise Error('请在弹窗中确认删除历史记录')
+                from .site_sync_history import prune,listing
+                result=await prune(r.sql,str(data.get('uid','')))
+                if not result['more']:result['jobs']=await listing(r.sql)
+            elif action=='schedule-save':result=await schedule.save(r,data)
             elif action=='schedule-status':result=await schedule.status(r.sql)
             elif action=='save':
                 await tasks.save(r.sql,data)

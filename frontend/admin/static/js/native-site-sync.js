@@ -6,7 +6,7 @@ if(root){
  let uid='',items=[],selected=new Set(),requested=new Set(),automatic=new Set(),page=1,busy=false,pause=false,execution=null,direction='',approval=null,outgoing=null,pending=null;
  let taskReady=false,lightweight=false,prepared=false,nextCursor=null,cursors=[['','']],candidateCount=0;
  const intervalMs=Number(root.dataset.intervalMs)||0;let nextBatchAt=0;
- const paced=new Set(['advance','pull-begin','proposal-approve','pull-tick','proposal-send']);
+ const paced=new Set(['advance','pull-begin','proposal-approve','pull-tick','proposal-send','history-delete']);
  function checkpoint(value){const target=q('#sync-checkpoint'),w=value?.work;if(!target||!w)return;target.textContent=`阶段：${w.phase||w.operation||'准备'} · 已保存步骤 ${w.completed_steps||0} · 已读 ${w.count||0} 条${Number.isFinite(w.elapsed_ms)?' · 最近步骤耗时 '+w.elapsed_ms+' ms':''}${w.completed_at?' · 最近保存 '+w.completed_at:''}${w.status==='running'?' · 上次步骤尚未确认完成；可稍后打开原任务继续':''}${w.error?' · '+w.error:''}`;}
  function rayText(response,value={}){
   const ray=response.headers?.get?.('cf-ray')||value.ray_id||value.instance||'';
@@ -80,6 +80,8 @@ if(root){
   catch(e){try{report(await api('get',{uid}))}catch{}throw e}
  }
  q('#sync-begin').onclick=()=>run(async()=>{
+  if(!confirm((approval?'批准对端提案并写入本站':'从对端同步到本站')+'？将执行已选新增、覆盖、删除及必要依赖；已完成条目不会整体回滚。'))return;
+  q('#sync-confirm').value=approval?'同意对端推送':'从对端同步到本站';
   pause=false;let result;
   do{result=await confirmedAction(approval?'proposal-approve':'pull-begin',{uid,confirmation:q('#sync-confirm').value});if(!result)return;
    if(result.checking){status.textContent=result.phase==='prepare-selection'?'正在分批整理所选内容及媒体；尚未启动执行。':'正在分批复核确认内容；尚未启动执行。';if(pause){status.textContent='确认复核已暂停；再次点击确认可继续。';return}}
@@ -131,11 +133,23 @@ if(root){
   requested=ids;await choose()
  });q('#sync-none').onclick=()=>run(async()=>{requested.clear();await choose()});
 
+ q('#sync-history-delete').onclick=()=>run(async()=>{
+  const target=q('#sync-history').value;if(!target)throw Error('请选择需要删除的历史记录');
+  if(!confirm('删除这条同步历史及关联准备记录？不删除网站内容和正式媒体；正在执行或待批准的任务不能删除。'))return;
+  pause=false;let value;
+  do{value=await api('history-delete',{uid:target,confirmed:true});status.textContent='正在分批清理历史明细…';if(pause){status.textContent='历史清理已暂停，后台将继续处理已标记记录。';return}}while(value.more);
+  const history=q('#sync-history');history.replaceChildren(new Option('选择保存的预览',''));
+  for(const job of value.jobs||[])history.append(new Option(job.created_at+' · '+(job.execution_phase||job.status),job.uid));
+  uid='';taskReady=false;execution=null;items=[];selected.clear();requested.clear();automatic.clear();
+  q('#sync-result').hidden=true;q('#sync-execution').hidden=true;q('#sync-outgoing').hidden=true;
+  status.textContent='历史记录已删除，网站内容和正式媒体未删除。';
+ });
  const proposalLabels={pending:'待接收方批准',approved:'已批准',rejected:'已拒绝',superseded:'已由新提案替换',superseded_or_unknown:'已替换或回执不在保留范围',unconfirmed:'发送结果待确认'};
  function outgoingView(value){if(value)outgoing=value;q('#sync-outgoing-info').textContent=outgoing?`第 ${outgoing.sequence||'?'} 版 · ${proposalLabels[outgoing.status]||outgoing.status}${outgoing.phase?' · 执行阶段 '+outgoing.phase:''}`:'尚未发送。'}
  function inboxView(value){pending=value?.proposal||null;q('#sync-inbox-info').textContent=pending?`第 ${pending.sequence} 版 · ${proposalLabels[pending.status]||pending.status} · 原选择 ${pending.requested_count} 项 · 接收于 ${pending.received_at}${pending.phase?' · 执行阶段 '+pending.phase:''}`:'暂无推送提案。';draw()}
  q('#sync-inbox-refresh').onclick=()=>run(async()=>inboxView(await api('proposal-inbox')));
  q('#sync-send').onclick=()=>run(async()=>{
+  if(!confirm('将所选内容提交到对端等待批准？此操作不会直接写入对端网站。'))return;
   pause=false;let result;
   do{result=await confirmedAction('proposal-send',{uid});if(!result)return;if(result.checking){status.textContent='正在分批复核推送版本；尚未发送提案。';if(pause){status.textContent='推送复核已暂停；再次点击发送可继续。';return}}}while(result.checking);
   outgoingView(result.outgoing);status.textContent=outgoing?.status==='pending'?'提案已送达，等待对端重新预览并批准。':'已取得对端回执，状态见下方。';
@@ -146,7 +160,7 @@ if(root){
  const scheduleForm=q('#sync-schedule');let scheduleRevision=null;
  let lastScheduleError='';
  function scheduleView(value){const currentError=value.state?.error||'';if(currentError&&currentError!==lastScheduleError)notify('后台同步暂停：'+currentError,'error',{id:'site-sync-background'});lastScheduleError=currentError;scheduleRevision=value.revision||null;const s=value.state||{};q('#sync-schedule-status').textContent=`${value.enabled?'后台已开启':'后台已关闭'} · ${value.auto_pull?'自动拉取':'仅推进已确认任务'}${s.message?' · '+s.message:''}${s.next_due?' · 下次拉取检查 '+s.next_due:''}${s.updated_at?' · 最近检查 '+s.updated_at:''}${s.task_uid?' · 任务 '+s.task_uid:''}${s.error?' · '+s.error:''}`;}
- scheduleForm.addEventListener('submit',e=>{e.preventDefault();run(async()=>{const f=new FormData(scheduleForm);scheduleView(await api('schedule-save',{revision:scheduleRevision,enabled:f.has('enabled'),auto_pull:f.has('auto_pull'),interval:Number(f.get('interval')),scopes:f.getAll('schedule-scope'),confirmation:f.get('confirmation')}));q('#sync-schedule-confirm').value='';status.textContent='后台策略已保存。';})});
+ scheduleForm.addEventListener('submit',e=>{e.preventDefault();run(async()=>{const f=new FormData(scheduleForm);if(!confirm(f.has('enabled')?(f.has('auto_pull')?'启用本站作为接收端定时拉取？包含所选模块及依赖的新增、覆盖和删除。请确保对端未同时启用定时拉取。':'开启后台推进已确认任务？未批准的提案不会自动批准。'):'关闭后台同步？已完成的内容不会回滚。'))return;f.set('confirmation','允许定时拉取并同步增删');scheduleView(await api('schedule-save',{revision:scheduleRevision,enabled:f.has('enabled'),auto_pull:f.has('auto_pull'),interval:Number(f.get('interval')),scopes:f.getAll('schedule-scope'),confirmation:f.get('confirmation')}));q('#sync-schedule-confirm').value='';status.textContent='后台策略已保存。';})});
  q('#sync-schedule-refresh').onclick=()=>run(async()=>scheduleView(await api('schedule-status')));
  scheduleView(JSON.parse(scheduleForm.dataset.value));
  inboxView(JSON.parse(q('#sync-inbox').dataset.value));

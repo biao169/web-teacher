@@ -136,6 +136,8 @@ async def step(r,policy,s):
     s['task_uid']=uid;s['message']='按本站预先授权的定时拉取策略开始执行'
 
 async def tick(base):
+    from .site_sync_history import prune
+    await prune(base.sql)
     policy=await load(base.sql)
     if not policy.get('enabled'):return {'skipped':'disabled'}
     s=await load(base.sql,STATE)
