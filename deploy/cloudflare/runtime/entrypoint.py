@@ -59,19 +59,11 @@ class Default(WorkerEntrypoint):
         with phase('CRON', progress=False):
             # Cron does not need to initialize the HTTP application or its room state.
             from worker_runtime.bridge import Environment
-            from worker_runtime.storage import TransferStore
-            from worker_runtime.cleanup import run as cleanup
+            from worker_runtime.maintenance import run
             from backend.app.adapters.d1.sql import D1SQL
             bindings = Environment(self.env)
             sql = D1SQL(getattr(bindings, str(bindings.TEACHER_DATABASE_BINDING)))
-            store = TransferStore(getattr(bindings, str(bindings.TEACHER_MEDIA_BINDING)), 'transfer/media/')
-            # Independent jobs: a transfer cleanup failure must not skip approved sync work.
-            try:
-                result = await cleanup(sql, store)
-            finally:
-                from worker_runtime.sync_schedule import run as sync_schedule
-                await sync_schedule(sql, bindings)
-            # Skip reasons are internal enums; do not log returned arbitrary content.
+            job, result = await run(sql, bindings, controller)
             reason = result.get('skipped')
-            emit('CRON', 'SKIPPED' if reason else 'OK',
-                 reason=reason if reason in ('not-initialized', 'disabled', 'interval', 'busy') else '')
+            emit('CRON', 'SKIPPED' if reason else 'OK', job=job,
+                 reason=reason if reason in ('not-initialized', 'disabled', 'interval', 'busy', 'waiting') else '')

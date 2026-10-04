@@ -1,16 +1,26 @@
 {% extends 'admin/layout.html' %}
-{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.145"></script>{% endblock %}
+{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.153"></script>{% endblock %}
 {% block content %}
 <div id="site-sync" data-csrf="{{ csrf }}" data-interval-ms="{{ sync_policy.request_interval_ms }}" data-retry-seconds='{{ sync_policy.retry_seconds|tojson }}' data-retry-codes='{{ sync_policy.retry_codes|tojson }}'>
 <div class="native-title"><h1>两站同步</h1><span class="native-muted">双向预览 · 审批 · 定时拉取</span></div>
 <p class="native-muted">手动拉取、接收方审批和新定时任务共用逐条处理。手动及定时预览分批读取编号、名称和更新时间；审批只读取提案指定条目及必要依赖，不扫描全库正文。同编号条目是覆盖候选，不比较全文，相同内容也会覆盖。</p>
-<p class="native-muted">每步准备一个记录或引用，执行时最多写入一条业务记录并保存进度；媒体每次最多64 KiB。浏览器请求间隔 {{ sync_policy.request_interval_ms }} 毫秒，失败后可继续原任务。已完成条目保留，不保证整项任务整体回滚。旧版已创建任务保留原流程。</p>
-<p class="native-muted">暂时性错误最多重试3次（等待2、5、15秒；后台在到期后的下一轮调度推进）。重试前读取保存进度；冲突、权限或校验错误需人工处理。手动继续将内容页降为1条、版本页降为5条。仅减小可分页阶段，不保证消除单次CPU超限。</p>
+<p class="native-muted">每步准备一个记录或引用，执行时最多写入一条业务记录并保存进度；新文件涉及Worker时协商16 KiB，本地间64 KiB，旧任务按原宽度继续。浏览器请求间隔 {{ sync_policy.request_interval_ms }} 毫秒，失败后可继续原任务。已完成条目保留，不保证整项任务整体回滚。旧版已创建任务保留原流程。</p>
+<p class="native-muted">暂时性错误最多重试3次（本站等待 {{ sync_policy.retry_seconds|join("、") }} 秒；后台在到期后的下一轮调度推进）。重试前读取保存进度；冲突、权限或校验错误需人工处理。手动继续将内容页降为1条、版本页降为5条。仅减小可分页阶段，不保证消除单次CPU超限。</p>
+<section class="panel native-editor-section" aria-labelledby="sync-monitor-title">
+<h2 id="sync-monitor-title">任务运行状态</h2>
+<p class="native-muted">本站：{{ 'Worker 超低资源模式' if sync_policy.mode=='ultra_low' else '本地标准模式' }}。显示持久化检查点；“等待完成回执”不代表服务器仍在执行；回执逾期也不等于失败。重试时间到达后，由原执行端或后台下一轮调度继续，状态面板不会触发重试。最多20条/页，可翻页查看。</p>
+<div class="native-helper-actions"><button id="sync-monitor-refresh" type="button" class="btn btn-outline-primary btn-sm">刷新任务状态</button><button id="sync-monitor-latest" type="button" class="btn btn-outline-secondary btn-sm">回到最新任务</button><label><input type="checkbox" id="sync-monitor-active" checked> 仅未完成任务</label><label><input type="checkbox" id="sync-monitor-auto" checked> 每60秒自动刷新</label></div>
+<p id="sync-monitor-info" role="status" aria-live="polite">正在读取任务状态…</p>
+<p id="sync-monitor-summary" class="small text-muted" aria-label="本页状态汇总"></p>
+<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>任务 / 方向</th><th>状态 / 阶段</th><th>已保存进度</th><th>时间 / 等待原因</th><th>操作</th></tr></thead><tbody id="sync-monitor-rows"></tbody></table></div>
+<div class="native-helper-actions"><button id="sync-monitor-prev" type="button" class="btn btn-outline-secondary btn-sm" disabled>上一页</button><span id="sync-monitor-page">第1页</span><button id="sync-monitor-next" type="button" class="btn btn-outline-secondary btn-sm" disabled>下一页</button></div>
+<p class="native-muted">此列表只查询本站，不触发同步或请求对端。使用“查看”核对任务，再在下方继续或取消。待批准提案见下方提案模块。页面隐藏或正在操作时暂停自动刷新；刷新失败后改为手动刷新。</p>
+</section>
 <p id="sync-checkpoint" role="status" aria-live="polite"></p>
 <button id="sync-restart" type="button" class="btn btn-outline-secondary btn-sm" disabled>按原范围重新开始</button><small>审批预览请使用“重新读取最新差异并核对”，不继承旧批准。新预览需要重新选择与确认。</small>
 <p><a href="/admin/data_tools">← 数据与备份</a></p>
 <section class="panel native-editor-section"><h2>对端连接</h2>
-<p class="native-muted">使用简要预览时，两站均需安装 v0.15.145、填写对方 HTTPS 地址，并设置相同的随机共享密钥。开启后，对端可读取业务数据（包括非公开内容），不能直接修改本站；实际执行需接收方管理员确认，或由本站明确开启定时拉取策略。</p>
+<p class="native-muted">使用简要预览时，两站均需安装 v0.15.152、填写对方 HTTPS 地址，并设置相同的随机共享密钥。开启后，对端可读取业务数据（包括非公开内容），不能直接修改本站；实际执行需接收方管理员确认，或由本站明确开启定时拉取策略。</p>
 <form id="sync-config"><div class="native-fields">
 <div class="native-field"><label for="sync-origin">对端网站</label><input id="sync-origin" name="origin" class="form-control" type="url" placeholder="https://example.com" value="{{ peer.get('origin','') }}" required></div>
 <div class="native-field"><label for="sync-secret">共享密钥</label><input id="sync-secret" name="secret" class="form-control" type="password" autocomplete="new-password" minlength="32" maxlength="128"><small>已保存的密钥不回显；留空保留。</small><button type="button" id="sync-generate" class="btn btn-outline-secondary btn-sm">生成并复制新密钥</button></div>
@@ -19,7 +29,7 @@
 </form></section>
 <section class="panel native-editor-section"><h2>后台推进与定时拉取</h2>
 <form id="sync-schedule" data-value='{{ schedule|tojson }}'>
-<p class="native-muted">只有接收站开启定时拉取：对端为当前内容来源，本站所选模块与其保持一致（包含业务条目删除及必要依赖，但不删除本站独有媒体）。切换主站前先关闭原接收站的定时拉取，避免两端互相覆盖。待批准推送始终需要人工批准。定时任务按候选覆盖，不跳过相同正文；候选及依赖超过500项会停止，请缩小模块范围或手动分批。</p>
+<p class="native-muted">只有接收站开启定时拉取：对端为当前内容来源，每轮只处理所选模块中两端更新时间最新的最多500项候选及必要依赖（业务删除须逐条确认对端不存在，不删除本站独有媒体）。切换主站前先关闭原接收站的定时拉取，避免两端互相覆盖。待批准推送始终需要人工批准。定时任务按候选覆盖，不跳过相同正文；未入选的旧条目保持不变。每轮最多500项候选，必要依赖另按步骤准备，总计超过2000项时暂停。若需要同步更早内容，请使用手动预览；截断范围不会当作删除依据。</p>
 <div class="native-fields"><div class="native-field"><label><input name="enabled" type="checkbox" {% if schedule.enabled %}checked{% endif %}> 关闭页面后继续推进已确认任务</label><label><input name="auto_pull" type="checkbox" {% if schedule.auto_pull %}checked{% endif %}> 定期从对端拉取，按所选模块自动同步增删</label></div>
 <div class="native-field"><label for="sync-interval">拉取间隔（分钟，完成本轮后计算）</label><input class="form-control form-control-sm" id="sync-interval" name="interval" type="number" min="5" max="10080" value="{{ schedule.interval or 60 }}"></div></div>
 <div class="data-table-choices">{% for t in sync_tables %}<label><input name="schedule-scope" type="checkbox" value="{{ t.key }}" {% if t.key in (schedule.scopes or []) %}checked{% endif %}> {{ t.label }}</label>{% endfor %}</div>

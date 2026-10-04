@@ -9,6 +9,7 @@ from .site_sync_diagnostics import operation
 from . import site_sync_proposals as proposals
 from . import site_sync_schedule as schedule
 from .site_sync_work import policy,REQUEST_INTERVAL_MS
+from .site_sync_limits import for_resource
 
 def install(app,resources,csrf,render):
     from .web import payload
@@ -20,7 +21,7 @@ def install(app,resources,csrf,render):
             from .site_sync_history import listing
             jobs=await listing(r.sql)
             return await render(r,'admin/native-site-sync.html','data_tools',title='两站同步 · 预览',
-                sync_policy=policy(),schedule=await schedule.status(r.sql),incoming=await proposals.inbox(r),allow_proposals=await proposals.enabled(r.sql),peer=rows[0] if rows else {},sync_tables=[{'key':t,'label':MODULES[t]} for t in core.SCOPES],sync_jobs=jobs)
+                sync_policy=policy(r),schedule=await schedule.status(r.sql),incoming=await proposals.inbox(r),allow_proposals=await proposals.enabled(r.sql),peer=rows[0] if rows else {},sync_tables=[{'key':t,'label':MODULES[t]} for t in core.SCOPES],sync_jobs=jobs)
     @app.post('/api/admin/site-sync/{action}')
     async def admin(request:Request,action:str):
         with operation('admin'):
@@ -33,6 +34,9 @@ def install(app,resources,csrf,render):
                 if not result['more']:result['jobs']=await listing(r.sql)
             elif action=='schedule-save':result=await schedule.save(r,data)
             elif action=='schedule-status':result=await schedule.status(r.sql)
+            elif action=='monitor':
+                from .site_sync_status import read
+                result=await read(r,data)
             elif action=='save':
                 await tasks.save(r.sql,data)
                 await r.sql.batch([r.content.audit(r.p,'data_tools','site-sync-config','',{'note':'更新同步连接配置；未记录密钥'})])
@@ -92,17 +96,25 @@ def install(app,resources,csrf,render):
             data=verify(p['secret'],value)
             if not isinstance(data,dict) or data.get('schema')!=core.schema() or data.get('protocol')!=core.PROTOCOL:raise Error('同步协议或业务字段结构不一致，请将两站配套更新至v0.15.139或后续兼容版本',409)
             op=data.get('op')
-            with operation('peer:'+op if op in ('hello','inspect','revision-page','page','brief-page','record','record-head','record-context','record-dependents','proposal-submit','proposal-status','media-head','media-range','media-range-binary','media-record') else 'peer:unknown'):
+            with operation('peer:'+op if op in ('hello','inspect','revision-page','page','brief-page','latest-page','record','record-head','record-context','record-dependents','proposal-submit','proposal-status','media-head','media-range','media-range-binary','media-record') else 'peer:unknown'):
                 if op in ('hello','inspect'):
-                    result={'schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'brief_preview':1,'selected_execute':1,'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0,'policy':policy()}
+                    result={'schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'brief_preview':1,'latest_preview':1,'selected_execute':1,'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0,'policy':policy(r)}
                     if op=='inspect':result['revision']=await core.revision(r.sql)
+                elif op=='latest-page':
+                    from .site_sync_latest import page as latest_page
+                    result=await latest_page(r.sql,data.get('table'),data.get('after'))
                 elif op in ('page','revision-page','brief-page'):
                     table=data.get('table');after=data.get('after','');core.columns(table)
                     if not isinstance(after,str) or len(after)>128:raise Error('分页参数无效')
                     if op=='brief-page':
                         from .site_sync_preview import page as brief_page
-                        result=await brief_page(r.sql,table,after,data.get('limit'))
-                    else:result=await (core.revision_page(r.sql,table,after,data.get('limit')) if op=='revision-page' else core.page(r.sql,table,after,data.get('limit')))
+                        from .site_sync_preview import PAGE as brief_max
+                        limit=min(core.page_limit(data.get('limit'),brief_max),for_resource(r)['brief_rows'])
+                        result=await brief_page(r.sql,table,after,limit)
+                    else:
+                        revisions=op=='revision-page'
+                        limit=min(core.page_limit(data.get('limit'),core.REV_PAGE if revisions else core.PAGE),for_resource(r)['version_rows' if revisions else 'content_rows'])
+                        result=await (core.revision_page(r.sql,table,after,limit) if revisions else core.page(r.sql,table,after,limit))
                 elif op in ('record','record-head','record-context','record-dependents'):
                     from .site_sync_incremental import record,dependents
                     if op=='record-dependents':result=await dependents(r.sql,data.get('table'),data.get('key'),data.get('index'),data.get('after',''))
@@ -124,7 +136,7 @@ def install(app,resources,csrf,render):
 
 async def present(r,uid,options=None):
     task=await tasks.get(r.sql,uid);s=task['state']
-    result={'uid':uid,'status':task['status'],'items':s.get('items',[]),'selection':s.get('selection',{}),'direction':s['direction'],'scopes':s['scopes'],'approval':s.get('approval'),'work':s.get('work',{}),'policy':s.get('policy',policy()),'request_interval_ms':REQUEST_INTERVAL_MS}
+    result={'uid':uid,'status':task['status'],'items':s.get('items',[]),'selection':s.get('selection',{}),'direction':s['direction'],'scopes':s['scopes'],'approval':s.get('approval'),'work':s.get('work',{}),'policy':s.get('policy',policy(r)),'request_interval_ms':REQUEST_INTERVAL_MS}
     if s.get('lightweight'):
         from .site_sync_preview import listing
         result.update(await listing(r.sql,task,options))

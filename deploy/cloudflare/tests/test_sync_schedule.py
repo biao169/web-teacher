@@ -1,47 +1,55 @@
-"""Cron advances shared sync without constructing the HTTP/transfer apps."""
-import asyncio,sys
+import asyncio,sys,json
 from types import ModuleType,SimpleNamespace
 from unittest.mock import AsyncMock,Mock
+import pytest
 from test_startup_lazy import entry
 
-
-def test_disabled_schedule_does_not_load_resources(entry,monkeypatch):
- from worker_runtime.sync_schedule import run
- sql=SimpleNamespace(query=AsyncMock(return_value=[]))
- module=ModuleType('worker_runtime.resources');module.resource_factory=Mock(side_effect=AssertionError('disabled schedule constructed resources'))
- monkeypatch.setitem(sys.modules,'worker_runtime.resources',module)
- asyncio.run(run(sql,object()))
- module.resource_factory.assert_not_called()
-
-
-def test_enabled_schedule_uses_normalized_resources_without_http(entry,monkeypatch):
+@pytest.mark.parametrize('policy,state,active,skip',[
+ ({},{},False,'disabled'),
+ ({'enabled':True,'auto_pull':True},{'next_due':'9999'},False,'interval'),
+ ({'enabled':True,'auto_pull':True},{'retry_after':'9999'},True,'interval'),
+ ({'enabled':True,'auto_pull':False},{},False,'waiting'),
+ ({'enabled':True,'auto_pull':False},{'next_due':'9999'},True,None),
+ ({'enabled':True,'auto_pull':True},{'preview_uid':'p','next_due':'9999'},False,None),
+ ({'enabled':True,'auto_pull':True},{},False,None),
+])
+def test_gate(entry,monkeypatch,policy,state,active,skip):
  from worker_runtime.sync_schedule import run
  from backend.app.native import site_sync_schedule as schedule
- sql=SimpleNamespace(query=AsyncMock(return_value=[{'value':'{"enabled":true}'}]))
- env=object();base=SimpleNamespace(sql=None)
+ async def query(sql,args=()):
+  if 'sync_tasks' in sql:return [{'uid':'task'}] if active else []
+  return [{'value':json.dumps(state if args[0].endswith('-state') else policy)}]
+ sql=SimpleNamespace(query=query);base=SimpleNamespace(sql=None)
  module=ModuleType('worker_runtime.resources');module.resource_factory=Mock(return_value=base)
  monkeypatch.setitem(sys.modules,'worker_runtime.resources',module)
  tick=AsyncMock(return_value={'status':'ok'});monkeypatch.setattr(schedule,'tick',tick)
- monkeypatch.setattr(entry,'build_application',Mock(side_effect=AssertionError('HTTP built from Cron')))
- asyncio.run(run(sql,env))
- assert module.resource_factory.call_args.args[0].scope['env'] is env
- assert base.sql is sql
- tick.assert_awaited_once_with(base)
+ result=asyncio.run(run(sql,object()))
+ if skip:
+  assert result=={'skipped':skip};module.resource_factory.assert_not_called();tick.assert_not_awaited()
+ else:
+  tick.assert_awaited_once_with(base,prune_history=False);assert base.sql is sql
  assert entry.application.application is None
 
+@pytest.mark.parametrize('minute,expected',[(0,'transfer'),(1,'history'),(2,'sync'),(9,'sync'),(10,'transfer')])
+def test_single_job(entry,monkeypatch,minute,expected):
+ from worker_runtime import maintenance,cleanup,sync_schedule,storage
+ from backend.app.native import site_sync_history as history
+ runners={k:AsyncMock(return_value={}) for k in ('transfer','history','sync')}
+ monkeypatch.setattr(cleanup,'run',runners['transfer']);monkeypatch.setattr(history,'prune',runners['history']);monkeypatch.setattr(sync_schedule,'run',runners['sync'])
+ monkeypatch.setattr(storage,'TransferStore',Mock(return_value=object()))
+ sql=object();env=SimpleNamespace(TEACHER_MEDIA_BINDING='MEDIA',MEDIA=object())
+ assert asyncio.run(maintenance.run(sql,env,SimpleNamespace(scheduledTime=minute*60000)))[0]==expected
+ assert sum(x.await_count for x in runners.values())==1
+ assert runners[expected].await_count==1
+ if expected=='history':runners['history'].assert_awaited_once_with(sql,batch=1)
+ if expected!='transfer':storage.TransferStore.assert_not_called()
 
-def test_cleanup_failure_still_runs_sync(entry,monkeypatch):
- import worker_runtime.bridge as bridge
- import worker_runtime.storage as storage
- import worker_runtime.cleanup as cleanup
- import worker_runtime.sync_schedule as sync
- import backend.app.adapters.d1.sql as d1
- monkeypatch.setattr(bridge,'Environment',lambda env:env)
- sql=object();monkeypatch.setattr(d1,'D1SQL',lambda binding:sql)
- monkeypatch.setattr(storage,'TransferStore',lambda *args:object())
- monkeypatch.setattr(cleanup,'run',AsyncMock(side_effect=RuntimeError('cleanup failure')))
- runner=AsyncMock();monkeypatch.setattr(sync,'run',runner)
- w=entry.Default();w.env=SimpleNamespace(TEACHER_DATABASE_BINDING='DB',TEACHER_MEDIA_BINDING='MEDIA',DB=object(),MEDIA=object())
- import pytest
- with pytest.raises(RuntimeError):asyncio.run(w.scheduled(None))
- runner.assert_awaited_once_with(sql,w.env)
+def test_failure_does_not_chain(entry,monkeypatch):
+ from worker_runtime import maintenance,cleanup,sync_schedule,storage
+ monkeypatch.setattr(storage,'TransferStore',lambda *a:object())
+ monkeypatch.setattr(cleanup,'run',AsyncMock(side_effect=RuntimeError('failed')))
+ runner=AsyncMock();monkeypatch.setattr(sync_schedule,'run',runner)
+ env=SimpleNamespace(TEACHER_MEDIA_BINDING='MEDIA',MEDIA=object())
+ with pytest.raises(RuntimeError):asyncio.run(maintenance.run(object(),env,SimpleNamespace(scheduledTime=0)))
+ runner.assert_not_awaited()
+ assert maintenance.job_for(SimpleNamespace(scheduledTime=120000))=='sync'

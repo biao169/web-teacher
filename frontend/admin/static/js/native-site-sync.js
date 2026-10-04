@@ -7,7 +7,7 @@ if(root){
  let taskReady=false,lightweight=false,prepared=false,nextCursor=null,cursors=[['','']],candidateCount=0;
  const intervalMs=Number(root.dataset.intervalMs)||0;let nextBatchAt=0;
  const paced=new Set(['advance','pull-begin','proposal-approve','pull-tick','proposal-send','history-delete']);
- function checkpoint(value){const target=q('#sync-checkpoint'),w=value?.work;if(!target||!w)return;target.textContent=`阶段：${w.phase||w.operation||'准备'} · 已保存步骤 ${w.completed_steps||0} · 已读 ${w.count||0} 条${Number.isFinite(w.elapsed_ms)?' · 最近步骤耗时 '+w.elapsed_ms+' ms':''}${w.completed_at?' · 最近保存 '+w.completed_at:''}${w.status==='running'?' · 上次步骤尚未确认完成；可稍后打开原任务继续':''}${w.error?' · '+w.error:''}`;}
+ function checkpoint(value){const target=q('#sync-checkpoint'),w=value?.work;if(!target||!w)return;target.textContent=`阶段：${w.phase||w.operation||'准备'} · 已保存步骤 ${w.completed_steps||0} · 已读 ${w.count||0} 条${Number.isFinite(w.elapsed_ms)?' · 最近步骤耗时 '+w.elapsed_ms+' ms':''}${w.completed_at?' · 最近保存 '+w.completed_at:''}${w.status==='running'?' · 上次步骤尚未确认完成；可稍后打开原任务继续':''}${w.retry_after?' · 下次可重试 '+w.retry_after:''}${w.error?' · '+w.error:''}`;}
  function rayText(response,value={}){
   const ray=response.headers?.get?.('cf-ray')||value.ray_id||value.instance||'';
   return typeof ray==='string'&&/^[a-zA-Z0-9-]{1,64}$/.test(ray)?'；本站响应Ray ID：'+ray:'';
@@ -28,23 +28,29 @@ if(root){
   }
   checkpoint(result);return result;
  }
- const retrySeconds=JSON.parse(root.dataset.retrySeconds||'[2,5,15]');
+ const retrySeconds=JSON.parse(root.dataset.retrySeconds||'[60,180,600]');
  const retryCodes=new Set(JSON.parse(root.dataset.retryCodes||'[]'));
  async function waitFor(ms){const end=Date.now()+ms;while(Date.now()<end){if(pause)throw new DOMException('已暂停后续批次；进度已保存。','AbortError');await new Promise(resolve=>setTimeout(resolve,Math.min(250,end-Date.now())))}}
  async function api(action,data={}){
   for(let attempt=0;;attempt++){
    try{return await request(action,data)}catch(e){
-    const retryable=e instanceof TypeError||retryCodes.has(e.code)||(!e.code&&[429,502,503,504].includes(e.httpStatus));
+    const retryable=e instanceof TypeError||retryCodes.has(e.code)||e.code==='sync_retry_wait'||(!e.code&&[429,502,503,504].includes(e.httpStatus));
     if(!paced.has(action)||!retryable||attempt>=retrySeconds.length||pause)throw e;
-    const delay=retrySeconds[attempt]*1000;
-    status.textContent=`${e.message}；${retrySeconds[attempt]}秒后重试 ${attempt+1}/${retrySeconds.length}，可点击暂停。`;
+    let delay=retrySeconds[attempt]*1000;
+    // Read once, then wait locally. Do not poll the server during its cooldown.
+    if(data.uid){
+     const saved=await request('get',{uid:data.uid});checkpoint(saved);if(saved.execution)report(saved);
+     const w=saved.work||{};
+     if(w.status==='paused'&&w.retryable===false)throw e;
+     const deadline=Date.parse(w.status==='running'?w.recover_after:w.retry_after);
+     if(Number.isFinite(deadline))delay=Math.max(delay,deadline-Date.now());
+    }
+    status.textContent=`${e.message}；${Math.ceil(delay/1000)}秒后重试 ${attempt+1}/${retrySeconds.length}，可点击暂停。`;
     notify(status.textContent,'info',{id:'site-sync'});await waitFor(delay);
-    // A lost response may already have committed. Read the persisted state before replaying.
-    if(data.uid){const saved=await request('get',{uid:data.uid});checkpoint(saved);if(saved.execution)report(saved)}
    }
   }
  }
- async function run(fn){if(busy)return;busy=true;notify('正在处理同步操作…','progress',{id:'site-sync'});root.querySelectorAll('button').forEach(b=>b.disabled=true);q('#sync-pause').disabled=false;try{await fn();notify(status.textContent,/完成|通过|已保存|已送达|已拒绝/.test(status.textContent)?'success':'info',{id:'site-sync'})}catch(e){const message=e instanceof TypeError?'浏览器无法连接本站接口；请检查网络并刷新任务核对进度。':e.message;status.textContent=message;notify(message,e.name==='AbortError'?'info':'error',{id:'site-sync'});status.scrollIntoView?.({block:'nearest',behavior:'smooth'})}finally{busy=false;root.querySelectorAll('button').forEach(b=>b.disabled=false);q('#sync-pause').disabled=true;draw()}}
+ async function run(fn){if(busy)return;busy=true;notify('正在处理同步操作…','progress',{id:'site-sync'});root.querySelectorAll('button').forEach(b=>b.disabled=true);q('#sync-pause').disabled=false;try{await fn();notify(status.textContent,/完成|通过|已保存|已送达|已拒绝/.test(status.textContent)?'success':'info',{id:'site-sync'})}catch(e){const message=e instanceof TypeError?'浏览器无法连接本站接口；请检查网络并刷新任务核对进度。':e.message;status.textContent=message;notify(message,e.name==='AbortError'?'info':'error',{id:'site-sync'});status.scrollIntoView?.({block:'nearest',behavior:'smooth'})}finally{busy=false;root.querySelectorAll('button').forEach(b=>b.disabled=false);q('#sync-pause').disabled=true;draw();monitorControls()}}
  function filtered(){if(lightweight)return items;const term=q('#sync-search').value.trim().toLowerCase(),action=q('#sync-action').value,sort=q('#sync-sort').value,field=sort.replace('-','');return items.filter(x=>(x.in_scope||selected.has(x.id))&&(!action||x.action===action)&&(!term||[x.title,x.table,x.module_label,x.uid].join(' ').toLowerCase().includes(term))).sort((a,b)=>String(a[field]).localeCompare(String(b[field]))*(sort.startsWith('-')?-1:1))}
  function cell(row,value){const td=document.createElement('td');td.textContent=value;row.append(td);return td}
  function draw(){
@@ -105,14 +111,14 @@ if(root){
  q('#sync-test').onclick=()=>run(async()=>{await api('test');status.textContent='连接、签名、同步协议和站点身份检查通过；尚未读取或校验业务数据，开始预览时再检查。'});
  root.querySelectorAll('[data-direction]').forEach(b=>b.onclick=()=>run(async()=>{q('#sync-result').hidden=true;q('#sync-execution').hidden=true;q('#sync-outgoing').hidden=true;approval=null;outgoing=null;execution=null;items=[];const result=await api('start',{direction:b.dataset.direction,scopes:[...root.querySelectorAll('[name=sync-scope]:checked')].map(c=>c.value)});uid=result.uid;const option=new Option('当前预览 · '+new Date().toLocaleString(),uid);q('#sync-history').prepend(option);q('#sync-history').value=uid;await read()}));
  q('#sync-pause').onclick=()=>{pause=true};q('#sync-resume').onclick=()=>run(async()=>{uid=q('#sync-history').value;if(!uid)throw Error('请选择预览');await openSaved()});
- async function openSaved(){
+ async function openSaved(advance=true){
   taskReady=false;let result=await api('get',{uid});
   if(result.prepared_uid){
    uid=result.prepared_uid;
    if(![...q('#sync-history').options].some(v=>v.value===uid))q('#sync-history').prepend(new Option('执行准备 · '+uid.slice(0,8),uid));
    q('#sync-history').value=uid;result=await api('get',{uid});
   }
-  if(result.status==='reading'){pause=false;await api('resume',{uid});await read()}
+  if(result.status==='reading'){if(advance){pause=false;await api('resume',{uid});await read()}else{show(result);status.textContent='已打开保存的检查点，尚未推进；需要继续读取时使用“打开 / 继续读取”。'}}
   else if(result.status==='ready')show(result);
   else throw Error('预览已失效，请重新生成。');
  }
@@ -159,10 +165,78 @@ if(root){
  q('#sync-reject').onclick=()=>{if(confirm('拒绝当前提案？不会修改两站业务数据。'))run(async()=>{await api('proposal-reject',{request_id:pending.request_id});inboxView(await api('proposal-inbox'));status.textContent='提案已拒绝；旧提案重发不会恢复审批，来源需提交新版提案。'})};
  const scheduleForm=q('#sync-schedule');let scheduleRevision=null;
  let lastScheduleError='';
- function scheduleView(value){const currentError=value.state?.error||'';if(currentError&&currentError!==lastScheduleError)notify('后台同步暂停：'+currentError,'error',{id:'site-sync-background'});lastScheduleError=currentError;scheduleRevision=value.revision||null;const s=value.state||{};q('#sync-schedule-status').textContent=`${value.enabled?'后台已开启':'后台已关闭'} · ${value.auto_pull?'自动拉取':'仅推进已确认任务'}${s.message?' · '+s.message:''}${s.next_due?' · 下次拉取检查 '+s.next_due:''}${s.updated_at?' · 最近检查 '+s.updated_at:''}${s.task_uid?' · 任务 '+s.task_uid:''}${s.error?' · '+s.error:''}`;}
+ function scheduleView(value){const currentError=value.state?.error||'';if(currentError&&currentError!==lastScheduleError)notify('后台同步暂停：'+currentError,'error',{id:'site-sync-background'});lastScheduleError=currentError;scheduleRevision=value.revision||null;const s=value.state||{};q('#sync-schedule-status').textContent=`${value.enabled?'后台已开启':'后台已关闭'} · ${value.auto_pull?'自动拉取':'仅推进已确认任务'}${s.message?' · '+s.message:''}${s.next_due?' · 下次拉取检查 '+s.next_due:''}${s.updated_at?' · 最近检查 '+s.updated_at:''}${s.preview_uid||s.task_uid?' · 当前任务 '+(s.preview_uid||s.task_uid):''}${s.retry_after?' · 等待至 '+new Date(s.retry_after).toLocaleString():''}${s.error?' · '+s.error:''}`;}
  scheduleForm.addEventListener('submit',e=>{e.preventDefault();run(async()=>{const f=new FormData(scheduleForm);if(!confirm(f.has('enabled')?(f.has('auto_pull')?'启用本站作为接收端定时拉取？包含所选模块及依赖的新增、覆盖和删除。请确保对端未同时启用定时拉取。':'开启后台推进已确认任务？未批准的提案不会自动批准。'):'关闭后台同步？已完成的内容不会回滚。'))return;f.set('confirmation','允许定时拉取并同步增删');scheduleView(await api('schedule-save',{revision:scheduleRevision,enabled:f.has('enabled'),auto_pull:f.has('auto_pull'),interval:Number(f.get('interval')),scopes:f.getAll('schedule-scope'),confirmation:f.get('confirmation')}));q('#sync-schedule-confirm').value='';status.textContent='后台策略已保存。';})});
  q('#sync-schedule-refresh').onclick=()=>run(async()=>scheduleView(await api('schedule-status')));
  scheduleView(JSON.parse(scheduleForm.dataset.value));
  inboxView(JSON.parse(q('#sync-inbox').dataset.value));
  q('#sync-prev').onclick=()=>{if(lightweight)run(async()=>{page--;await loadPage(cursors[page-1])});else{page--;draw()}};q('#sync-next').onclick=()=>{if(lightweight)run(async()=>{cursors[page]=nextCursor;page++;await loadPage(cursors[page-1])});else{page++;draw()}};
+ // Metadata-only task monitor: one request at a time, no peer traffic or retries.
+ let monitorBusy=false,monitorTimer=null,monitorNext=null,monitorPage=0,monitorRenderedPage=0,monitorCursors=[null];
+ const monitorRows=q('#sync-monitor-rows'),monitorInfo=q('#sync-monitor-info');
+ const phaseNames={latest:'读取最新候选',brief:'读取摘要',candidates:'整理候选','selected-load':'准备条目及依赖','selected-check':'核对依赖',complete:'准备完成',download:'传输媒体','write-record':'逐条写入','prepare-rows':'准备写入',commit:'提交内容',cleanup:'清理暂存',done:'完成',cancelled:'已取消',baseline:'读取版本',content:'读取内容',confirm:'等待确认','proposal-check':'核对推送提案','approval-review':'核对审批',selection:'保存选择'};
+ const operationNames={advance:'推进预览',begin:'确认执行',execute:'推进执行','pull-tick':'推进传输',tick:'推进传输',select:'保存选择','proposal-send':'发送提案','review-finish':'完成审批核对'};
+ const localTime=value=>value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString():'—';
+ const ageText=(stamp,now)=>{const seconds=Math.max(0,Math.floor((now-Date.parse(stamp))/1000));return !Number.isFinite(seconds)?'':seconds<60?seconds+'秒':seconds<3600?Math.floor(seconds/60)+'分钟':Math.floor(seconds/3600)+'小时'};
+ function monitorState(job,now){
+  const phase=job.execution_phase||job.phase;
+  if(job.status==='expired')return ['已失效','secondary'];
+  if(phase==='done')return ['已完成','success'];
+  if(phase==='cancelled')return ['已取消','secondary'];
+  if(job.restart_uid)return ['已重新开始','secondary'];
+  if(job.work_status==='running')return [Date.parse(job.recover_after)<=now?'回执逾期 · 待核对':'等待完成回执','warning'];
+  if(job.work_status==='paused'){
+   if(job.retryable&&job.retry_after)return [Date.parse(job.retry_after)>now?'等待重试':'重试时间已到','warning'];
+   return ['已暂停 · 需人工处理','danger'];
+  }
+  if(job.prepared_uid&&!job.execution_phase)return ['已转入准备子任务','secondary'];
+  return [job.execution_phase?'待推进下一步':job.status==='reading'?'待继续读取':'待确认 / 待审批','info'];
+ }
+ function monitorControls(){
+  q('#sync-monitor-prev').disabled=busy||monitorBusy||!monitorPage;
+  q('#sync-monitor-next').disabled=busy||monitorBusy||!monitorNext;
+  q('#sync-monitor-latest').disabled=busy||monitorBusy;
+  q('#sync-monitor-refresh').disabled=busy||monitorBusy;
+  q('#sync-monitor-active').disabled=busy||monitorBusy;
+  monitorRows.querySelectorAll('button').forEach(button=>button.disabled=busy||button.dataset.unavailable==='true');
+ }
+ function monitorRender(value){
+  monitorRows.replaceChildren();monitorNext=value.next||null;monitorRenderedPage=monitorPage;
+  const now=Date.parse(value.server_time)||Date.now(),counts=new Map();
+  for(const job of value.jobs||[]){
+   const row=document.createElement('tr'),phase=job.execution_phase||job.work_phase||job.phase;
+   const deadline=job.work_status==='running'?job.recover_after:job.retry_after;
+   const [label,tone]=monitorState(job,now);counts.set(label,(counts.get(label)||0)+1);
+   const identity=document.createElement('td');identity.textContent=job.uid+' · '+(job.direction==='push'?'本站 → 对端':'对端 → 本站')+(job.latest_only||job.auto_latest?' · 最新500项':'');
+   for(const [key,title] of [['parent_uid','父任务'],['prepared_uid','准备子任务'],['restart_uid','重新开始的任务']])if(job[key]){const note=document.createElement('div');note.className='small text-muted';note.textContent=title+'：'+job[key];identity.append(note)}
+   row.append(identity);
+   const state=document.createElement('td'),badge=document.createElement('span');badge.className='badge text-bg-'+tone;badge.textContent=label;state.append(badge);
+   const stage=document.createElement('div');stage.textContent=(phaseNames[phase]||phase||'准备')+(job.operation?' · '+(operationNames[job.operation]||job.operation):'');state.append(stage);row.append(state);
+   const savedAge=ageText(job.completed_at,now);
+   const cells=[`已保存 ${job.steps||0} 步 · 已读 ${job.count||0} 条 · 候选 ${job.candidates||0} 项`+(job.applied!=null?' · 已提交 '+job.applied+' 条':'')+(job.load_index!=null?' · 已准备 '+job.load_index+' 条':'')+(job.media_count!=null?` · 媒体 ${Math.min(job.file_index||0,job.media_count)}/${job.media_count} · ${Math.round((job.bytes||0)/1024)} KB`:'')+(job.chunk_bytes?' · 分片 '+job.chunk_bytes/1024+' KiB':''),
+    '创建 '+localTime(job.created_at)+(job.completed_at?' · 最近保存 '+localTime(job.completed_at)+(savedAge?'（'+savedAge+'前）':''):' · 尚无步骤完成记录')+(job.started_at?' · 最近启动 '+localTime(job.started_at):'')+(job.failed_at?' · 最近失败 '+localTime(job.failed_at):'')+(deadline?' · '+(job.work_status==='running'?'回执恢复等待至 ':'重试等待至 ')+localTime(deadline):'')+(job.retry_count?' · 连续失败 '+job.retry_count+' 次':'')+(job.elapsed_ms!=null?' · 上一步耗时 '+job.elapsed_ms+' ms':'')+(job.error_code?' · 错误码 '+job.error_code:'')+(job.error?' · '+job.error:'')];
+   for(const text of cells){const td=document.createElement('td');td.textContent=text;row.append(td)}
+   const td=document.createElement('td'),button=document.createElement('button');button.type='button';button.className='btn btn-outline-secondary btn-sm';button.textContent='查看';button.dataset.unavailable=String(job.status==='expired');button.disabled=busy||job.status==='expired';
+   button.onclick=()=>run(async()=>{uid=job.uid;if(![...q('#sync-history').options].some(v=>v.value===uid))q('#sync-history').prepend(new Option('任务 · '+uid.slice(0,8),uid));q('#sync-history').value=uid;await openSaved(false)});td.append(button);row.append(td);monitorRows.append(row);
+  }
+  monitorInfo.textContent='状态读取于 '+localTime(value.server_time)+' · 本页 '+(value.jobs||[]).length+' 项'+(!(value.jobs||[]).length?'；当前筛选范围没有任务':'')+(monitorPage?' · 当前为历史分页，查看新任务请点击“回到最新任务”':'');
+  q('#sync-monitor-summary').textContent=[...counts].map(([label,count])=>label+' '+count+' 项').join(' · ');
+  q('#sync-monitor-page').textContent='第'+(monitorPage+1)+'页';
+  if(value.schedule)scheduleView(value.schedule);
+ }
+ async function refreshMonitor(){
+  if(monitorBusy||busy)return;
+  monitorBusy=true;monitorControls();
+  try{monitorRender(await request('monitor',{active:q('#sync-monitor-active').checked,after:monitorCursors[monitorPage]}))}
+  catch(e){monitorPage=monitorRenderedPage;monitorInfo.textContent='状态刷新失败，已停止自动刷新：'+e.message;q('#sync-monitor-auto').checked=false}
+  finally{monitorBusy=false;monitorControls()}
+ }
+ function monitorLater(){clearTimeout(monitorTimer);monitorTimer=setTimeout(async()=>{if(!document.hidden&&q('#sync-monitor-auto').checked)await refreshMonitor();monitorLater()},60000)}
+ q('#sync-monitor-refresh').onclick=refreshMonitor;
+ q('#sync-monitor-latest').onclick=()=>{monitorPage=0;monitorCursors=[null];refreshMonitor()};
+ q('#sync-monitor-active').onchange=()=>{monitorPage=0;monitorCursors=[null];refreshMonitor()};
+ q('#sync-monitor-prev').onclick=()=>{if(!busy&&!monitorBusy&&monitorPage){monitorPage--;refreshMonitor()}};
+ q('#sync-monitor-next').onclick=()=>{if(!busy&&!monitorBusy&&monitorNext){monitorCursors[++monitorPage]=monitorNext;refreshMonitor()}};
+ refreshMonitor();monitorLater();window.addEventListener('pagehide',()=>clearTimeout(monitorTimer),{once:true});
+
 }

@@ -115,7 +115,10 @@ def response_json(status,body,headers=None):
 async def post(kind,url,data):
     raw=encoded(data);url=origin(url)+'/api/site-sync/peer';started=time.monotonic()
     try:
-        limit=FRAME_LIMIT if data.get('payload',{}).get('op')=='media-range-binary' else LIMIT
+        payload=data.get('payload',{})
+        width=payload.get('chunk_bytes',MEDIA_CHUNK_BYTES)
+        if type(width) is not int or not 0<width<=MEDIA_CHUNK_BYTES:raise failure('size','媒体分片大小无效')
+        limit=8+FRAME_HEADER_LIMIT+width if payload.get('op')=='media-range-binary' else LIMIT
         if kind=='local':return await asyncio.to_thread(_local,url,raw,limit)
         return await _worker(url,raw,limit)
     except Exception as exc:

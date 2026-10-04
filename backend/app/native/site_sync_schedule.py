@@ -11,13 +11,10 @@ from .data_tools import authorize,encoded
 from .media_locks import lease
 from . import site_sync as core,site_sync_tasks as tasks,site_sync_apply as apply
 
-KEY='site-sync:schedule'
-STATE='site-sync:schedule-state'
-CONFIRM='允许定时拉取并同步增删'
+from .site_sync_limits import AUTO_PULL_CANDIDATES
 
-async def load(sql,key=KEY):
-    rows=await sql.query('SELECT value FROM service_meta WHERE key=?',(key,))
-    return json.loads(rows[0]['value']) if rows else {}
+from .site_sync_gate import KEY, STATE, load
+CONFIRM='允许定时拉取并同步增删'
 
 def put(key,value):
     return ('INSERT INTO service_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(key,encoded(value).decode()))
@@ -94,7 +91,7 @@ async def step(r,policy,s):
     if not policy['auto_pull']:s['message']='等待已确认任务；不自动拉取或批准推送';return
     if not s.get('preview_uid'):
         if s.get('next_due','')>now():return
-        job=await tasks.start(r,'pull',policy['scopes'],lightweight=True);s.pop('auto_selection',None);s['preview_uid']=job['uid'];s['last_started']=now();s['message']='分批读取最新差异';return
+        job=await tasks.start(r,'pull',policy['scopes'],lightweight=True,latest_only=True);s.pop('auto_selection',None);s['preview_uid']=job['uid'];s['last_started']=now();s['message']='分批读取最新差异';return
     uid=s['preview_uid'];job=await tasks.get(r.sql,uid)
     if job['state'].get('restart_uid'):
         s['preview_uid']=job['state']['restart_uid'];s.pop('auto_selection',None);s['message']='旧预览已重新开始，改用新预览';return
@@ -112,7 +109,7 @@ async def step(r,policy,s):
             if not selection['ready']:
                 part=await preview.listing(r.sql,job,{'after':selection['after']})
                 ids=selection['ids']+[v['id'] for v in part['items']]
-                if len(ids)>500:raise Error('定时候选超过500项，请缩小模块范围或手动分批；尚未执行业务写入',409)
+                if len(ids)>AUTO_PULL_CANDIDATES:raise Error('定时候选超过500项，请缩小模块范围或手动分批；尚未执行业务写入',409)
                 selection.update(ids=ids,after=part['next'],ready=part['next'] is None)
                 s['message']='分批收集候选：'+str(len(ids))+' 项';return
             if not selection['ids']:
@@ -135,9 +132,10 @@ async def step(r,policy,s):
         s['message']='分批复核确认前版本，尚未开始执行';return
     s['task_uid']=uid;s['message']='按本站预先授权的定时拉取策略开始执行'
 
-async def tick(base):
-    from .site_sync_history import prune
-    await prune(base.sql)
+async def tick(base, *, prune_history=True):
+    if prune_history:
+        from .site_sync_history import prune
+        await prune(base.sql)
     policy=await load(base.sql)
     if not policy.get('enabled'):return {'skipped':'disabled'}
     s=await load(base.sql,STATE)
@@ -162,7 +160,7 @@ async def tick(base):
             await r.sql.batch([guard,put(STATE,s),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
         return {'status':'ok',**s}
     except Exception as exc:
-        if isinstance(exc,Error) and exc.code=='sync_busy':return {'skipped':'busy'}
+        if isinstance(exc,Error) and exc.code in ('sync_busy','sync_retry_wait'):return {'skipped':'interval' if exc.code=='sync_retry_wait' else 'busy'}
         # Persist bounded diagnostics without logging peer bodies or secret URLs.
         # A disabled/replaced policy must not have its new state overwritten.
         if (await load(base.sql)).get('revision')!=policy['revision']:return {'skipped':'policy-changed'}
@@ -170,7 +168,7 @@ async def tick(base):
             return {'skipped':'busy'}
         s['error']=exc.message if isinstance(exc,Error) else '后台步骤未完成；请检查连接或打开任务重试'
         from .site_sync_work import retry_state
-        retry=retry_state(exc,s) if isinstance(exc,Error) else {'retry_count':1,'retryable':False,'retry_after':None}
+        retry=retry_state(exc,s,base) if isinstance(exc,Error) else {'retry_count':1,'retryable':False,'retry_after':None}
         s.update(retry);s['updated_at']=now();s['retry_after']=retry['retry_after'] or now(seconds=policy['interval']*60)
         # Keep the same preview checkpoint after failure; never silently start over.
         s['next_due']=s['retry_after']

@@ -10,10 +10,11 @@ from .site_sync_analysis import put, scan
 from .site_sync_transport import call
 from .catalog import Error, TITLE, MODULES
 from .data_tools import encoded
+from .site_sync_limits import STANDARD,for_resource
 
 BRIEF='@brief:'
 CANDIDATE='@candidate:'
-PAGE=20
+PAGE=STANDARD['brief_rows']
 
 async def page(sql,table,after='',limit=None):
     core.columns(table);limit=core.page_limit(limit,PAGE)
@@ -29,17 +30,21 @@ def initialize(state):
                  candidate_count=0,selection=core.select([],[]))
 
 async def advance(r,task,p):
+    if task['state'].get('latest_only'):
+        from .site_sync_latest import advance as latest_advance
+        return await latest_advance(r,task,p)
     s=task['state'];uid=task['uid'];statements=[]
     modules=sorted(s['scopes'])
     if s['phase']=='brief':
         table=modules[s['table_index']]
-        if s['side']=='local':part=await page(r.sql,table,s['after'])
+        limit=min(core.page_limit(s.get('policy',{}).get('brief_rows'),PAGE),for_resource(r)['brief_rows'])
+        if s['side']=='local':part=await page(r.sql,table,s['after'],limit)
         else:
             part=await call(r,p,{'op':'brief-page','schema':core.schema(),'protocol':core.PROTOCOL,
-                                'table':table,'after':s['after'],'limit':PAGE})
+                                'table':table,'after':s['after'],'limit':limit})
             if part.get('site_id')!=s['remote_id']:raise Error('对端身份已变化，请重新预览',409)
         rows=part.get('rows');last=s['after']
-        if not isinstance(rows,list) or len(rows)>PAGE:raise Error('简要分页响应无效',409)
+        if not isinstance(rows,list) or len(rows)>limit:raise Error('简要分页响应无效',409)
         for row in rows:
             fields={'uid','title','updated_at'}|({'is_manual'} if table=='translation_cache' else set())
             if (not isinstance(row,dict) or set(row)!=fields or not isinstance(row['uid'],str)

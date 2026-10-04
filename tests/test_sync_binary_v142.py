@@ -65,6 +65,8 @@ def test_multichunk_resume_and_legacy_fallback(pair,monkeypatch,legacy):
     monkeypatch.setattr(ra.cache_store,'put',lose_ack)
     assert api('pull-tick',{'uid':uid},ok=False).status_code==502
     saved=run(tasks.get(ra.sql,uid))['state']['execution'];assert saved['offset']==0
+    # v151 enforces the persisted cooldown; simulate its expiry without sleeping.
+    run(ra.sql.batch([("UPDATE sync_tasks SET state=json_set(state,'$.work.retry_after','2000-01-01T00:00:00.000Z') WHERE uid=?",(uid,))]))
     finish(api,uid)
     assert operations[0][1]==operations[1][1]==0
     assert all(op==('media-range' if legacy else 'media-range-binary') for op,_ in operations)

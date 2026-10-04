@@ -10,7 +10,8 @@ from .catalog import Error,TABLES
 from .data_tools import encoded,authorize
 from . import site_sync as core,site_sync_tasks as tasks
 from .site_sync_transport import call
-from .site_sync_media import CHUNK,chunk_key
+from .site_sync_media import CHUNK,chunk_key,chunk_size,negotiate
+from .site_sync_limits import for_resource
 from .media_inventory_store import inventory
 from .media_locks import lease,live_lease
 from .media_references import REFERENCE_LOCK
@@ -25,8 +26,7 @@ def progress(task):
 async def persist(r,task):
     await tasks.persist(r.sql,task,status=task['status'])
 
-async def active(sql):
-    return await sql.query("SELECT uid FROM sync_tasks WHERE json_extract(state,'$.execution.phase') IS NOT NULL AND json_extract(state,'$.execution.phase') NOT IN ('done','cancelled') LIMIT 1")
+from .site_sync_gate import active
 
 async def remote_check(r,task):
     s=task['state'];p=await tasks.peer(r.sql)
@@ -92,12 +92,14 @@ async def download(r,task):
         if result.get('size')!=item['size'] or result.get('key')!=item['key'] or result.get('checksum')!=item['source_checksum']:raise Error('来源媒体登记已变化',409)
         token=result.get('record_version')
         if not isinstance(token,str) or len(token)!=64:raise Error('对端缺少媒体记录版本，请配套更新两站',409)
+        item['chunk_bytes']=negotiate(r,result)
+        item['adaptive_ranges']=result.get('adaptive_ranges')==1
         item['binary_ranges']=result.get('binary_ranges')==1;item['record_version']=token;item['version']=result['version'];await persist(r,task);return
-    offset=e['offset']
+    offset=e['offset'];width=chunk_size(item.get('chunk_bytes',CHUNK))
     if offset<item['size']:
-        result=await fetch(r,task,{'op':'media-range-binary' if item.get('binary_ranges') else 'media-range','uid':item['uid'],'version':item['version'],'record_version':item.get('record_version'),'offset':offset})
+        result=await fetch(r,task,{'op':'media-range-binary' if item.get('binary_ranges') else 'media-range','uid':item['uid'],'version':item['version'],'record_version':item.get('record_version'),'offset':offset,**({'chunk_bytes':width} if item.get('adaptive_ranges') else {})})
         raw=result['raw'] if item.get('binary_ranges') else base64.b64decode(result.get('bytes',''),validate=True)
-        if result.get('offset')!=offset or result.get('uid')!=item['uid'] or result.get('version')!=item['version'] or len(raw)!=min(CHUNK,item['size']-offset) or (not item.get('binary_ranges') and hashlib.sha256(raw).hexdigest()!=result.get('sha256')):raise Error('媒体分片校验失败')
+        if result.get('offset')!=offset or result.get('uid')!=item['uid'] or result.get('version')!=item['version'] or len(raw)!=min(width,item['size']-offset) or (not item.get('binary_ranges') and hashlib.sha256(raw).hexdigest()!=result.get('sha256')):raise Error('媒体分片校验失败')
         await r.cache_store.put(chunk_key(task['uid'],index,offset),raw)
         e['offset']+=len(raw);e['bytes']+=len(raw);await persist(r,task);return
     from .site_sync_media import finalize_step
@@ -155,7 +157,7 @@ async def cleanup(r,task):
         await r.sql.batch([('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(task['state']).decode(),task['uid'])),r.content.audit(r.p,'data_tools','sync_pull_'+e['phase'],task['uid'],{'committed':e['committed']})]);return
     item=e['media'][i]
     from .site_sync_media import cleanup_step
-    if await cleanup_step(r,task,i,item,CLEANUP_BATCH):
+    if await cleanup_step(r,task,i,item,for_resource(r)['cleanup_batch']):
         # Cancel removes only our version of unregistered staged media, never referenced/live files.
         if (task['state'].get('incremental') or not e['committed']) and item.get('created_version'):
             async with lease(r,REFERENCE_LOCK,'edit'):

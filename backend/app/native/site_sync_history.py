@@ -21,9 +21,10 @@ SAFE="""coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','can
 async def listing(sql):
     return await sql.query(f"SELECT uid,status,created_at,json_extract(state,'$.execution.phase') AS execution_phase FROM sync_tasks WHERE coalesce(json_extract(state,'$.history_deleting'),0)=0 ORDER BY CASE WHEN json_extract(state,'$.execution.phase') NOT IN ('done','cancelled') THEN 0 ELSE 1 END,created_at DESC,uid DESC LIMIT {KEEP}")
 
-async def prune(sql,uid=None):
+async def prune(sql,uid=None, *, batch=BATCH):
     """At most twenty detail rows plus one empty task; safe to retry after a lost reply."""
     if uid is not None and (not isinstance(uid,str) or not 1<=len(uid)<=128):raise Error('任务标识无效')
+    batch = max(1, min(BATCH, int(batch)))
     root=uid
     if uid is not None:
         # An original preview may own one preparation child. Remove child first.
@@ -46,7 +47,7 @@ async def prune(sql,uid=None):
     marked="EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND status='expired' AND json_extract(state,'$.history_deleting')=1 AND "+SAFE+")"
     result=await sql.batch([
         ("UPDATE sync_tasks SET status='expired',state=json_set(state,'$.history_deleting',1) WHERE uid=? AND "+SAFE+' RETURNING uid',(target,now(seconds=-300))),
-        (f"DELETE FROM sync_task_items WHERE task_uid=? AND (side,module,record_uid) IN (SELECT side,module,record_uid FROM sync_task_items WHERE task_uid=? ORDER BY side,module,record_uid LIMIT {BATCH}) AND "+marked,(target,target,target,now(seconds=-300))),
+        (f"DELETE FROM sync_task_items WHERE task_uid=? AND (side,module,record_uid) IN (SELECT side,module,record_uid FROM sync_task_items WHERE task_uid=? ORDER BY side,module,record_uid LIMIT {batch}) AND "+marked,(target,target,target,now(seconds=-300))),
         ("DELETE FROM sync_tasks WHERE uid=? AND status='expired' AND json_extract(state,'$.history_deleting')=1 AND NOT EXISTS(SELECT 1 FROM sync_task_items WHERE task_uid=?) AND "+SAFE+" RETURNING uid",(target,target,now(seconds=-300))),
         ("UPDATE sync_tasks SET status='expired',state=json_set(state,'$.history_deleting',1) WHERE json_extract(state,'$.prepared_uid')=? AND NOT EXISTS(SELECT 1 FROM sync_tasks WHERE uid=?) AND "+SAFE,(target,target,now(seconds=-300))),
     ])

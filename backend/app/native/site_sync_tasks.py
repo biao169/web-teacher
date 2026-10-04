@@ -40,17 +40,21 @@ async def hello(r,p,*,with_revision=False):
         return result
 
 @traced('preview:start')
-async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_parent=None,requested=None):
+async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_parent=None,requested=None,latest_only=False):
     if direction not in ('pull','push') or not isinstance(scopes,list) or not scopes or any(t not in core.SCOPES for t in scopes):raise Error('同步方向或范围无效')
     p=await peer(r.sql);remote=await hello(r,p)
     if lightweight and remote.get('brief_preview')!=1:raise Error('简要预览需要两站更新至 v0.15.140；请先更新对端',409)
+    if latest_only and (direction!='pull' or not lightweight or remote.get('latest_preview')!=1):raise Error('最新500项自动拉取需要两站更新至 v0.15.149；请更新对端后重试',409)
     uid=secrets.token_hex(16)
-    state={'preview_format':TASK_FORMAT,'policy':policy(),'work':{'status':'saved','completed_steps':0,'created_at':now()},'direction':direction,'scopes':scopes,'remote_id':remote['site_id'],'peer_revision':p['revision'],
+    state={'preview_format':TASK_FORMAT,'policy':policy(r,remote.get('policy')),'work':{'status':'saved','completed_steps':0,'created_at':now()},'direction':direction,'scopes':scopes,'remote_id':remote['site_id'],'peer_revision':p['revision'],
         'phase':'baseline','side':'local','table_index':0,'after':'','count':0,'bytes':0,'table_count':0,
         'version_hash':'','version_count':0,'totals':{'local':{},'remote':{}}}
     if lightweight:
         from .site_sync_preview import initialize
         initialize(state)
+        if latest_only:
+            from .site_sync_latest import initialize as initialize_latest
+            initialize_latest(state)
     extra=[]
     if requested is not None:
         if remote.get('selected_execute')!=1:raise Error('按需审批需要两站更新至 v0.15.141 或后续版本',409)
@@ -91,7 +95,7 @@ async def restart(r,uid):
             if s.get('approval'):raise Error('审批预览请使用“重新读取最新差异并核对”；不能继承旧批准',409)
             e=s.get('execution')
             if e and e['phase'] not in ('done','cancelled'):raise Error('请先取消旧执行并完成暂存清理，再重新开始',409)
-            return await start(r,s['direction'],s['scopes'],previous=task,lightweight=bool(s.get('lightweight')))
+            return await start(r,s['direction'],s['scopes'],previous=task,lightweight=bool(s.get('lightweight')),latest_only=bool(s.get('latest_only')))
 
 async def resume(r,uid):
     from .site_sync_work import task_lease
@@ -101,15 +105,17 @@ async def resume(r,uid):
         task=await get(r.sql,uid);s=task['state']
         if task['status'] not in ('reading','ready'):raise Error('任务已被替代，请打开新的预览',409)
         # Explicit manual retry selects smaller metadata/content pages, without changing digests.
-        s.setdefault('policy',policy()).update(content_rows=1,version_rows=5)
+        s.setdefault('policy',policy(r)).update(content_rows=1,version_rows=5)
         for key in ('begin_check','commit_check','proposal_check'):
-            if key in s:s[key].setdefault('policy',policy()).update(content_rows=1,version_rows=5)
+            if key in s:s[key].setdefault('policy',policy(r)).update(content_rows=1,version_rows=5)
         work=s.setdefault('work',{})
-        for key in ('retry_count','retryable','retry_after','error','error_code'):work.pop(key,None)
+        deadline=work.get('recover_after') if work.get('status')=='running' else work.get('retry_after')
+        if deadline and deadline>now():raise Error('任务仍在冷却等待，进度已保留；请等待 '+deadline+' 后继续',429,'sync_retry_wait')
+        for key in ('retry_count','retryable','retry_after','recover_after','error','error_code'):work.pop(key,None)
         work['status']='saved'
         if s.get('execution'):
             s['execution'].pop('error',None);s['execution'].pop('error_code',None)
-        await persist(r.sql,task,status=task['status'])
+        await persist(r.sql,task,[("UPDATE service_meta SET value=json_remove(value,'$.retry_after','$.retry_count','$.retryable','$.error') WHERE key='site-sync:schedule-state' AND (json_extract(value,'$.preview_uid')=? OR (json_extract(value,'$.preview_uid') IS NULL AND json_extract(value,'$.task_uid')=?))",(uid,uid))],status=task['status'])
         return {'uid':uid,'status':task['status'],'work':work,'policy':s['policy']}
 
 async def get(sql,uid):
@@ -169,7 +175,7 @@ async def check_step(r,task,key,*,peer_config=None):
     if p['revision']!=s['peer_revision']:raise Error('连接配置已变化，请重新预览',409)
     if key not in s:
         s[key]={**{k:s[k] for k in ('totals','local_revision','remote_revision','remote_id')},
-                'policy':s.get('policy',policy()),'phase':'verify','side':'local','table_index':0,'after':'','table_count':0,'version_count':0,'version_hash':''}
+                'policy':s.get('policy',policy(r)),'phase':'verify','side':'local','table_index':0,'after':'','table_count':0,'version_count':0,'version_hash':''}
     check=s[key]
     if check['phase']!='done':await version_step(r,p,check)
     return check['phase']=='done'

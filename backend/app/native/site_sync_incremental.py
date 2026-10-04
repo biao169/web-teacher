@@ -82,7 +82,7 @@ def initialize(state,parent):
     ids=parent['selection']['selected']
     state.update(incremental=True,lightweight=True,prepared=False,phase='selected-load',parent_uid=parent['uid'],
                  selection={'selected':list(ids),'automatic':[],'blocked':{}},load_index=0,check_index=0,
-                 count=0,candidate_count=len(ids),media=[],media_bytes=0)
+                 count=0,candidate_count=len(ids),media=[],media_bytes=0,auto_latest=bool(parent.get('latest_only')))
     state.pop('candidate_requested',None)
 
 def sides(s):return ('remote','local') if s['direction']=='pull' else ('local','remote')
@@ -93,7 +93,8 @@ async def plan(sql,task,ident):
 
 def queue(s,ident):
     if ident not in s['selection']['selected']:
-        if len(s['selection']['selected'])>=500:raise Error('所选条目及依赖超过500项，请缩小范围')
+        maximum=core.MAX_ROWS if s.get('auto_latest') else 500
+        if len(s['selection']['selected'])>=maximum:raise Error('所选条目及必要依赖超过'+str(maximum)+'项，请缩小范围')
         s['selection']['selected'].append(ident);s['selection']['automatic'].append(ident);s['candidate_count']+=1
 
 async def advance(r,task,p=None):

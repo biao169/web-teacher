@@ -1,6 +1,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),{spawnSync}=require('node:child_process');
 const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
-const source=fs.readFileSync('frontend/admin/static/js/native-site-sync.js','utf8').replace(/^import[^\n]+\n/gm,'');
+const rawSource=fs.readFileSync('frontend/admin/static/js/native-site-sync.js','utf8').replace(/^import[^\n]+\n/gm,'');
+// Existing action tests isolate the new, read-only background monitor traffic.
+const source="const originalFetch=adminFetch;adminFetch=(url,opts)=>url.endsWith('/monitor')?Promise.resolve({ok:true,json:async()=>({jobs:[],server_time:'2026-01-01T00:00:00.000Z'})}):originalFetch(url,opts);\n"+rawSource;
+
 function markup(){const r=spawnSync(process.env.TEST_PYTHON||'python3',['-B','-c',"import sys,tempfile;sys.path.insert(0,'tests');from list_fixture import client_at;from pathlib import Path\nwith tempfile.TemporaryDirectory() as root:\n c,r=client_at(Path(root));page=c.get('/admin/data-tools/sync');assert page.status_code==200;print(page.text);c.close()"],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.replace(/data-interval-ms="[0-9]+"/,'data-interval-ms="0"');}
 const tick=()=>new Promise(r=>setTimeout(r,30));
 test('preview UI selects dependencies and never exposes a business execute action',async t=>{
@@ -255,4 +258,59 @@ test('history deletion is confirmed and drains bounded steps',async t=>{
  w.notify=()=>{};w.confirm=()=>{dialogs++;return true};w.adminFetch=async(url,options)=>{const data=JSON.parse(options.body);calls.push({op:url.split('/').pop(),data});return {ok:true,json:async()=>({more:calls.length<2,deleted:calls.length===2,jobs:[]})}};
  w.eval(source);const select=d.querySelector('#sync-history');select.append(new w.Option('Old','old'));select.value='old';d.querySelector('#sync-history-delete').click();await tick();
  assert.equal(dialogs,1);assert.equal(calls.length,2);assert(calls.every(x=>x.op==='history-delete'&&x.data.uid==='old'&&x.data.confirmed===true));assert.match(d.querySelector('#sync-status').textContent,/历史记录已删除/);
+});
+
+
+test('monitor displays checkpoints safely and viewing does not advance',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{const op=url.split('/').pop();calls.push(op);return {ok:true,json:async()=>op==='monitor'?{jobs:[{uid:'job',status:'reading',direction:'pull',phase:'latest',work_status:'paused',retryable:true,retry_after:'2099-01-01T00:00:00.000Z',error:'<img src=x onerror=alert(1)>',steps:3,count:4}],server_time:'2026-01-01T00:00:00.000Z'}:{uid:'job',status:'reading',direction:'pull',lightweight:true,items:[],selection:{selected:[],automatic:[]}}}};
+ w.eval(rawSource);await tick();assert.match(d.querySelector('#sync-monitor-rows').textContent,/等待重试/);assert.equal(d.querySelector('#sync-monitor-rows img'),null);
+ d.querySelector('#sync-monitor-rows button').click();await tick();assert.deepEqual(calls,['monitor','get']);assert.match(d.querySelector('#sync-status').textContent,/尚未推进/);
+});
+test('monitor failure disables automatic refresh and preserves task UI',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};w.adminFetch=async()=>({ok:false,status:503,json:async()=>({error:'temporary failure'})});w.eval(rawSource);await tick();
+ assert.equal(d.querySelector('#sync-monitor-auto').checked,false);assert.match(d.querySelector('#sync-monitor-info').textContent,/已停止自动刷新/);
+ assert.equal(d.querySelector('#sync-result').hidden,true);
+});
+test('monitor page cursor is forwarded without loading full tasks',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,seen=[];
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{assert(url.endsWith('/monitor'));const data=JSON.parse(options.body);seen.push(data);return {ok:true,json:async()=>({jobs:[],next:seen.length===1?['stamp','uid']:null,server_time:'2026-01-01T00:00:00.000Z'})}};w.eval(rawSource);await tick();d.querySelector('#sync-monitor-next').click();await tick();
+ assert.deepEqual(seen.map(v=>v.after),[null,['stamp','uid']]);assert.match(d.querySelector('#sync-monitor-page').textContent,/第2页/);
+});
+
+test('monitor distinguishes retry, uncertain receipts and terminal states with parent links',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ const jobs=[
+  {uid:'running',work_status:'running',recover_after:'2026-01-01T00:05:00Z'},
+  {uid:'overdue',work_status:'running',recover_after:'2025-12-31T23:59:00Z'},
+  {uid:'retry',work_status:'paused',retryable:true,retry_after:'2026-01-01T00:05:00Z'},
+  {uid:'due',work_status:'paused',retryable:true,retry_after:'2025-12-31T23:59:00Z'},
+  {uid:'paused',work_status:'paused',retryable:false},
+  {uid:'done',execution_phase:'done',work_status:'running'},
+  {uid:'child',parent_uid:'parent',operation:'advance',work_phase:'selected-load',completed_at:'2025-12-31T23:58:00Z'},
+  {uid:'expired',status:'expired'}
+ ].map(j=>({status:'reading',direction:'pull',...j}));
+ w.notify=()=>{};w.adminFetch=async()=>({ok:true,json:async()=>({jobs,server_time:'2026-01-01T00:00:00Z'})});w.eval(rawSource);await tick();
+ const rows=[...d.querySelectorAll('#sync-monitor-rows tr')];
+ ['等待完成回执','回执逾期','等待重试','重试时间已到','需人工处理','已完成','父任务：parent','已失效'].forEach((label,i)=>assert(rows[i].textContent.includes(label)));
+ assert.match(rows[6].textContent,/准备条目及依赖.*推进预览/);assert.match(rows[6].textContent,/2分钟前/);
+ assert.match(d.querySelector('#sync-monitor-summary').textContent,/已完成 1 项/);
+ // A subsequent unrelated UI action must not re-enable expired task links.
+ d.querySelector('#sync-test').click();await tick();assert(rows[7].querySelector('button').disabled);
+});
+
+test('latest tasks button resets history cursor and monitor serializes refreshes',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,seen=[];let release;
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{assert(url.endsWith('/monitor'));seen.push(JSON.parse(options.body));if(seen.length===2)await new Promise(r=>release=r);return {ok:true,json:async()=>({jobs:[],next:['stamp','uid'],server_time:'2026-01-01T00:00:00Z'})}};
+ w.eval(rawSource);await tick();d.querySelector('#sync-monitor-next').click();await tick();d.querySelector('#sync-monitor-refresh').click();assert.equal(seen.length,2);release();await tick();
+ assert.match(d.querySelector('#sync-monitor-info').textContent,/历史分页/);d.querySelector('#sync-monitor-latest').click();await tick();
+ assert.deepEqual(seen.map(v=>v.after),[null,['stamp','uid'],null]);assert.match(d.querySelector('#sync-monitor-page').textContent,/第1页/);
+});
+
+test('failed history page load keeps the displayed page cursor for retry',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,seen=[];
+ w.notify=()=>{};w.adminFetch=async(url,options)=>{seen.push(JSON.parse(options.body));return seen.length===2?{ok:false,status:503,json:async()=>({error:'offline'})}:{ok:true,json:async()=>({jobs:[],next:['stamp','uid'],server_time:'2026-01-01T00:00:00Z'})}};
+ w.eval(rawSource);await tick();d.querySelector('#sync-monitor-next').click();await tick();assert.match(d.querySelector('#sync-monitor-page').textContent,/第1页/);
+ d.querySelector('#sync-monitor-refresh').click();await tick();assert.deepEqual(seen.map(v=>v.after),[null,['stamp','uid'],null]);
 });
