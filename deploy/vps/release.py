@@ -120,19 +120,21 @@ def domain(value):
  if len(value)>253 or not re.fullmatch(r'[a-z0-9]+(?:[a-z0-9.-]*[a-z0-9])?',value) or '.' not in value or any(not label or label.startswith('-') or label.endswith('-') or len(label)>63 for label in value.split('.')):raise ValueError('域名格式无效')
  return value
 
-def render(output,base,teacher_domain,transfer_domain,python,port=8003,service_name="teacher-site.service",service_user="teacher-site",config_dir="/etc/teacher-site"):
- """Generate one service, one origin and one local HTTP port; never deploy."""
+def render(output,base,teacher_domain,transfer_domain,python,port=8003,service_name="teacher-site.service",service_user="teacher-site",config_dir="/etc/teacher-site",allowed_domains=""):
+ """Generate one service with explicit domains and one local HTTP port; never deploy."""
  from deploy.shared.http_limits import teacher_concurrency
  if isinstance(port,bool) or not str(port).isdigit() or not 1024<=int(port)<=65535:raise ValueError("应用端口须为 1024–65535 / Invalid application port")
  port=int(port)
  base=safe_path(base);python=safe_path(python);host=domain(teacher_domain)
+ names=tuple(dict.fromkeys([host]+([domain(v.strip().lower()) for v in allowed_domains.split(',')] if allowed_domains else [])))
+ if len(names)>100:raise ValueError('Too many domains')
  if transfer_domain:domain(transfer_domain) # legacy CLI input, not a second listener
  if not base.startswith(('/opt/','/srv/')):raise ValueError('生产基目录须位于 /opt 或 /srv 下')
  config_dir=safe_path(config_dir)
  if not re.fullmatch(r'[a-z][a-z0-9-]{0,50}\.service',service_name) or not re.fullmatch(r'[a-z][a-z0-9-]{0,30}',service_user):raise ValueError('无效服务名或账号')
  output=Path(output);output.mkdir(mode=0o700)
  (output/'storage.toml').write_text(f'[storage]\ndata_dir="{base}/data"\ndatabase_path="{base}/data/database/site.sqlite3"\ncache_dir="{base}/data/cache"\nmedia_dir="{base}/data/media"\ntransfer_database_path="{base}/data/database/legacy-transfer.sqlite3"\ntransfer_media_dir="{base}/transfer-data/files"\ntransfer_cache_dir="{base}/transfer-data/cache"\n')
- (output/'teacher-site.env').write_text(f'TEACHER_CONFIG={config_dir}/storage.toml\n# Canonical public origin also supplies robots.txt and sitemap URLs.\nTEACHER_ORIGIN=https://{host}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n')
+ (output/'teacher-site.env').write_text(f'TEACHER_CONFIG={config_dir}/storage.toml\n# Canonical public origin also supplies robots.txt and sitemap URLs.\nTEACHER_ORIGIN=https://{host}\nTEACHER_ALLOWED_ORIGINS={','.join('https://'+name for name in names)}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n')
  (output/'teacher-site.env').chmod(0o600)
  unit=f"""[Unit]
 Description=Teacher website with integrated file transfer
@@ -163,12 +165,12 @@ TasksMax=32
 WantedBy=multi-user.target
 """
  (output/service_name).write_text(unit)
- caddy=f'{host} {{\n    encode zstd gzip\n'
+ caddy=f'{", ".join(names)} {{\n    encode zstd gzip\n'
  for area in ('shared','public','admin'):
   caddy+=f'    handle_path /assets/{area}/* {{\n        root * {base}/current/frontend/{area}/static\n        file_server\n    }}\n'
  caddy+='    # Online relay: bounded POST bodies; do not add request_buffers/response_buffers.\n    handle /transfer/api/relay/* {\n        request_body {\n            max_size 1048576\n        }\n        reverse_proxy 127.0.0.1:8003 {\n            flush_interval 10ms\n        }\n    }\n'
  caddy+='    handle {\n        reverse_proxy 127.0.0.1:8003\n    }\n}\n'
- if transfer_domain and transfer_domain!=host:
+ if transfer_domain and transfer_domain not in names:
   caddy+=f'{transfer_domain} {{\n    redir https://{host}/transfer{{uri}} 308\n}}\n'
  (output/'Caddyfile.fragment').write_text(caddy.replace('127.0.0.1:8003',f'127.0.0.1:{port}'))
  return {'generated':True,'services':1,'system_modified':False,'note':'预算不是实测；旧域名仅重定向，不启动旧服务。切换release时必须显式保留transfer-data。'}
@@ -181,7 +183,7 @@ def main():
  st=sub.add_parser('stage');st.add_argument('--source',type=Path,required=True);st.add_argument('--destination',type=Path,required=True)
  d=sub.add_parser('check-data');d.add_argument('--root',type=Path,default=ROOT);d.add_argument('--teacher-database',type=Path,required=True);d.add_argument('--transfer-database',type=Path,required=True)
  f=sub.add_parser('preflight');f.add_argument('--root',type=Path,default=ROOT);f.add_argument('--data-parent',type=Path,required=True)
- r=sub.add_parser('render');r.add_argument('--output',required=True);r.add_argument('--base',default='/opt/teacher-site');r.add_argument('--python',default='/opt/teacher-site/venv/bin/python');r.add_argument('--teacher-domain',required=True);r.add_argument('--transfer-domain');r.add_argument('--port',type=int,default=8003);r.add_argument('--service-name',default='teacher-site.service');r.add_argument('--service-user',default='teacher-site');r.add_argument('--config-dir',default='/etc/teacher-site')
+ r=sub.add_parser('render');r.add_argument('--output',required=True);r.add_argument('--base',default='/opt/teacher-site');r.add_argument('--python',default='/opt/teacher-site/venv/bin/python');r.add_argument('--teacher-domain',required=True);r.add_argument('--allowed-domains',default='');r.add_argument('--transfer-domain');r.add_argument('--port',type=int,default=8003);r.add_argument('--service-name',default='teacher-site.service');r.add_argument('--service-user',default='teacher-site');r.add_argument('--config-dir',default='/etc/teacher-site')
  args=p.parse_args()
  try:
   if args.action=='manifest':result=write_manifest(args.root,args.refresh)
@@ -189,7 +191,7 @@ def main():
   elif args.action=='stage':result=stage(args.source,args.destination)
   elif args.action=='check-data':result=check_data(args.root,args.teacher_database,args.transfer_database)
   elif args.action=='preflight':result=preflight(args.root,args.data_parent)
-  else:result=render(args.output,args.base,args.teacher_domain,args.transfer_domain,args.python,args.port,args.service_name,args.service_user,args.config_dir)
+  else:result=render(args.output,args.base,args.teacher_domain,args.transfer_domain,args.python,args.port,args.service_name,args.service_user,args.config_dir,args.allowed_domains)
   print(json.dumps(result,ensure_ascii=False,indent=2))
   if args.action=='preflight' and result['blockers']:p.exit(2)
  except (ValueError,OSError) as exc:p.exit(1,str(exc)+'\n')

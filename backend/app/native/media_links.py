@@ -49,10 +49,7 @@ class MediaLinks:
         if not row:
             try:parts=urlsplit(value)
             except ValueError:raise Error('媒体链接无效') from None
-            own=not parts.scheme and not parts.netloc
-            if parts.scheme and parts.netloc:
-                try:own=(parts.scheme.lower(),parts.hostname,parts.port or (443 if parts.scheme.lower()=='https' else 80))==(urlsplit(r.config.origin).scheme,urlsplit(r.config.origin).hostname,urlsplit(r.config.origin).port or (443 if r.config.origin.startswith('https:') else 80))
-                except ValueError:raise Error('媒体链接端口无效') from None
+            own=(not parts.scheme and not parts.netloc) or r.config.is_site_url(value)
             if own:
                 match=LOCAL_MEDIA.fullmatch(parts.path)
                 if not match or parts.query or parts.fragment or parts.username is not None:raise Error('本站媒体链接应为 /media/媒体标识，不附带参数')

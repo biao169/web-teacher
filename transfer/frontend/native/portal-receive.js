@@ -1,7 +1,7 @@
 import {registerCodeReceiver,codeResolving} from './portal-codes.js?v=0.15.96';
 import {t as tr,joinText,errorText,setText,setAttr,getText} from './transfer-i18n.js?v=0.15.96';
 import {readBlock} from './chunk-client.js?v=0.15.96';
-import {shareURL,transferPath,transferBase,request,bytes} from './portal-core.js?v=0.15.96';
+import {shareURL,transferPath,transferBase,request,bytes} from './portal-core.js?v=0.15.158';
 import {receive} from './receive-core.js?v=0.15.96';
 import {readManifest,folderSink} from './folder-receive.js?v=0.15.96';
 const root=document.querySelector('[data-portal]'),area=document.querySelector('[data-stream-receive]'),message=document.querySelector('#stream-feedback'),inspect=document.querySelector('#inspect-share'),start=document.querySelector('#stream-start'),pause=document.querySelector('#stream-pause'),cancel=document.querySelector('#stream-cancel'),link=document.querySelector('#receive-link');

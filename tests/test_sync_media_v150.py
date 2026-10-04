@@ -37,11 +37,11 @@ def test_negotiation(local,peer,want):
  assert media.negotiate(SimpleNamespace(kind=local),{'adaptive_ranges':1,'preferred_chunk_bytes':peer})==want
  assert media.negotiate(SimpleNamespace(kind=local),{})==65536
 
-@pytest.mark.parametrize('bad',[None,True,0,8192,32768,131072,'16384'])
+@pytest.mark.parametrize('bad',[None,True,0,2048,32768,131072,'16384'])
 def test_invalid_width(bad):
  with pytest.raises(Error):media.chunk_size(bad)
 
-@pytest.mark.parametrize('width',[16384,65536])
+@pytest.mark.parametrize('width',[4096,8192,16384,65536])
 def test_merge_keys_and_cleanup_resume(width):
  assert media.merged_key('t',0,width,0,width)=='site-sync/t/0/0.bin'
  assert media.merged_key('t',0,width*4,0,width)==f'site-sync/t/0/merge-{width*4}-0.bin'
@@ -77,3 +77,18 @@ def test_transport_uses_negotiated_frame_ceiling(monkeypatch):
  monkeypatch.setattr(wire,'_worker',worker)
  run(wire.post('r2','https://peer.example',{'payload':{'op':'media-range-binary','chunk_bytes':16384}}))
  assert seen==[8+wire.FRAME_HEADER_LIMIT+16384]
+
+
+def test_four_kib_transfer_lost_ack_merge_and_cleanup(pair,monkeypatch):
+ from backend.app.native.site_sync_limits import budget
+ original=apply.negotiate;seen=[]
+ def small(r,head):
+  with budget(r,{'resource_level':2}):return original(r,head)
+ monkeypatch.setattr(apply,'negotiate',small)
+ network=pair[-1]
+ async def record(kind,url,data):
+  result=await network(kind,url,data)
+  if data['payload']['op']=='media-range-binary':seen.append(data['payload']['chunk_bytes'])
+  return result
+ binary.test_multichunk_resume_and_legacy_fallback((*pair[:-1],record),monkeypatch,False)
+ assert seen and set(seen)=={4096 if pair[2].kind=='r2' else 16384}

@@ -4,9 +4,9 @@
 # bash install-multi.sh --domain example.org
 # --python selects an existing Python >=3.12; never replaces /usr/bin/python3.
 set -Eeuo pipefail
-repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' python='/usr/bin/python3' port='' pip_source='tuna' instance='' base='' command_name=''
+repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' allowed_domains='' python='/usr/bin/python3' port='' pip_source='tuna' instance='' base='' command_name=''
 usage() {
-  printf '%s\n' 'Usage: install-multi.sh --domain example.org [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003] [--pip-source tuna|pypi] [--instance NAME] [--command tweb2] [--base /opt/teacher-site-2]' \
+  printf '%s\n' 'Usage: install-multi.sh --domain example.org [--allowed-domains lab.example.org,other.example.org] [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003] [--pip-source tuna|pypi] [--instance NAME] [--command tweb2] [--base /opt/teacher-site-2]' \
     'Installs git, ca-certificates, python3, python3-venv, procps; then installs one isolated teacher website instance.' \
     'Existing files: choose a new directory, repair, or confirmed clean reinstall.' \
     '--domain also configures /robots.txt and /sitemap.xml automatically / 域名同时用于自动生成爬虫规则与站点地图。'
@@ -14,9 +14,9 @@ usage() {
 while (($#)); do
   case "$1" in
     --help|-h) usage; exit 0;;
-    --repo|--branch|--domain|--python|--port|--pip-source|--instance|--base|--command)
+    --repo|--branch|--domain|--allowed-domains|--python|--port|--pip-source|--instance|--base|--command)
       if (($# < 2)); then usage; exit 2; fi
-      case "$1" in --repo) repo=$2;; --branch) branch=$2;; --domain) domain=$2;; --python) python=$2;; --port) port=$2;; --pip-source) pip_source=$2;; --instance) instance=$2;; --base) base=$2;; --command) command_name=$2;; esac
+      case "$1" in --repo) repo=$2;; --branch) branch=$2;; --domain) domain=$2;; --allowed-domains) allowed_domains=$2;; --python) python=$2;; --port) port=$2;; --pip-source) pip_source=$2;; --instance) instance=$2;; --base) base=$2;; --command) command_name=$2;; esac
       shift 2;;
     *) printf 'Unknown argument: %s\n' "$1" >&2; exit 2;;
   esac
@@ -53,4 +53,4 @@ multi_args=(--multi)
 [[ -z $command_name ]] || multi_args+=(--command "$command_name")
 # Patch must be published together with this entry point.
 "$python" -c 'from pathlib import Path; import sys; assert "MULTI_LAYOUT_VERSION = 1" in Path(sys.argv[1]).read_text(), "Upload multi-instance deployment patch to this branch first"' "$work/source/deploy/linux/tweb.py"
-"$python" "$work/source/deploy/linux/tweb.py" "${multi_args[@]}" install --repo "$repo" --branch "$branch" --domain "$domain" --python "$python" --port "$port" --pip-source "$pip_source"
+"$python" "$work/source/deploy/linux/tweb.py" "${multi_args[@]}" install --repo "$repo" --branch "$branch" --domain "$domain" --allowed-domains "$allowed_domains" --python "$python" --port "$port" --pip-source "$pip_source"

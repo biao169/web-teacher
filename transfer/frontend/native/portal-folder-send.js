@@ -1,7 +1,7 @@
 import {codeCard} from './portal-codes.js?v=0.15.96';
 import {t as tr,joinText,errorText,setText,setAttr} from './transfer-i18n.js?v=0.15.96';
 import {sendFolder} from './folder-upload.js?v=0.15.96';
-import {bytes,transferPath} from './portal-core.js?v=0.15.96';
+import {bytes,transferPath} from './portal-core.js?v=0.15.158';
 const panel=document.querySelector('[data-folder-preview]'),portal=document.querySelector('[data-portal]');
 if(panel&&portal){
  const q=n=>document.getElementById('folder-'+n),key='transfer-folder-v1:'+portal.dataset.user;let active=false,stop=false,current=null;

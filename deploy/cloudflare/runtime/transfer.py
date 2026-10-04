@@ -56,10 +56,11 @@ def install(app, factory, templates, catalog, stores=None):
             request.url.path.endswith('/chunk') and request.url.path != '/transfer/api/relay/chunk') else 'view'
         sql = SessionSQL(main.sql, p, action)
         presentation = await portal_context(main, request, CatalogRoot(catalog)) if request.method == 'GET' and request.url.path == '/transfer/' else {}
+        origin=main.config.request_origin(request)
         return SimpleNamespace(sql=sql, p=p, store=store, cache=cache,
-            service=Transfers(sql, store, indexed=True), origin=main.config.origin,
-            teacher_origin=main.config.origin, secret=p['csrf'] if p else '',
-            render=lambda name, **values: renderer.get_template(name).render(transfer_base='/transfer', **presentation, **values))
+            service=Transfers(sql, store, indexed=True), origin=origin,
+            teacher_origin=origin, config=main.config, secret=p['csrf'] if p else '',
+            render=lambda name, **values: renderer.get_template(name).render(transfer_base='/transfer',transfer_origins=main.config.allowed_origins, **presentation, **values))
 
     async def workspace(request):
         r = await runtime(request)

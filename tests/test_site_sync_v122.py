@@ -38,6 +38,7 @@ def test_delivery_approval_and_result(peers):
  assert len(job['items'])==3 and all(x['action']=='add' for x in job['items'])
  assert b('pull-begin',{'uid':job['uid'],'confirmation':'从对端同步到本站'},ok=False).status_code==409
  assert run(core.revision(rb.sql))==before_b
+ b('resume',{'uid':job['uid']})  # The deliberately wrong entry point paused this operation.
  approve(b,job['uid'])
  assert len(run(rb.sql.query('SELECT uid FROM students')))==6
  assert run(core.revision(ra.sql))==before_a
@@ -108,7 +109,8 @@ def test_lost_delivery_ack_reuses_sequence(peers,monkeypatch):
   return result
  monkeypatch.setattr(transport,'post',lost)
  assert api('proposal-send',{'uid':uid},ok=False).status_code==502
- first=b('proposal-inbox')['proposal'];out=api('proposal-send',{'uid':uid})['outgoing']
+ first=b('proposal-inbox')['proposal'];api('resume',{'uid':uid})
+ out=api('proposal-send',{'uid':uid})['outgoing']
  assert out['sequence']==first['sequence'] and out['request_id']==first['request_id']
  assert len(run(rb.sql.query('SELECT uid FROM students')))==3
 

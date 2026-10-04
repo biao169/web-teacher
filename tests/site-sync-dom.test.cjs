@@ -13,6 +13,7 @@ test('preview UI selects dependencies and never exposes a business execute actio
  w.notify=()=>{};w.confirm=()=>true;w.eval(source);d.querySelector('[data-direction="pull"]').click();await tick();assert.equal(d.querySelector('#sync-result').hidden,false);assert.equal(d.querySelectorAll('#sync-rows tr').length,1);
  d.querySelector('#sync-all').click();await tick();assert.equal(d.querySelectorAll('#sync-rows tr').length,2);assert.equal(d.querySelectorAll('#sync-rows input:checked').length,2);assert.equal(d.querySelectorAll('#sync-rows input:disabled').length,1);assert.equal(d.querySelector('#sync-rows img'),null);
  d.querySelector('#sync-none').click();await tick();assert.equal(d.querySelectorAll('#sync-rows input:checked').length,0);assert.equal(d.querySelectorAll('#sync-rows tr').length,1);
+ assert.match(d.querySelector('#sync-history option[value=task]').textContent,/ID: task/);
  assert.deepEqual(calls,['start','advance','select','select']);assert.match(d.querySelector('#sync-status').textContent,/没有执行/);
 });
 
@@ -53,7 +54,7 @@ test('background policy has independent scope and explicit deletion consent',asy
  return {ok:true,json:async()=>({enabled:true,auto_pull:true,revision:'new',state:{message:'<script>not markup</script>',task_uid:'job'}})};};
  w.notify=()=>{};w.confirm=()=>true;w.eval(source);const form=d.querySelector('#sync-schedule');assert(!form.querySelector('[name=enabled]').checked);assert.equal(calls.length,0);
  form.querySelector('[name=enabled]').checked=true;form.querySelector('[name=auto_pull]').checked=true;form.querySelector('[value=students]').checked=true;d.querySelector('#sync-interval').value='15';d.querySelector('#sync-schedule-confirm').value='允许定时拉取并同步增删';
- form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await tick();assert.deepEqual(calls,['schedule-save']);assert.equal(d.querySelector('#sync-schedule-status script'),null);assert.match(d.querySelector('#sync-schedule-status').textContent,/后台已开启/);
+ form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await tick();assert.deepEqual(calls,['schedule-save']);assert.equal(d.querySelector('#sync-schedule-status script'),null);assert.match(d.querySelector('#sync-schedule-status').textContent,/定时策略已开启/);
  d.querySelector('#sync-schedule-refresh').click();await tick();assert.deepEqual(calls,['schedule-save','schedule-status']);assert.equal(d.querySelector('#sync-schedule-confirm').value,'');
 });
 
@@ -136,7 +137,7 @@ for(const scenario of ['transient','permanent','pause'])test('bounded recovery: 
  };
  w.notify=()=>{};w.confirm=()=>true;w.eval(source);d.querySelector('[data-direction="pull"]').click();await tick();
  if(scenario==='pause'){d.querySelector('#sync-pause').click();await new Promise(r=>setTimeout(r,200));assert.equal(attempts,1)}
- else if(scenario==='transient'){for(let i=0;i<20&&attempts<4;i++)await tick();assert.equal(attempts,4);assert.equal(calls.filter(x=>x==='get').length,3);await tick();assert.equal(attempts,4)}
+ else if(scenario==='transient'){for(let i=0;i<20&&attempts<9;i++)await tick();assert.equal(attempts,9);assert.equal(calls.filter(x=>x==='get').length,9);await tick();assert.equal(attempts,9)}
  else{assert.equal(attempts,1);assert(!calls.includes('get'))}
  assert.match(d.querySelector('#sync-status').textContent,scenario==='pause'?/暂停/:/HTTP/);
 });
@@ -287,13 +288,14 @@ test('monitor distinguishes retry, uncertain receipts and terminal states with p
   {uid:'retry',work_status:'paused',retryable:true,retry_after:'2026-01-01T00:05:00Z'},
   {uid:'due',work_status:'paused',retryable:true,retry_after:'2025-12-31T23:59:00Z'},
   {uid:'paused',work_status:'paused',retryable:false},
-  {uid:'done',execution_phase:'done',work_status:'running'},
+  {uid:'done',execution_phase:'done',work_status:'saved'},
   {uid:'child',parent_uid:'parent',operation:'advance',work_phase:'selected-load',completed_at:'2025-12-31T23:58:00Z'},
-  {uid:'expired',status:'expired'}
+  {uid:'expired',status:'expired'},
+  {uid:'preview-done',status:'ready',phase:'done'}
  ].map(j=>({status:'reading',direction:'pull',...j}));
  w.notify=()=>{};w.adminFetch=async()=>({ok:true,json:async()=>({jobs,server_time:'2026-01-01T00:00:00Z'})});w.eval(rawSource);await tick();
  const rows=[...d.querySelectorAll('#sync-monitor-rows tr')];
- ['等待完成回执','回执逾期','等待重试','重试时间已到','需人工处理','已完成','父任务：parent','已失效'].forEach((label,i)=>assert(rows[i].textContent.includes(label)));
+ ['等待完成回执','回执逾期','等待重试','重试时间已到','需人工处理','已完成','父任务：parent','已失效','待确认 / 待审批'].forEach((label,i)=>assert(rows[i].textContent.includes(label)));
  assert.match(rows[6].textContent,/准备条目及依赖.*推进预览/);assert.match(rows[6].textContent,/2分钟前/);
  assert.match(d.querySelector('#sync-monitor-summary').textContent,/已完成 1 项/);
  // A subsequent unrelated UI action must not re-enable expired task links.
@@ -313,4 +315,50 @@ test('failed history page load keeps the displayed page cursor for retry',async 
  w.notify=()=>{};w.adminFetch=async(url,options)=>{seen.push(JSON.parse(options.body));return seen.length===2?{ok:false,status:503,json:async()=>({error:'offline'})}:{ok:true,json:async()=>({jobs:[],next:['stamp','uid'],server_time:'2026-01-01T00:00:00Z'})}};
  w.eval(rawSource);await tick();d.querySelector('#sync-monitor-next').click();await tick();assert.match(d.querySelector('#sync-monitor-page').textContent,/第1页/);
  d.querySelector('#sync-monitor-refresh').click();await tick();assert.deepEqual(seen.map(v=>v.after),[null,['stamp','uid'],null]);
+});
+
+test('all sync views use the same explicit timezone and complete task IDs',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ const stamp='2026-01-01T20:00:00Z';w.localStorage.setItem('teacher-admin-timezone-v1','Asia/Shanghai');
+ const option=d.createElement('option');option.value='history-full-id';option.dataset.createdAt=stamp;option.dataset.status='reading';d.querySelector('#sync-history').append(option);
+ d.querySelector('#sync-schedule').dataset.value=JSON.stringify({state:{updated_at:stamp,next_due:stamp,preview_uid:'preview-full-id',task_uid:'execute-full-id'}});
+ d.querySelector('#sync-inbox').dataset.value=JSON.stringify({proposal:{request_id:'proposal-full-id',review_uid:'review-full-id',task_uid:'execute-full-id',received_at:stamp,status:'pending'}});
+ w.adminFetch=async()=>({ok:true,json:async()=>({jobs:[{uid:'history-full-id',status:'reading',created_at:stamp,checkpoint_version:1,progress_events:2,total_failures:3,stalled_attempts:1}],server_time:stamp})});w.notify=()=>{};w.eval(rawSource);await tick();
+ for(const text of [option.textContent,d.querySelector('#sync-schedule-status').textContent,d.querySelector('#sync-inbox-info').textContent,d.querySelector('#sync-monitor-rows').textContent]){
+  assert.match(text,/2026\/01\/02 04:00:00 GMT\+08:00 \[Asia\/Shanghai\]/);assert.match(text,/ID:/);
+ }
+ assert.match(d.querySelector('#sync-schedule-status').textContent,/preview-full-id.*execute-full-id/);
+ assert.match(d.querySelector('#sync-monitor-rows').textContent,/有效进展 2 次.*累计请求异常 3 次.*连续无进展 1 次/);
+});
+
+test('monitor explains automatic cooldown and manual work without advancing either',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ const deadline='2026-01-01T20:00:00Z';
+ w.adminFetch=async url=>{calls.push(url);return {ok:true,json:async()=>({server_time:'2026-01-01T19:00:00Z',jobs:[
+  {uid:'auto-child',parent_uid:'auto-parent',status:'ready',execution_phase:'download',work_status:'paused',retryable:true,retry_after:deadline,advance_mode:'background',wait_reason:'retry_wait',next_attempt_at:deadline},
+  {uid:'manual-preview',status:'ready',advance_mode:'manual',wait_reason:'ready'}
+ ],schedule:{enabled:true,auto_pull:true,wait_reason:'retry_wait',next_attempt_at:deadline,current_task:{uid:'auto-child',parent_uid:'auto-parent'},state:{preview_uid:'auto-parent',task_uid:'auto-child'}}})}};
+ w.notify=()=>{};w.eval(rawSource);await tick();
+ const rows=[...d.querySelectorAll('#sync-monitor-rows tr')];
+ assert.match(rows[0].textContent,/由后台自动推进.*等待冷却后重试/);
+ assert.match(rows[0].textContent,/后台最早恢复 2026\/01\/02 04:00:00 GMT\+08:00 \[Asia\/Shanghai\]/);
+ assert.match(rows[1].textContent,/需人工确认或继续/);
+ const schedule=d.querySelector('#sync-schedule-status').textContent;
+ assert.match(schedule,/当前推进任务 ID: auto-child.*父任务 ID: auto-parent/);
+ assert.match(schedule,/最早恢复时间.*到期后下一轮调度/);
+ assert(calls.every(url=>url.endsWith('/monitor')));
+});
+
+test('manual task monitor pauses and resumes independent background grant',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];let enabled=true;
+ w.notify=()=>{};w.adminFetch=async(url,opts)=>{
+  const op=url.split('/').pop();calls.push(op);
+  if(op==='manual-pause')enabled=false;
+  if(op==='resume')enabled=true;
+  return {ok:true,json:async()=>op==='monitor'?{jobs:[{uid:'manual-id',status:'reading',work_status:'saved',manual_mode:'read',manual_enabled:enabled,advance_mode:enabled?'background':'manual'}],server_time:'2026-01-01T00:00:00Z'}:{uid:'manual-id'}};
+ };
+ w.eval(rawSource);await tick();
+ let buttons=d.querySelectorAll('#sync-monitor-rows button');assert.equal(buttons[1].textContent,'暂停后台');buttons[1].click();await tick();
+ buttons=d.querySelectorAll('#sync-monitor-rows button');assert.equal(buttons[1].textContent,'恢复后台');buttons[1].click();await tick();
+ assert(calls.includes('manual-pause')&&calls.includes('resume'));assert(!calls.includes('pull-tick')&&!calls.includes('schedule-save'));
 });

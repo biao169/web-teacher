@@ -6,7 +6,8 @@ DAYS=7
 KEEP=10
 
 # Recheck protection when marking; an expired/deleting task cannot begin or advance.
-SAFE="""coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','cancelled')
+SAFE="""coalesce(json_extract(state,'$.work.status'),'saved')<>'running'
+ AND coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','cancelled')
  AND NOT EXISTS(SELECT 1 FROM admin_mutation_guards WHERE created_at>=? AND
    (uid IN ('site-sync:run','site-sync:schedule-run') OR uid='site-sync:task:'||sync_tasks.uid))
  AND NOT EXISTS(SELECT 1 FROM service_meta WHERE key='site-sync:inbox'
@@ -14,6 +15,7 @@ SAFE="""coalesce(json_extract(state,'$.execution.phase'),'done') IN ('done','can
    AND json_extract(value,'$.current.review_uid') IN (sync_tasks.uid,json_extract(sync_tasks.state,'$.parent_uid')))
  AND NOT EXISTS(SELECT 1 FROM service_meta WHERE key='site-sync:schedule-state'
    AND json_extract(value,'$.preview_uid') IN (sync_tasks.uid,json_extract(sync_tasks.state,'$.parent_uid')))
+ AND NOT EXISTS(SELECT 1 FROM service_meta m WHERE m.key='site-sync:manual:'||sync_tasks.uid AND json_extract(m.value,'$.enabled')=1)
  AND NOT EXISTS(SELECT 1 FROM sync_tasks child WHERE child.uid<>sync_tasks.uid
    AND json_extract(child.state,'$.parent_uid')=sync_tasks.uid AND child.status='reading')
 """
@@ -55,4 +57,5 @@ async def prune(sql,uid=None, *, batch=BATCH):
         if root is not None:raise Error('任务状态已变化，请刷新后重试',409,'sync_history_busy')
         return {'deleted':False,'more':False}
     deleted=bool(result[2])
+    if deleted:await sql.batch([("DELETE FROM service_meta WHERE key=? AND NOT EXISTS(SELECT 1 FROM sync_tasks WHERE uid=?)",('site-sync:manual:'+target,target))])
     return {'uid':root or target,'deleted':deleted and (root is None or root==target),'more':not deleted or (root is not None and root!=target)}

@@ -7,6 +7,7 @@ from .catalog import Error
 from .public_actions import register
 
 MESSAGES={
+ '请求来源不正确':'Request origin does not match this website. Please reopen the form.',
  '密码需要6—128个字符':'Use a password of 6–128 characters.',
  '账号或密码不正确':'Incorrect username or password.',
  '账号或密码输入无效':'Enter a valid username and password.',
@@ -58,7 +59,8 @@ def install(app,resources,render):
             data=await payload(request,16384)
             if any(not isinstance(data.get(k,''),str) for k in ('username','password','email','lang','next','challenge')):raise Error('输入格式无效')
             token=request.cookies.get(r.config.name('login' if mode=='login' else 'public-form'),'')
-            if not token or request.headers.get('origin')!=r.config.origin or not hmac.compare_digest(data.get('challenge','').encode(),token.encode()):raise Error('表单已过期，请重新提交',403)
+            r.config.same_origin(request)
+            if not token or not hmac.compare_digest(data.get('challenge','').encode(),token.encode()):raise Error('表单已过期，请重新提交',403)
             if mode=='register':
                 if not await r.sql.query('SELECT 1 FROM global_settings WHERE allow_public_registration=1 LIMIT 1'):raise Error('网站尚未开放注册',403)
                 await register(r,data,request.client.host if request.client else 'worker')

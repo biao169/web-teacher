@@ -35,6 +35,5 @@ local.cmd为私有本机文件，已从Git和发布清单排除。启动不会�
 
 Windows批处理已统一使用CRLF并传递返回码；当前Linux环境能测试共用Python逻辑，实际Windows双击、中文/空格路径和浏览器仍需实机验收。
 
-### 验收报告
 
-在项目根目录 cmd 执行 `deploy\windows\test.cmd --dom --report "%TEMP%\teacher-site-acceptance.json"` 可保存结果。Linux 专用项在 Windows 跳过；缺少符号链接权限时明确标注跳过原因。详细实机步骤见 `docs/features/layout-deploy-step6-v77.md`。
+更多功能见 [功能手册](../../docs/FEATURES.md)，测试见 [测试说明](../../tests/README.md)。

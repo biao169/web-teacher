@@ -140,7 +140,7 @@ async def commit(r,task):
             update=','.join('"'+c+'"=excluded."'+c+'"' for c in cols if c not in ('uid','created_at'))
             statements.append(('INSERT INTO "'+table+'" ('+','.join('"'+c+'"' for c in cols)+') SELECT '+expressions+' FROM sync_task_items WHERE task_uid=? AND side=\'local\' AND module=? ON CONFLICT(uid) DO UPDATE SET '+update,(task['uid'],prepared.WRITE+table)))
         e['committed']=True;e['phase']='cleanup'
-        statements.extend([('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(s).decode(),task['uid'])),r.content.audit(r.p,'data_tools','sync_pull_commit',task['uid'],{'selected':len(e['selected'])}),('DELETE FROM admin_mutation_guards WHERE uid IN (SELECT value FROM json_each(?))',(json.dumps(guards),))])
+        statements.extend([("UPDATE sync_tasks SET state=json_set(?,'$._sync_revision',lower(hex(randomblob(16)))) WHERE uid=?",(encoded(s).decode(),task['uid'])),r.content.audit(r.p,'data_tools','sync_pull_commit',task['uid'],{'selected':len(e['selected'])}),('DELETE FROM admin_mutation_guards WHERE uid IN (SELECT value FROM json_each(?))',(json.dumps(guards),))])
         try:
             await r.sql.restore_batch(statements)
         except Exception as exc:
@@ -154,7 +154,7 @@ async def cleanup(r,task):
     e=task['state']['execution'];i=e['cleanup_index']
     if i>=len(e['media']):
         e['phase']='cancelled' if e['cancelled'] else 'done';e.pop('error',None)
-        await r.sql.batch([('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(task['state']).decode(),task['uid'])),r.content.audit(r.p,'data_tools','sync_pull_'+e['phase'],task['uid'],{'committed':e['committed']})]);return
+        await tasks.persist(r.sql,task,[r.content.audit(r.p,'data_tools','sync_pull_'+e['phase'],task['uid'],{'committed':e['committed']})],status=task['status']);return
     item=e['media'][i]
     from .site_sync_media import cleanup_step
     if await cleanup_step(r,task,i,item,for_resource(r)['cleanup_batch']):
@@ -169,14 +169,21 @@ async def cleanup(r,task):
         e['cleanup_index']+=1;e['cleanup_offset']=0;e.pop('cleanup_width',None)
     await persist(r,task)
 
+async def execution_task(sql,uid):
+    from .site_sync_patch import load
+    task=await load(sql,uid)
+    return task if task is not None else await tasks.get(sql,uid)
+
 @tasks.step('execute')
 async def tick(r,uid,cancel=False):
     authorize(r,'edit',core.SCOPES)
     async with lease(r,'site-sync:run','edit'):
-        task=await tasks.get(r.sql,uid);e=task['state'].get('execution')
+        task=await execution_task(r.sql,uid);e=task['state'].get('execution')
         if not e:raise Error('尚未确认实际同步')
         if e['phase'] in TERMINAL:return progress(task)
-        if cancel:e['cancelled']=True;e['phase']='cleanup';e.pop('error',None);await persist(r,task)
+        if cancel:
+            e['cancelled']=True;e['phase']='cleanup';e.pop('error',None);await persist(r,task)
+            task=await execution_task(r.sql,uid);e=task['state']['execution']
         try:
             e.pop('error',None)
             with operation('execution:'+e['phase']):
@@ -185,7 +192,7 @@ async def tick(r,uid,cancel=False):
                 await {'write-record':write_one,'prepare-rows':prepare_rows,'validate-rows':validate_rows,'download':download,'verify-commit':verify_commit,'commit':commit,'cleanup':cleanup}[e['phase']](r,task)
         except Exception as exc:
             # Reload: a transaction/file operation may have committed before its response was lost.
-            task=await tasks.get(r.sql,uid)
+            task=await execution_task(r.sql,uid)
             saved=task['state']['execution']
             detail=exc.message if isinstance(exc,Error) else '操作未完成；进度已保留，可重试。请检查服务日志。'
             saved['error']=detail+'；阶段：'+saved['phase']+'；'+(('已逐条提交 '+str(saved.get('applied',0))+' 条，已完成内容保留') if task['state'].get('incremental') else ('数据库已提交，后续步骤未完成' if saved['committed'] else '数据库尚未提交'))

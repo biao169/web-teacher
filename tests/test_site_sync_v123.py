@@ -93,12 +93,13 @@ def test_failure_pauses_execution_until_manual_retry(pair,monkeypatch):
  original=scheduler.apply.download
  async def fail(*args):raise Error('temporary unavailable',502)
  monkeypatch.setattr(scheduler.apply,'download',fail)
+ assert run(scheduler.tick(ra))['task_uid']==uid  # Durable adoption takes its own tick.
  assert run(scheduler.tick(ra))['status']=='paused'
  state=run(scheduler.load(ra.sql,scheduler.STATE));state.pop('retry_after',None)
  run(ra.sql.batch([scheduler.put(scheduler.STATE,state)]))
  monkeypatch.setattr(scheduler.apply,'download',original)
  result=run(scheduler.tick(ra));assert '暂停' in result['message']
- api('pull-tick',{'uid':uid});drive(ra)
+ api('resume',{'uid':uid});api('pull-tick',{'uid':uid});drive(ra)
  assert len(run(ra.sql.query('SELECT uid FROM students')))==6
 
 

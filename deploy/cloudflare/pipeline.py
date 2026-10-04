@@ -48,7 +48,7 @@ def settings(env):
 def prepare_arguments(config, output):
     args = ['--output', str(output), '--worker-name', config['name'],
             '--database-id', config['database'], '--database-name', config['dbname'],
-            '--origin', config['origin'], '--bucket', config['bucket']]
+            '--origin', config['origin'], '--allowed-origins', ','.join(config['allowed_origins']), '--bucket', config['bucket']]
     if config['cache']:
         args += ['--cache-bucket', config['cache']]
     return args

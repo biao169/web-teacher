@@ -1,5 +1,9 @@
-# 数据库初始化
+# 数据库与结构文件
 
-唯一正式SQL：`schema.sql`。只在空库执行，创建主站与整合快传的完整结构。管理员与示例数据使用现有Python命令创建。开发按新站处理：独立测试库可用 `python -m backend.cli reset-data` 重建，无需历史迁移或备份。具体配置在项目README和deploy配置示例中。
+正式初始化入口是 `schema.sql`，仅在空库创建主站与整合文件互传结构。管理员初始化按对应平台部署说明执行，示例数据仅用于开发测试。
 
-`native/*.json` 是当前/历史结构验证快照和编辑器元数据，不是多份安装SQL，不要逐个导入。历史迁移名称和SHA仅保留来源记录；相应SQL文件已移除。旧兼容入口位于backend/app/native/schema_migrations.py，开发新站不需要运行。
+`native/*.json` 提供结构核验快照与编辑器字段元数据，不是需要逐个导入的SQL。修改字段前应核对schema、编辑器契约及业务代码，不直接改运行库绕过权限与验证。
+
+数据库路径与媒体/缓存路径由 `backend/app/config.py` 解析。已有站点更新源码时保留现有数据库，不以开发重建命令代替升级。
+
+[功能手册](../docs/FEATURES.md) · [函数索引](../docs/FUNCTIONS.md)

@@ -57,8 +57,8 @@ def create_app(factory,static_root=None):
         r.content=Content(r.sql,r.auth);r.media=Media(r.sql,r.auth,r.content,r.media_store,r.kind)
         return r
     def csrf(request,r,data):
-        """Require configured origin plus session-bound CSRF, including fetch and multipart alternatives."""
-        if request.headers.get('origin')!=r.config.origin:raise Error('请求来源不正确',403)
+        """Require the current allowed origin plus session-bound CSRF, including fetch and multipart alternatives."""
+        r.config.same_origin(request)
         if not r.p:raise Error('请先登录',401)
         value=data.get('_csrf') or request.headers.get('x-csrf-token','')
         if not hmac.compare_digest(str(value),r.p['csrf']):raise Error('页面验证已过期，请刷新',403)
@@ -186,7 +186,8 @@ def create_app(factory,static_root=None):
         try:
             data=await payload(request,65536)
             token=request.cookies.get(r.config.name('public-form'),'')
-            if not token or request.headers.get('origin')!=r.config.origin or not hmac.compare_digest(str(data.get('challenge','')),token):raise Error('表单已过期，请刷新',403)
+            r.config.same_origin(request)
+            if not token or not hmac.compare_digest(str(data.get('challenge','')),token):raise Error('表单已过期，请刷新',403)
             if any(not isinstance(data.get(key,''),str) for key in ('name','email','subject','content','news_uid')):raise Error('请求格式不正确')
             await contact(r,data,request.client.host if request.client else 'worker')
         except Error as exc:

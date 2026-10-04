@@ -76,9 +76,11 @@ def install(app, factory):
         if blocked is not None:
             return blocked
         origin = request.headers.get('origin')
-        if origin != r.config.origin:
+        try:
+            r.config.same_origin(request)
+        except Error as exc:
             emit('SETUP-ORIGIN', 'REJECTED', reason='missing' if not origin else 'null' if origin == 'null' else 'mismatch')
-            return page('请求来源不匹配，请从配置的主域名重新打开本页；检查 TEACHER_ORIGIN 和页面来源策略。 / Origin mismatch. Reopen using the configured site origin; check TEACHER_ORIGIN and referrer policy.', 403)
+            return page('请求来源不匹配，请从当前允许的网站域名重新打开本页。 / Origin mismatch. Reopen this form on the current allowed site domain.', exc.status)
         try:
             data = await payload(request, limit=8192)
             token = data.get('token', '')

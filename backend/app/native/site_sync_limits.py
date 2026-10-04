@@ -5,6 +5,8 @@ Preferred media widths are negotiated and persisted per file before changing
 range offsets or merge keys; the legacy wire ceiling remains unchanged.
 """
 from types import MappingProxyType
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 STANDARD = MappingProxyType({
     'mode':'standard', 'content_rows':5, 'version_rows':20, 'brief_rows':20,
@@ -13,12 +15,14 @@ STANDARD = MappingProxyType({
     'reference_rows':1, 'dependency_rows':5,
     'steps_per_tick':1, 'maintenance_jobs_per_tick':2,
     'request_interval_ms':1000, 'retry_seconds':(5,15,60),
+    'no_progress_retry_limit':8,
 })
 WORKER = MappingProxyType({
     **STANDARD, 'mode':'ultra_low', 'content_rows':1, 'version_rows':5,
     'brief_rows':1, 'page_bytes':16*1024, 'media_chunk_bytes':16*1024,
     'cleanup_batch':1, 'history_batch':1, 'dependency_rows':1,
     'maintenance_jobs_per_tick':1, 'retry_seconds':(60,180,600),
+    'no_progress_retry_limit':30,
 })
 # Existing wire/task ceilings: unchanged in step 1, not resource measurements.
 CONTENT_ROWS=STANDARD['content_rows']
@@ -44,9 +48,36 @@ def for_kind(kind):
     return STANDARD if kind=='local' else WORKER
 
 
+# Scoped to one leased request and one resource object, never a process-wide mode.
+_CURRENT=ContextVar('site_sync_budget',default=None)
+MEDIA_WIDTHS=(4096,8192,16384,65536)
+
+def level(work):
+    value=work.get('resource_level',0)
+    return min(2,max(0,value)) if type(value) is int else 0
+
+def pressured(resource,work,code=None):
+    value=level(work)
+    if getattr(resource,'kind','local')!='local' and str(code) in ('1101','1102','sync_unconfirmed'):
+        value=min(2,value+1)
+    return value
+
+@contextmanager
+def budget(resource,work):
+    token=_CURRENT.set((resource,level(work)))
+    try:yield
+    finally:_CURRENT.reset(token)
+
 def for_resource(resource=None):
-    """No mutable process-wide mode: mixed adapters in one process stay isolated."""
-    return for_kind('local' if resource is None else getattr(resource,'kind',None))
+    """A durable task may lower Worker budgets; it never raises wire ceilings."""
+    base=for_kind('local' if resource is None else getattr(resource,'kind',None))
+    current=_CURRENT.get()
+    pressure=current[1] if current and current[0] is resource else 0
+    if base is STANDARD or not pressure:return base
+    return {**base,'version_rows':2 if pressure==1 else 1,
+            'media_chunk_bytes':8192 if pressure==1 else 4096,
+            'request_interval_ms':5000 if pressure==1 else 15000}
+
 
 
 def capped_rows(value,local_limit):

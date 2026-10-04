@@ -103,8 +103,15 @@ def response_json(status,body,headers=None):
                     if isinstance(message,str) and message:hint+='；'+''.join(c for c in message[:240] if c.isprintable())
         except (ValueError,UnicodeError):pass
         descriptions={'1010':'Cloudflare按客户端签名拦截，请检查安全事件','1101':'对端Worker未处理异常，请查看对端堆栈','1102':'对端Worker CPU或内存超限，请查看对端调用状态'}
+        if not platform and status>=500:
+            import re
+            sample=body[:4096].decode('utf-8',errors='replace') if isinstance(body,bytes) else str(body)[:4096]
+            match=re.search(r'\b(?:error|code)\s*[:=]?\s*(1101|1102)\b',sample,re.I)
+            if match:platform=match.group(1)
         if platform in descriptions:hint+='；'+platform+' '+descriptions[platform]
         if ray and len(ray)<=64 and all(c.isalnum() or c=='-' for c in ray):hint+='；对端Ray ID：'+ray
+        if status>=500 and platform in ('1101','1102'):
+            raise Error('对端返回HTTP '+str(status)+'：'+hint,502,platform)
         raise failure('http_'+str(status),'对端返回HTTP '+str(status)+'：'+hint)
     if (headers or {}).get('content-type','').split(';')[0]==BINARY_TYPE:return binary_reply(body)
     try:result=json.loads(body)

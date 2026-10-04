@@ -1,5 +1,5 @@
 import {t as tr,errorText,setText,setAttr} from './transfer-i18n.js?v=0.15.96';
-import {request,transferBase} from './portal-core.js?v=0.15.96';
+import {request,transferBase} from './portal-core.js?v=0.15.158';
 const receivers=new Map();
 let resolving=false,pending=null;
 export const codeResolving=()=>resolving;

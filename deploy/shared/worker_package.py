@@ -6,8 +6,10 @@ def prepare(transfer=False,argv=None,*,migration_plan=True):
     """Write UTF-8 resources and binding configuration without depending on host code pages."""
     from backend.app.config import Settings
     from backend.app.security.http import AuthConfig
-    p=argparse.ArgumentParser();p.add_argument('--output',type=Path);p.add_argument('--worker-name');p.add_argument('--database-id',required=True);p.add_argument('--database-name',default='teacher-transfer' if transfer else 'teacher-site');p.add_argument('--origin',required=True);p.add_argument('--bucket',required=True);p.add_argument('--cache-bucket');p.add_argument('--database-binding',default='TRANSFER_DB' if transfer else 'DB');p.add_argument('--media-binding',default='TRANSFER_FILES' if transfer else 'MEDIA');p.add_argument('--cache-binding');p.add_argument('--media-prefix',default='transfer/media/' if transfer else 'media/');p.add_argument('--cache-prefix',default='transfer/cache/' if transfer else 'cache/');p.add_argument('--teacher-origin',required=transfer);p.add_argument('--grant-uid',required=transfer);p.add_argument('--migration-plan',action=argparse.BooleanOptionalAction,default=migration_plan,help='Generate legacy migration plan; requires a Python interpreter with SQLite');a=p.parse_args(argv)
-    if not AuthConfig.from_origin(a.origin).secure or (transfer and not AuthConfig.from_origin(a.teacher_origin).secure):p.error('HTTPS origin required')
+    p=argparse.ArgumentParser();p.add_argument('--output',type=Path);p.add_argument('--worker-name');p.add_argument('--database-id',required=True);p.add_argument('--database-name',default='teacher-transfer' if transfer else 'teacher-site');p.add_argument('--origin',required=True);p.add_argument('--allowed-origins',default='');p.add_argument('--bucket',required=True);p.add_argument('--cache-bucket');p.add_argument('--database-binding',default='TRANSFER_DB' if transfer else 'DB');p.add_argument('--media-binding',default='TRANSFER_FILES' if transfer else 'MEDIA');p.add_argument('--cache-binding');p.add_argument('--media-prefix',default='transfer/media/' if transfer else 'media/');p.add_argument('--cache-prefix',default='transfer/cache/' if transfer else 'cache/');p.add_argument('--teacher-origin',required=transfer);p.add_argument('--grant-uid',required=transfer);p.add_argument('--migration-plan',action=argparse.BooleanOptionalAction,default=migration_plan,help='Generate legacy migration plan; requires a Python interpreter with SQLite');a=p.parse_args(argv)
+    auth_config=AuthConfig.from_origin(a.origin,a.allowed_origins)
+    if transfer and a.allowed_origins:p.error('Multi-origin uses the integrated teacher Worker')
+    if not auth_config.secure or (transfer and not AuthConfig.from_origin(a.teacher_origin).secure):p.error('HTTPS origin required')
     if not re.fullmatch(r'[a-fA-F0-9-]{36}',a.database_id):p.error('Invalid D1 UUID')
     if transfer and not re.fullmatch(r'[A-Za-z0-9:._-]{1,128}',a.grant_uid):p.error('Invalid CMS manager UID')
     cache=a.cache_binding or (('TRANSFER_CACHE' if transfer else 'CACHE') if a.cache_bucket else a.media_binding)
@@ -55,6 +57,7 @@ def prepare(transfer=False,argv=None,*,migration_plan=True):
     if plan is not None:
         (out/'migration-plan.json').write_text(json.dumps(plan,ensure_ascii=False,indent=2),encoding='utf-8')
     prefix='TRANSFER_' if transfer else 'TEACHER_';variables={prefix+'ORIGIN':a.origin.rstrip('/'),prefix+'DATABASE_BINDING':a.database_binding,prefix+'MEDIA_BINDING':a.media_binding,prefix+'CACHE_BINDING':cache,prefix+'MEDIA_PREFIX':settings.media_prefix,prefix+'CACHE_PREFIX':settings.cache_prefix}
+    if not transfer:variables['TEACHER_ALLOWED_ORIGINS']=','.join(auth_config.allowed_origins)
     if transfer:variables['TEACHER_ORIGIN']=a.teacher_origin.rstrip('/')
     buckets=[{'binding':a.media_binding,'bucket_name':a.bucket}]
     if cache!=a.media_binding:buckets.append({'binding':cache,'bucket_name':a.cache_bucket or a.bucket})

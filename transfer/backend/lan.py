@@ -3,6 +3,7 @@
 One process owns rooms, intentionally lost on restart. Settings and identity use
 main SQL. Each side renews its own lease; a peer cannot keep an absent side alive.
 """
+from .origins import check_origin
 import asyncio,re,secrets,time
 from fastapi import Request
 from backend.app.native.catalog import Error
@@ -155,8 +156,8 @@ def install(app,get,check):
         finally:active-=1
     async def process(op,request):
         r=await get(request,False)
-        if request.headers.get('origin')!=r.origin:raise Error('请求来源无效',403)
         if r.p:check(request,r,{})
+        else:check_origin(request,r)
         try:data=await asyncio.wait_for(payload(request,524288 if op=='manifest' else 49152),10)
         except asyncio.TimeoutError:raise Error('配对请求超时',408)
         return await rooms.act(r,op,data)

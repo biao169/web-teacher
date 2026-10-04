@@ -1,4 +1,5 @@
 """Same-site online HTTPS relay: one retained block per bounded room, no disk payload."""
+from .origins import check_origin
 import asyncio,hashlib,re,secrets,time,os
 from fastapi import Request
 from fastapi.responses import Response
@@ -188,8 +189,8 @@ def install(app,get,check):
     relay=Relay(budget=app_budget(app));app.state.online_relay=relay;active=0
     async def context(request):
         r=await get(request,False)
-        if request.headers.get('origin')!=r.origin:raise Error('请求来源无效',403)
         if r.p:check(request,r,{})
+        else:check_origin(request,r)
         return r
     @app.post('/api/relay/chunk')
     async def chunk(request:Request):

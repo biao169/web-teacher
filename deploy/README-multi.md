@@ -1,22 +1,22 @@
-# Ubuntu / Debian 多实例部署补丁 v0.15.146
+# Ubuntu / Debian 多实例部署
 
-本补丁基于 v0.15.145，只修改部署工具；不修改网站业务代码、数据库结构或原 install.sh。
+多实例部署工具为各网站分别配置目录、命令、端口、服务和账号；原 install.sh 仍可用于单实例。
 原 tweb 管理原网站；新增网站建议使用 tweb2、labweb 等新关键字及独立子域名。
 同域名 /site-a/ 子路径部署不在本补丁范围内。
 
-## 上传到仓库
+## 源码要求
 
-将补丁压缩包按相对路径覆盖到仓库根目录，将以下文件一起提交到 web-py 分支：
+完整代码包已包含以下配套文件，发布到Git时应一并保留：
 
-- install-multi.sh（新增入口）
-- deploy/linux/tweb.py（更新共享管理器）
-- deploy/vps/release.py（更新配置生成器）
+- install-multi.sh
+- deploy/linux/tweb.py
+- deploy/vps/release.py
 - deploy/README-multi.md（本文）
 - tests/test_deploy_multi_v146.py（隔离测试）
 
 不能只上传 install-multi.sh：入口和后续更新都会检查目标分支是否支持多实例参数。
 这只检查部署能力，不恢复源码完整性清单校验。
-本补丁是独立部署工具版本，网站 pyproject.toml 版本号保持不变。
+网站功能见 [功能手册](../docs/FEATURES.md)。
 
 ## 一条命令安装
 
@@ -32,7 +32,7 @@ f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --p
 f=$(mktemp) && trap 'rm -f "$f"' EXIT && curl --fail --show-error --location --proto '=https' --tlsv1.2 'https://raw.githubusercontent.com/biao169/web-teacher/web-py/install-multi.sh' -o "$f" && sudo bash "$f" --domain 'teacher2.example.org' --instance lab2 --command tweb2 --base /opt/teacher-site-2 --port 8009
 ```
 
-也可以下载本补丁中的独立 install-multi.sh 后，在 VPS 执行：
+也可以在项目根目录的VPS终端执行：
 
 ```bash
 sudo bash install-multi.sh --domain teacher2.example.org --command tweb2
@@ -110,8 +110,4 @@ tweb2 uninstall         # 列出范围、y/N确认后，只卸载本实例
 配置校验通过后重载。管理接口 admin off 时不能热加载，需要按实际维护方式启用本机管理接口后重启一次。
 多个实例共用域名反代的80/443端口，各自应用只监听127.0.0.1，不需要公开8009等内部端口。
 
-## 验证范围
-
-测试使用临时目录、模拟systemd/账号操作和本机临时端口，覆盖双实例安装、更新、删除隔离、管理入口绑定、目录归属、占用端口处理及原部署控制。
-没有在真实VPS执行apt安装、创建账号、接入域名或签发证书。
-原 v76 测试的两条卸载断言在未修改的v145上也失败（模拟账号始终不存在却要求userdel、错误文本断言过时）；本补丁不修改这两条旧测试，也不为其弱化卸载归属检查。
+同一实例需要多个域名时，安装命令追加 `--allowed-domains lab.example.org,team.example.org`；已安装实例使用自己的管理命令，例如 `sudo tweb2 domains --allowed-domains lab.example.org,team.example.org`。代理接入与 Cookie 行为见 [Ubuntu说明](linux/README.md#一个实例使用多个域名)。多域名不等于多实例。

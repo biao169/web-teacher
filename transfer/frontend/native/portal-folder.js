@@ -1,6 +1,6 @@
 import {t as tr,joinText,errorText,setText,setAttr} from './transfer-i18n.js?v=0.15.96';
 import {fromHandle,fromFileList,captureDrop,LIMITS} from './folder-manifest.js?v=0.15.96';
-import {bytes} from './portal-core.js?v=0.15.96';
+import {bytes} from './portal-core.js?v=0.15.158';
 const panel=document.querySelector('[data-folder-preview]');
 if(panel){
  const q=id=>panel.querySelector('#folder-'+id);let manifest=null,controller=null,generation=0,page=0;

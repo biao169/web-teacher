@@ -13,15 +13,59 @@ from . import site_sync as core,site_sync_tasks as tasks,site_sync_apply as appl
 
 from .site_sync_limits import AUTO_PULL_CANDIDATES
 
-from .site_sync_gate import KEY, STATE, load
+from .site_sync_gate import KEY, STATE, load,checkpoint,waiting,lease_until,TURN,dispatch,probe
 CONFIRM='允许定时拉取并同步增删'
 
 def put(key,value):
     return ('INSERT INTO service_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(key,encoded(value).decode()))
 
 async def status(sql):
-    p=await load(sql)
-    return {**{k:p.get(k) for k in ('enabled','auto_pull','interval','scopes','revision')},'state':await load(sql,STATE)}
+    p=await load(sql);s=await load(sql,STATE);jobs=await apply.active(sql)
+    uid=jobs[0]['uid'] if jobs else s.get('preview_uid') if p.get('auto_pull') and s.get('preview_uid') else s.get('task_uid') if s.get('task_uid')!=s.get('last_task_uid') else None
+    row=await checkpoint(sql,uid) if uid else None
+    at=now();reason,deadline=waiting(row,at) if uid else ('next_cycle' if p.get('auto_pull') else 'waiting_confirmation',s.get('next_due') if p.get('auto_pull') else None)
+    if not p.get('enabled'):reason,deadline='disabled',None
+    elif s.get('error') and s.get('retryable') is False and not (row and row.get('work_status')=='running'):reason,deadline='needs_attention',None
+    elif uid and not p.get('auto_pull') and row and not row.get('execution_phase'):reason,deadline='waiting_confirmation',None
+    elif not uid and s.get('error'):
+        reason='retry_wait' if s.get('retryable') else 'needs_attention';deadline=s.get('retry_after') if s.get('retryable') else None
+    if p.get('enabled') and reason in ('ready','reconcile','receipt_wait','retry_wait','linked','complete'):
+        lease_deadline=await lease_until(sql,uid)
+        if lease_deadline and lease_deadline>at and (not deadline or lease_deadline>deadline):
+            reason,deadline='lease_wait',lease_deadline
+    return {**{k:p.get(k) for k in ('enabled','auto_pull','interval','scopes','revision')},
+            'state':s,'current_task':row,'wait_reason':reason,'next_attempt_at':deadline}
+
+
+def finish(s,uid,interval,message):
+    s.pop('preview_uid',None);s.pop('auto_selection',None)
+    s.update(task_uid=uid,last_task_uid=uid,last_finished=now(),next_due=now(seconds=interval*60),message=message)
+
+
+async def finish_task(r,s,row,interval):
+    from .site_sync_proposals import update_progress
+    await update_progress(r,{'uid':row['uid'],'execution':{'phase':row['execution_phase'],'committed':bool(row.get('committed'))}})
+    finish(s,row['uid'],interval,'执行阶段：'+row['execution_phase'])
+
+
+def blocked(s,row):
+    reason,deadline=waiting(row,now())
+    if reason not in ('receipt_wait','retry_wait','needs_attention','missing'):return False
+    s['wait_reason']=reason;s['next_attempt_at']=deadline
+    s['message']={'receipt_wait':'等待上一步回执恢复窗口；到期后后台核对进度',
+                  'retry_wait':'进度已保存；等待冷却结束后后台重试',
+                  'needs_attention':'自动恢复已暂停；请检查错误后手动继续或取消',
+                  'missing':'任务记录不存在或正在清理，请检查后重新保存后台策略'}[reason]
+    return True
+
+
+def creation_link(r,s,before):
+    def link(uid):
+        s.pop('auto_selection',None)
+        s.update(preview_uid=uid,task_uid=uid,last_started=now(),updated_at=now(),message='分批读取最新差异')
+        gid,guard=r.auth.guard(r.p,'data_tools','edit','EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(STATE,before))
+        return [guard,put(STATE,s),dispatch('scheduled',now()),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]
+    return link
 
 async def save(r,data):
     authorize(r,'edit',core.SCOPES);authorize(r,'export',core.SCOPES)
@@ -47,8 +91,8 @@ async def save(r,data):
 
 class BackgroundAuth(Auth):
     """Narrow service grant: business sync only, no account/session/admin access."""
-    def __init__(self,sql,passwords,policy):
-        super().__init__(sql,passwords);self.policy=policy
+    def __init__(self,sql,passwords,policy,policy_key=KEY):
+        super().__init__(sql,passwords);self.policy=policy;self.policy_key=policy_key
     def require(self,p,module,action='view'):
         if module not in (*core.SCOPES,'data_tools') or action not in ('view','export','create','edit','delete'):raise Error('后台同步授权范围无效',403)
         super().require(p,module,action)
@@ -56,48 +100,81 @@ class BackgroundAuth(Auth):
         self.require(p,module,action)
         uid=secrets.token_hex(16);at=now()
         clause="EXISTS(SELECT 1 FROM auth_users u JOIN auth_roles r ON r.uid=u.role_uid JOIN auth_permissions a ON a.role_uid=r.uid WHERE u.uid=? AND u.role_uid=? AND u.updated_at=? AND u.status='active' AND u.must_change_password=0 AND r.updated_at=? AND r.is_active=1 AND r.is_system=1 AND a.module=? AND a.can_view=1 AND a.can_"+action+"=1) AND EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?) AND EXISTS(SELECT 1 FROM sync_peers WHERE id=1 AND enabled=1 AND revision=?) AND ("+condition+')'
-        params=(p['uid'],p['role_uid'],p['user_stamp'],p['role_stamp'],module,KEY,encoded(self.policy).decode(),self.policy['peer_revision'],*args,uid,module,uid,at,at)
+        if self.policy.get('task_uid'):
+            from .site_sync_manual_gate import binding
+            clause+=" AND EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND status IN ('reading','ready') AND coalesce(json_extract(state,'$.history_deleting'),0)=0 AND "+binding(self.policy['mode'])+'=json(?))' 
+            args=(*args,self.policy['task_uid'],encoded(self.policy['binding']).decode())
+        params=(p['uid'],p['role_uid'],p['user_stamp'],p['role_stamp'],module,self.policy_key,encoded(self.policy).decode(),self.policy['peer_revision'],*args,uid,module,uid,at,at)
         return uid,('INSERT INTO admin_mutation_guards(uid,module,target_uid,expected_updated_at,created_at) SELECT CASE WHEN '+clause+" THEN ? ELSE '' END,?,?,?,?",params)
 
-async def context(base,policy):
+async def context(base,policy,*,policy_key=KEY):
     owner=policy['owner']
     rows=await base.sql.query("SELECT u.uid,u.display_name,u.username,u.role_uid,u.must_change_password,u.updated_at user_stamp,r.updated_at role_stamp,r.is_system,r.visibility_scopes FROM auth_users u JOIN auth_roles r ON r.uid=u.role_uid WHERE u.uid=? AND u.status='active' AND r.is_active=1 AND r.is_system=1",(owner['uid'],))
     if not rows or any(rows[0][k]!=v for k,v in owner.items()):raise Error('后台授权已失效，请管理员重新保存策略',403)
     p=rows[0];p['scopes']=json.loads(p['visibility_scopes']);p['permissions']={x['module']:x for x in await base.sql.query('SELECT * FROM auth_permissions WHERE role_uid=?',(p['role_uid'],))}
-    r=copy.copy(base);r.p=p;r.auth=BackgroundAuth(r.sql,r.passwords,policy)
+    r=copy.copy(base);r.p=p;r.auth=BackgroundAuth(r.sql,r.passwords,policy,policy_key)
     from .content import Content
     from .media import Media
     r.content=Content(r.sql,r.auth);r.media=Media(r.sql,r.auth,r.content,r.media_store,r.kind)
     authorize(r,'edit',core.SCOPES);authorize(r,'export',core.SCOPES)
     return r
 
+async def reconcile_pending(r,s,row):
+    if not row or row.get('work_status')!='running':return False
+    if blocked(s,row):return True
+    from .site_sync_work import reconcile
+    work=await reconcile(r,row['uid'])
+    s.update(wait_reason='retry_wait' if work.get('retryable') else 'complete' if work['status']=='saved' else 'needs_attention',
+             next_attempt_at=work.get('retry_after'),message='已核对中断检查点；本轮不重复执行业务，下一轮按保存状态推进')
+    return True
+
+
 async def step(r,policy,s):
     """One persisted page/chunk/commit per tick; do not start unapproved push jobs."""
     jobs=await apply.active(r.sql)
     if jobs:
-        uid=jobs[0]['uid'];s['task_uid']=uid
-        task=await tasks.get(r.sql,uid)
-        from .site_sync_work import can_retry
-        checkpoint=task['state'].get('work',{})
-        if (task['state']['execution'].get('error') or checkpoint.get('status')=='paused') and not can_retry(checkpoint):
-            s['message']='执行已暂停，请打开任务重试或取消';return
+        uid=jobs[0]['uid']
+        from .site_sync_manual_gate import PREFIX
+        if await load(r.sql,PREFIX+uid):
+            s['message']='该手动任务由独立授权管理；定时策略不接管或解除暂停';return
+        if s.get('task_uid')!=uid:
+            before=encoded(await load(r.sql,STATE)).decode()
+            s.update(task_uid=uid,message='已接管已确认任务，下一轮继续推进',updated_at=now())
+            gid,guard=r.auth.guard(r.p,'data_tools','edit','EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(STATE,before))
+            await r.sql.batch([guard,put(STATE,s),dispatch('scheduled',now()),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
+            return True
+        row=await checkpoint(r.sql,uid)
+        if await reconcile_pending(r,s,row):return
+        if blocked(s,row):return
         result=await apply.tick(r,uid)
         from .site_sync_proposals import update_progress
         await update_progress(r,result)
         s['message']='执行阶段：'+result['execution']['phase']
         if result['execution']['phase'] in apply.TERMINAL:
-            s.pop('preview_uid',None);s['last_finished']=now();s['next_due']=now(seconds=policy['interval']*60)
+            finish(s,uid,policy['interval'],s['message'])
         return
+    pending=s.get('task_uid')
+    if pending and pending!=s.get('last_task_uid'):
+        row=await checkpoint(r.sql,pending)
+        if await reconcile_pending(r,s,row):return
+        if row and row.get('execution_phase') in apply.TERMINAL:
+            await finish_task(r,s,row,policy['interval']);return
     if not policy['auto_pull']:s['message']='等待已确认任务；不自动拉取或批准推送';return
     if not s.get('preview_uid'):
         if s.get('next_due','')>now():return
-        job=await tasks.start(r,'pull',policy['scopes'],lightweight=True,latest_only=True);s.pop('auto_selection',None);s['preview_uid']=job['uid'];s['last_started']=now();s['message']='分批读取最新差异';return
-    uid=s['preview_uid'];job=await tasks.get(r.sql,uid)
-    if job['state'].get('restart_uid'):
-        s['preview_uid']=job['state']['restart_uid'];s.pop('auto_selection',None);s['message']='旧预览已重新开始，改用新预览';return
-    from .site_sync_work import can_retry
-    if job['state'].get('work',{}).get('status')=='paused' and not can_retry(job['state']['work']):
-        s['task_uid']=uid;s['message']='原任务已保留，请打开最近预览重试或重新开始';return
+        await tasks.start(r,'pull',policy['scopes'],lightweight=True,latest_only=True,on_create=creation_link(r,s,encoded(await load(r.sql,STATE)).decode()))
+        return True  # Task and scheduler pointer were committed in the same batch.
+    uid=s['preview_uid'];s['task_uid']=uid
+    row=await checkpoint(r.sql,uid)
+    if await reconcile_pending(r,s,row):return
+    if row and row.get('execution_phase') in apply.TERMINAL:
+        await finish_task(r,s,row,policy['interval']);return
+    if blocked(s,row):return
+    if row and (row.get('restart_uid') or row.get('prepared_uid')):
+        child=row.get('restart_uid') or row['prepared_uid']
+        s.update(preview_uid=child,task_uid=child,message='已衔接保存的子任务');s.pop('auto_selection',None);return
+    if blocked(s,row):return
+    job=await tasks.get(r.sql,uid)
     if job['status']=='reading':
         await tasks.advance(r,uid);s['message']='分批读取最新差异';return
     if job['status']!='ready':raise Error('定时预览已失效，将在下一周期重新读取',409)
@@ -113,18 +190,17 @@ async def step(r,policy,s):
                 selection.update(ids=ids,after=part['next'],ready=part['next'] is None)
                 s['message']='分批收集候选：'+str(len(ids))+' 项';return
             if not selection['ids']:
-                s.pop('preview_uid',None);s.pop('auto_selection',None)
-                s.update(next_due=now(seconds=policy['interval']*60),last_finished=now(),message='无可同步候选');return
+                finish(s,uid,policy['interval'],'无可同步候选');return
             if not state.get('prepared_uid') and state['selection']['selected']!=sorted(selection['ids']):
                 await tasks.choose(r,uid,selection['ids']);s['message']='已保存定时选择';return
             child=await preview.prepare(r,uid)
-            s['preview_uid']=child['uid'];s.pop('auto_selection',None);s['message']='逐条准备所选内容和依赖';return
+            s['preview_uid']=child['uid'];s['task_uid']=child['uid'];s.pop('auto_selection',None);s['message']='逐条准备所选内容和依赖';return
         result=await apply.begin(r,uid,'从对端同步到本站')
         s['task_uid']=uid;s['message']='按预先授权策略逐条执行';return
     # Existing detailed tasks retain their checkpoints; newly created jobs use the path above.
     items=state['items'];ids=[x['id'] for x in items if x['in_scope']]
     if not ids:
-        s.pop('preview_uid',None);s['next_due']=now(seconds=policy['interval']*60);s['last_finished']=now();s['message']='无差异';return
+        finish(s,uid,policy['interval'],'无差异');return
     # Never partial silent success: blocked dependencies/limits stop for review.
     await tasks.choose(r,uid,ids)
     result=await apply.begin(r,uid,'从对端同步到本站')
@@ -133,6 +209,16 @@ async def step(r,policy,s):
     s['task_uid']=uid;s['message']='按本站预先授权的定时拉取策略开始执行'
 
 async def tick(base, *, prune_history=True):
+    from .site_sync_manual import tick as manual_tick
+    from .site_sync_manual_gate import candidate
+    selected=await candidate(base.sql,now())
+    if selected:
+        # Alternate ready classes, without spending a turn on a cooling/locked job.
+        previous=await load(base.sql,TURN)
+        scheduled_ready=previous.get('kind')=='manual' and not await probe(base.sql,include_manual=False)
+        if not scheduled_ready:
+            manual_result=await manual_tick(base,selected)
+            if manual_result is not None:return manual_result
     if prune_history:
         from .site_sync_history import prune
         await prune(base.sql)
@@ -140,8 +226,8 @@ async def tick(base, *, prune_history=True):
     if not policy.get('enabled'):return {'skipped':'disabled'}
     s=await load(base.sql,STATE)
     if not await apply.active(base.sql):
-        if not policy['auto_pull']:return {'skipped':'waiting'}
-        if not s.get('preview_uid') and s.get('next_due','')>now():return {'skipped':'interval'}
+        if not policy['auto_pull'] and (not s.get('task_uid') or s.get('task_uid')==s.get('last_task_uid')):return {'skipped':'waiting'}
+        if not s.get('preview_uid') and s.get('task_uid')==s.get('last_task_uid') and s.get('next_due','')>now():return {'skipped':'interval'}
     before=encoded(s).decode()
     try:
         r=await context(base,policy)
@@ -153,11 +239,15 @@ async def tick(base, *, prune_history=True):
         async with lease(r,'site-sync:schedule-run','edit'):
             # Re-read state inside the lease, so simultaneous schedulers cannot regress it.
             s=await load(r.sql,STATE);before=encoded(s).decode()
-            if s.get('retry_after','')>now():return {'skipped':'interval'}
-            await step(r,policy,s)
-            s.pop('error',None);s.pop('retry_after',None);s.pop('retry_count',None);s.pop('retryable',None);s['updated_at']=now()
-            gid,guard=r.auth.guard(r.p,'data_tools','edit')
-            await r.sql.batch([guard,put(STATE,s),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
+            jobs=await apply.active(r.sql)
+            linked=jobs[0]['uid'] if jobs else s.get('preview_uid') if policy['auto_pull'] and s.get('preview_uid') else s.get('task_uid') if s.get('task_uid')!=s.get('last_task_uid') else None
+            if not linked and s.get('retry_after','')>now():return {'skipped':'interval'}
+            for key in ('error','error_code','retry_after','retry_count','retryable','wait_reason','next_attempt_at'):s.pop(key,None)
+            committed=await step(r,policy,s)
+            if committed:return {'status':'ok',**s}
+            s['updated_at']=now()
+            gid,guard=r.auth.guard(r.p,'data_tools','edit','EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(STATE,before))
+            await r.sql.batch([guard,put(STATE,s),dispatch('scheduled',now()),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
         return {'status':'ok',**s}
     except Exception as exc:
         if isinstance(exc,Error) and exc.code in ('sync_busy','sync_retry_wait'):return {'skipped':'interval' if exc.code=='sync_retry_wait' else 'busy'}
@@ -166,9 +256,18 @@ async def tick(base, *, prune_history=True):
         if (await load(base.sql)).get('revision')!=policy['revision']:return {'skipped':'policy-changed'}
         if await base.sql.query("SELECT 1 FROM admin_mutation_guards WHERE uid IN ('site-sync:schedule-run','site-sync:run') AND created_at>=?",(now(seconds=-300),)):
             return {'skipped':'busy'}
+        s['error_code']=exc.code if isinstance(exc,Error) else 'sync_runtime'
         s['error']=exc.message if isinstance(exc,Error) else '后台步骤未完成；请检查连接或打开任务重试'
         from .site_sync_work import retry_state
         retry=retry_state(exc,s,base) if isinstance(exc,Error) else {'retry_count':1,'retryable':False,'retry_after':None}
+        # A task owns its recovery budget; do not add an independent three-error ceiling.
+        uid=s.get('task_uid') or s.get('preview_uid')
+        if uid and isinstance(exc,Error):
+            try:
+                work=(await tasks.header(base.sql,uid))['state']['work']
+                if work.get('status')=='paused' and work.get('error_code')==exc.code:
+                    retry={key:work.get(key) for key in ('retry_count','retryable','retry_after')}
+            except Exception:pass
         s.update(retry);s['updated_at']=now();s['retry_after']=retry['retry_after'] or now(seconds=policy['interval']*60)
         # Keep the same preview checkpoint after failure; never silently start over.
         s['next_due']=s['retry_after']

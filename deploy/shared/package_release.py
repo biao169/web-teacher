@@ -30,7 +30,8 @@ def main():
   for name in ('backend','frontend','database','transfer','deploy','docs','legal','tests'):
    shutil.copytree(ROOT/name,stage/name,ignore=shutil.ignore_patterns(*EXCLUDED))
   # Source and lean packages share one maintained guide so update instructions cannot drift.
-  for source in [ROOT/n for n in ('pyproject.toml','README.md','install.sh','start.sh','start-transfer.sh','.gitignore','.gitattributes')]:
+  # Keep every maintained root shell entry point, including multi-instance install.
+  for source in [*[ROOT/n for n in ('pyproject.toml','README.md','.gitignore','.gitattributes')],*sorted(ROOT.glob('*.sh'))]:
    shutil.copyfile(source,stage/source.name)
   results=[archive(ROOT,targets[0]),archive(stage,targets[1])]
  print(json.dumps(results,ensure_ascii=False))

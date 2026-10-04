@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "source": "docs/02_database_schema.md",
+  "source": "database/schema.sql",
   "tables": {
     "media_assets": {
       "columns": {

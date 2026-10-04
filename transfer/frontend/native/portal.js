@@ -1,6 +1,6 @@
 import {codeCard} from './portal-codes.js?v=0.15.96';
 import {t as tr,joinText,errorText,setText,setAttr} from './transfer-i18n.js?v=0.15.96';
-import {shareURL,bytes,request,upload,transferPath} from './portal-core.js?v=0.15.96';
+import {shareURL,bytes,request,upload,transferPath} from './portal-core.js?v=0.15.158';
 const root=document.querySelector('[data-portal]'),$=id=>document.getElementById(id),user=root.dataset.user,csrf=root.dataset.csrf,maxBytes=Number(root.dataset.maxFile);
 const shortCode=codeCard($('offline-code-host'));
 let file=null,current=null,busy=false,pause=false,uncertainCreate=false,key='',storageOK=true;

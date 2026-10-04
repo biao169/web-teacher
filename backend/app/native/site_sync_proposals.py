@@ -110,11 +110,16 @@ async def send(r,uid):
         return {'outgoing':answer}
 
 async def sent_status(r,uid):
-    task=await tasks.get(r.sql,uid);s=task['state'];out=s.get('outgoing')
-    if not out:raise Error('该预览尚未发送提案')
+    # Receipt polling needs four identifiers, never task bodies or media lists.
+    await tasks.header(r.sql,uid)
+    fields=('source_id','target_id','request_id','sequence')
+    projection=','.join("json_extract(state,'$.outgoing.payload."+k+"') AS "+k for k in fields)
+    rows=await r.sql.query("SELECT "+projection+",json_extract(state,'$.peer_revision') AS peer_revision FROM sync_tasks WHERE uid=?",(uid,))
+    out=rows[0]
+    if not out['request_id']:raise Error('该预览尚未发送提案')
     p=await tasks.peer(r.sql)
-    if p['revision']!=s['peer_revision']:raise Error('连接配置已变化',409)
-    data={k:out['payload'][k] for k in ('source_id','target_id','request_id','sequence')}
+    if p['revision']!=out['peer_revision']:raise Error('连接配置已变化',409)
+    data={k:out[k] for k in fields}
     result=await call(r,p,dict(data,op='proposal-status',schema=core.schema(),protocol=core.PROTOCOL))
     if result.get('site_id')!=data['target_id'] or result.get('request_id')!=data['request_id']:raise Error('回执来源不匹配',409)
     return {'outgoing':result}
@@ -129,16 +134,16 @@ async def current(r,request_id):
     if not p or p['request_id']!=request_id or p['status']!='pending':raise Error('提案已被更新、拒绝或批准，请刷新待批准列表',409)
     return old,value,p
 
-async def review(r,request_id):
+async def review(r,request_id,*,manual=False):
     authorize(r,'export',core.SCOPES)
     old,value,p=await current(r,request_id);peer=await tasks.peer(r.sql)
     if not await enabled(r.sql) or peer['revision']!=p['peer_revision']:raise Error('接收配置已变化，请要求对端重新发起',409)
-    job=await tasks.start(r,'pull',p['scopes'],requested=p['ids']);task=await tasks.get(r.sql,job['uid'])
+    job=await tasks.start(r,'pull',p['scopes'],requested=p['ids'],manual=manual);task=await tasks.get(r.sql,job['uid'])
     if task['state']['remote_id']!=p['source_id']:raise Error('提案来源已变化',409)
     task['state']['approval']={'request_id':request_id,'sequence':p['sequence'],'ready':False}
     p['review_uid']=job['uid']
     gid,guard=r.auth.guard(r.p,'data_tools','edit','EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(INBOX,old))
-    await r.sql.batch([guard,('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(task['state']).decode(),job['uid'])),('UPDATE service_meta SET value=? WHERE key=?',(encoded(value).decode(),INBOX)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
+    await r.sql.batch([guard,("UPDATE sync_tasks SET state=json_set(?,'$._sync_revision',lower(hex(randomblob(16)))) WHERE uid=?",(encoded(task['state']).decode(),job['uid'])),('UPDATE service_meta SET value=? WHERE key=?',(encoded(value).decode(),INBOX)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
     return job
 
 @tasks.step('review-finish')
@@ -156,7 +161,7 @@ async def finish_review(r,uid):
         s['selection']=selection;link.update(ready=True,skipped=len(p['ids'])-len(requested))
     p['skipped']=link['skipped']
     gid,guard=r.auth.guard(r.p,'data_tools','edit','EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(INBOX,old))
-    await r.sql.batch([guard,('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(s).decode(),uid)),('UPDATE service_meta SET value=? WHERE key=?',(encoded(value).decode(),INBOX)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
+    await r.sql.batch([guard,("UPDATE sync_tasks SET state=json_set(?,'$._sync_revision',lower(hex(randomblob(16)))) WHERE uid=?",(encoded(s).decode(),uid)),('UPDATE service_meta SET value=? WHERE key=?',(encoded(value).decode(),INBOX)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
 
 async def approval_statements(r,task):
     link=task['state']['approval'];old,value,p=await current(r,link['request_id']);peer=await tasks.peer(r.sql)
@@ -172,7 +177,7 @@ async def reject(r,request_id):
     return {'proposal':summary(p)}
 
 async def update_progress(r,result):
-    task=await tasks.get(r.sql,result['uid']);link=task['state'].get('approval')
+    task=await tasks.header(r.sql,result['uid']);link=task['state'].get('approval')
     if not link:return
     for _ in range(3):
         old,value=await box(r.sql)

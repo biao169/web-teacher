@@ -36,10 +36,11 @@ def install(app,resources,root):
         if request.method=='GET' and request.url.path=='/transfer/':
             from .presentation import portal_context
             presentation=await portal_context(main,request,root)
+        origin=main.config.request_origin(request)
         return SimpleNamespace(sql=sql,p=p,store=store,cache=LocalStore(main.settings.transfer_cache_dir),
-            service=Transfers(sql,store,indexed=True,disk=disk),origin=main.config.origin,teacher_origin=main.config.origin,
-            secret=p['csrf'] if p else '',
-            render=lambda name,**values:templates.get_template(name).render(transfer_base='/transfer',**presentation,**values))
+            service=Transfers(sql,store,indexed=True,disk=disk),origin=origin,teacher_origin=origin,
+            config=main.config, secret=p['csrf'] if p else '',
+            render=lambda name,**values:templates.get_template(name).render(transfer_base='/transfer',transfer_origins=main.config.allowed_origins,**presentation,**values))
     async def admin_workspace(request):
         from .presentation import management_context
         r=await runtime(request)

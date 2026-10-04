@@ -17,6 +17,7 @@ def test_parent_and_unfinished_child_cannot_send(peers):
         result=api('advance',{'uid':child})
         if result['status']=='ready':break
     assert result['prepared'] and api('get',{'uid':parent})['prepared_uid']==child
+    api('resume',{'uid':parent})  # Explicit retry after the earlier permanent preparation error.
     assert api('proposal-send',{'uid':parent},ok=False).json()['code']=='sync_prepare_required'
     assert b('proposal-inbox')['proposal'] is None
     assert api('proposal-send',{'uid':child})['outgoing']['status']=='pending'

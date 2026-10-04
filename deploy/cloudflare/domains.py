@@ -1,5 +1,9 @@
 """One canonical site origin, optionally derived from the workers.dev account name."""
 import re
+from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
+from backend.app.security.origins import parse_origins
 from urllib.parse import urlsplit
 
 LABEL = r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
@@ -30,6 +34,7 @@ def settings(env, name):
             if not re.fullmatch(LABEL, sub):
                 raise ValueError('填写 TEACHER_ORIGIN 或 TEACHER_WORKERS_SUBDOMAIN（账号子域名）/ Set origin or workers.dev account subdomain')
             origin = 'https://' + name + '.' + sub + '.workers.dev'
+    origin = parse_origins(origin)[0]
     p = urlsplit(origin)
     if (p.scheme != 'https' or not p.hostname or p.username or p.password or p.query or p.fragment
             or p.path not in ('', '/') or p.port not in (None, 443)):
@@ -43,11 +48,27 @@ def settings(env, name):
     enabled = enabled in ('true', '1')
     if host.endswith('.workers.dev') and not enabled:
         raise ValueError('不能关闭当前主地址 workers.dev / Cannot disable the canonical workers.dev address')
-    return dict(origin='https://' + host, custom_domain=custom, workers_dev=enabled)
+    custom_domains = tuple(dict.fromkeys(([custom] if custom else []) +
+        ([hostname(v.strip().lower()) for v in env.get('TEACHER_CUSTOM_DOMAINS','').split(',')] if env.get('TEACHER_CUSTOM_DOMAINS','') else [])))
+    if any(v.endswith('.workers.dev') for v in custom_domains):
+        raise ValueError('Custom domains cannot be workers.dev')
+    origins = parse_origins('https://' + host, env.get('TEACHER_ALLOWED_ORIGINS',''))
+    origins = parse_origins(origins[0], (*origins, *('https://' + v for v in custom_domains)))
+    for value in origins:
+        p = urlsplit(value)
+        hostname(p.hostname)
+        if p.port is not None:raise ValueError('Worker public origins require standard HTTPS port')
+        if p.hostname.endswith('.workers.dev') and not enabled:raise ValueError('Cannot allow disabled workers.dev address')
+    return dict(origin=origins[0], allowed_origins=origins, custom_domain=custom,
+                custom_domains=custom_domains, workers_dev=enabled)
 
 
 def apply(config, values):
     config['workers_dev'] = values['workers_dev']
-    # Keep dashboard-managed custom domains alone unless explicitly managed here.
-    if values['custom_domain']:
-        config['routes'] = [{'pattern': values['custom_domain'], 'custom_domain': True}]
+    config.setdefault('vars', {})['TEACHER_ALLOWED_ORIGINS'] = ','.join(values['allowed_origins'])
+    # Merge explicitly managed routes; allowlisted aliases alone do not change routes.
+    routes = list(config.get('routes', []))
+    for host in values.get('custom_domains', ()):
+        route = {'pattern': host, 'custom_domain': True}
+        if route not in routes:routes.append(route)
+    if routes:config['routes'] = routes

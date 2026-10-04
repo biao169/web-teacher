@@ -1,6 +1,6 @@
 import {t as tr,joinText,errorText,setText,setAttr} from './transfer-i18n.js?v=0.15.96';
 /** One cached task; bounded manifests and existing hashed chunk uploader. */
-import {request,upload} from './portal-core.js?v=0.15.96';
+import {request,upload} from './portal-core.js?v=0.15.158';
 export const metadata=e=>e.kind==='file'?{kind:e.kind,path:e.path,size:e.size,lastModified:e.lastModified||0}:{kind:e.kind,path:e.path};
 export function folderFile(manifest){
  const spans=[];let offset=0;

@@ -1,4 +1,5 @@
 """Shared receive-only short codes. Existing room IDs and share links stay valid."""
+from .origins import check_origin
 import asyncio
 import hashlib
 import hmac
@@ -165,10 +166,10 @@ def install(app, get, check):
         # Count malformed and unauthenticated attempts too; no untrusted XFF parsing.
         codes.limiter.take(request.client.host if request.client else 'unknown')
         r = await get(request, False)
-        if request.headers.get('origin') != r.origin:
-            raise Error('请求来源无效', 403)
         if r.p:
             check(request, r, {})
+        else:
+            check_origin(request,r)
         try:
             data = await asyncio.wait_for(payload(request, 2048), 10)
         except asyncio.TimeoutError:

@@ -1,4 +1,4 @@
-import {transferPath,upload} from './portal-core.js?v=0.15.96';
+import {transferPath,upload} from './portal-core.js?v=0.15.158';
 /** 分页仅读取，写操作显式触发；批量写入仅在前一批成功后继续。 */
 import {mountTableHeaders} from '/assets/admin/js/native-table-headers.js?v=0.15.38';
 const root=document.querySelector('[data-transfer-admin]')||document.querySelector('[data-csrf]'),csrf=root.dataset.csrf,panel=document.querySelector('#task-panel');

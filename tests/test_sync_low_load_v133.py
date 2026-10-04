@@ -68,12 +68,13 @@ def test_interrupted_attempt_keeps_last_start_and_can_continue(pair,monkeypatch)
 
 
 def test_scheduler_retains_failed_preview_instead_of_restarting(pair,monkeypatch):
+ from backend.app.native import site_sync_preview as brief
  api,_,ra,*_=pair;enable(api,True,['students']);run(schedule.tick(ra))
- uid=run(schedule.load(ra.sql,schedule.STATE))['preview_uid'];original=core.revision_page
+ uid=run(schedule.load(ra.sql,schedule.STATE))['preview_uid'];original=brief.page
  async def failed(*a):raise Error('temporary timeout',502,'sync_timeout')
- monkeypatch.setattr(core,'revision_page',failed)
+ monkeypatch.setattr(brief,'page',failed)
  assert run(schedule.tick(ra))['status']=='paused'
  assert run(schedule.load(ra.sql,schedule.STATE))['preview_uid']==uid
- monkeypatch.setattr(core,'revision_page',original)
+ monkeypatch.setattr(brief,'page',original)
  api('advance',{'uid':uid})
  assert run(tasks.get(ra.sql,uid))['state']['work']['status']=='saved'

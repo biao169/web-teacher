@@ -1,7 +1,7 @@
 import {codeCard,receiveCode,registerCodeReceiver,codeResolving} from './portal-codes.js?v=0.15.96';
 import {t as tr,joinText,errorText,setText,setAttr} from './transfer-i18n.js?v=0.15.96';
 import {selectedFolder,submitManifest,directoryStream} from './live-folder.js?v=0.15.96';
-import {request,bytes,transferBase} from './portal-core.js?v=0.15.96';
+import {request,bytes,transferBase} from './portal-core.js?v=0.15.158';
 import {Wire,sendFile,receiveFile,connectionPath} from './lan-core.js?v=0.15.96';
 const root=document.querySelector('[data-portal]'),section=document.querySelector('[data-lan]');
 if(root&&section&&transferBase){

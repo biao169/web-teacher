@@ -16,6 +16,7 @@ def pair(tmp_path,monkeypatch):
   return {'Accept':'application/json','Origin':str(c.base_url).rstrip('/'),'X-CSRF-Token':re.search('id="site-sync" data-csrf="([^"]+)"',text)[1]}
  ha,hb=headers(a),headers(b)
  def api(op,data=None,client=a,h=ha,ok=True,drain=True):
+  data={'background':False,**(data or {})}
   # Historical execution tests exercise the retained detailed preparation path.
   if op=='start':data={'preview_mode':'detailed',**(data or {})}
   v=client.post('/api/admin/site-sync/'+op,headers=h,json=data or {})
@@ -101,11 +102,15 @@ def test_pause_retry_cancel_and_changed_target(pair,monkeypatch):
  raw=Path('tests/fixtures/media/sample.jpg').read_bytes();seed_media(rb,'b'*32,'new.jpg',raw)
  uid=preview(['media_assets']);api('pull-begin',{'uid':uid,'confirmation':'从对端同步到本站'})
  api('pull-tick',{'uid':uid}) # head persists
- async def offline(*args):raise Error('Network offline',502)
+ async def offline(*args):raise Error('Network offline',502,'sync_network')
  monkeypatch.setattr(transport,'post',offline)
  assert api('pull-tick',{'uid':uid},ok=False).status_code==502
  assert api('get',{'uid':uid})['execution']['error'].startswith('Network offline；阶段：download；数据库尚未提交')
  monkeypatch.setattr(transport,'post',network)
+ # A transient failure must honor its persisted cooldown before resuming.
+ assert api('get',{'uid':uid})['work']['retryable']
+ assert api('pull-tick',{'uid':uid},ok=False).status_code==429
+ run(ra.sql.batch([("UPDATE sync_tasks SET state=json_set(state,'$.work.retry_after','2000-01-01T00:00:00.000Z') WHERE uid=?",(uid,))]))
  for _ in range(50):
   result=api('pull-tick',{'uid':uid},drain=False)
   if result['execution']['file_index']==1:break
@@ -142,6 +147,9 @@ def test_commit_ack_lost_is_not_replayed(pair,monkeypatch):
  assert failure.status_code==500 and '服务端诊断编号' in failure.text
  assert api('get',{'uid':uid})['execution']['committed'] is True
  monkeypatch.setattr(ra.sql,'restore_batch',original)
+ # An unclassified server exception requires explicit resume, even after commit.
+ assert api('get',{'uid':uid})['work']['retryable'] is False
+ api('resume',{'uid':uid})
  finish(api,uid)
  assert len(run(ra.sql.query('SELECT uid FROM students')))==6
  assert len(run(ra.sql.query("SELECT uid FROM operation_logs WHERE action='sync_pull_commit' AND target_uid=?",(uid,))))==1
@@ -165,7 +173,9 @@ def test_chunk_resume_and_version_change(pair):
  seed_media(rb,'b'*32,'big.jpg',raw)
  uid=preview(['media_assets']);api('pull-begin',{'uid':uid,'confirmation':'从对端同步到本站'})
  api('pull-tick',{'uid':uid});api('pull-tick',{'uid':uid})
- saved=api('get',{'uid':uid});assert saved['execution']['offset']==CHUNK
+ saved=api('get',{'uid':uid})
+ expected=16384 if 'r2' in (ra.kind,rb.kind) else CHUNK
+ assert saved['execution']['offset']==expected
  # A file changed without changing its database timestamp is still detected by storage version.
  run(rb.media_store.put('big.jpg',raw[:-1]+b'X'))
  assert api('pull-tick',{'uid':uid},ok=False).status_code==409

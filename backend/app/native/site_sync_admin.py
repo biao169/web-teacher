@@ -8,6 +8,7 @@ from .site_sync_transport import verify,envelope,binary_frame,BINARY_TYPE
 from .site_sync_diagnostics import operation
 from . import site_sync_proposals as proposals
 from . import site_sync_schedule as schedule
+from . import site_sync_manual as manual
 from .site_sync_work import policy,REQUEST_INTERVAL_MS
 from .site_sync_limits import for_resource
 
@@ -26,7 +27,11 @@ def install(app,resources,csrf,render):
     async def admin(request:Request,action:str):
         with operation('admin'):
             r=await resources(request);data=await payload(request,262144);csrf(request,r,data);authorize(r,'edit')
-            if action=='history-delete':
+            background=data.get('background',True)
+            if type(background) is not bool:raise Error('后台续跑选项无效')
+            uid=str(data.get('uid',''))
+            if action=='manual-pause':result=await manual.pause(r,uid)
+            elif action=='history-delete':
                 r.auth.require(r.p,'data_tools','delete')
                 if data.get('confirmed') is not True:raise Error('请在弹窗中确认删除历史记录')
                 from .site_sync_history import prune,listing
@@ -47,9 +52,11 @@ def install(app,resources,csrf,render):
                 authorize(r,'export',core.SCOPES)
                 mode=data.get('preview_mode','brief')
                 if mode not in ('brief','detailed'):raise Error('预览模式无效')
-                result=await tasks.start(r,data.get('direction'),data.get('scopes'),lightweight=mode=='brief')
-            elif action=='restart':result=await tasks.restart(r,str(data.get('uid','')))
-            elif action=='resume':result=await tasks.resume(r,str(data.get('uid','')))
+                result=await tasks.start(r,data.get('direction'),data.get('scopes'),lightweight=mode=='brief',manual=background)
+            elif action=='restart':result=await tasks.restart(r,uid,manual=background)
+            elif action=='resume':
+                result=await tasks.resume(r,uid)
+                if background:await manual.resume(r,uid)
             elif action=='advance':
                 authorize(r,'export',core.SCOPES)
                 result=await tasks.advance(r,str(data.get('uid','')))
@@ -64,23 +71,32 @@ def install(app,resources,csrf,render):
             elif action=='prepare-preview':
                 authorize(r,'export',core.SCOPES)
                 from .site_sync_preview import prepare
-                result=await prepare(r,str(data.get('uid','')))
-            elif action=='proposal-send':result=await proposals.send(r,str(data.get('uid','')))
+                if background:await manual.enroll(r,uid,'prepare')
+                result=await prepare(r,uid,manual=background)
+            elif action=='proposal-send':
+                if background:await manual.enroll(r,uid,'send')
+                result=await proposals.send(r,uid)
             elif action=='proposal-status':result=await proposals.sent_status(r,str(data.get('uid','')))
             elif action=='proposal-inbox':result=await proposals.inbox(r)
-            elif action=='proposal-review':result=await proposals.review(r,str(data.get('request_id','')))
+            elif action=='proposal-review':result=await proposals.review(r,str(data.get('request_id','')),manual=background)
             elif action=='proposal-reject':result=await proposals.reject(r,str(data.get('request_id','')))
             elif action=='proposal-approve':
                 if data.get('confirmation')!='同意对端推送':raise Error('请输入“同意对端推送”确认最新差异和删除范围')
                 from .site_sync_apply import begin
-                result=await begin(r,str(data.get('uid','')),'从对端同步到本站',approval=True)
+                if background:await manual.enroll(r,uid,'approve')
+                result=await begin(r,uid,'从对端同步到本站',approval=True)
                 if 'execution' in result:await proposals.update_progress(r,result)
             elif action=='pull-begin':
                 from .site_sync_apply import begin
-                result=await begin(r,str(data.get('uid','')),data.get('confirmation'))
+                if data.get('confirmation')!='从对端同步到本站':raise Error('请输入“从对端同步到本站”确认方向及删除范围')
+                if background:await manual.enroll(r,uid,'pull')
+                result=await begin(r,uid,data.get('confirmation'))
             elif action in ('pull-tick','pull-cancel'):
                 from .site_sync_apply import tick
-                result=await tick(r,str(data.get('uid','')),cancel=action=='pull-cancel')
+                if action=='pull-cancel':
+                    await manual.pause(r,uid)
+                    if background:await manual.enroll(r,uid,'cancel')
+                result=await tick(r,uid,cancel=action=='pull-cancel')
                 await proposals.update_progress(r,result)
             elif action=='select':result=await tasks.choose(r,str(data.get('uid','')),data.get('ids'))
             elif action=='get':
@@ -136,12 +152,15 @@ def install(app,resources,csrf,render):
 
 async def present(r,uid,options=None):
     task=await tasks.get(r.sql,uid);s=task['state']
-    result={'uid':uid,'status':task['status'],'items':s.get('items',[]),'selection':s.get('selection',{}),'direction':s['direction'],'scopes':s['scopes'],'approval':s.get('approval'),'work':s.get('work',{}),'policy':s.get('policy',policy(r)),'request_interval_ms':REQUEST_INTERVAL_MS}
+    result={'uid':uid,'status':task['status'],'items':s.get('items',[]),'selection':s.get('selection',{}),'direction':s['direction'],'scopes':s['scopes'],'approval':s.get('approval'),'work':s.get('work',{}),'policy':s.get('policy',policy(r)),'request_interval_ms':s.get('work',{}).get('request_interval_ms',REQUEST_INTERVAL_MS)}
     if s.get('lightweight'):
         from .site_sync_preview import listing
         result.update(await listing(r.sql,task,options))
         result['prepared_uid']=s.get('prepared_uid');result['prepared']=bool(s.get('prepared'));result['incremental']=bool(s.get('incremental'))
-    if s.get('outgoing'):result['outgoing']=s['outgoing'].get('receipt',{'status':'unconfirmed'})
+    if s.get('outgoing'):result['outgoing']=s['outgoing'].get('receipt',{'status':'unconfirmed',**{key:s['outgoing'].get('payload',{}).get(key) for key in ('request_id','sequence')}})
+    continuation=await schedule.load(r.sql,manual.PREFIX+uid)
+    result['continuation']={k:continuation.get(k) for k in ('enabled','mode','message','due','paused_by_user','receipt')} if continuation else None
+    if continuation.get('receipt'):result['outgoing']=continuation['receipt']
     if s.get('execution'):
         from .site_sync_apply import progress
         result.update(progress(task))

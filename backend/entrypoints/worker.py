@@ -1,6 +1,7 @@
 """Main Python Worker using configurable D1/R2 bindings and the same native services."""
 from workers import asgi
 from types import SimpleNamespace
+from backend.app.native.site_sync_limits import for_kind
 from pathlib import Path
 from backend.app.config import Settings
 from backend.app.security.http import AuthConfig
@@ -21,6 +22,6 @@ def resource_factory(request):
     env=request.scope['env'];defaults=Settings(Path('/runtime-data'));names={'database_binding':'TEACHER_DATABASE_BINDING','media_binding':'TEACHER_MEDIA_BINDING','cache_binding':'TEACHER_CACHE_BINDING','media_prefix':'TEACHER_MEDIA_PREFIX','cache_prefix':'TEACHER_CACHE_PREFIX'}
     s=Settings(Path('/runtime-data'),**{k:str(getattr(env,v,getattr(defaults,k))) for k,v in names.items()})
     translation_env={k:getattr(env,k,'') for k in DEPLOY_VARS};hosts=allowed_hosts(translation_env)
-    return SimpleNamespace(metadata_credentials=credentials({k:getattr(env,k,'') for k in (*ENV_KEYS.values(),'TEACHER_METADATA_EMAIL')}),sql=D1SQL(getattr(env,s.database_binding)),passwords=Passwords(derive),renderer=renderer,config=AuthConfig.from_origin(str(env.TEACHER_ORIGIN)),media_store=R2Store(getattr(env,s.media_binding),s.media_prefix),cache_store=R2Store(getattr(env,s.cache_binding),s.cache_prefix),asset_mode='local',kind='r2',settings=s,scholarly=CrossrefTransport(),translation_credentials=translation_credentials(translation_env),translation_hosts=hosts,translation_transport=TranslationTransport(hosts),transfer_url=str(getattr(env,'TEACHER_TRANSFER_URL','')),transfer_secret=str(getattr(env,'TEACHER_TRANSFER_SECRET','')))
+    return SimpleNamespace(metadata_credentials=credentials({k:getattr(env,k,'') for k in (*ENV_KEYS.values(),'TEACHER_METADATA_EMAIL')}),sql=D1SQL(getattr(env,s.database_binding)),passwords=Passwords(derive),renderer=renderer,config=AuthConfig.from_origin(str(env.TEACHER_ORIGIN),str(getattr(env,'TEACHER_ALLOWED_ORIGINS',''))),media_store=R2Store(getattr(env,s.media_binding),s.media_prefix),cache_store=R2Store(getattr(env,s.cache_binding),s.cache_prefix),asset_mode='local',kind='r2',sync_limits=for_kind('r2'),settings=s,scholarly=CrossrefTransport(),translation_credentials=translation_credentials(translation_env),translation_hosts=hosts,translation_transport=TranslationTransport(hosts),transfer_url=str(getattr(env,'TEACHER_TRANSFER_URL','')),transfer_secret=str(getattr(env,'TEACHER_TRANSFER_SECRET','')))
 app=create_app(resource_factory)
 Default=asgi.entrypoint(app)

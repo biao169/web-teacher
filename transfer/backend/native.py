@@ -1,4 +1,5 @@
 """Reusable temporary transfer service; local mode shares the teacher database and session."""
+from .origins import check_origin
 import hashlib,json,secrets,time,copy,asyncio
 from pathlib import Path
 from urllib.parse import quote
@@ -124,7 +125,8 @@ def app_factory(factory,integrated=None,base=''):
         return r
     def check(request,r,data):
         """检查快传身份、来源、防伪和管理权限。"""
-        if request.headers.get('origin')!=r.origin or not r.p or not secrets.compare_digest(data.get('_csrf') or request.headers.get('x-csrf-token',''),r.p['csrf']):raise Error('请求验证失败',403)
+        check_origin(request,r)
+        if not r.p or not secrets.compare_digest(data.get('_csrf') or request.headers.get('x-csrf-token',''),r.p['csrf']):raise Error('请求验证失败',403)
     @app.exception_handler(Error)
     async def errors(request,exc):"""将快传业务错误转换为适当的HTTP错误响应。""";return JSONResponse({'error':exc.message},status_code=exc.status)
     @app.middleware('http')

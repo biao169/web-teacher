@@ -5,19 +5,27 @@ from .catalog import Error
 from .data_tools import digest
 from .media_inventory_store import inventory
 from .media import signature
-from .site_sync_limits import for_resource,WORKER
+from .site_sync_limits import for_resource,WORKER,MEDIA_WIDTHS
 
 from .site_sync_work import MEDIA_CHUNK_BYTES as CHUNK,MEDIA_FILE_BYTES as FILE_LIMIT,MEDIA_TOTAL_BYTES as TOTAL_LIMIT
 
 def chunk_size(value=CHUNK):
-    if type(value) is not int or value not in (WORKER['media_chunk_bytes'],CHUNK):
+    if type(value) is not int or value not in MEDIA_WIDTHS:
         raise Error('媒体分片大小无效，请更新两端并重新准备',409)
     return value
 
 def negotiate(r,head):
     # No capability means the existing fixed-width protocol, including old peers.
     if head.get('adaptive_ranges')!=1:return CHUNK
-    return min(for_resource(r)['media_chunk_bytes'],chunk_size(head.get('preferred_chunk_bytes')))
+    preferred=chunk_size(head.get('preferred_chunk_bytes'))
+    # An old adaptive peer only understands 16/64 KiB. New widths require advertisement.
+    supported=head.get('supported_chunk_bytes')
+    common=[n for n in supported if type(n) is int and n in MEDIA_WIDTHS] if isinstance(supported,list) else [WORKER['media_chunk_bytes'],CHUNK]
+    target=min(for_resource(r)['media_chunk_bytes'],preferred)
+    allowed=[n for n in common if n<=target]
+    if allowed:return max(allowed)
+    if common:return min(common)
+    raise Error('对端没有兼容的媒体分片大小，请更新两端',409)
 
 def chunk_key(task,index,offset):return f'site-sync/{task}/{index}/{offset}.bin'
 
@@ -32,7 +40,7 @@ async def serve(r,data):
     store=inventory(r.media_store);head=await store.head(row['object_key'])
     if not head or head['size']!=row['size']:raise Error('来源媒体缺失或大小不符',409)
     if not 0<head['size']<=FILE_LIMIT:raise Error('同步单文件最多20MiB',413)
-    if data['op']=='media-head':return {'uid':uid,**head,'checksum':row.get('checksum'),'record_version':record_version,'binary_ranges':1,'adaptive_ranges':1,'preferred_chunk_bytes':for_resource(r)['media_chunk_bytes']}
+    if data['op']=='media-head':return {'uid':uid,**head,'checksum':row.get('checksum'),'record_version':record_version,'binary_ranges':1,'adaptive_ranges':1,'supported_chunk_bytes':list(MEDIA_WIDTHS),'preferred_chunk_bytes':for_resource(r)['media_chunk_bytes']}
     width=chunk_size(data.get('chunk_bytes',CHUNK))
     offset=data.get('offset');version=data.get('version')
     if type(offset) is not int or offset<0 or offset%width or offset>=head['size'] or version!=head['version']:raise Error('媒体区间或版本无效',409)

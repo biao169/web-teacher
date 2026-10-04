@@ -6,6 +6,7 @@ from .data_tools import encoded,digest
 from . import site_sync as core
 from .site_sync_transport import origin,call
 from .site_sync_work import step,policy,TASK_FORMAT,REQUEST_INTERVAL_MS
+from .site_sync_limits import for_resource
 
 async def peer(sql,enabled=True):
     rows=await sql.query('SELECT * FROM sync_peers WHERE id=1')
@@ -40,7 +41,7 @@ async def hello(r,p,*,with_revision=False):
         return result
 
 @traced('preview:start')
-async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_parent=None,requested=None,latest_only=False):
+async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_parent=None,requested=None,latest_only=False,on_create=None,manual=False):
     if direction not in ('pull','push') or not isinstance(scopes,list) or not scopes or any(t not in core.SCOPES for t in scopes):raise Error('同步方向或范围无效')
     p=await peer(r.sql);remote=await hello(r,p)
     if lightweight and remote.get('brief_preview')!=1:raise Error('简要预览需要两站更新至 v0.15.140；请先更新对端',409)
@@ -68,20 +69,29 @@ async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_par
         initialize_selected(state,dict(parent,uid=prepare_parent['uid']))
         gid,guard=r.auth.guard(r.p,'data_tools','edit',
             'EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND state=?)',(prepare_parent['uid'],prepare_parent['_raw_state']))
-        extra=[guard,('UPDATE sync_tasks SET state=? WHERE uid=?',(encoded(parent).decode(),prepare_parent['uid'])),
+        extra=[guard,("UPDATE sync_tasks SET state=json_set(?,'$._sync_revision',lower(hex(randomblob(16)))) WHERE uid=?",(encoded(parent).decode(),prepare_parent['uid'])),
                ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]
     if previous:
         old=previous['state'];old['restart_uid']=uid
         gid,guard=r.auth.guard(r.p,'data_tools','edit',
             'EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND state=?)',(previous['uid'],previous['_raw_state']))
-        extra=[guard,('UPDATE sync_tasks SET status=?,state=? WHERE uid=?',('expired',encoded(old).decode(),previous['uid'])),
+        extra=[guard,("UPDATE sync_tasks SET status=?,state=json_set(?,'$._sync_revision',lower(hex(randomblob(16)))) WHERE uid=?",('expired',encoded(old).decode(),previous['uid'])),
                ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]
+    if manual:
+        from .site_sync_manual import creation,PREFIX,load
+        parent_grant=await load(r.sql,PREFIX+prepare_parent['uid']) if prepare_parent else None
+        if parent_grant and not parent_grant.get('enabled'):
+            manual=False  # A pause received while creating the child also stops its continuation.
+        elif parent_grant:
+            extra.extend(creation(r,uid,state,'EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(PREFIX+prepare_parent['uid'],encoded(parent_grant).decode())))
+        else:extra.extend(creation(r,uid,state))
+    if on_create is not None:extra.extend(on_create(uid))
     # History is pruned independently in bounded batches, never by a large cascade here.
     await r.sql.batch([*extra,
         ('INSERT INTO sync_tasks(uid,status,state,created_at) VALUES(?,?,?,?)',(uid,'reading',encoded(state).decode(),now()))])
     return {'uid':uid,'status':'reading','policy':state['policy'],'work':state['work'],'request_interval_ms':REQUEST_INTERVAL_MS}
 
-async def restart(r,uid):
+async def restart(r,uid,*,manual=False):
     from .site_sync_work import task_lease
     from .media_locks import lease
     from .data_tools import authorize
@@ -95,12 +105,16 @@ async def restart(r,uid):
             if s.get('approval'):raise Error('审批预览请使用“重新读取最新差异并核对”；不能继承旧批准',409)
             e=s.get('execution')
             if e and e['phase'] not in ('done','cancelled'):raise Error('请先取消旧执行并完成暂存清理，再重新开始',409)
-            return await start(r,s['direction'],s['scopes'],previous=task,lightweight=bool(s.get('lightweight')),latest_only=bool(s.get('latest_only')))
+            return await start(r,s['direction'],s['scopes'],previous=task,lightweight=bool(s.get('lightweight')),latest_only=bool(s.get('latest_only')),manual=manual)
 
 async def resume(r,uid):
-    from .site_sync_work import task_lease
+    from .site_sync_work import task_lease,position,reconcile
     from .data_tools import authorize
     authorize(r,'edit',core.SCOPES)
+    before=await position(r.sql,uid,checkpoint=False)
+    if before['work'].get('status')=='running':
+        work=await reconcile(r,uid)
+        return {'uid':uid,'status':before['status'],'work':work,'policy':policy(r)}
     async with task_lease(r,uid):
         task=await get(r.sql,uid);s=task['state']
         if task['status'] not in ('reading','ready'):raise Error('任务已被替代，请打开新的预览',409)
@@ -111,11 +125,12 @@ async def resume(r,uid):
         work=s.setdefault('work',{})
         deadline=work.get('recover_after') if work.get('status')=='running' else work.get('retry_after')
         if deadline and deadline>now():raise Error('任务仍在冷却等待，进度已保留；请等待 '+deadline+' 后继续',429,'sync_retry_wait')
+        if work.get('status')=='running':raise Error('状态已变化；请先核对上一步回执',429,'sync_retry_wait')
         for key in ('retry_count','retryable','retry_after','recover_after','error','error_code'):work.pop(key,None)
         work['status']='saved'
         if s.get('execution'):
             s['execution'].pop('error',None);s['execution'].pop('error_code',None)
-        await persist(r.sql,task,[("UPDATE service_meta SET value=json_remove(value,'$.retry_after','$.retry_count','$.retryable','$.error') WHERE key='site-sync:schedule-state' AND (json_extract(value,'$.preview_uid')=? OR (json_extract(value,'$.preview_uid') IS NULL AND json_extract(value,'$.task_uid')=?))",(uid,uid))],status=task['status'])
+        await persist(r.sql,task,[("UPDATE service_meta SET value=json_remove(value,'$.retry_after','$.retry_count','$.retryable','$.error','$.error_code') WHERE key='site-sync:schedule-state' AND (json_extract(value,'$.preview_uid')=? OR (json_extract(value,'$.preview_uid') IS NULL AND json_extract(value,'$.task_uid')=?))",(uid,uid))],status=task['status'])
         return {'uid':uid,'status':task['status'],'work':work,'policy':s['policy']}
 
 async def get(sql,uid):
@@ -126,12 +141,27 @@ async def get(sql,uid):
     if task['state'].get('preview_format')!=TASK_FORMAT:raise Error('旧版同步任务不能继续，请在新版重新生成预览；不要重置业务数据库',409)
     return task
 
+async def header(sql,uid):
+    """Read only scheduling/receipt metadata; never return business payloads or a writable snapshot."""
+    rows=await sql.query("SELECT uid,status,json_extract(state,'$.preview_format') AS format,json_extract(state,'$.history_deleting') AS deleting,json_extract(state,'$.work') AS work,json_extract(state,'$.approval') AS approval,json_extract(state,'$.execution.error') AS error FROM sync_tasks WHERE uid=?",(uid,))
+    if not rows:raise Error('预览不存在或已清理',404)
+    row=rows[0]
+    if row['deleting']:raise Error('该历史记录正在清理，请新建预览',404,'sync_history_deleted')
+    if row['format']!=TASK_FORMAT:raise Error('旧版同步任务不能继续，请在新版重新生成预览；不要重置业务数据库',409)
+    return {'uid':row['uid'],'status':row['status'],'state':{'work':json.loads(row['work']) if row['work'] else {},
+        'approval':json.loads(row['approval']) if row['approval'] else None,'execution':{'error':row['error']}}}
+
 async def persist(sql,task,statements=(),status='reading',*,publish=False):
+    if '_patch' in task:
+        if publish:raise Error('局部任务不能发布预览',409)
+        from .site_sync_patch import persist as persist_patch
+        return await persist_patch(sql,task,statements,status)
     # Existing guard table provides compare-and-swap inside the same atomic batch.
     # A competing browser/cron page rolls back, including its snapshot inserts.
     gid=secrets.token_hex(16);at=now();uid=task['uid']
     guard=('INSERT INTO admin_mutation_guards(uid,module,target_uid,expected_updated_at,created_at) VALUES(CASE WHEN EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND status=? AND state=?) THEN ? ELSE \'\' END,?,?,?,?)',
         (uid,task['status'],task['_raw_state'],gid,'data_tools',uid,at,at))
+    task['state']['_sync_revision']=secrets.token_hex(16)
     raw=encoded(task['state']).decode()
     update=('UPDATE sync_tasks SET status=?,state=? WHERE uid=?',(status,raw,uid))
     if publish:
@@ -143,7 +173,7 @@ async def persist(sql,task,statements=(),status='reading',*,publish=False):
 
 async def version_step(r,p,s):
     table=sorted(core.SCOPES)[s['table_index']];side=s['side']
-    limit=core.page_limit(s.get('policy',{}).get('version_rows'),core.REV_PAGE)
+    limit=min(core.page_limit(s.get('policy',{}).get('version_rows'),core.REV_PAGE),for_resource(r)['version_rows'])
     if side=='local':part=await core.revision_page(r.sql,table,s['after'],limit)
     else:
         part=await call(r,p,{'op':'revision-page','schema':core.schema(),'protocol':core.PROTOCOL,'table':table,'after':s['after'],'limit':limit})
@@ -197,7 +227,7 @@ async def advance(r,uid):
         await version_step(r,p,s);await persist(r.sql,task)
     else:
         table=core.SCOPES[s['table_index']]
-        limit=core.page_limit(s.get('policy',{}).get('content_rows'),core.PAGE)
+        limit=min(core.page_limit(s.get('policy',{}).get('content_rows'),core.PAGE),for_resource(r)['content_rows'])
         if s['side']=='local':data=await core.page(r.sql,table,s['after'],limit)
         else:
             data=await call(r,p,{'op':'page','schema':core.schema(),'protocol':core.PROTOCOL,'table':table,'after':s['after'],'limit':limit})

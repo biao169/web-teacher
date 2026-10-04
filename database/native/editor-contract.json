@@ -218,7 +218,7 @@
           "label": "首页项目数量",
           "validation_documented": "非负整数；默认10，0隐藏首页项目模块；超过首批数量的内容滚动时继续加载。",
           "source": {
-            "file": "docs/features/frontend-step2-complete.md",
+            "file": "docs/FEATURES.md",
             "line": 1
           }
         },
@@ -228,7 +228,7 @@
           "label": "首页学生数量",
           "validation_documented": "非负整数；默认0，0隐藏；第二步首页模块重排后启用展示。",
           "source": {
-            "file": "docs/features/frontend-replan-step1.md",
+            "file": "docs/FEATURES.md",
             "line": 1
           }
         },
@@ -238,7 +238,7 @@
           "label": "首页专利数量",
           "validation_documented": "非负整数；默认0，0隐藏；第二步首页模块重排后启用展示。",
           "source": {
-            "file": "docs/features/frontend-replan-step1.md",
+            "file": "docs/FEATURES.md",
             "line": 1
           }
         },
@@ -248,7 +248,7 @@
           "label": "论文显示格式",
           "validation_documented": "GB/T、Elsevier、APA、IEEE；默认GB/T，第三步引文卡片使用此配置。",
           "source": {
-            "file": "docs/features/frontend-replan-step1.md",
+            "file": "docs/FEATURES.md",
             "line": 1
           }
         }

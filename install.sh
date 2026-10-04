@@ -4,9 +4,9 @@
 # bash install.sh --domain example.org
 # --python selects an existing Python >=3.12; never replaces /usr/bin/python3.
 set -Eeuo pipefail
-repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' python='/usr/bin/python3' port='' pip_source='tuna'
+repo='https://github.com/biao169/web-teacher.git' branch='web-py' domain='' allowed_domains='' python='/usr/bin/python3' port='' pip_source='tuna'
 usage() {
-  printf '%s\n' 'Usage: install.sh --domain example.org [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003] [--pip-source tuna|pypi]' \
+  printf '%s\n' 'Usage: install.sh --domain example.org [--allowed-domains lab.example.org,other.example.org] [--repo https://github.com/biao169/web-teacher.git] [--branch web-py] [--python /path/to/python3.12] [--port 8003] [--pip-source tuna|pypi]' \
     'Installs git, ca-certificates, python3, python3-venv, procps; then installs the single teacher website service.' \
     'Existing installation: choose repair or confirmed clean reinstall.' \
     '--domain also configures /robots.txt and /sitemap.xml automatically / 域名同时用于自动生成爬虫规则与站点地图。'
@@ -14,9 +14,9 @@ usage() {
 while (($#)); do
   case "$1" in
     --help|-h) usage; exit 0;;
-    --repo|--branch|--domain|--python|--port|--pip-source)
+    --repo|--branch|--domain|--allowed-domains|--python|--port|--pip-source)
       if (($# < 2)); then usage; exit 2; fi
-      case "$1" in --repo) repo=$2;; --branch) branch=$2;; --domain) domain=$2;; --python) python=$2;; --port) port=$2;; --pip-source) pip_source=$2;; esac
+      case "$1" in --repo) repo=$2;; --branch) branch=$2;; --domain) domain=$2;; --allowed-domains) allowed_domains=$2;; --python) python=$2;; --port) port=$2;; --pip-source) pip_source=$2;; esac
       shift 2;;
     *) printf 'Unknown argument: %s\n' "$1" >&2; exit 2;;
   esac
@@ -48,4 +48,4 @@ trap 'rm -rf -- "$work"' EXIT
 GIT_TERMINAL_PROMPT=0 git -c core.hooksPath=/dev/null clone --depth 1 --single-branch --branch "$branch" -- "$repo" "$work/source"
 [[ -f "$work/source/deploy/linux/tweb.py" && ! -L "$work/source/deploy/linux/tweb.py" ]] || { printf 'Missing deployment manager\n' >&2; exit 1; }
 # stdin remains the terminal for the administrator password; do not use curl | bash.
-"$python" "$work/source/deploy/linux/tweb.py" install --repo "$repo" --branch "$branch" --domain "$domain" --python "$python" --port "$port" --pip-source "$pip_source"
+"$python" "$work/source/deploy/linux/tweb.py" install --repo "$repo" --branch "$branch" --domain "$domain" --allowed-domains "$allowed_domains" --python "$python" --port "$port" --pip-source "$pip_source"

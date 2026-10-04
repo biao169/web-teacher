@@ -12,7 +12,7 @@ def test_shared_identity_contacts_sections_and_orcid_link(fixture,lang):
         page=c.get(path).text
         for val in ('FULL_TITLE','TEAM_ROLE','ORG_NAME','LAB_NAME','OFFICE_VALUE','faculty@example.org','12345678','0000-0002-1825-0097','https://github.com/example'):
             assert val in page
-        assert '987654321' not in page
+        assert 'data-platform-value="github">987654321</span>' in page
         assert 'href="https://orcid.org/0000-0002-1825-0097"' in page
         assert 'data-media-fallback' in page and ('>欧阳</span>' if lang=='zh' else '>MO</span>') in page
         assert 'BIO_EN' in page if lang=='en' else 'BIO_CN' in page

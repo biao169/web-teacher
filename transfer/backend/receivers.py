@@ -1,4 +1,5 @@
 """Single outstanding chunk, persistent ACK cursor, expiring quota and idempotent retries."""
+from .origins import check_origin
 import hashlib,json,re
 from fastapi import Request
 from fastapi.responses import Response
@@ -95,8 +96,8 @@ class Receiver:
 def install(app,get,check):
     async def context(request):
         r=await get(request,False)
-        if request.headers.get('origin')!=r.origin:raise Error('请求来源不正确',403)
         if r.p:check(request,r,{})
+        else:check_origin(request,r)
         return Receiver(r)
     @app.post('/api/share-info')
     async def inspect(request:Request):

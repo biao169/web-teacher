@@ -1,4 +1,4 @@
-import {request,bytes} from './portal-core.js?v=0.15.96';
+import {request,bytes} from './portal-core.js?v=0.15.158';
 const button=document.getElementById('refresh-storage'),status=document.getElementById('storage-status');
 if(button&&status)button.addEventListener('click',async()=>{
  button.disabled=true;status.textContent='正在检查磁盘与清理状态…';

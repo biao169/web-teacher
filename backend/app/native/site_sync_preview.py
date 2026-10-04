@@ -123,7 +123,7 @@ async def choose(r,task,ids):
     return s['selection']
 
 @tasks.step('prepare-preview')
-async def prepare(r,uid):
+async def prepare(r,uid,*,manual=False):
     """Start on-demand selected-record preparation once requested.
 
     Does not write business records or media. A separate confirmation is still
@@ -136,5 +136,5 @@ async def prepare(r,uid):
     ids=s['selection']['selected']
     if not ids:raise Error('请选择需要准备的候选条目')
     if s.get('incremental'):raise Error('该任务已进入按需准备，请继续原任务',409)
-    job=await tasks.start(r,s['direction'],s['scopes'],prepare_parent=task)
+    job=await tasks.start(r,s['direction'],s['scopes'],prepare_parent=task,manual=manual)
     return job

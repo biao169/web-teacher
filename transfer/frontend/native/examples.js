@@ -1,4 +1,4 @@
-import {transferPath} from './portal-core.js?v=0.15.96';
+import {transferPath} from './portal-core.js?v=0.15.158';
 /** Examples use the existing session and CSRF; settings drafts are retained after every action. */
 import {requestJSON} from '/assets/admin/js/native-http.js';
 const buttons=[...document.querySelectorAll('[data-transfer-example]')],status=document.querySelector('[data-transfer-example-status]');

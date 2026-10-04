@@ -23,6 +23,43 @@ from urllib.request import build_opener, ProxyHandler
 from urllib.request import Request
 from urllib.error import HTTPError, URLError
 
+def domain_names(primary, aliases=''):
+    """Deployment accepts DNS names, not URLs, paths or proxy directives."""
+    names = [primary] + (aliases.split(',') if aliases else [])
+    if len(names)>100:raise ValueError('域名数量过多 / Too many domains')
+    return tuple(dict.fromkeys(hostname(n.strip().lower()) for n in names))
+
+
+def env_value(text, key):
+    values=[]
+    for line in text.splitlines():
+        if line.strip().startswith(key+'='):
+            value=shlex.split(line.strip().split('=',1)[1],comments=False)
+            if len(value)>1:raise ValueError('Invalid environment value: '+key)
+            values.append(value[0] if value else '')
+    if len(values)>1:raise ValueError('Duplicate environment key: '+key)
+    return values[0] if values else None
+
+
+def configured_domains(state, text):
+    value=env_value(text,'TEACHER_ALLOWED_ORIGINS')
+    if value is None:return domain_names(state['domain'],state.get('allowed_domains',''))
+    aliases=[]
+    for origin in value.split(',') if value else []:
+        match=re.fullmatch(r'https://([a-zA-Z0-9.-]+)(?::443)?/?',origin.strip())
+        if not match:raise ValueError('生产域名必须使用标准 HTTPS 根地址 / Expected HTTPS origins')
+        aliases.append(match[1])
+    return domain_names(state['domain'],','.join(aliases))
+
+
+def domain_env(text, state, names):
+    """Replace only owned domain keys; retain unrelated environment and comments."""
+    managed={'TEACHER_ORIGIN':'https://'+state['domain'],
+             'TEACHER_ALLOWED_ORIGINS':','.join('https://'+name for name in names)}
+    lines=[line for line in text.splitlines() if not any(line.strip().startswith(k+'=') for k in managed)]
+    return '\n'.join([*lines,*(k+'='+v for k,v in managed.items())])+'\n'
+
+
 DEFAULT_REPOSITORY = 'https://github.com/biao169/web-teacher.git'
 DEFAULT_BRANCH = 'web-py'
 PIP_SOURCES = {'tuna':'https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple','pypi':'https://pypi.org/simple'}
@@ -544,9 +581,13 @@ class Manager:
 
     def generate(self, release, state):
         # Existing shared renderer keeps service and bounded HTTP defaults consistent.
+        env_path=self.l.config/'teacher-site.env'
+        no_symlinks(env_path)
+        existing_env=env_path.read_text() if env_path.exists() else ''
+        names=configured_domains(state,existing_env)
         output=self.l.config/'generated'
         if output.exists():shutil.rmtree(output)
-        self.run([release/'.venv/bin/python','-m','deploy.vps.release','render','--output',output,'--base',self.l.base,'--python',self.l.current/'.venv/bin/python','--teacher-domain',state['domain'],'--port',str(state.get('port',8003)),*(['--service-name',self.service,'--service-user',self.user,'--config-dir',str(self.l.config)] if self.l.instance else [])],cwd=release)
+        self.run([release/'.venv/bin/python','-m','deploy.vps.release','render','--output',output,'--base',self.l.base,'--python',self.l.current/'.venv/bin/python','--teacher-domain',state['domain'],'--allowed-domains',','.join(names[1:]),'--port',str(state.get('port',8003)),*(['--service-name',self.service,'--service-user',self.user,'--config-dir',str(self.l.config)] if self.l.instance else [])],cwd=release)
         storage=f'''[storage]
 data_dir = "{self.l.data}"
 database_path = "{self.l.data}/database/site.sqlite3"
@@ -558,7 +599,8 @@ transfer_media_dir = "{self.l.base}/transfer-data/files"
 transfer_cache_dir = "{self.l.base}/transfer-data/cache"
 '''
         write(self.l.config/'storage.toml',storage,0o640)
-        write(self.l.config/'teacher-site.env',f'TEACHER_CONFIG={self.l.config}/storage.toml\nTEACHER_ORIGIN=https://{state["domain"]}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n',0o640)
+        initial_env=f'TEACHER_CONFIG={self.l.config}/storage.toml\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n'
+        write(env_path,domain_env(existing_env or initial_env,state,names),0o640)
         unit=(output/self.service).read_text()
         if not self.l.instance:unit=unit.replace('/etc/teacher-site',str(self.l.config))
         unit=unit.replace('/var/lib/teacher-site',str(self.l.data)).replace(f'{self.l.base}/data',str(self.l.data))
@@ -569,7 +611,8 @@ transfer_cache_dir = "{self.l.base}/transfer-data/cache"
         # All paths the account can write are outside root-owned code/config files.
         self.run(['chown',f'root:{self.user}',self.l.config,self.l.config/'storage.toml',self.l.config/'teacher-site.env'])
         self.l.config.chmod(0o750)
-        nginx=f'''# HTTPS snippet: include INSIDE an existing TLS server for {state['domain']}.
+        nginx=f'''# HTTPS snippet: include INSIDE an existing TLS server for {', '.join(names)}.
+# server_name {' '.join(names)};
 # Configure listen 443 ssl and valid certificates in that server; do not publish HTTP login.
 # Forward full paths; transfer and website use this same upstream.
 location / {{
@@ -590,7 +633,7 @@ location / {{
 '''
         write(output/'nginx-location.conf',nginx)
         # Proxy all static assets too: avoids granting nginx/caddy filesystem access.
-        write(output/'Caddyfile.fragment',f'''{state['domain']} {{
+        write(output/'Caddyfile.fragment',f'''{', '.join(names)} {{
     encode zstd gzip
     reverse_proxy 127.0.0.1:{state.get('port',8003)} {{
         flush_interval 10ms
@@ -731,6 +774,7 @@ location / {{
 
     def install(self,args):
         repository(args.repo);branch_name(args.branch);hostname(args.domain)
+        names=domain_names(args.domain,getattr(args,'allowed_domains',''))
         port=port_number(getattr(args,'port',8003))
         pip_source=getattr(args,'pip_source',DEFAULT_PIP_SOURCE)
         if pip_source not in PIP_SOURCES:raise ValueError('无效依赖源 / Invalid package source')
@@ -748,7 +792,7 @@ location / {{
         else:raise ValueError('teacher-site 用户已存在，拒绝接管')
         self.run([args.python,'-c','import sys; assert sys.version_info >= (3,12), "Python 3.12+ required"'])
         with socket.socket() as sock:sock.bind(('127.0.0.1',port))
-        state={'format':1,'port':port,'pip_source':pip_source,'repo':args.repo,'branch':args.branch,'domain':args.domain,'python':args.python,'user_created':False,'phase':'preparing','owned_files':{}}
+        state={'format':1,'port':port,'pip_source':pip_source,'repo':args.repo,'branch':args.branch,'domain':args.domain,'allowed_domains':','.join(names[1:]),'python':args.python,'user_created':False,'phase':'preparing','owned_files':{}}
         for p in (self.l.base,self.l.config,self.l.data):claim(p)
         if self.l.instance:
             for folder in (self.l.base,self.l.config):write(folder/'.tweb-instance.json',json.dumps(layout_identity(self.l)),0o600)
@@ -951,25 +995,32 @@ location / {{
             if fresh.exists():shutil.rmtree(fresh)
         print(color('更新完成 / Updated: '+args.scope+' '+commit,'32'))
 
-    def configure(self,port=None):
+    def configure(self,port=None,allowed_domains=None):
         state=self.load();self.check_unit(state)
         current=port_number(state.get('port',8003));port=current if port is None else port_number(port)
         if port!=current:
             with socket.socket() as sock:sock.bind(('127.0.0.1',port))
-        paths=[self.l.unit,self.l.config/'generated'/self.service,self.l.config/'generated/Caddyfile.fragment',self.l.config/'generated/nginx-location.conf']
+        paths=[self.l.unit,self.l.config/'generated'/self.service,self.l.config/'generated/Caddyfile.fragment',self.l.config/'generated/nginx-location.conf',self.l.config/'teacher-site.env']
         saved={}
         for path in paths:
             no_symlinks(path);saved[path]=path.read_text() if path.exists() else None
+        if saved[paths[4]] is None:raise ValueError('缺少 teacher-site.env，请先修复安装 / Missing environment file')
+        names=configured_domains(state,saved[paths[4]] or '') if allowed_domains is None else domain_names(state['domain'],allowed_domains)
         unit,n=re.subn(r'--port\s+\d+',f'--port {port}',saved[self.l.unit])
         if n!=1:raise ValueError('无法识别服务端口 / Cannot identify service port')
         before=dict(state);before['owned_files']=dict(state['owned_files']);was_active=self.active()
         self.run(['systemctl','stop',self.service])
         try:
             write(self.l.unit,unit);write(paths[1],unit)
-            write(paths[2],f"{state['domain']} {{\n    encode zstd gzip\n    reverse_proxy 127.0.0.1:{port} {{\n        flush_interval 10ms\n    }}\n}}\n")
+            write(paths[2],f"{', '.join(names)} {{\n    encode zstd gzip\n    reverse_proxy 127.0.0.1:{port} {{\n        flush_interval 10ms\n    }}\n}}\n")
             # Reuse the existing nginx template while refreshing only its upstream port.
             if saved[paths[3]] is None:raise ValueError('缺少 nginx 示例 / Missing nginx template')
-            write(paths[3],re.sub(r'127\.0\.0\.1:\d+',f'127.0.0.1:{port}',saved[paths[3]]))
+            nginx=re.sub(r'127\.0\.0\.1:\d+',f'127.0.0.1:{port}',saved[paths[3]])
+            nginx=re.sub(r'^# server_name .*;\n','',nginx,flags=re.M)
+            write(paths[3],'# server_name '+' '.join(names)+';\n'+nginx)
+            write(paths[4],domain_env(saved[paths[4]] or '',state,names),0o640)
+            self.run(['chown',f'root:{self.user}',paths[4]])
+            state['allowed_domains']=','.join(names[1:])
             state['port']=port;state['owned_files'][str(self.l.unit)]=hashlib.sha256(self.l.unit.read_bytes()).hexdigest();self.save(state)
             self.run(['systemctl','daemon-reload'])
             if was_active:self.start()
@@ -977,7 +1028,8 @@ location / {{
             self.run(['systemctl','stop',self.service])
             for path,text in saved.items():
                 if text is None:path.unlink(missing_ok=True)
-                else:write(path,text)
+                else:write(path,text,0o640 if path==paths[4] else 0o644)
+            self.run(['chown',f'root:{self.user}',paths[4]])
             self.save(before);self.run(['systemctl','daemon-reload'])
             if was_active:self.start()
             raise
@@ -1140,7 +1192,7 @@ def parser():
     p.add_argument('--command',dest='command_name')
     p.add_argument('--multi',action='store_true',help='Interactive isolated installation')
     sub=p.add_subparsers(dest='action')
-    install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--python',default='/usr/bin/python3');install.add_argument('--port',type=port_number,default=8003);install.add_argument('--pip-source',choices=tuple(PIP_SOURCES),default=DEFAULT_PIP_SOURCE)
+    install=sub.add_parser('install');install.add_argument('--repo',default=DEFAULT_REPOSITORY);install.add_argument('--branch',default=DEFAULT_BRANCH);install.add_argument('--domain',required=True);install.add_argument('--allowed-domains',default='');install.add_argument('--python',default='/usr/bin/python3');install.add_argument('--port',type=port_number,default=8003);install.add_argument('--pip-source',choices=tuple(PIP_SOURCES),default=DEFAULT_PIP_SOURCE)
     source=sub.add_parser('pip-source');source.add_argument('name',choices=tuple(PIP_SOURCES),nargs='?')
     sub.add_parser('resume-install')
     sub.add_parser('repair')
@@ -1148,6 +1200,7 @@ def parser():
     update=sub.add_parser('update');update.add_argument('--repo');update.add_argument('--branch');update.add_argument('--scope',choices=tuple(x[0] for x in UPDATE_MENU),default='all');update.add_argument('--reset',action='store_true');update.add_argument('--confirm')
     for name in ('db-reset','uninstall'):sub.add_parser(name).add_argument('--confirm')
     remove=sub.add_parser('remove');remove.add_argument('--scope',choices=tuple(x[0] for x in REMOVE_MENU),required=True);remove.add_argument('--confirm')
+    domains=sub.add_parser('domains');domains.add_argument('--allowed-domains',required=True,help='Comma-separated alias DNS names; empty clears aliases')
     port=sub.add_parser('port');port.add_argument('number',type=port_number,nargs='?')
     permissions=sub.add_parser('permissions');permissions.add_argument('--repair',action='store_true')
     for name in ('start','stop','restart','status','logs','db-init','db-update','doctor','paths','proxy','cleanup-preview','cleanup-run','cleanup-status'):sub.add_parser(name)
@@ -1179,6 +1232,7 @@ def execute(a):
                 raise ValueError('该模式不接受仓库、分支或重置参数 / This scope does not accept repository or reset options')
             m.update(a)
         elif a.action=='remove':m.remove(a.scope,a.confirm)
+        elif a.action=='domains':m.configure(allowed_domains=a.allowed_domains)
         elif a.action=='port':
             if a.number is None:
                 if not sys.stdin.isatty():raise ValueError('请指定端口 / Specify a port')

@@ -1,11 +1,11 @@
 {% extends 'admin/layout.html' %}
-{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.153"></script>{% endblock %}
+{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.168"></script>{% endblock %}
 {% block content %}
-<div id="site-sync" data-csrf="{{ csrf }}" data-interval-ms="{{ sync_policy.request_interval_ms }}" data-retry-seconds='{{ sync_policy.retry_seconds|tojson }}' data-retry-codes='{{ sync_policy.retry_codes|tojson }}'>
+<div id="site-sync" data-csrf="{{ csrf }}" data-interval-ms="{{ sync_policy.request_interval_ms }}" data-retry-seconds='{{ sync_policy.retry_seconds|tojson }}' data-retry-limit="{{ sync_policy.no_progress_retry_limit }}" data-retry-codes='{{ sync_policy.retry_codes|tojson }}'>
 <div class="native-title"><h1>两站同步</h1><span class="native-muted">双向预览 · 审批 · 定时拉取</span></div>
 <p class="native-muted">手动拉取、接收方审批和新定时任务共用逐条处理。手动及定时预览分批读取编号、名称和更新时间；审批只读取提案指定条目及必要依赖，不扫描全库正文。同编号条目是覆盖候选，不比较全文，相同内容也会覆盖。</p>
 <p class="native-muted">每步准备一个记录或引用，执行时最多写入一条业务记录并保存进度；新文件涉及Worker时协商16 KiB，本地间64 KiB，旧任务按原宽度继续。浏览器请求间隔 {{ sync_policy.request_interval_ms }} 毫秒，失败后可继续原任务。已完成条目保留，不保证整项任务整体回滚。旧版已创建任务保留原流程。</p>
-<p class="native-muted">暂时性错误最多重试3次（本站等待 {{ sync_policy.retry_seconds|join("、") }} 秒；后台在到期后的下一轮调度推进）。重试前读取保存进度；冲突、权限或校验错误需人工处理。手动继续将内容页降为1条、版本页降为5条。仅减小可分页阶段，不保证消除单次CPU超限。</p>
+<p class="native-muted">暂时性错误连续无进展最多重试{{ sync_policy.no_progress_retry_limit }}次；实际保存进度后恢复额度重新计算，累计失败仍保留。本站等待{{ sync_policy.retry_seconds|join("、") }}秒，后续沿用最后一档；后台在到期后的下一轮调度推进。重试前读取保存进度；冲突、权限或校验错误需人工处理。手动继续将内容页降为1条、版本页降为5条。仅减小可分页阶段，不保证消除单次CPU超限。</p>
 <section class="panel native-editor-section" aria-labelledby="sync-monitor-title">
 <h2 id="sync-monitor-title">任务运行状态</h2>
 <p class="native-muted">本站：{{ 'Worker 超低资源模式' if sync_policy.mode=='ultra_low' else '本地标准模式' }}。显示持久化检查点；“等待完成回执”不代表服务器仍在执行；回执逾期也不等于失败。重试时间到达后，由原执行端或后台下一轮调度继续，状态面板不会触发重试。最多20条/页，可翻页查看。</p>
@@ -27,16 +27,16 @@
 </div><label><input name="enabled" type="checkbox" {% if peer.get('enabled') %}checked{% endif %}> 启用业务数据读取</label> <label><input name="allow_proposals" type="checkbox" {% if allow_proposals %}checked{% endif %}> 接收对端的待批准推送（仅保存提案，不自动执行）</label>
 <div class="native-helper-actions"><button class="btn btn-primary btn-sm" type="submit">保存连接</button><button type="button" class="btn btn-outline-primary btn-sm" id="sync-test">测试已保存连接</button></div>
 </form></section>
-<section class="panel native-editor-section"><h2>后台推进与定时拉取</h2>
+<section class="panel native-editor-section"><h2>后台推进与定时拉取</h2><p class="native-muted">手动任务使用独立的本次任务授权，不受此处定时策略开关控制；完成后不会自动创建下一轮同步。开始预览只授权读取和准备，确认拉取或发送后才授权对应后续步骤。</p>
 <form id="sync-schedule" data-value='{{ schedule|tojson }}'>
 <p class="native-muted">只有接收站开启定时拉取：对端为当前内容来源，每轮只处理所选模块中两端更新时间最新的最多500项候选及必要依赖（业务删除须逐条确认对端不存在，不删除本站独有媒体）。切换主站前先关闭原接收站的定时拉取，避免两端互相覆盖。待批准推送始终需要人工批准。定时任务按候选覆盖，不跳过相同正文；未入选的旧条目保持不变。每轮最多500项候选，必要依赖另按步骤准备，总计超过2000项时暂停。若需要同步更早内容，请使用手动预览；截断范围不会当作删除依据。</p>
-<div class="native-fields"><div class="native-field"><label><input name="enabled" type="checkbox" {% if schedule.enabled %}checked{% endif %}> 关闭页面后继续推进已确认任务</label><label><input name="auto_pull" type="checkbox" {% if schedule.auto_pull %}checked{% endif %}> 定期从对端拉取，按所选模块自动同步增删</label></div>
+<div class="native-fields"><div class="native-field"><label><input name="enabled" type="checkbox" {% if schedule.enabled %}checked{% endif %}> 启用定时策略及旧任务后台接管</label><label><input name="auto_pull" type="checkbox" {% if schedule.auto_pull %}checked{% endif %}> 定期从对端拉取，按所选模块自动同步增删</label></div>
 <div class="native-field"><label for="sync-interval">拉取间隔（分钟，完成本轮后计算）</label><input class="form-control form-control-sm" id="sync-interval" name="interval" type="number" min="5" max="10080" value="{{ schedule.interval or 60 }}"></div></div>
 <div class="data-table-choices">{% for t in sync_tables %}<label><input name="schedule-scope" type="checkbox" value="{{ t.key }}" {% if t.key in (schedule.scopes or []) %}checked{% endif %}> {{ t.label }}</label>{% endfor %}</div>
 <div class="native-field"><span>保存时通过弹窗确认，无需输入确认文字。</span><input type="hidden" id="sync-schedule-confirm" name="confirmation"></div>
 <div class="native-helper-actions"><button type="submit" class="btn btn-primary btn-sm">保存后台策略</button><button id="sync-schedule-refresh" type="button" class="btn btn-outline-secondary btn-sm">刷新后台状态</button></div>
-<p id="sync-schedule-status" role="status" aria-live="polite"></p>
-<p class="native-muted">默认关闭。授权不依赖浏览器登录期限；管理员密码、账号角色或对端连接变化后需重新保存。关闭策略会停止后续批次，不回滚已提交内容。执行遇错会暂停，可打开对应任务重试或取消。Windows/Linux 服务运行时自动检查；Worker 依赖每分钟 Cron。每轮只推进一个分页或分片，首次完成可能需数分钟。</p>
+<p class="native-muted">已预先授权的定时拉取由后台衔接预览、准备与执行，不需逐任务点击确认；待批准推送仍需人工批准。Worker需启用Cron，本地部署需服务保持运行。状态刷新只查看，不推进任务；最早恢复时间不等于保证执行时刻。</p><p id="sync-schedule-status" role="status" aria-live="polite"></p>
+<p class="native-muted">默认关闭。授权不依赖浏览器登录期限；管理员密码、账号角色或对端连接变化后需重新保存。关闭此策略只停止定时流程，不影响独立授权的手动任务；停止手动任务请使用任务的暂停按钮。临时错误按检查点等待恢复，永久错误需人工处理。Windows/Linux 服务运行时自动检查；Worker 依赖每分钟 Cron。每轮只推进一个分页或分片，首次完成可能需数分钟。</p>
 </form></section>
 <section id="sync-inbox" class="panel native-editor-section" data-value='{{ incoming|tojson }}'><h2>接收到的推送提案</h2><p id="sync-inbox-info" role="status"></p>
 <div class="native-helper-actions"><button id="sync-inbox-refresh" type="button" class="btn btn-outline-secondary btn-sm">刷新待批准提案</button><button id="sync-review" type="button" class="btn btn-primary btn-sm">重新读取最新差异并核对</button><button id="sync-reject" type="button" class="btn btn-outline-secondary btn-sm">拒绝当前提案</button></div>
@@ -46,7 +46,7 @@
 <div class="data-table-choices">{% for t in sync_tables %}<label><input type="checkbox" name="sync-scope" value="{{ t.key }}" checked> {{ t.label }}</label>{% endfor %}</div>
 <div class="native-helper-actions"><button type="button" class="btn btn-primary btn-sm" data-direction="pull">对端 → 本站 · 预览</button><button type="button" class="btn btn-outline-primary btn-sm" data-direction="push">本站 → 对端 · 预览</button><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-pause" disabled>暂停读取/执行</button></div>
 <p class="native-muted">“新增/更新/删除”均相对于接收方。本站 → 对端可在下方发送提案，等待对端管理员批准；对端 → 本站由本站确认执行。先校验媒体，再提交内容及业务条目删除，最后清理暂存。来源缺失的媒体不生成删除项，目标站媒体登记和文件保留；如需彻底删除，请在目标站媒体库操作。</p>
-<label for="sync-history">最近预览</label><select id="sync-history" class="form-select form-select-sm"><option value="">选择保存的预览</option>{% for job in sync_jobs %}<option value="{{ job.uid }}">{{ job.created_at }} · {{ job.execution_phase or job.status }}</option>{% endfor %}</select><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-resume">打开 / 继续读取</button><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-history-delete">删除所选历史</button><p class="native-muted">历史超过10条或7天自动分批删除；正在执行、待批准及后台使用中的任务保留。删除历史不删除网站内容或正式媒体。</p>
+<label for="sync-history">最近预览</label><select id="sync-history" class="form-select form-select-sm"><option value="">选择保存的预览</option>{% for job in sync_jobs %}<option value="{{ job.uid }}" data-created-at="{{ job.created_at }}" data-status="{{ job.execution_phase or job.status }}">{{ job.created_at }} · {{ job.execution_phase or job.status }} · ID: {{ job.uid }}</option>{% endfor %}</select><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-resume">打开 / 继续读取</button><button type="button" class="btn btn-outline-secondary btn-sm" id="sync-history-delete">删除所选历史</button><p class="native-muted">历史超过10条或7天自动分批删除；正在执行、待批准及后台使用中的任务保留。删除历史不删除网站内容或正式媒体。</p>
 </section>
 <p id="sync-status" class="alert alert-info" role="status" aria-live="polite">请先配置并测试连接。</p>
 <section id="sync-result" class="panel native-editor-section" hidden><h2 id="sync-direction">差异清单</h2>
@@ -61,6 +61,6 @@
 <p>新任务先准备媒体，再逐条提交所选记录及依赖，包含业务删除。每条写入与进度原子保存；失败可继续，已完成内容不会整体回滚。手动拉取准备后选择冻结，改变范围请重新开始；审批准备后可重新勾选，必要依赖自动补选。最多500个变更项；媒体单个20MiB、单次总计24MiB。所选条目变化时停止对应步骤；同名不同内容的文件不会覆盖。</p>
 <div class="native-fields"><div class="native-field"><span>点击开始后，通过弹窗再次确认方向与已选增删范围。</span><input type="hidden" id="sync-confirm"></div></div>
 <div class="native-helper-actions"><button id="sync-begin" type="button" class="btn btn-primary btn-sm">确认并开始拉取</button><button id="sync-continue" type="button" class="btn btn-outline-primary btn-sm" disabled>继续 / 重试任务</button><button id="sync-cancel" type="button" class="btn btn-outline-secondary btn-sm" disabled>取消剩余步骤并清理暂存</button></div>
-<p id="sync-progress" role="status" aria-live="polite">尚未执行。</p><p class="native-muted">可使用上方“暂停读取/执行”。未开启后台推进时，刷新、关闭页面或登录过期会暂停后续步骤；重新登录后打开最近任务继续。上方暂停仅停止当前浏览器，停止后台需关闭后台策略。数据库已提交时，取消不会回滚已完成的内容；旧媒体登记和文件始终由本站媒体库管理。后台执行进度可在上方刷新查看，或重新打开最近任务。</p>
+<p id="sync-progress" role="status" aria-live="polite">尚未执行。</p><p class="native-muted">可使用上方“暂停读取/执行”。手动任务默认登记独立后台续跑，不依赖定时拉取开关；关闭页面或退出登录后仍可推进已授权步骤。读取和准备结束仍需人工确认；推送仍需接收方批准。上方暂停同时暂停本任务的浏览器与后台续跑，点击继续可恢复。Worker需启用Cron，本地服务需保持运行。数据库已提交时，取消不会回滚已完成的内容；旧媒体登记和文件始终由本站媒体库管理。后台执行进度可在上方刷新查看，或重新打开最近任务。</p>
 </section></div>
 {% endblock %}
