@@ -1,3 +1,68 @@
-{% from 'public/card-icons.html' import icon %}{% if table=='publications' %}{% if row.get('doi') %}<a href="https://doi.org/{{ row.doi|urlencode }}" target="_blank" rel="noopener noreferrer">https://doi.org/{{ row.doi }}</a>{% endif %}{% if row.get('url') and row.url.lower().startswith(('https://','http://')) %}<a href="{{ row.url }}" target="_blank" rel="noopener noreferrer">{{ 'Publisher' if lang=='en' else '论文原文' }} ↗</a>{% endif %}{% if row.get('pdf_visibility')=='public' and row.get('pdf_key') and media_map.get(row.pdf_key) %}<a href="/media/{{ media_map[row.pdf_key] }}" target="_blank" rel="noopener noreferrer">PDF ↗</a>{% endif %}{% endif %}
+{% from 'public/card-icons.html' import icon %}
 
-{% set attachments=[('certificate_key','证书','Certificate',true)] if table=='patents' else ([('syllabus_key','教学大纲','Syllabus',true),('material_key','课程资料','Materials',row.get('material_visibility')=='public')] if table=='courses' else []) %}{% for field,zh,en,allowed in attachments %}{% if allowed and row.get(field) and media_map.get(row[field]) %}<a href="/media/{{ media_map[row[field]] }}" target="_blank" rel="noopener noreferrer"{% if table=='patents' %} class="person-icon" title="{{ en if lang=='en' else zh }}" aria-label="{{ en if lang=='en' else zh }}"{% endif %}>{% if table=='patents' %}{{ icon('box-arrow-up-right') }}{% else %}{{ icon('box-arrow-up-right') }}<span>{{ en if lang=='en' else zh }}{% if row.get('_attachment_types',{}).get(field)=='application/pdf' %} · PDF{% endif %}</span>{% endif %}</a>{% endif %}{% endfor %}
+{% set links = [
+  ('orcid', 'ORCID iD', '/assets/public/vendor/brand-icons/orcid.svg'),
+  ('personal_homepage', 'Homepage' if lang == 'en' else '个人主页', ''),
+  ('google_scholar', 'Google Scholar', '/assets/public/vendor/brand-icons/google_scholar.ico'),
+  ('dblp', 'DBLP', '/assets/public/vendor/brand-icons/dblp.png'),
+  ('github', 'GitHub', '/assets/public/vendor/brand-icons/github.svg'),
+  ('cnki', 'CNKI', '/assets/public/vendor/brand-icons/cnki.ico')
+] if table == 'profiles' else [
+  ('homepage', 'Homepage' if lang == 'en' else '个人主页', '')
+] %}
+
+{% for field, label, brand in links %}
+  {% set value = (row.get(field) or '') | trim %}
+  {% set display_value = row.get(field ~ '_value') if table == 'profiles' else none %}
+
+  {% if value or display_value is not none %}
+    {% set target = namespace(url='') %}
+
+    {% if value.lower().startswith(('https://', 'http://')) %}
+      {% set target.url = value %}
+    {% elif field == 'orcid'
+        and value | length == 19
+        and value.split('-') | length == 4
+        and value.replace('-', '').replace('X', '0').isdigit()
+        and value[4] == '-'
+        and value[9] == '-'
+        and value[14] == '-' %}
+      {% set target.url = 'https://orcid.org/' ~ value %}
+    {% endif %}
+
+    <p class="faculty-link" data-copy-field>
+      {% if target.url %}
+        <a href="{{ target.url }}"
+           rel="noopener noreferrer"
+           target="_blank"
+           title="{{ target.url }}">
+      {% endif %}
+
+      <span class="faculty-brand" aria-hidden="true">
+        {% if brand %}
+          <img src="{{ brand }}"
+               width="20" height="20" alt=""
+               loading="lazy" decoding="async"
+               referrerpolicy="no-referrer">
+        {% else %}
+          {{ icon('box-arrow-up-right') }}
+        {% endif %}
+      </span>
+
+      <span class="faculty-link-text">
+        <span class="faculty-platform">{{ label }}：</span>
+        {% if value %}
+          <span class="faculty-address">{{ value }}</span>
+        {% endif %}
+        {% if display_value is not none %}
+          <span class="faculty-link-value"
+                title="{{ 'Configured value' if lang == 'en' else '手动配置的显示数值' }}">{{ display_value }}</span>
+        {% endif %}
+      </span>
+
+      {% if target.url %}
+        </a>
+      {% endif %}
+    </p>
+  {% endif %}
+{% endfor %}
