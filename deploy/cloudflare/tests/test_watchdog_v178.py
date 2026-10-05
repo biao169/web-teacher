@@ -125,7 +125,8 @@ def test_same_millisecond_heartbeat_and_late_return_do_not_clobber(pair,entry,mo
     run(scenario())
 
 
-def test_both_crons_are_packaged_and_missing_watchdog_is_rejected(tmp_path,monkeypatch):
+def test_free_cron_is_packaged_even_with_legacy_opt_in(tmp_path,monkeypatch):
+    monkeypatch.setenv('TEACHER_RECOVERY_CRON','true')
     import shutil
     from pathlib import Path
     monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1]))
@@ -140,10 +141,11 @@ def test_both_crons_are_packaged_and_missing_watchdog_is_rejected(tmp_path,monke
     (out/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n')
     (out/'wrangler.jsonc').write_text(json.dumps(cfg))
     assert pipeline.verify_stage(out)['name']=='test-site'
-    assert cfg['triggers']['crons']==['* * * * *','0 */3 * * *']
-    cfg['triggers']['crons'].remove('0 */3 * * *')
+    assert cfg['triggers']['crons']==['*/5 * * * *']
+    assert cfg['vars']['TEACHER_RECOVERY_CRON']=='internal'
+    cfg['triggers']['crons'].remove('*/5 * * * *')
     (out/'wrangler.jsonc').write_text(json.dumps(cfg))
-    with pytest.raises(ValueError,match='three-hour'):pipeline.verify_stage(out)
+    with pytest.raises(ValueError,match='five-minute'):pipeline.verify_stage(out)
 
 
 def test_watchdog_can_reconcile_after_lease_expiry_without_force_unlock(pair,entry):
@@ -155,3 +157,72 @@ def test_watchdog_can_reconcile_after_lease_expiry_without_force_unlock(pair,ent
     assert run(work.position(r.sql,uid))['work']['retryable']
     # Recovery doesn't delete lease rows blindly; the normal lease acquisition owns reclamation.
     assert run(r.sql.query('SELECT target_uid FROM admin_mutation_guards WHERE uid=?',(key,)))[0]['target_uid']=='old-owner'
+
+
+def test_default_package_uses_only_one_five_minute_cron(tmp_path,monkeypatch):
+    import shutil
+    from pathlib import Path
+    monkeypatch.delenv('TEACHER_RECOVERY_CRON',raising=False)
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1]))
+    import integration_package,pipeline
+    from deploy.shared.worker_package import prepare
+    root=Path(__file__).resolve().parents[3];out=tmp_path/'worker'
+    prepare(False,['--output',str(out),'--worker-name','test-site','--database-id','12345678-1234-1234-1234-123456789abc','--origin','https://test-site.workers.dev','--bucket','teacher-media'])
+    (out/'src').mkdir()
+    for name in ('main.py','backend','generated_resources.py'):shutil.move(str(out/name),str(out/'src'/name))
+    cfg=json.loads((out/'wrangler.json').read_text());cfg['main']='src/main.py'
+    integration_package.extend(root,out,cfg)
+    (out/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n')
+    (out/'wrangler.jsonc').write_text(json.dumps(cfg))
+    assert cfg['triggers']['crons']==['*/5 * * * *']
+    assert cfg['vars']['TEACHER_RECOVERY_CRON']=='internal'
+    assert pipeline.verify_stage(out)['name']=='test-site'
+    cfg['triggers']['crons']=[]
+    (out/'wrangler.jsonc').write_text(json.dumps(cfg))
+    with pytest.raises(ValueError,match='five-minute'):pipeline.verify_stage(out)
+
+
+def test_monitor_reports_disabled_recovery_cron(pair):
+    from backend.app.native.site_sync_status import read
+    r=pair[2];r._bindings=SimpleNamespace(TEACHER_RECOVERY_CRON='false')
+    assert run(read(r))['watchdog_enabled'] is False
+
+
+def test_free_schedule_catches_up_patrol_without_repeating_in_same_bucket(pair,entry,monkeypatch):
+    from worker_runtime import maintenance,watchdog,cron_health as h
+    from backend.app.adapters.d1 import sql as d1
+    sql=pair[2].sql;monkeypatch.setattr(d1,'D1SQL',lambda _:sql)
+    patrol=AsyncMock(return_value={'status':'prepared'})
+    normal=AsyncMock(return_value=('sync',{'status':'ok'}))
+    monkeypatch.setattr(watchdog,'run',patrol);monkeypatch.setattr(maintenance,'run',normal)
+    for minute in (5,10,185,190,15):
+        run(entry.Default().scheduled(SimpleNamespace(cron=h.FREE_CRON,scheduledTime=minute*60000),SimpleNamespace(DB=object())))
+    assert patrol.await_count==2 and normal.await_count==3
+    assert run(load(sql,h.WATCHDOG_KEY))['period']==1
+    assert run(load(sql,h.KEY))['status']=='finished'
+
+
+def test_internal_patrol_failure_records_both_receipts_and_next_tick_runs(pair,entry,monkeypatch):
+    from worker_runtime import maintenance,watchdog,cron_health as h
+    from backend.app.adapters.d1 import sql as d1
+    sql=pair[2].sql;monkeypatch.setattr(d1,'D1SQL',lambda _:sql)
+    monkeypatch.setattr(watchdog,'run',AsyncMock(side_effect=RuntimeError('private')))
+    with pytest.raises(RuntimeError):
+        run(entry.Default().scheduled(SimpleNamespace(cron=h.FREE_CRON,scheduledTime=0),SimpleNamespace(DB=object())))
+    for key in (h.KEY,h.WATCHDOG_KEY):assert run(load(sql,key))['status']=='failed'
+    normal=AsyncMock(return_value=('sync',{'status':'ok'}));monkeypatch.setattr(maintenance,'run',normal)
+    run(entry.Default().scheduled(SimpleNamespace(cron=h.FREE_CRON,scheduledTime=300000),SimpleNamespace(DB=object())))
+    normal.assert_awaited_once()
+
+
+def test_five_minute_rotation_preserves_history_and_sync(entry):
+    from worker_runtime.maintenance import job_for
+    jobs=[job_for(SimpleNamespace(cron='*/5 * * * *',scheduledTime=i*300000)) for i in range(10)]
+    assert jobs.count('transfer')==1 and jobs.count('history')==1 and jobs.count('sync')==8
+
+
+def test_monitor_reports_internal_patrol_and_cadence(pair):
+    from backend.app.native.site_sync_status import read
+    r=pair[2];r._bindings=SimpleNamespace(TEACHER_RECOVERY_CRON='internal')
+    result=run(read(r));assert result['watchdog_enabled'] is True
+    assert result['cron_interval_seconds']==300

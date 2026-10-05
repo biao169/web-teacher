@@ -1,12 +1,14 @@
-"""One maintenance job per minute slot; no counters or full resource graph."""
+"""One maintenance job per scheduled slot; no counters or full resource graph."""
 import time
 
 def job_for(controller=None):
-    # The deployed schedule is every minute. Use event time so delayed deliveries
+    # Use event time so delayed deliveries
     # retain their slot; fallback supports local/manual scheduler tests.
     stamp = getattr(controller, 'scheduledTime', None)
     minute = int((float(stamp) / 1000 if stamp is not None else time.time()) // 60)
-    return ('transfer', 'history')[minute % 10] if minute % 10 < 2 else 'sync'
+    # Five-minute events need logical slots; wall minute % 10 would starve history.
+    slot=minute//5 if str(getattr(controller,'cron',''))=='*/5 * * * *' else minute
+    return ('transfer', 'history')[slot % 10] if slot % 10 < 2 else 'sync'
 
 async def run(sql, bindings, controller=None):
     job = job_for(controller)

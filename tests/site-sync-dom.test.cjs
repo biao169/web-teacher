@@ -459,3 +459,23 @@ test('three hour patrol has separate health and never hides stale minute cron',a
  assert.match(text,/分钟 Cron 超过3分钟未到达/);
  assert.match(text,/（三小时巡检）/);
 });
+
+test('disabled three hour patrol does not warn about its stale history',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};w.adminFetch=async()=>({ok:true,json:async()=>({watchdog_enabled:false,server_time:'2026-10-05T06:00:00Z',jobs:[],watchdog:{arrived_at:'2026-10-04T06:00:00Z',status:'finished'}})});
+ w.eval(rawSource);await tick();const text=d.querySelector('#sync-monitor-info').textContent;
+ assert.match(text,/三小时恢复巡检未启用/);assert.doesNotMatch(text,/恢复巡检超过3小时15分钟/);
+});
+
+test('five minute schedule waits fifteen minutes before warning and waking',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ Object.defineProperty(d,'hidden',{value:false,configurable:true});w.notify=()=>{};
+ let server='2026-10-05T05:05:00Z';
+ w.adminFetch=async url=>{calls.push(url);return {ok:true,json:async()=>url.endsWith('/wake')?{status:'ok'}:{browser_wake_available:true,cron_interval_seconds:300,watchdog_enabled:true,server_time:server,cron:{arrived_at:'2026-10-05T05:00:00Z',status:'finished'},schedule:{scheduler:{arrived_at:'2026-10-05T05:00:00Z'}},jobs:[{uid:'task',status:'reading',advance_mode:'background'}]}}};
+ w.eval(rawSource);await tick();
+ assert.equal(calls.filter(x=>x.endsWith('/wake')).length,0);
+ assert.doesNotMatch(d.querySelector('#sync-monitor-info').textContent,/Cron 超过/);
+ server='2026-10-05T05:16:00Z';d.querySelector('#sync-monitor-refresh').click();await tick();
+ assert.equal(calls.filter(x=>x.endsWith('/wake')).length,1);
+ assert.match(d.querySelector('#sync-monitor-info').textContent,/五分钟 Cron 超过15分钟/);
+});

@@ -271,16 +271,17 @@ if(root){
    button.onclick=()=>run(async()=>{uid=job.uid;if(![...q('#sync-history').options].some(v=>v.value===uid))q('#sync-history').prepend(new Option('任务 · ID: '+uid,uid));q('#sync-history').value=uid;await openSaved(false)});td.append(button);if(job.manual_mode&&!job.manual_finished){const control=document.createElement('button');control.type='button';control.className='btn btn-outline-secondary btn-sm';const continuing=job.manual_enabled&&job.scheduler?.retryable!==false;control.textContent=continuing?'暂停后台':'恢复后台';control.onclick=()=>run(async()=>{await request(continuing?'manual-pause':'resume',{uid:job.uid});status.textContent=continuing?'本任务后台续跑已暂停。':'已请求恢复本任务后台续跑。'}).then(refreshMonitor);td.append(control)}row.append(td);monitorRows.append(row);
   }
   monitorInfo.textContent='状态读取于 '+localTime(value.server_time)+' · 本页 '+(value.jobs||[]).length+' 项'+(!(value.jobs||[]).length?'；当前筛选范围没有任务':'')+(monitorPage?' · 当前为历史分页，查看新任务请点击“回到最新任务”':'');
-  const health=value.schedule?.scheduler||{},cron=value.cron||{},watchdog=value.watchdog||{};
+  const health=value.schedule?.scheduler||{},cron=value.cron||{},watchdog=value.watchdog||{},stale=Math.max(180000,(value.cron_interval_seconds||60)*3000);
+  const cadence=value.cron_interval_seconds===300?'五分钟':'分钟';
   monitorInfo.textContent+=' · 服务端版本 '+(value.runtime_version||'未提供');
   monitorInfo.textContent+=cron.arrived_at?' · 最近 Cron 到达 '+localTime(cron.arrived_at)+' · Cron '+(cron.status==='failed'?'失败':cron.status==='running'?'尚无完成回执':'已结束')+(cron.error_type?'（'+cron.error_type+'）':''):' · 尚无独立 Cron 到达记录';
   const recoveryLabels={prepared:'预检查完成',reconciled:'中断回执已核对',paused:'本轮暂停',ok:'已完成',busy:'已有执行占用',interval:'尚未到执行时间',waiting:'暂无待推进任务',disabled:'后台未开启','recovery-backoff':'遵守恢复冷却','needs-attention':'需人工处理'};
-  monitorInfo.textContent+=watchdog.arrived_at?' · 最近三小时恢复巡检 '+localTime(watchdog.arrived_at)+' · '+(watchdog.status==='failed'?'巡检失败':watchdog.status==='running'?'巡检尚无完成回执':recoveryLabels[watchdog.result]||watchdog.result||'本轮结束')+(watchdog.error_type||watchdog.error_code?'（'+(watchdog.error_type||watchdog.error_code)+'）':''):' · 尚无三小时恢复巡检记录';
-  if(Number.isFinite(Date.parse(watchdog.arrived_at))&&now-Date.parse(watchdog.arrived_at)>11700000)monitorInfo.textContent+=' · 恢复巡检超过3小时15分钟未到达；请检查三小时触发器';
-  if(Number.isFinite(Date.parse(cron.arrived_at))&&now-Date.parse(cron.arrived_at)>180000)monitorInfo.textContent+=' · 分钟 Cron 超过3分钟未到达；三小时巡检不替代正常调度';
+  monitorInfo.textContent+=value.watchdog_enabled===false?' · 三小时恢复巡检未启用（节省 Cron 额度）':watchdog.arrived_at?' · 最近三小时恢复巡检 '+localTime(watchdog.arrived_at)+' · '+(watchdog.status==='failed'?'巡检失败':watchdog.status==='running'?'巡检尚无完成回执':recoveryLabels[watchdog.result]||watchdog.result||'本轮结束')+(watchdog.error_type||watchdog.error_code?'（'+(watchdog.error_type||watchdog.error_code)+'）':''):' · 尚无三小时恢复巡检记录';
+  if(value.watchdog_enabled!==false&&Number.isFinite(Date.parse(watchdog.arrived_at))&&now-Date.parse(watchdog.arrived_at)>11700000)monitorInfo.textContent+=' · 恢复巡检超过3小时15分钟未到达；请检查三小时触发器';
+  if(Number.isFinite(Date.parse(cron.arrived_at))&&now-Date.parse(cron.arrived_at)>stale)monitorInfo.textContent+=' · '+cadence+' Cron 超过'+Math.round(stale/60000)+'分钟未到达；三小时巡检依赖定时事件到达';
   monitorInfo.textContent+=health.arrived_at?' · 最近后台调度到达 '+localTime(health.arrived_at)+(health.source==='browser-wake'?'（页面辅助唤醒）':health.source==='worker-watchdog'?'（三小时巡检）':'')+(health.skipped?' · 调度等待原因 '+(waitLabels[health.skipped]||({'interval':'尚未到恢复时间','busy':'执行锁仍有效','recovery-backoff':'核对失败后退避','needs-attention':'需要人工处理'})[health.skipped]||health.skipped):''):' · 尚无后台调度到达记录';
   const arrived=Date.parse(health.arrived_at);
-  if(Number.isFinite(arrived)&&now-arrived>180000)monitorInfo.textContent+=' · 同步调度超过3分钟未到达；请检查 Cron 或入口错误';
+  if(Number.isFinite(arrived)&&now-arrived>stale)monitorInfo.textContent+=' · 同步调度超过'+Math.round(stale/60000)+'分钟未到达；请检查 Cron 或入口错误';
   const stages=health.attempt?.initialization?.stages||[],lastStage=stages[stages.length-1];if(lastStage)monitorInfo.textContent+=' · 最近调度阶段 '+(initializationNames[lastStage.phase]||lastStage.phase)+(lastStage.status==='running'?'（未收到阶段完成记录）':lastStage.status==='failed'?'（阶段未完成）':'（已完成）');
   if(health.error)monitorInfo.textContent+=' · '+health.error+(health.gate_retry_after?' · 最早再检查 '+localTime(health.gate_retry_after):'');
   if(health.attempt?.error)monitorInfo.textContent+=' · 调度错误：'+health.attempt.error;
@@ -295,11 +296,12 @@ if(root){
   try{
    const value=await request('monitor',{active:q('#sync-monitor-active').checked,after:monitorCursors[monitorPage]});monitorRender(value);monitorFailures=0;monitorRetryAt=0;
    const arrival=Date.parse(value.schedule?.scheduler?.arrived_at),server=Date.parse(value.server_time);
+   const wakeDelay=Math.max(180000,(value.cron_interval_seconds||60)*3000);
    const pending=(value.jobs||[]).some(job=>['background','queued'].includes(job.advance_mode));
-   if(value.browser_wake_available&&pending&&q('#sync-monitor-auto').checked&&!document.hidden&&Date.now()>=wakeAt&&(!Number.isFinite(arrival)||server-arrival>180000)){
-    wakeAt=Date.now()+180000;
+   if(value.browser_wake_available&&pending&&q('#sync-monitor-auto').checked&&!document.hidden&&Date.now()>=wakeAt&&(!Number.isFinite(arrival)||server-arrival>wakeDelay)){
+    wakeAt=Date.now()+wakeDelay;
     try{await request('wake');monitorInfo.textContent+=' · 已请求一次辅助推进；下一轮刷新核对进度'}
-    catch(e){monitorInfo.textContent+=' · 辅助推进未确认；已保留进度，3分钟后再检查：'+e.message}
+    catch(e){monitorInfo.textContent+=' · 辅助推进未确认；已保留进度，'+Math.round(wakeDelay/60000)+'分钟后再检查：'+e.message}
    }
   }
   catch(e){

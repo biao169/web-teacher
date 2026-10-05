@@ -76,5 +76,7 @@ async def read(r,options=None):
     from .runtime_version import VERSION
     cron=await load(r.sql,'site-sync:cron-health')
     watchdog=await load(r.sql,'site-sync:watchdog-health')
-    return {'runtime_version':VERSION,'cron':cron,'watchdog':watchdog,'jobs':jobs,'next':[jobs[-1]['created_at'],jobs[-1]['uid']] if len(rows)>20 else None,
+    configured=getattr(getattr(r,'_bindings',None),'TEACHER_RECOVERY_CRON',None)
+    enabled=None if configured is None else str(configured).lower() in ('true','internal')
+    return {'runtime_version':VERSION,'cron':cron,'watchdog':watchdog,'watchdog_enabled':enabled,'cron_interval_seconds':300 if configured=='internal' else 60,'jobs':jobs,'next':[jobs[-1]['created_at'],jobs[-1]['uid']] if len(rows)>20 else None,
             'schedule':schedule,'policy':policy(r),'server_time':stamp}

@@ -20,7 +20,8 @@ def extend(root, stage, config):
     config['assets']['run_worker_first'] = ['/setup','/transfer','/transfer/*','/admin/*','/api/*']
     config['durable_objects'] = {'bindings':[{'name':'TRANSFER_COORDINATOR','class_name':'TransferCoordinator'}]}
     config['migrations'] = [{'tag':'teacher-transfer-v1','new_sqlite_classes':['TransferCoordinator']}]
-    config['triggers'] = {'crons':['* * * * *','0 */3 * * *']}
+    config.setdefault('vars',{}).update(TEACHER_RECOVERY_CRON='internal',TEACHER_CRON_INTERVAL_SECONDS='300')
+    config['triggers'] = {'crons':['*/5 * * * *']}
     for source in (root/'transfer/backend').rglob('*.py'):
         if source.read_bytes() != (stage/'src'/source.relative_to(root)).read_bytes():
             raise ValueError('Transfer source changed during packaging')
@@ -37,8 +38,10 @@ def verify(root, stage, config):
         raise ValueError('Missing or changed transfer coordinator binding')
     if config.get('migrations') != [{'tag':'teacher-transfer-v1','new_sqlite_classes':['TransferCoordinator']}]:
         raise ValueError('Transfer coordinator registration changed')
-    if config.get('triggers') != {'crons':['* * * * *','0 */3 * * *']}:
-        raise ValueError('Missing minute maintenance or three-hour recovery schedule')
+    if config.get('vars',{}).get('TEACHER_RECOVERY_CRON')!='internal' or config.get('vars',{}).get('TEACHER_CRON_INTERVAL_SECONDS')!='300':
+        raise ValueError('Missing free-plan recovery configuration')
+    if config.get('triggers') != {'crons':['*/5 * * * *']}:
+        raise ValueError('Missing single five-minute recovery schedule')
     if not {'/setup','/transfer','/transfer/*','/admin/*','/api/*'}.issubset(config.get('assets',{}).get('run_worker_first',[])):
         raise ValueError('Private/application routes must reach Worker first')
     if (stage/'src/main.py').read_text().strip() != 'from worker_runtime.entrypoint import Default, TransferCoordinator':
