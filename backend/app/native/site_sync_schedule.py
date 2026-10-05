@@ -4,14 +4,14 @@ No session is fabricated. The saved administrator/role stamps and policy revisio
 are checked again inside existing transactional write guards. Pending proposals
 are never approved here. Changing credentials/roles/peer requires renewed consent.
 """
-import copy,json,secrets,logging
-from .auth import Auth
+import json,secrets,logging
 from .catalog import Error,now
 from .data_tools import authorize,encoded
 from .media_locks import lease
 from . import site_sync as core,site_sync_tasks as tasks,site_sync_apply as apply
 
 from .site_sync_limits import AUTO_PULL_CANDIDATES
+from .site_sync_initialization import advance as init_stage,failed as init_failed,Superseded,Unavailable
 
 from .site_sync_gate import KEY, STATE, load,checkpoint,waiting,lease_until,TURN,dispatch,probe
 CONFIRM='允许定时拉取并同步增删'
@@ -25,7 +25,7 @@ async def status(sql):
     row=await checkpoint(sql,uid) if uid else None
     at=now();reason,deadline=waiting(row,at) if uid else ('next_cycle' if p.get('auto_pull') else 'waiting_confirmation',s.get('next_due') if p.get('auto_pull') else None)
     if not p.get('enabled'):reason,deadline='disabled',None
-    elif s.get('error') and s.get('retryable') is False and not (row and row.get('work_status')=='running'):reason,deadline='needs_attention',None
+    elif s.get('error') and s.get('retryable') is False:reason,deadline='needs_attention',None
     elif uid and not p.get('auto_pull') and row and not row.get('execution_phase'):reason,deadline='waiting_confirmation',None
     elif not uid and s.get('error'):
         reason='retry_wait' if s.get('retryable') else 'needs_attention';deadline=s.get('retry_after') if s.get('retryable') else None
@@ -33,7 +33,10 @@ async def status(sql):
         lease_deadline=await lease_until(sql,uid)
         if lease_deadline and lease_deadline>at and (not deadline or lease_deadline>deadline):
             reason,deadline='lease_wait',lease_deadline
-    return {**{k:p.get(k) for k in ('enabled','auto_pull','interval','scopes','revision')},
+    from .site_sync_dispatch import KEY as HEALTH,PREFIX as ATTEMPT
+    health=await load(sql,HEALTH)
+    health['attempt']=await load(sql,ATTEMPT+(health.get('task_uid') or 'scheduled'))
+    return {'scheduler':health,**{k:p.get(k) for k in ('enabled','auto_pull','interval','scopes','revision')},
             'state':s,'current_task':row,'wait_reason':reason,'next_attempt_at':deadline}
 
 
@@ -89,35 +92,7 @@ async def save(r,data):
         ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
     return await status(r.sql)
 
-class BackgroundAuth(Auth):
-    """Narrow service grant: business sync only, no account/session/admin access."""
-    def __init__(self,sql,passwords,policy,policy_key=KEY):
-        super().__init__(sql,passwords);self.policy=policy;self.policy_key=policy_key
-    def require(self,p,module,action='view'):
-        if module not in (*core.SCOPES,'data_tools') or action not in ('view','export','create','edit','delete'):raise Error('后台同步授权范围无效',403)
-        super().require(p,module,action)
-    def guard(self,p,module,action,condition='1',args=()):
-        self.require(p,module,action)
-        uid=secrets.token_hex(16);at=now()
-        clause="EXISTS(SELECT 1 FROM auth_users u JOIN auth_roles r ON r.uid=u.role_uid JOIN auth_permissions a ON a.role_uid=r.uid WHERE u.uid=? AND u.role_uid=? AND u.updated_at=? AND u.status='active' AND u.must_change_password=0 AND r.updated_at=? AND r.is_active=1 AND r.is_system=1 AND a.module=? AND a.can_view=1 AND a.can_"+action+"=1) AND EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?) AND EXISTS(SELECT 1 FROM sync_peers WHERE id=1 AND enabled=1 AND revision=?) AND ("+condition+')'
-        if self.policy.get('task_uid'):
-            from .site_sync_manual_gate import binding
-            clause+=" AND EXISTS(SELECT 1 FROM sync_tasks WHERE uid=? AND status IN ('reading','ready') AND coalesce(json_extract(state,'$.history_deleting'),0)=0 AND "+binding(self.policy['mode'])+'=json(?))' 
-            args=(*args,self.policy['task_uid'],encoded(self.policy['binding']).decode())
-        params=(p['uid'],p['role_uid'],p['user_stamp'],p['role_stamp'],module,self.policy_key,encoded(self.policy).decode(),self.policy['peer_revision'],*args,uid,module,uid,at,at)
-        return uid,('INSERT INTO admin_mutation_guards(uid,module,target_uid,expected_updated_at,created_at) SELECT CASE WHEN '+clause+" THEN ? ELSE '' END,?,?,?,?",params)
-
-async def context(base,policy,*,policy_key=KEY):
-    owner=policy['owner']
-    rows=await base.sql.query("SELECT u.uid,u.display_name,u.username,u.role_uid,u.must_change_password,u.updated_at user_stamp,r.updated_at role_stamp,r.is_system,r.visibility_scopes FROM auth_users u JOIN auth_roles r ON r.uid=u.role_uid WHERE u.uid=? AND u.status='active' AND r.is_active=1 AND r.is_system=1",(owner['uid'],))
-    if not rows or any(rows[0][k]!=v for k,v in owner.items()):raise Error('后台授权已失效，请管理员重新保存策略',403)
-    p=rows[0];p['scopes']=json.loads(p['visibility_scopes']);p['permissions']={x['module']:x for x in await base.sql.query('SELECT * FROM auth_permissions WHERE role_uid=?',(p['role_uid'],))}
-    r=copy.copy(base);r.p=p;r.auth=BackgroundAuth(r.sql,r.passwords,policy,policy_key)
-    from .content import Content
-    from .media import Media
-    r.content=Content(r.sql,r.auth);r.media=Media(r.sql,r.auth,r.content,r.media_store,r.kind)
-    authorize(r,'edit',core.SCOPES);authorize(r,'export',core.SCOPES)
-    return r
+from .site_sync_background import BackgroundAuth,context
 
 async def reconcile_pending(r,s,row):
     if not row or row.get('work_status')!='running':return False
@@ -208,10 +183,11 @@ async def step(r,policy,s):
         s['message']='分批复核确认前版本，尚未开始执行';return
     s['task_uid']=uid;s['message']='按本站预先授权的定时拉取策略开始执行'
 
-async def tick(base, *, prune_history=True):
+async def tick(base, *, prune_history=True,dispatch_uid=None):
+    await init_stage('dispatch')
     from .site_sync_manual import tick as manual_tick
     from .site_sync_manual_gate import candidate
-    selected=await candidate(base.sql,now())
+    selected=await candidate(base.sql,now(),dispatch_uid=dispatch_uid)
     if selected:
         # Alternate ready classes, without spending a turn on a cooling/locked job.
         previous=await load(base.sql,TURN)
@@ -236,6 +212,7 @@ async def tick(base, *, prune_history=True):
         # Distinct scheduler lease; apply.tick still shares its lock with browser actions.
         busy=await r.sql.query("SELECT 1 FROM admin_mutation_guards WHERE uid IN ('site-sync:schedule-run','site-sync:run') AND created_at>=?",(now(seconds=-300),))
         if busy:return {'skipped':'busy'}
+        await init_stage('execution_lease')
         async with lease(r,'site-sync:schedule-run','edit'):
             # Re-read state inside the lease, so simultaneous schedulers cannot regress it.
             s=await load(r.sql,STATE);before=encoded(s).decode()
@@ -243,13 +220,17 @@ async def tick(base, *, prune_history=True):
             linked=jobs[0]['uid'] if jobs else s.get('preview_uid') if policy['auto_pull'] and s.get('preview_uid') else s.get('task_uid') if s.get('task_uid')!=s.get('last_task_uid') else None
             if not linked and s.get('retry_after','')>now():return {'skipped':'interval'}
             for key in ('error','error_code','retry_after','retry_count','retryable','wait_reason','next_attempt_at'):s.pop(key,None)
+            await init_stage('business_step')
             committed=await step(r,policy,s)
             if committed:return {'status':'ok',**s}
+            await init_stage('receipt_save')
             s['updated_at']=now()
             gid,guard=r.auth.guard(r.p,'data_tools','edit','EXISTS(SELECT 1 FROM service_meta WHERE key=? AND value=?)',(STATE,before))
             await r.sql.batch([guard,put(STATE,s),dispatch('scheduled',now()),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
         return {'status':'ok',**s}
+    except (Superseded,Unavailable):raise
     except Exception as exc:
+        init_failed(exc)
         if isinstance(exc,Error) and exc.code in ('sync_busy','sync_retry_wait'):return {'skipped':'interval' if exc.code=='sync_retry_wait' else 'busy'}
         # Persist bounded diagnostics without logging peer bodies or secret URLs.
         # A disabled/replaced policy must not have its new state overwritten.
@@ -283,7 +264,9 @@ def install_local(app,base,interval=15):
     original=app.router.lifespan_context
     async def loop():
         while True:
-            try:await tick(base)
+            try:
+                from .site_sync_dispatch import run as dispatch
+                await dispatch(base.sql,lambda uid:tick(base,dispatch_uid=uid),kind=base.kind)
             except Exception:logging.getLogger(__name__).warning('Site sync scheduler unavailable')
             await asyncio.sleep(interval)
     @asynccontextmanager

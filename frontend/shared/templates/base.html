@@ -6,10 +6,6 @@
 <title>{% block title %}{{ site.title }}{% endblock %}</title>
 {% block metadata %}{% endblock %}
 <link rel="icon" href="{{ branding.icon_uid if branding is defined and branding.icon_uid else '/assets/shared/favicon.svg' }}">
-<!-- iPhone/iPad 添加到主屏幕，仍然使用同一个文件 -->
-<link rel="apple-touch-icon"
-      href="{{ branding.icon_uid if branding is defined and branding.icon_uid else '/assets/shared/site-logo.png' }}">
-
 {% if asset_mode == 'cdn' %}
 <link id="bootstrap-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 {% else %}<link rel="stylesheet" href="/assets/shared/vendor/bootstrap.min.css">{% endif %}

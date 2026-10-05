@@ -5,12 +5,16 @@ BOUND="json_array(json_extract(state,'$.direction'),json_extract(state,'$.scopes
 
 def binding(mode):return BASE if mode=='read' else BOUND
 
-async def candidate(sql,at):
+async def candidate(sql,at,*,dispatch_uid=None):
     rows=await sql.query("""SELECT m.key,m.value,t.uid,json_extract(t.state,'$.work.attempt') AS work_attempt,
       json_extract(t.state,'$.work.failed_at') AS work_failed_at FROM service_meta m JOIN sync_tasks t
       ON t.uid=json_extract(m.value,'$.task_uid')
       WHERE m.key LIKE 'site-sync:manual:%' AND json_extract(m.value,'$.enabled')=1
       AND t.status IN ('reading','ready') AND coalesce(json_extract(t.state,'$.history_deleting'),0)=0
+      AND NOT EXISTS(SELECT 1 FROM service_meta d WHERE d.key='site-sync:scheduler-attempt:'||t.uid AND t.uid<>coalesce(?,'')
+          AND json_extract(d.value,'$.grant_revision')=json_extract(m.value,'$.revision')
+          AND (coalesce(json_extract(d.value,'$.retry_after'),'')>?
+               OR json_extract(d.value,'$.retryable')=0))
       AND coalesce(json_extract(m.value,'$.due'),'')<=?
       AND coalesce(json_extract(t.state,'$.work.pace_after'),'')<=?
       AND NOT EXISTS(SELECT 1 FROM admin_mutation_guards g WHERE g.uid='site-sync:task:'||t.uid
@@ -20,5 +24,5 @@ async def candidate(sql,at):
       AND (coalesce(json_extract(t.state,'$.work.status'),'saved')<>'paused'
            OR json_extract(t.state,'$.work.retryable')=1 AND coalesce(json_extract(t.state,'$.work.retry_after'),'')<=?
            OR json_extract(t.state,'$.execution.phase') IN ('done','cancelled') OR json_extract(m.value,'$.mode')='cancel')
-      ORDER BY coalesce(json_extract(m.value,'$.updated_at'),''),m.key LIMIT 1""",(at,at,at,at,at))
+      ORDER BY coalesce(json_extract(m.value,'$.updated_at'),''),m.key LIMIT 1""",(dispatch_uid,at,at,at,at,at,at))
     return rows[0] if rows else None

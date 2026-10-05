@@ -6,10 +6,8 @@ from .data_tools import digest, encoded
 from backend.app.domain.richtext import body_references
 
 from .site_sync_work import PROTOCOL,VERSION_ROWS as REV_PAGE,CONTENT_ROWS as PAGE,TOTAL_ROWS as MAX_ROWS,TOTAL_BYTES as MAX_BYTES,PAGE_BYTES,RECORD_BYTES
-SCOPES=tuple(t for t in TABLES if t in {
- 'profiles','students','student_category_displays','research_interests','projects',
- 'publications','patents','courses','news','navigation_items','site_settings',
- 'global_settings','translation_cache','media_assets'})
+from .site_sync_recovery import MODULES as SYNC_MODULES
+SCOPES=tuple(t for t in TABLES if t in SYNC_MODULES)
 PUBLIC_GLOBAL={'allow_public_registration','allow_anonymous_messages','news_pdf_engine',
  'news_pdf_allow_download','news_pdf_watermark','publication_display_style'}
 OMIT={'id','created_at','updated_at','translation_job_state','error_message'}|SECRET

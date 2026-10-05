@@ -7,7 +7,7 @@ from test_startup_lazy import entry
 @pytest.mark.parametrize('policy,state,active,skip',[
  ({},{},False,'disabled'),
  ({'enabled':True,'auto_pull':True},{'next_due':'9999'},False,'interval'),
- ({'enabled':True,'auto_pull':True},{'retry_after':'9999'},True,'interval'),
+ ({'enabled':True,'auto_pull':True},{'retry_after':'9999'},True,None),
  ({'enabled':True,'auto_pull':False},{},False,'waiting'),
  ({'enabled':True,'auto_pull':False},{'next_due':'9999'},True,None),
  ({'enabled':True,'auto_pull':True},{'preview_uid':'p','next_due':'9999'},False,None),
@@ -16,10 +16,14 @@ from test_startup_lazy import entry
 def test_gate(entry,monkeypatch,policy,state,active,skip):
  from worker_runtime.sync_schedule import run
  from backend.app.native import site_sync_schedule as schedule
- async def query(sql,args=()):
-  if 'sync_tasks' in sql:return [{'uid':'task'}] if active else []
-  return [{'value':json.dumps(state if args[0].endswith('-state') else policy)}]
- sql=SimpleNamespace(query=query);base=SimpleNamespace(sql=None)
+ from tests.test_sync_latest_v149 import MemorySQL
+ sql=MemorySQL();base=SimpleNamespace(sql=None)
+ for key,value in [('site-sync:schedule',policy),('site-sync:schedule-state',state)]:
+  sql.db.execute('INSERT INTO service_meta(key,value) VALUES(?,?)',(key,json.dumps(value)))
+ if active or state.get('preview_uid'):
+  uid='task' if active else state['preview_uid']
+  task={'preview_format':8,'execution':{'phase':'download'}} if active else {'preview_format':8}
+  sql.db.execute("INSERT INTO sync_tasks(uid,status,state,created_at) VALUES(?,'reading',?,'2026')",(uid,json.dumps(task)))
  module=ModuleType('worker_runtime.resources');module.resource_factory=Mock(return_value=base)
  monkeypatch.setitem(sys.modules,'worker_runtime.resources',module)
  tick=AsyncMock(return_value={'status':'ok'});monkeypatch.setattr(schedule,'tick',tick)
@@ -27,8 +31,9 @@ def test_gate(entry,monkeypatch,policy,state,active,skip):
  if skip:
   assert result=={'skipped':skip};module.resource_factory.assert_not_called();tick.assert_not_awaited()
  else:
-  tick.assert_awaited_once_with(base,prune_history=False);assert base.sql is sql
+  tick.assert_awaited_once_with(base,prune_history=False,dispatch_uid='task' if active else state.get('preview_uid'));assert base.sql is sql
  assert entry.application.application is None
+ sql.db.close()
 
 @pytest.mark.parametrize('minute,expected',[(0,'transfer'),(1,'history'),(2,'sync'),(9,'sync'),(10,'transfer')])
 def test_single_job(entry,monkeypatch,minute,expected):

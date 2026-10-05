@@ -111,7 +111,8 @@ def test_busy_and_local_lifespan_shutdown(pair,monkeypatch):
  assert run(scheduler.tick(ra))=={'skipped':'busy'}
  assert not run(ra.sql.query('SELECT uid FROM sync_tasks'))
  calls=[]
- async def tick(base):calls.append(base);return {}
+ run(ra.sql.batch([("DELETE FROM admin_mutation_guards WHERE uid='site-sync:run'",())]))
+ async def tick(base,**kwargs):calls.append(base);return {}
  monkeypatch.setattr(scheduler,'tick',tick)
  app=FastAPI();scheduler.install_local(app,ra,interval=0.01)
  async def life():

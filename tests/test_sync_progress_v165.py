@@ -30,14 +30,14 @@ def test_progress_survives_more_than_worker_retry_limit(task,code,operation,path
  assert saved['no_progress_failures']==0 and saved['last_error_code']==code
 
 @pytest.mark.parametrize('code',['1101','1102'])
-def test_worker_error_without_progress_exhausts_budget(task,code):
+def test_worker_error_without_progress_enters_slow_retry(task,code):
  @work.step('execute')
  async def fail(*args):raise Error('Worker interrupted',503,code)
  for _ in range(31):
   with pytest.raises(Error):run(fail(task,'task'))
   due(task)
  saved=pos(task)['work']
- assert not saved['retryable'] and saved['retry_count']==31
+ assert saved['retryable'] and saved['slow_retry'] and saved['retry_count']==31
  assert saved['no_progress_failures']==31 and saved['failures_with_progress']==0
  assert saved['last_outcome']=='no_progress_error'
 

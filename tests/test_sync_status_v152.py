@@ -10,7 +10,7 @@ def test_bounded_projection_paging_and_filters():
  try:
   for n in range(25):
    state={'work':{'status':'running','completed_steps':n},'phase':'latest','direction':'pull','secret':'DO-NOT-RETURN','items':[{'body':'x'*20000}]}
-   if n==0:state['execution']={'phase':'done'}
+   if n==0:state['execution']={'phase':'done'};state['work']['status']='saved'
    sql.db.execute('INSERT INTO sync_tasks(uid,status,state,created_at) VALUES(?,?,?,?)',(str(n).zfill(3),'reading',json.dumps(state),f'2026-01-01T00:00:{n:02}.000Z'))
   first=asyncio.run(read(r));assert len(first['jobs'])==20 and first['next']
   second=asyncio.run(read(r,{'after':first['next']}));assert len(second['jobs'])==4 and second['next'] is None

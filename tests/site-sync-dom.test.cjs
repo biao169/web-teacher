@@ -362,3 +362,39 @@ test('manual task monitor pauses and resumes independent background grant',async
  buttons=d.querySelectorAll('#sync-monitor-rows button');assert.equal(buttons[1].textContent,'恢复后台');buttons[1].click();await tick();
  assert(calls.includes('manual-pause')&&calls.includes('resume'));assert(!calls.includes('pull-tick')&&!calls.includes('schedule-save'));
 });
+
+test('overdue work receipt and scheduler failure are both visible',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ const stamp='2026-01-01T00:00:00Z';w.notify=()=>{};
+ w.adminFetch=async()=>({ok:true,json:async()=>({server_time:stamp,jobs:[
+  {uid:'stuck',status:'reading',work_status:'running',recover_after:'2025-12-31T00:00:00Z',scheduler:{stage:'initialize',started_at:stamp,error:'后台初始化失败',error_code:'1102',retry_after:'2026-01-01T00:10:00Z'}},
+  {uid:'slow',status:'reading',work_status:'paused',retryable:true,slow_retry:true,retry_after:'2026-01-01T01:00:00Z'}
+ ],schedule:{scheduler:{arrived_at:stamp},state:{}}})});
+ w.eval(rawSource);await tick();const rows=[...d.querySelectorAll('#sync-monitor-rows tr')];
+ assert.match(rows[0].textContent,/回执逾期.*后台初始化失败.*1102.*最早再检查/);
+ assert.match(rows[1].textContent,/后台低频重试/);
+ assert.match(d.querySelector('#sync-monitor-info').textContent,/最近后台调度到达/);
+});
+
+test('initialization timeline separates missing receipts, elapsed time and previous round',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ const stamp='2026-01-01T00:00:00Z';w.notify=()=>{};w.localStorage.setItem('teacher-admin-timezone-v1','Asia/Shanghai');
+ w.adminFetch=async url=>{calls.push(url);return {ok:true,json:async()=>({server_time:stamp,jobs:[{uid:'task-phase',status:'reading',work_status:'running',scheduler:{initialization:{version:1,stages:[
+  {phase:'resource_modules',status:'completed',started_at:stamp,finished_at:stamp,elapsed_ms:12.5,module_cached:false},
+  {phase:'authorization',status:'running',started_at:stamp}
+ ]},previous_initialization:{last_stage:{phase:'resource_factory',status:'failed',started_at:stamp,exception_type:'<img src=x onerror=alert(1)>'}}}}]})}};
+ w.eval(rawSource);await tick();const details=d.querySelector('#sync-monitor-rows details');assert(details);
+ assert.match(details.querySelector('summary').textContent,/核实授权.*未收到阶段完成记录/);
+ assert.match(details.textContent,/12.5 ms.*模块首次加载/);
+ assert.match(details.textContent,/2026\/01\/01 08:00:00 GMT\+08:00 \[Asia\/Shanghai\]/);
+ assert.match(details.textContent,/不是 CPU 用时/);assert.match(details.textContent,/上一轮最后阶段：创建同步最小资源对象/);
+ assert(!details.querySelector('img'));assert(calls.every(url=>url.endsWith('/monitor')));
+});
+
+test('latest-preview minimal initialization route has clear monitor labels',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ const stamp='2026-01-01T00:00:00Z';w.notify=()=>{};
+ w.adminFetch=async()=>({ok:true,json:async()=>({server_time:stamp,jobs:[{uid:'latest-task',status:'reading',scheduler:{initialization:{stages:['latest_gate','latest_modules','latest_resources'].map(phase=>({phase,status:'completed',started_at:stamp,finished_at:stamp,elapsed_ms:1}))}}}]})});
+ w.eval(rawSource);await tick();const text=d.querySelector('#sync-monitor-rows details').textContent;
+ assert.match(text,/检查候选读取专用路径/);assert.match(text,/加载候选读取组件/);assert.match(text,/创建候选读取最小上下文/);
+});

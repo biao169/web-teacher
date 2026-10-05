@@ -211,6 +211,20 @@ async def check_step(r,task,key,*,peer_config=None):
     return check['phase']=='done'
 
 @step('advance')
+@traced('preview:latest-page')
+async def advance_latest(r,uid):
+    """Same latest-page implementation and checkpoint protocol, no phase dispatch."""
+    task=await get(r.sql,uid);s=task['state'];p=await peer(r.sql)
+    if (not s.get('latest_only') or not s.get('lightweight') or s.get('incremental') or
+        s.get('execution') or s.get('approval') or s.get('restart_uid') or s.get('prepared_uid') or
+        s.get('direction')!='pull' or s.get('phase') not in ('latest','complete')):
+        raise Error('任务阶段已变化，下一轮重新选择初始化路径',409,'sync_busy')
+    if s['peer_revision']!=p['revision']:raise Error('对端配置已变化，请重新预览',409)
+    if task['status']!='reading':return {'uid':uid,'status':task['status'],'lightweight':True}
+    from .site_sync_latest import advance as latest_advance
+    return await latest_advance(r,task,p)
+
+@step('advance')
 @traced('preview:page')
 async def advance(r,uid):
     task=await get(r.sql,uid);s=task['state'];p=await peer(r.sql)

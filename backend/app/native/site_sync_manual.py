@@ -1,4 +1,5 @@
 """Per-task grants for manually requested work; never grant future synchronizations."""
+from .site_sync_initialization import advance as init_stage,failed as init_failed,Superseded,Unavailable
 import json,secrets
 from .catalog import Error,now
 from .data_tools import authorize,encoded
@@ -138,14 +139,19 @@ async def tick(base,selected=None):
     value.pop('error_code',None);started=False
     try:
         r=await context(base,old,policy_key=key)
+        await init_stage('execution_lease')
         async with lease(r,'site-sync:schedule-run','edit'):
             rows=await r.sql.query('SELECT '+binding(old['mode'])+' AS binding FROM sync_tasks WHERE uid=?',(uid,))
             if not rows or json.loads(rows[0]['binding'])!=old['binding']:raise Error('已确认的任务范围发生变化，请重新确认',409,'sync_grant_changed')
             started=True
+            await init_stage('business_step')
             await step(r,value)
+            await init_stage('receipt_save')
             await save(r,key,old,value)
         return {'status':'ok','manual':True,'task_uid':uid,'message':value['message']}
+    except (Superseded,Unavailable):raise
     except Exception as exc:
+        init_failed(exc)
         if isinstance(exc,Error) and exc.code in ('sync_busy','sync_retry_wait'):return {'skipped':'busy','task_uid':uid}
         # Never overwrite a concurrently revoked/replaced grant. No business writes here.
         from .site_sync_work import retry_state,RETRY_CODES

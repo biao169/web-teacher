@@ -23,13 +23,9 @@ RETRY_CODES=('sync_timeout','sync_overloaded','sync_locked','sync_network','sync
              'sync_http_429','sync_http_502','sync_http_503','sync_http_504','sync_unconfirmed','1101',1101,'1102',1102)
 
 def retry_state(error,prior,resource=None,*,checkpointed=False,progressed=False):
-    limits=for_resource(resource);delays=limits['retry_seconds']
-    # Only persisted cursor change replenishes a checkpointed task's allowance.
-    count=0 if checkpointed and progressed else prior.get('retry_count',0)+1
-    maximum=limits['no_progress_retry_limit'] if checkpointed else len(delays)
-    allowed=error.code in RETRY_CODES and count<=maximum
-    return {'retry_count':count,'retryable':allowed,
-            'retry_after':now(seconds=delays[min(max(count-1,0),len(delays)-1)]) if allowed else None}
+    from .site_sync_recovery import retry
+    return retry(error.code,prior,resource,checkpointed=checkpointed,progressed=progressed,clock=now)
+
 
 
 def can_retry(work):
@@ -47,7 +43,7 @@ def policy(resource=None,remote=None):
             'media_chunk_bytes':MEDIA_CHUNK_BYTES,'preferred_media_chunk_bytes':limits['media_chunk_bytes'],
             'adaptive_media_ranges':1,'cleanup_batch':limits['cleanup_batch'],
             'reference_rows':REFERENCE_ROWS,'dependency_rows':DEPENDENCY_ROWS,
-            'no_progress_retry_limit':limits['no_progress_retry_limit'],
+            'no_progress_retry_limit':limits['no_progress_retry_limit'],'background_slow_retry':True,
             'retry_seconds':list(limits['retry_seconds']),'retry_codes':list(RETRY_CODES)}
 
 def lock_key(uid):return 'site-sync:task:'+uid
@@ -115,17 +111,8 @@ async def reconcile(r,uid):
         if row['status'] not in ('reading','ready'):raise Error('任务已过期或被替代，不能自动恢复',409,'sync_retry_exhausted')
         if prior.get('status')!='running':return prior
         retry_gate(row,prior.get('operation'))
-        at=now();evidence=observe(prior,row['checkpoint'],at,uncertain=True)
-        progressed=evidence['progress_events']>prior.get('progress_events',0)
-        saved={**prior,**evidence,'resource_level':pressured(r,prior,'sync_unconfirmed'),'reconciled_at':at,'last_error_code':'sync_unconfirmed','last_error_at':at}
-        saved.pop('recover_after',None)
-        if row['execution_phase'] in ('done','cancelled'):
-            saved.update(status='saved',completed_at=at,retry_count=0 if progressed else prior.get('retry_count',0))
-            for key in ('error','error_code','retryable','retry_after'):saved.pop(key,None)
-        else:
-            saved.update(retry_state(Error('步骤回执未确认',503,'sync_unconfirmed'),prior,r,checkpointed=True,progressed=progressed))
-            saved.update(status='paused',failed_at=at,error_code='sync_unconfirmed',
-                         error='已核对中断进度；等待冷却后继续' if saved['retryable'] else '连续无进展恢复次数已用尽，请检查后手动继续或取消')
+        from .site_sync_recovery import recovered
+        saved=recovered(row,r)
         await mark(r.sql,uid,owner,saved)
         return saved
 

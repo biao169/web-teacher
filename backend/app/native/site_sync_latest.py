@@ -30,7 +30,6 @@ def initialize(state):
 
 async def advance(r,task,p):
     from .site_sync_preview import CANDIDATE
-    from .site_sync_incremental import read
     s=task['state'];uid=task['uid'];statements=[]
     if s['candidate_count']>=AUTO_PULL_CANDIDATES:
         s['phase']='complete';s['latest_limit_reached']=True
@@ -38,6 +37,7 @@ async def advance(r,task,p):
         return {'uid':uid,'status':'ready','lightweight':True}
     pending=s.get('latest_pending')
     if pending:
+        from .site_sync_incremental import read
         table=pending['table'];row=pending['row'];key=core.identity(table,row)
         # Exact primary/unique-key lookup, independent of latest-page selection.
         other='remote' if pending['side']=='local' else 'local'

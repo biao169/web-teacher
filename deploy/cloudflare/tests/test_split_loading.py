@@ -53,12 +53,14 @@ def test_cron_does_not_build_http_app(entry, monkeypatch, capsys):
     monkeypatch.setattr(cleanup, 'run', run)
     worker = entry.Default()
     worker.env = SimpleNamespace(TEACHER_DATABASE_BINDING='DB', TEACHER_MEDIA_BINDING='MEDIA', DB=object(), MEDIA=object())
-    asyncio.run(worker.scheduled(None))
+    asyncio.run(worker.scheduled(SimpleNamespace(scheduledTime=0)))
     build.assert_not_called()
     run.assert_awaited_once_with(sql, store)
-    sync_run.assert_awaited_once_with(sql,worker.env)
+    sync_run.assert_not_awaited()
     import json
-    log = json.loads(capsys.readouterr().out)
+    logs = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    log = next(row for row in logs if row['stage']=='CRON')
+    assert [(row['stage'],row['status']) for row in logs if row['stage'] in ('CRON-MODULES','CRON-DATABASE')]==[('CRON-MODULES','START'),('CRON-MODULES','OK'),('CRON-DATABASE','START'),('CRON-DATABASE','OK')]
     assert log["stage"] == "CRON" and log["status"] == "SKIPPED" and log["reason"] == "interval"
     make_store.assert_called_once_with(worker.env.MEDIA, 'transfer/media/')
     assert entry.application.application is None

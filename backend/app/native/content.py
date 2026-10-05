@@ -1,5 +1,6 @@
 """Native CRUD, visibility, fixed navigation scopes, category matching and safe exports."""
 import json,re,secrets,hashlib
+from .audit_log import audit
 from .filtering import compile_conditions,contains_predicate,search_predicate
 from .navigation import parse_path,build_path,in_scope,navigation_guard,FixedScope,scope_conditions
 from .catalog import TABLES,EDITORS,MODULES,CONTENT,TITLE,SECRET,Error,now,normalize,fields,deletable
@@ -270,13 +271,7 @@ class Content:
         # New external registrations and content references commit together or roll back together.
         if media_links:statements=media_links.statements()+statements
         await self.sql.batch(statements);return uid
-    def audit(self,p,table,action,uid,detail=None):
-        """Audit metadata only; never serialize submitted passwords or provider credentials."""
-        values=(secrets.token_hex(16),p['uid'],p['display_name'] or p['username'],action,table,uid,MODULES.get(table,table)+' '+action,'success')
-        if detail is not None:
-            # Only server-constructed metadata is accepted here; never log submitted message bodies.
-            return ('INSERT INTO operation_logs(uid,actor_uid,actor_name,action,module,target_uid,summary,status,detail_json) VALUES (?,?,?,?,?,?,?,?,?)',(*values,json.dumps(detail,ensure_ascii=False)))
-        return ('INSERT INTO operation_logs(uid,actor_uid,actor_name,action,module,target_uid,summary,status) VALUES (?,?,?,?,?,?,?,?)',values)
+    audit=staticmethod(audit)
     async def delete(self,table,p,uid,stamp,base=None,navigation=None):
         """Keep shared authorization/CAS and add atomic account-specific dependency guards."""
         self.auth.require(p,table,'delete');current=await self.get(table,uid,p)

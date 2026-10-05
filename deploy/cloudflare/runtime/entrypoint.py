@@ -58,11 +58,14 @@ class Default(WorkerEntrypoint):
     async def scheduled(self, controller, env=None, ctx=None):
         with phase('CRON', progress=False):
             # Cron does not need to initialize the HTTP application or its room state.
-            from worker_runtime.bridge import Environment
-            from worker_runtime.maintenance import run
-            from backend.app.adapters.d1.sql import D1SQL
-            bindings = Environment(self.env)
-            sql = D1SQL(getattr(bindings, str(bindings.TEACHER_DATABASE_BINDING)))
+            # Before D1 is available only platform logs can survive a startup failure.
+            with phase('CRON-MODULES'):
+                from worker_runtime.bridge import Environment
+                from worker_runtime.maintenance import run
+                from backend.app.adapters.d1.sql import D1SQL
+            with phase('CRON-DATABASE'):
+                bindings = Environment(self.env)
+                sql = D1SQL(getattr(bindings, str(bindings.TEACHER_DATABASE_BINDING)))
             job, result = await run(sql, bindings, controller)
             reason = result.get('skipped')
             emit('CRON', 'SKIPPED' if reason else 'OK', job=job,

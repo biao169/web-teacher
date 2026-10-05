@@ -122,12 +122,12 @@ def test_terminal_unconfirmed_stays_visible_in_active_monitor(task):
  assert len(rows)==1 and rows[0]['recovery_state']=='uncertain_wait'
 
 
-def test_no_progress_reconciliations_exhaust_budget(task):
+def test_no_progress_reconciliations_enter_slow_retry(task):
  for i in range(31):
   due(task);interrupt(task,progress=False);due(task)
   saved=run(work.reconcile(task,'task'))
   assert saved['retry_count']==i+1
- assert not saved['retryable'] and saved['no_progress_failures']==31
+ assert saved['retryable'] and saved['slow_retry'] and saved['no_progress_failures']==31
 
 
 def test_manual_resume_keeps_uncertain_evidence(pair):

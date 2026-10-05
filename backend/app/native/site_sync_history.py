@@ -57,5 +57,5 @@ async def prune(sql,uid=None, *, batch=BATCH):
         if root is not None:raise Error('任务状态已变化，请刷新后重试',409,'sync_history_busy')
         return {'deleted':False,'more':False}
     deleted=bool(result[2])
-    if deleted:await sql.batch([("DELETE FROM service_meta WHERE key=? AND NOT EXISTS(SELECT 1 FROM sync_tasks WHERE uid=?)",('site-sync:manual:'+target,target))])
+    if deleted:await sql.batch([("DELETE FROM service_meta WHERE key=? AND NOT EXISTS(SELECT 1 FROM sync_tasks WHERE uid=?)",('site-sync:manual:'+target,target)),("DELETE FROM service_meta WHERE key=? AND NOT EXISTS(SELECT 1 FROM sync_tasks WHERE uid=?)",('site-sync:scheduler-attempt:'+target,target))])
     return {'uid':root or target,'deleted':deleted and (root is None or root==target),'more':not deleted or (root is not None and root!=target)}

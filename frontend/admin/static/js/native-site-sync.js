@@ -61,7 +61,7 @@ if(root){
      if(Number.isFinite(deadline))delay=Math.max(delay,deadline-Date.now());
     }
     stalled=progressed?0:stalled+1;
-    if(stalled>limit)throw e;
+    if(stalled>limit){if(manualActive)throw new Error(e.message+'；浏览器重试已暂停，本任务后台将按保存进度继续低频重试。');throw e;}
     status.textContent=`${e.message}；${Math.ceil(delay/1000)}秒后恢复尝试 ${attempt+1}（连续无进展 ${stalled}/${limit}），可点击暂停。`;
     notify(status.textContent,'info',{id:'site-sync'});await waitFor(delay);
    }
@@ -209,6 +209,7 @@ if(root){
   if(phase==='cancelled')return ['已取消','secondary'];
   if(job.restart_uid)return ['已重新开始','secondary'];
   if(job.work_status==='paused'){
+   if(job.slow_retry&&job.retryable)return ['后台低频重试','warning'];
    if(job.retryable&&job.retry_after)return [Date.parse(job.retry_after)>now?'等待重试':'重试时间已到','warning'];
    return ['已暂停 · 需人工处理','danger'];
   }
@@ -237,15 +238,20 @@ if(root){
    const state=document.createElement('td'),badge=document.createElement('span');badge.className='badge text-bg-'+tone;badge.textContent=label;state.append(badge);
    const stage=document.createElement('div');stage.textContent=(phaseNames[phase]||phase||'准备')+(job.operation?' · '+(operationNames[job.operation]||job.operation):'');state.append(stage);
    if(job.advance_mode){const note=document.createElement('div');note.className='small text-muted';note.textContent=({background:'由后台自动推进',queued:'等待前一任务，后台排队',manual:'需人工确认或继续',disabled:'后台未开启',needs_attention:'需检查后手动恢复',complete:'已结束'})[job.advance_mode]||job.advance_mode;if(job.manual_mode)note.textContent+=' · 本次手动任务'+(job.manual_paused?'（已暂停）':'')+(job.manual_message?' · '+job.manual_message:'');if(job.advance_mode!=='complete')note.textContent+=' · '+(waitLabels[job.wait_reason]||job.wait_reason||'');state.append(note)}
+   const scheduler=job.scheduler||{};
+   if(scheduler.started_at){const note=document.createElement('div');note.className='small text-muted';note.textContent='后台调度：'+({reconcile:'正在核对回执',initialize:'已核对，初始化业务步骤',finished:'本轮已结束'}[scheduler.stage]||scheduler.stage)+' · 最近启动 '+localTime(scheduler.started_at)+(scheduler.finished_at?' · 最近返回 '+localTime(scheduler.finished_at):' · 尚无调度完成回执')+(scheduler.error?' · '+scheduler.error:'')+(scheduler.error_code?'（'+scheduler.error_code+'）':'')+(scheduler.retry_after?' · 最早再检查 '+localTime(scheduler.retry_after):'');state.append(note)}
    row.append(state);
    const savedAge=ageText(job.completed_at,now);
    const cells=[`已完成请求 ${job.steps||0} 次 · 已读 ${job.count||0} 条 · 候选 ${job.candidates||0} 项`+(job.applied!=null?' · 已提交 '+job.applied+' 条':'')+(job.load_index!=null?' · 已准备 '+job.load_index+' 条':'')+(job.media_count!=null?` · 媒体 ${Math.min(job.file_index||0,job.media_count)}/${job.media_count} · ${Math.round((job.bytes||0)/1024)} KB`:'')+(job.resource_level?' · 资源降速 '+job.resource_level+' 档':'')+(job.chunk_bytes?' · 分片 '+job.chunk_bytes/1024+' KiB':'')+(job.checkpoint_version?` · 有效进展 ${job.progress_events||0} 次 · 累计请求异常 ${job.total_failures||0} 次 · 异常但有进展 ${job.failures_with_progress||0} 次 · 其中未确认 ${job.uncertain_attempts||0} 次 · 连续无进展 ${job.stalled_attempts||0} 次`:' · 尚未建立进度检查点'),
     (job.next_attempt_at?'后台最早恢复 '+localTime(job.next_attempt_at)+'（到期后下一轮调度） · ':'')+'创建 '+localTime(job.created_at)+(job.last_progress_at?' · 最近有效进展 '+localTime(job.last_progress_at):'')+(job.completed_at?' · 最近保存 '+localTime(job.completed_at)+(savedAge?'（'+savedAge+'前）':''):' · 尚无步骤完成记录')+(job.reconciled_at?' · 最近中断核对 '+localTime(job.reconciled_at):'')+(job.started_at?' · 最近启动 '+localTime(job.started_at):'')+(job.failed_at?' · 最近失败 '+localTime(job.failed_at):'')+(deadline?' · '+(job.work_status==='running'?'回执恢复等待至 ':'重试等待至 ')+localTime(deadline):'')+(job.retry_count?' · 连续无进展失败 '+job.retry_count+' 次':'')+(job.elapsed_ms!=null?' · 上一步耗时 '+job.elapsed_ms+' ms':'')+(job.error_code?' · 错误码 '+job.error_code:'')+(job.error?' · '+job.error:'')];
    for(const text of cells){const td=document.createElement('td');td.textContent=text;row.append(td)}
    const td=document.createElement('td'),button=document.createElement('button');button.type='button';button.className='btn btn-outline-secondary btn-sm';button.textContent='查看';button.dataset.unavailable=String(job.status==='expired');button.disabled=busy||job.status==='expired';
-   button.onclick=()=>run(async()=>{uid=job.uid;if(![...q('#sync-history').options].some(v=>v.value===uid))q('#sync-history').prepend(new Option('任务 · ID: '+uid,uid));q('#sync-history').value=uid;await openSaved(false)});td.append(button);if(job.manual_mode&&!job.manual_finished){const control=document.createElement('button');control.type='button';control.className='btn btn-outline-secondary btn-sm';control.textContent=job.manual_enabled?'暂停后台':'恢复后台';control.onclick=()=>run(async()=>{await request(job.manual_enabled?'manual-pause':'resume',{uid:job.uid});status.textContent=job.manual_enabled?'本任务后台续跑已暂停。':'已请求恢复本任务后台续跑。'}).then(refreshMonitor);td.append(control)}row.append(td);monitorRows.append(row);
+   button.onclick=()=>run(async()=>{uid=job.uid;if(![...q('#sync-history').options].some(v=>v.value===uid))q('#sync-history').prepend(new Option('任务 · ID: '+uid,uid));q('#sync-history').value=uid;await openSaved(false)});td.append(button);if(job.manual_mode&&!job.manual_finished){const control=document.createElement('button');control.type='button';control.className='btn btn-outline-secondary btn-sm';const continuing=job.manual_enabled&&job.scheduler?.retryable!==false;control.textContent=continuing?'暂停后台':'恢复后台';control.onclick=()=>run(async()=>{await request(continuing?'manual-pause':'resume',{uid:job.uid});status.textContent=continuing?'本任务后台续跑已暂停。':'已请求恢复本任务后台续跑。'}).then(refreshMonitor);td.append(control)}row.append(td);monitorRows.append(row);
   }
   monitorInfo.textContent='状态读取于 '+localTime(value.server_time)+' · 本页 '+(value.jobs||[]).length+' 项'+(!(value.jobs||[]).length?'；当前筛选范围没有任务':'')+(monitorPage?' · 当前为历史分页，查看新任务请点击“回到最新任务”':'');
+  const health=value.schedule?.scheduler||{};monitorInfo.textContent+=health.arrived_at?' · 最近后台调度到达 '+localTime(health.arrived_at)+(health.skipped?' · 调度等待原因 '+(waitLabels[health.skipped]||({'interval':'尚未到恢复时间','busy':'执行锁仍有效','recovery-backoff':'核对失败后退避','needs-attention':'需要人工处理'})[health.skipped]||health.skipped):''):' · 尚无后台调度到达记录';
+  if(health.error)monitorInfo.textContent+=' · '+health.error+(health.gate_retry_after?' · 最早再检查 '+localTime(health.gate_retry_after):'');
+  if(health.attempt?.error)monitorInfo.textContent+=' · 调度错误：'+health.attempt.error;
   q('#sync-monitor-summary').textContent=[...counts].map(([label,count])=>label+' '+count+' 项').join(' · ');
   q('#sync-monitor-page').textContent='第'+(monitorPage+1)+'页';
   if(value.schedule)scheduleView(value.schedule);

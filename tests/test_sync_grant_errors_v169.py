@@ -38,18 +38,18 @@ def test_fresh_receipt_error_uses_its_own_retry_state(pair,monkeypatch,code):
   assert saved['due']>now()
  else:assert not saved['enabled']
 
-def test_repeated_receipt_errors_exhaust_their_own_allowance(pair,monkeypatch):
+def test_repeated_receipt_errors_keep_their_own_slow_retry(pair,monkeypatch):
  api,_,r,*_=pair;uid=seed(api,r)
  async def failure(*args):raise Error('receipt unavailable',503,'1102')
  monkeypatch.setattr(manual,'step',failure)
  for attempt in range(1,10):
   run(schedule.tick(r,prune_history=False))
   saved=run(schedule.load(r.sql,manual.PREFIX+uid))
-  assert saved['retry_count']==attempt and saved['enabled']==(attempt<=8)
+  assert saved['retry_count']==attempt and saved['enabled']
   run(r.sql.batch([("UPDATE service_meta SET value=json_set(value,'$.due','2000-01-01T00:00:00.000Z') WHERE key=?",(manual.PREFIX+uid,))]))
- assert run(schedule.tick(r,prune_history=False))=={'skipped':'disabled'}
+ assert run(schedule.load(r.sql,manual.PREFIX+uid))['enabled']
 
-def test_task_exhaustion_also_stops_its_background_grant(platform_pair,monkeypatch):
+def test_task_slow_retry_preserves_background_grant(platform_pair,monkeypatch):
  api,_,r,*_=platform_pair;uid=seed(api,r)
  limit=8 if r.kind=='local' else 30
  @work.step('advance')
@@ -62,5 +62,5 @@ def test_task_exhaustion_also_stops_its_background_grant(platform_pair,monkeypat
    ("UPDATE sync_tasks SET state=json_set(state,'$.work.retry_after','2000-01-01T00:00:00.000Z') WHERE uid=?",(uid,)),
   ]))
  saved=run(work.position(r.sql,uid))['work']
- assert not saved['retryable'] and saved['retry_count']==limit+1
- assert not run(schedule.load(r.sql,manual.PREFIX+uid))['enabled']
+ assert saved['retryable'] and saved['slow_retry'] and saved['retry_count']==limit+1
+ assert run(schedule.load(r.sql,manual.PREFIX+uid))['enabled']

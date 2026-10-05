@@ -19,7 +19,8 @@ def test_checkpoint_budgets_and_capped_delay(kind,limit,last_delay,monkeypatch):
   value=work.retry_state(error,{'retry_count':n},r,checkpointed=True)
   assert value['retryable'] and value['retry_after']<=last_delay
  assert value['retry_after']==last_delay
- assert not work.retry_state(error,{'retry_count':limit},r,checkpointed=True)['retryable']
+ slow=work.retry_state(error,{'retry_count':limit},r,checkpointed=True)
+ assert slow['retryable'] and slow['slow_retry'] and slow['retry_after']==(3600 if kind=='r2' else 900)
  assert work.retry_state(error,{'retry_count':limit+10},r,checkpointed=True,progressed=True)['retry_count']==0
  assert not work.retry_state(Error('conflict',409,'sync_conflict'),{},r,checkpointed=True,progressed=True)['retryable']
 
@@ -67,16 +68,18 @@ def test_repeated_termination_with_progress_and_stale_error(task):
  assert result['progress_events']==12 and result['retry_count']==0
 
 
-def test_repeated_termination_without_progress_stops(task):
+def test_repeated_termination_without_progress_keeps_slow_recovery(task):
  class Terminated(BaseException):pass
  @work.step('execute')
  async def kill(*args):raise Terminated()
  for _ in range(31):
   with pytest.raises(Terminated):run(kill(task,'task'))
   due(task)
- with pytest.raises(Error,match='连续无进展'):run(kill(task,'task'))
+ with pytest.raises(Terminated):run(kill(task,'task'))
  saved=pos(task)['work']
- assert saved['status']=='paused' and not saved['retryable'] and saved['retry_count']==31
+ assert saved['status']=='running' and saved['retry_count']==31
+ due(task);saved=run(work.reconcile(task,'task'))
+ assert saved['retryable'] and saved['slow_retry']
 
 
 def test_permanent_failure_not_retried_even_with_progress(task):
