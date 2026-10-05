@@ -10,7 +10,7 @@ PREFIX='site-sync:scheduler-attempt:'
 def put(key,value):
     return ('INSERT INTO service_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(key,encoded(value)))
 
-async def _run(sql,execute,*,kind):
+async def _run(sql,execute,*,kind,staged=False):
     at=now()
     # A separate arrival timestamp survives even if eligibility checks fail.
     await sql.batch([put(KEY,{'arrived_at':at,'source':kind})])
@@ -55,9 +55,16 @@ async def _run(sql,execute,*,kind):
             result=await reconcile(sql,choice,SimpleNamespace(kind=kind))
             timeline.close()
             if result is None:
-                receipt.update(stage='initialize',reconcile_finished_at=now())
-                if not await save():return {'skipped':'busy'}
-                result=await execute(uid)
+                ready=(prior.get('business_ready') and prior.get('result')=='prepared'
+                       and prior.get('finished_at') and prior.get('grant_revision')==revision)
+                if staged and not ready:
+                    # A preflight round never imports or executes business code.
+                    receipt['business_ready']=True
+                    result={'status':'prepared','message':'恢复检查完成；下一轮重新核对授权后推进业务'}
+                else:
+                    receipt.update(stage='initialize',reconcile_finished_at=now())
+                    if not await save():return {'skipped':'busy'}
+                    result=await execute(uid)
         timeline.finish('paused' if result.get('status')=='paused' else 'completed')
         receipt.update(stage='finished',finished_at=now(),result=result.get('status') or result.get('skipped') or 'ok',failures=0,retry_after='',retryable=True)
         if result.get('status')=='paused':
@@ -76,13 +83,13 @@ async def _run(sql,execute,*,kind):
         return {'status':'paused','error':receipt['error'],'error_code':receipt['error_code']}
 
 
-async def run(sql,execute,*,kind):
+async def run(sql,execute,*,kind,staged=False):
     health=await load(sql,KEY)
     if health.get('gate_retry_after','')>now():
         health.update(arrived_at=now(),source=kind,skipped='recovery-backoff')
         await sql.batch([put(KEY,health)])
         return {'skipped':'recovery-backoff'}
-    try:return await _run(sql,execute,kind=kind)
+    try:return await _run(sql,execute,kind=kind,staged=staged)
     except Exception as exc:
         # Eligibility/storage failures must not disappear behind a task's running badge.
         count=health.get('gate_failures',0)+1

@@ -13,7 +13,7 @@ from .site_sync_work import policy,REQUEST_INTERVAL_MS
 from .site_sync_limits import for_resource
 
 def install(app,resources,csrf,render):
-    from .web import payload
+    from .http_payload import payload
     @app.get('/admin/data-tools/sync')
     async def page(request:Request):
         with operation('page'):
@@ -112,9 +112,9 @@ def install(app,resources,csrf,render):
             data=verify(p['secret'],value)
             if not isinstance(data,dict) or data.get('schema')!=core.schema() or data.get('protocol')!=core.PROTOCOL:raise Error('同步协议或业务字段结构不一致，请将两站配套更新至v0.15.139或后续兼容版本',409)
             op=data.get('op')
-            with operation('peer:'+op if op in ('hello','inspect','revision-page','page','brief-page','latest-page','record','record-head','record-context','record-dependents','proposal-submit','proposal-status','media-head','media-range','media-range-binary','media-record') else 'peer:unknown'):
+            with operation('peer:'+op if op in ('hello','inspect','revision-page','page','brief-page','latest-page','record-fields','record-field','record','record-head','record-context','record-dependents','proposal-submit','proposal-status','media-head','media-range','media-range-binary','media-record') else 'peer:unknown'):
                 if op in ('hello','inspect'):
-                    result={'schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'brief_preview':1,'latest_preview':1,'selected_execute':1,'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0,'policy':policy(r)}
+                    result={'schema':core.schema(),'protocol':core.PROTOCOL,'data_check':1,'brief_preview':1,'latest_preview':1,'selected_execute':1,'field_chunks':1,'media_ranges':1,'proposals':1 if await proposals.enabled(r.sql) else 0,'policy':policy(r)}
                     if op=='inspect':result['revision']=await core.revision(r.sql)
                 elif op=='latest-page':
                     from .site_sync_latest import page as latest_page
@@ -131,6 +131,9 @@ def install(app,resources,csrf,render):
                         revisions=op=='revision-page'
                         limit=min(core.page_limit(data.get('limit'),core.REV_PAGE if revisions else core.PAGE),for_resource(r)['version_rows' if revisions else 'content_rows'])
                         result=await (core.revision_page(r.sql,table,after,limit) if revisions else core.page(r.sql,table,after,limit))
+                elif op in ('record-fields','record-field'):
+                    from .site_sync_fields import manifest,fragment
+                    result=await manifest(r.sql,data.get('table'),data.get('key')) if op=='record-fields' else await fragment(r,data)
                 elif op in ('record','record-head','record-context','record-dependents'):
                     from .site_sync_incremental import record,dependents
                     if op=='record-dependents':result=await dependents(r.sql,data.get('table'),data.get('key'),data.get('index'),data.get('after',''))

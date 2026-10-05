@@ -20,16 +20,16 @@ def test_profiles_are_immutable_and_isolated():
     assert work.policy(local)['mode']=='standard' and work.policy(worker)['mode']=='ultra_low'
     assert work.PROTOCOL==7 and work.TASK_FORMAT==8
     assert work.policy(worker)['media_chunk_bytes']==65536
-    assert limits.WORKER['media_chunk_bytes']==16384  # target only until step 4
+    assert limits.WORKER['media_chunk_bytes']==4096  # v174 minimum default for new negotiated files
     assert limits.AUTO_PULL_CANDIDATES==500
-    assert limits.AUTO_PULL_ORDER==('updated_at DESC','uid DESC')
+    assert limits.AUTO_PULL_ORDER==('updated_at DESC','id DESC','module DESC')
 
 @pytest.mark.parametrize('hint',[None,{},'wrong',{'content_rows':True,'version_rows':-1},{'content_rows':999999,'version_rows':999999}])
 def test_peer_hints_cannot_increase_worker_budget(hint):
     p=work.policy(NS(kind='r2'),hint)
-    assert p['content_rows']==1 and p['version_rows']==5
+    assert p['content_rows']==1 and p['version_rows']==1
     p=work.policy(NS(kind='local'),work.policy(NS(kind='r2')))
-    assert p['content_rows']==1 and p['version_rows']==5 and p['brief_rows']==1
+    assert p['content_rows']==1 and p['version_rows']==1 and p['brief_rows']==1
 
 def test_limits_import_has_no_application_or_database_cost():
     script="import sys; from backend.app.native import site_sync_limits; assert not any(n in sys.modules for n in ('sqlite3','fastapi','js','backend.app.native.catalog','backend.app.native.site_sync_tasks'))"

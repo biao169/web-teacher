@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 STANDARD = MappingProxyType({
-    'mode':'standard', 'content_rows':5, 'version_rows':20, 'brief_rows':20,
+    'mode':'standard', 'verify_bytes':65536, 'content_rows':5, 'version_rows':20, 'brief_rows':20,
     'page_bytes':64*1024, 'media_chunk_bytes':64*1024,
     'cleanup_batch':4, 'history_batch':20,
     'reference_rows':1, 'dependency_rows':5,
@@ -18,8 +18,8 @@ STANDARD = MappingProxyType({
     'no_progress_retry_limit':8,
 })
 WORKER = MappingProxyType({
-    **STANDARD, 'mode':'ultra_low', 'content_rows':1, 'version_rows':5,
-    'brief_rows':1, 'page_bytes':16*1024, 'media_chunk_bytes':16*1024,
+    **STANDARD, 'mode':'ultra_low', 'verify_bytes':4096, 'content_rows':1, 'version_rows':1,
+    'brief_rows':1, 'page_bytes':16*1024, 'media_chunk_bytes':4096, 'request_interval_ms':5000,
     'cleanup_batch':1, 'history_batch':1, 'dependency_rows':1,
     'maintenance_jobs_per_tick':1, 'retry_seconds':(60,180,600),
     'no_progress_retry_limit':30,
@@ -74,8 +74,8 @@ def for_resource(resource=None):
     current=_CURRENT.get()
     pressure=current[1] if current and current[0] is resource else 0
     if base is STANDARD or not pressure:return base
-    return {**base,'version_rows':2 if pressure==1 else 1,
-            'media_chunk_bytes':8192 if pressure==1 else 4096,
+    return {**base,'verify_bytes':1024 if pressure==1 else 256,'version_rows':min(base['version_rows'],2 if pressure==1 else 1),
+            'media_chunk_bytes':min(base['media_chunk_bytes'],8192 if pressure==1 else 4096),
             'request_interval_ms':5000 if pressure==1 else 15000}
 
 

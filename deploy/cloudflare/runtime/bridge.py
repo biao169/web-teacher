@@ -74,14 +74,19 @@ class Environment:
         db = str(getattr(native, 'TEACHER_DATABASE_BINDING', 'DB'))
         media = str(getattr(native, 'TEACHER_MEDIA_BINDING', 'MEDIA'))
         cache = str(getattr(native, 'TEACHER_CACHE_BINDING', media))
-        self.bindings = {db: Database(getattr(native, db))}
-        for name in {media, cache}:
-            self.bindings[name] = Bucket(getattr(native, name))
+        self._database = db
+        self._buckets = {media, cache}
+        self.bindings = {}
 
     def __getattr__(self, name):
-        if name in self.bindings:
-            return self.bindings[name]
-        return getattr(self.native, name)
+        if name not in self.bindings:
+            if name == self._database:
+                self.bindings[name] = Database(getattr(self.native, name))
+            elif name in self._buckets:
+                self.bindings[name] = Bucket(getattr(self.native, name))
+            else:
+                return getattr(self.native, name)
+        return self.bindings[name]
 
 
 class BoundApplication:

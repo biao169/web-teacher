@@ -33,6 +33,7 @@ def test_projection_excludes_payload_errors_and_selection(task):
  assert all('SELECT *' not in q for q,_ in task.sql.queries)
 
 @pytest.mark.parametrize('path,value',[
+ ('execution.media',[{'verify':{'offset':512}}]),('execution.media',[{'merge_pending':{'checked':1024}}]),
  ('execution.offset',1024),('execution.phase','cleanup'),('execution.prepared.check_after',['x','y']),
  ('execution.media',[{'assembled_version':'v1'}]),('execution.write_after','row'),
  ('execution.cleanup_index',1),('current.ref_index',1),('begin_plan.media_index',1),
@@ -110,4 +111,4 @@ def test_monitor_exposes_counters_but_not_checkpoint_payload(task):
  patch(task,'phase','done') # Completed preview is still waiting for execution confirmation.
  job=asyncio.run(read(task))['jobs'][0]
  assert job['uid']=='task' and job['stalled_attempts']==1 and job['recovery_state']=='no_progress'
- assert job['total_failures']==0 and job['checkpoint_version']==3 and 'checkpoint' not in job
+ assert job['total_failures']==0 and job['checkpoint_version']==5 and 'checkpoint' not in job

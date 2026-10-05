@@ -1,5 +1,5 @@
 """D1 SQL adapter with atomic batches and native domain errors; no schema translation."""
-from backend.app.native.catalog import Error
+from backend.app.native.errors import Error
 from backend.app.native.site_sync_diagnostics import database
 
 def plain(value):

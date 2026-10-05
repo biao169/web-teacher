@@ -4,13 +4,14 @@ Only persisted execution cursors are evidence. HTTP success, timestamps, work
 markers, error text and manual selection changes are deliberately excluded.
 This is local bookkeeping, not a change to the signed peer protocol.
 """
-VERSION = 3
+VERSION = 5
 PATHS = (
     'phase', 'side', 'table_index', 'after', 'count', 'candidate_count',
     'candidate_after', 'load_index', 'skipped', 'prepared_uid',
     'outgoing.confirmed', 'approval.ready',
     'check_index', 'check_ref', 'current.stage', 'analysis.side',
     'analysis.after', 'analysis.reverse_after', 'analysis.processed',
+    'current.field_reader.stage', 'current.field_reader.index', 'current.field_reader.offset',
     'current.ref_index', 'current.back_index', 'current.after',
     'latest_pending.side', 'latest_pending.table', 'latest_pending.row.uid',
     'execution.phase', 'execution.file_index', 'execution.offset', 'execution.bytes',
@@ -24,7 +25,7 @@ PATHS = (
 )
 CHECKS = ('begin_check', 'commit_check', 'proposal_check')
 CHECK_FIELDS = ('phase', 'side', 'table_index', 'after', 'version_count')
-MEDIA_FIELDS = ('version', 'merge_width', 'merge_offset', 'assembled_version', 'target_version')
+MEDIA_FIELDS = ('finalize_stage','signature_version','merge_pending.stage','merge_pending.checked','verify.role','verify.offset','publication.source_version','version', 'merge_width', 'merge_offset', 'assembled_version', 'target_version')
 
 
 def projection():

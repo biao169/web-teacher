@@ -1,6 +1,5 @@
 """Create request applications after startup; never snapshot random identifiers."""
-from workers import asgi, WorkerEntrypoint, DurableObject
-from worker_runtime.routing import dispatch
+from workers import WorkerEntrypoint, DurableObject
 from worker_runtime.diagnostics import phase, emit
 from worker_runtime import snapshot  # deterministic imports enter the Python snapshot
 
@@ -8,6 +7,7 @@ from worker_runtime import snapshot  # deterministic imports enter the Python sn
 def build_application(include_transfer=False):
     """Build a fresh app synchronously; a failed attempt cannot leave cached routes."""
     with phase('INIT-RESOURCES'):
+        from worker_runtime import http_snapshot
         from worker_runtime.resources import resource_factory
         from backend.app.native.web import create_app
         from worker_runtime.bridge import BoundApplication
@@ -21,7 +21,8 @@ def build_application(include_transfer=False):
             from generated_resources import TRANSFER_TEMPLATES, TRANSFER_CATALOG
             from worker_runtime.transfer import install as transfer
             transfer(app, resource_factory, TRANSFER_TEMPLATES, TRANSFER_CATALOG)
-    return BoundApplication(app)
+    from worker_runtime.http_boundary import Boundary
+    return Boundary(BoundApplication(app))
 
 
 class LazyApplication:
@@ -44,29 +45,30 @@ application = LazyApplication()
 class TransferCoordinator(DurableObject):
     """Keep one request-created application per coordinator instance."""
     async def fetch(self, request):
+        from workers import asgi
         if not hasattr(self, '_application'):
             self._application = LazyApplication(include_transfer=True)
-        with phase('COORDINATOR-FETCH', progress=False):
-            return await asgi.fetch(self._application, request, self.env, self.ctx)
+        try:
+            with phase('COORDINATOR-FETCH', progress=False):
+                return await asgi.fetch(self._application, request, self.env, self.ctx)
+        except Exception:
+            from worker_runtime.http_boundary import unavailable
+            return await asgi.fetch(unavailable,request,self.env,self.ctx)
 
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
-        with phase('FETCH', progress=False):
-            return await dispatch(application, request, self.env, self.ctx, asgi.fetch)
+        from workers import asgi
+        from worker_runtime.routing import dispatch
+        try:
+            with phase('FETCH', progress=False):
+                return await dispatch(application, request, self.env, self.ctx, asgi.fetch)
+        except Exception:
+            from worker_runtime.http_boundary import unavailable
+            return await asgi.fetch(unavailable,request,self.env,self.ctx)
 
     async def scheduled(self, controller, env=None, ctx=None):
-        with phase('CRON', progress=False):
-            # Cron does not need to initialize the HTTP application or its room state.
-            # Before D1 is available only platform logs can survive a startup failure.
-            with phase('CRON-MODULES'):
-                from worker_runtime.bridge import Environment
-                from worker_runtime.maintenance import run
-                from backend.app.adapters.d1.sql import D1SQL
-            with phase('CRON-DATABASE'):
-                bindings = Environment(self.env)
-                sql = D1SQL(getattr(bindings, str(bindings.TEACHER_DATABASE_BINDING)))
-            job, result = await run(sql, bindings, controller)
-            reason = result.get('skipped')
-            emit('CRON', 'SKIPPED' if reason else 'OK', job=job,
-                 reason=reason if reason in ('not-initialized', 'disabled', 'interval', 'busy', 'waiting') else '')
+        emit('CRON-ENTRY','START')
+        from worker_runtime.cron_entry import run
+        # Platform callback arguments are authoritative; self.env supports direct tests.
+        return await run(controller,env if env is not None else self.env)

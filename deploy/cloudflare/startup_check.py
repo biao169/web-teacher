@@ -59,10 +59,13 @@ def check(runtime, source=None):
         assert module.application.application is None, 'Application built during startup'
         assert 'backend.entrypoints.worker' not in sys.modules, 'Legacy entrypoint constructed an unused app'
         if (runtime/'snapshot.py').exists():
-            for name in ('backend.app.native.web', 'worker_runtime.transfer', 'transfer.backend.codes'):
-                assert name in sys.modules, 'Snapshot preload missing: '+name
+            for name in ('backend.app.adapters.d1.sql','backend.app.native.site_sync_dispatch'):
+                assert name in sys.modules, 'Minimal Cron preload missing: '+name
+            for name in ('backend.app.native.web','backend.app.native.catalog','worker_runtime.http_snapshot',
+                         'worker_runtime.transfer','backend.app.native.site_sync_schedule','fastapi','generated_resources'):
+                assert name not in sys.modules, 'Heavy module on Cron startup path: '+name
         assert hasattr(module.Default,'fetch') and hasattr(module.TransferCoordinator,'fetch')
-    print('Snapshot imports checked; request application and transfer state remain uninitialized. SDK/cloud validation still required.')
+    print('Minimal Cron imports checked; HTTP/schema/business graphs remain unloaded. SDK/cloud validation still required.')
 
 
 if __name__=='__main__':

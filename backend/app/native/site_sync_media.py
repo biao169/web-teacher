@@ -20,7 +20,7 @@ def negotiate(r,head):
     preferred=chunk_size(head.get('preferred_chunk_bytes'))
     # An old adaptive peer only understands 16/64 KiB. New widths require advertisement.
     supported=head.get('supported_chunk_bytes')
-    common=[n for n in supported if type(n) is int and n in MEDIA_WIDTHS] if isinstance(supported,list) else [WORKER['media_chunk_bytes'],CHUNK]
+    common=[n for n in supported if type(n) is int and n in MEDIA_WIDTHS] if isinstance(supported,list) else [16384,CHUNK]
     target=min(for_resource(r)['media_chunk_bytes'],preferred)
     allowed=[n for n in common if n<=target]
     if allowed:return max(allowed)
@@ -59,43 +59,58 @@ def merged_key(task,index,width,offset,base=CHUNK):
     return chunk_key(task,index,offset) if width==base else f'site-sync/{task}/{index}/merge-{width}-{offset}.bin'
 
 async def finalize_step(r,task,index,item):
-    """One merge group, one checksum, or one publication per call."""
-    from .site_sync_stream import compose,checksum
+    """Each intent, merge recovery range, hash range and publication has a checkpoint."""
+    from .site_sync_stream import compose
+    from .site_sync_media_recovery import merge_step,verify_step,stable,conflict
     from .media_locks import lease
     from .media_references import REFERENCE_LOCK
     e=task['state']['execution'];uid=task['uid']
     base=chunk_size(item.get('chunk_bytes',CHUNK))
     width=item.get('merge_width',base);offset=item.get('merge_offset',0)
     if width<item['size']:
-        parts=[(merged_key(uid,index,width,n,base),min(width,item['size']-n)) for n in range(offset,min(offset+width*COMPOSE_FANOUT,item['size']),width)]
-        await compose(r.cache_store,r.cache_store,parts,merged_key(uid,index,width*COMPOSE_FANOUT,offset,base))
-        offset+=width*COMPOSE_FANOUT
-        if offset>=item['size']:width*=COMPOSE_FANOUT;offset=0
-        item.update(merge_width=width,merge_offset=offset);return
+        item['finalize_stage']='merge-recover' if item.get('merge_pending',{}).get('stage')=='compare' else 'merge'
+        await merge_step(r,task,index,item,width,offset,base)
+        return
     key=merged_key(uid,index,width,0,base);cache=inventory(r.cache_store)
-    head=await cache.head(key)
-    if not head or head['size']!=item['size']:raise Error('合并暂存缺失，请取消后重新同步',409)
+    head=await stable(r.cache_store,key,item['size'],item.get('assembled_version'))
     if not item.get('assembled_version'):
-        prefix=await cache.read_range(key,0,min(512,item['size']),head['version'])
-        mime=signature(prefix,PurePosixPath(item['key']).suffix.lstrip('.').lower())
-        if mime!=item['mime_type']:raise Error('媒体内容与登记类型不符',409)
-        value=await checksum(r.cache_store,key,item['size'])
-        if item.get('source_checksum') and value!=item['source_checksum']:raise Error('媒体整体摘要不符，未覆盖目标文件',409)
-        if await cache.head(key)!=head:raise Error('合并暂存发生变化',409)
-        item.update(sha256=value,assembled_version=head['version']);return
-    if head['version']!=item['assembled_version']:raise Error('合并暂存已变化，未写入媒体',409)
+        if not item.get('signature_version'):
+            prefix=await cache.read_range(key,0,min(512,item['size']),head['version'])
+            mime=signature(prefix,PurePosixPath(item['key']).suffix.lstrip('.').lower())
+            if mime!=item['mime_type']:raise conflict('媒体内容与登记类型不符')
+            await stable(r.cache_store,key,item['size'],head['version'])
+            item.update(signature_version=head['version'],finalize_stage='verify-assembled');return
+        if item['signature_version']!=head['version']:raise conflict('合并暂存发生变化')
+        item['finalize_stage']='verify-assembled'
+        value=await verify_step(r,task,item,r.cache_store,key,head,'assembled')
+        if value is None:return
+        if item.get('source_checksum') and value!=item['source_checksum']:raise conflict('媒体整体摘要不符，未覆盖目标文件')
+        item.update(sha256=value,assembled_version=head['version']);item.pop('verify',None);return
     store=inventory(r.media_store)
     async with lease(r,REFERENCE_LOCK,'edit'):
         existing=await store.head(item['key'])
         if existing:
-            if existing['size']!=item['size'] or await checksum(r.media_store,item['key'],item['size'])!=item['sha256']:
-                raise Error('目标存在同名不同内容文件；未覆盖',409)
-            if await store.head(item['key'])!=existing:raise Error('目标媒体发生变化',409)
+            if existing['size']!=item['size']:raise conflict('目标存在同名不同内容文件；未覆盖')
+            item['finalize_stage']='verify-target'
+            value=await verify_step(r,task,item,r.media_store,item['key'],existing,'target')
+            if value is None:return
+            if value!=item['sha256']:raise conflict('目标存在同名不同内容文件；未覆盖')
+            await stable(r.media_store,item['key'],item['size'],existing['version'])
             target=existing
+            # A publication receipt may have been lost. Ownership cannot be inferred
+            # from equal content: cancellation must not delete an unrelated object.
+            if item.get('publication') and not item.get('created_version'):item['publication_unconfirmed']=True
         else:
-            await compose(r.cache_store,r.media_store,[(key,item['size'])],item['key'],exclusive=True)
-            target=await store.head(item['key']);item['created_version']=target['version']
-        if await cache.head(key)!=head:raise Error('发布期间暂存发生变化，请重新核对',409)
+            if item.get('verify'):raise conflict('正在校验的目标媒体已消失')
+            if not item.get('publication'):
+                item.update(publication={'source_version':head['version']},finalize_stage='publish');return
+            if item['publication']['source_version']!=head['version']:raise conflict('发布来源版本变化')
+            item['finalize_stage']='publish'
+            target=await compose(r.cache_store,r.media_store,[(key,item['size'])],item['key'],exclusive=True,versions=[head['version']])
+            await stable(r.media_store,item['key'],item['size'],target['version'])
+            item['created_version']=target['version']
+        await stable(r.cache_store,key,item['size'],head['version'])
+        item.pop('verify',None);item['finalize_stage']='complete'
         item['target_version']=target['version'];e['file_index']+=1;e['offset']=0
 
 async def cleanup_step(r,task,index,item,budget):
@@ -105,7 +120,10 @@ async def cleanup_step(r,task,index,item,budget):
     maximum=base
     while maximum<item['size']:maximum*=COMPOSE_FANOUT
     while width<=maximum and used<budget:
-        await r.cache_store.delete(merged_key(task['uid'],index,width,offset,base));used+=1;offset+=width
+        from .site_sync_stream import discard_temp
+        key=merged_key(task['uid'],index,width,offset,base)
+        discard_temp(r.cache_store,key)
+        await r.cache_store.delete(key);used+=1;offset+=width
         if offset>=item['size']:width*=COMPOSE_FANOUT;offset=0
     e.update(cleanup_width=width,cleanup_offset=offset)
     return width>maximum

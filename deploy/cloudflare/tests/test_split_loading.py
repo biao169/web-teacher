@@ -17,7 +17,7 @@ def test_home_login_setup_never_install_transfer(builder, monkeypatch):
         for path in ('/en', '/auth/login', '/setup'):
             assert c.get(path).status_code in (200, 404)
     install.assert_not_called()
-    assert not hasattr(entry.application.application.app.state, 'worker_transfer')
+    assert not hasattr(entry.application.application.app.app.state, 'worker_transfer')
 
 
 def test_transfer_admin_keeps_integrated_workspace(builder):
@@ -28,8 +28,8 @@ def test_transfer_admin_keeps_integrated_workspace(builder):
         c.cookies.set(r.config.name('session'), token)
         assert c.get('/admin/transfer').status_code == 200
         assert c.get('/transfer/').status_code == 200
-    assert hasattr(app.application.app.state, 'transfer_admin_workspace')
-    assert hasattr(app.application.app.state, 'worker_transfer')
+    assert hasattr(app.application.app.app.state, 'transfer_admin_workspace')
+    assert hasattr(app.application.app.app.state, 'worker_transfer')
     assert entry.application.application is None
 
 

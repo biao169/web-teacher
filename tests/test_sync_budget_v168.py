@@ -23,7 +23,7 @@ def test_pressure_survives_success_and_keeps_progress_retry_allowance(task):
   saved=pos(task)['work'];assert saved['resource_level']==level
   assert saved['retry_count']==0 and saved['retryable']
   due(task)
- assert seen==[5,2,1]
+ assert seen==[1,1,1]
  @work.step('execute')
  async def success(r,uid):
   assert limits.for_resource(r)['media_chunk_bytes']==4096
@@ -31,7 +31,7 @@ def test_pressure_survives_success_and_keeps_progress_retry_allowance(task):
  result=run(success(task,'task'))
  assert result['request_interval_ms']==15000 and result['work']['resource_level']==2
  assert result['work']['pace_after']>now()
- assert limits.for_resource(task)['media_chunk_bytes']==16384
+ assert limits.for_resource(task)['media_chunk_bytes']==4096
  assert gate.waiting(run(gate.checkpoint(task.sql,'task')),now())[0]=='retry_wait'
 
 def test_unconfirmed_reconciliation_lowers_budget_once(task):
@@ -42,20 +42,20 @@ def test_unconfirmed_reconciliation_lowers_budget_once(task):
  due(task);saved=run(work.reconcile(task,'task'))
  assert saved['resource_level']==1
  assert run(work.reconcile(task,'task'))['resource_level']==1
- assert limits.for_resource(task)['version_rows']==5
+ assert limits.for_resource(task)['version_rows']==1
 
 def test_budget_isolation_and_local_profile():
  a=SimpleNamespace(kind='r2');b=SimpleNamespace(kind='r2');local=SimpleNamespace(kind='local')
  async def read(r,n):
   with limits.budget(r,{'resource_level':n}):
    await asyncio.sleep(0)
-   if r is a:assert limits.for_resource(b)['version_rows']==5
+   if r is a:assert limits.for_resource(b)['version_rows']==1
    return limits.for_resource(r)['version_rows']
  async def together():return await asyncio.gather(read(a,2),read(b,1),read(local,2))
- assert run(together())==[1,2,20]
+ assert run(together())==[1,1,20]
  assert limits.pressured(local,{},'1102')==0
 
-@pytest.mark.parametrize('level,width',[(1,8192),(2,4096)])
+@pytest.mark.parametrize('level,width',[(1,4096),(2,4096)])
 def test_new_width_requires_peer_capability(level,width):
  r=SimpleNamespace(kind='r2')
  with limits.budget(r,{'resource_level':level}):
@@ -72,9 +72,9 @@ def test_version_pages_shrink_without_changing_cursor_or_digest(monkeypatch):
  monkeypatch.setattr(core,'revision_page',page)
  r=SimpleNamespace(kind='r2',sql=None)
  state={'phase':'baseline','side':'local','table_index':0,'after':'','policy':{'version_rows':20},'version_count':0,'table_count':0,'version_hash':'','totals':{'local':{}}}
- for level in (0,1,2,2):
+ for level in (0,1,2,2,2,2,2,2,2):
   with limits.budget(r,{'resource_level':level}):run(tasks.version_step(r,{},state))
- assert seen==[5,2,1,1] and state['version_count']==9 and state['table_index']==1
+ assert seen==[1]*9 and state['version_count']==9 and state['table_index']==1
  table=sorted(core.SCOPES)[0]
  assert state['version_hash']==core.revision_fold('',table,rows,first=True)
 

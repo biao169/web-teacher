@@ -26,7 +26,7 @@ def test_adaptive_transfer_and_lost_ack(pair,monkeypatch,legacy):
    sizes.append((data['payload'].get('chunk_bytes',65536),len(result.raw)))
   return result
  binary.test_multichunk_resume_and_legacy_fallback((*pair[:-1],observe),monkeypatch,False)
- expected=65536 if legacy else 16384
+ expected=65536 if legacy else 4096
  assert sizes and all(width==expected and n<=expected for width,n in sizes)
  rows=run(a.sql.query('SELECT state FROM sync_tasks'))
  executed=[json.loads(v['state']) for v in rows if 'execution' in json.loads(v['state'])]
@@ -91,4 +91,4 @@ def test_four_kib_transfer_lost_ack_merge_and_cleanup(pair,monkeypatch):
   if data['payload']['op']=='media-range-binary':seen.append(data['payload']['chunk_bytes'])
   return result
  binary.test_multichunk_resume_and_legacy_fallback((*pair[:-1],record),monkeypatch,False)
- assert seen and set(seen)=={4096 if pair[2].kind=='r2' else 16384}
+ assert seen and set(seen)=={4096}

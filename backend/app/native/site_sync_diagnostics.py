@@ -3,7 +3,7 @@ import hashlib,json,logging,secrets,time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
-from .catalog import Error
+from .errors import Error
 
 _current=ContextVar('sync_diagnostic',default=None)
 # Match known infrastructure messages, but publish only fixed descriptions.

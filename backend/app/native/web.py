@@ -18,28 +18,8 @@ from .media import Media
 from .navigation import editor_state as navigation_editor_state,preview as navigation_preview,parse_path,build_path,in_scope
 from .editor import editor_fields,editor_sections,reference_choices,citation_profile
 
-async def payload(request,limit=500000):
-    """Bound request size and reject duplicate form/JSON keys before dispatch."""
-    buf=bytearray()
-    async for chunk in request.stream():
-        if len(buf)+len(chunk)>limit:raise Error('请求内容过大',413)
-        buf.extend(chunk)
-    try:
-        if request.headers.get('content-type','').split(';')[0]=='application/json':
-            def pairs(items):
-                """为访客模板组织有值的原生字段标签及内容。"""
-                d={}
-                for k,v in items:
-                    if k in d:raise ValueError()
-                    d[k]=v
-                return d
-            d=json.loads(buf,object_pairs_hook=pairs)
-            if not isinstance(d,dict):raise ValueError()
-            return d
-        parsed=parse_qs(buf.decode(),keep_blank_values=True,max_num_fields=300)
-        if any(len(v)!=1 for v in parsed.values()):raise ValueError()
-        return {k:v[0] for k,v in parsed.items()}
-    except (ValueError,UnicodeDecodeError):raise Error('请求格式不正确') from None
+from .http_payload import payload
+from .http_csrf import csrf
 
 def create_app(factory,static_root=None):
     """Wire one set of services to either local SQLite/files or Worker D1/R2 resources."""
@@ -56,12 +36,6 @@ def create_app(factory,static_root=None):
             r.sql=PublicSQL(r.sql)
         r.content=Content(r.sql,r.auth);r.media=Media(r.sql,r.auth,r.content,r.media_store,r.kind)
         return r
-    def csrf(request,r,data):
-        """Require the current allowed origin plus session-bound CSRF, including fetch and multipart alternatives."""
-        r.config.same_origin(request)
-        if not r.p:raise Error('请先登录',401)
-        value=data.get('_csrf') or request.headers.get('x-csrf-token','')
-        if not hmac.compare_digest(str(value),r.p['csrf']):raise Error('页面验证已过期，请刷新',403)
     async def context(r,table='',title='',lang='zh'):
         """组合公共页面变量、菜单、身份与模块权限。"""
         rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')

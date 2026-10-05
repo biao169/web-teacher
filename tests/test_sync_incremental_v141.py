@@ -52,6 +52,8 @@ def test_write_ack_loss_retries_without_duplicate_audit_or_timestamp(pair,monkey
     assert lost and response.status_code==502
     saved=run(tasks.get(ra.sql,uid))['state']['execution'];assert saved['applied']==1
     key=saved['write_after'];stamp=run(ra.sql.query('SELECT updated_at FROM students WHERE uid=?',(key,)))[0]['updated_at']
+    assert api('pull-tick',{'uid':uid},ok=False).status_code==429
+    run(ra.sql.batch([("UPDATE sync_tasks SET state=json_set(state,'$.work.retry_after','2000-01-01T00:00:00.000Z') WHERE uid=?",(uid,))]))
     finish(api,uid)
     assert run(ra.sql.query('SELECT updated_at FROM students WHERE uid=?',(key,)))[0]['updated_at']==stamp
     audits=run(ra.sql.query("SELECT uid FROM operation_logs WHERE action='sync_record_add' AND target_uid=?",(key,)))

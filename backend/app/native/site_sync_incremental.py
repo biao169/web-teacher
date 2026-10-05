@@ -127,7 +127,17 @@ async def advance(r,task,p=None):
         current=s.setdefault('current',{'stage':'source','ref_index':0,'back_index':0,'after':''})
         item=await plan(r.sql,task,ident)
         if current['stage']=='source':
-            a=await read(r,task,source,table,key)
+            if 'field_chunks' not in s:
+                hello=await tasks.hello(r,p)
+                if hello['site_id']!=s['remote_id']:raise Error('对端身份变化，请重新准备',409)
+                s['field_chunks']=1 if hello.get('field_chunks')==1 else 0
+                await tasks.persist(r.sql,task)
+                return {'uid':uid,'status':'reading','phase':s['phase'],'count':s['count']}
+            if s['field_chunks']==1:
+                from .site_sync_fields import read_step
+                a=await read_step(r,task,source,table,key)
+                if a is None:return {'uid':uid,'status':'reading','phase':s['phase'],'count':s['count']}
+            else:a=await read(r,task,source,table,key)
             original=await get(r.sql,s['parent_uid'],'local',preview.CANDIDATE+table,key)
             if original and (original['action']=='delete')!=(a['row'] is None):raise Error('候选操作已变化，请重新预览：'+ident,409)
             if table=='media_assets' and a['row'] is None:
@@ -136,7 +146,8 @@ async def advance(r,task,p=None):
             item={'id':ident,'table':table,'uid':key,'title':str((a['row'] or {}).get(TITLE[table]) or key)[:160],
                   'module_label':MODULES[table],'fields':[],'dependencies':[],'references':[],'blocked':[],'in_scope':table in s['scopes'],
                   'candidate':True,'source_uid':a['uid'],'source_stamp':a['stamp'],'action':'update' if a['row'] is not None else 'delete'}
-            statements=[put(uid,source,table,key,a['row'])]
+            statements=[] if current.get('field_reader',{}).get('stage')=='done' else [put(uid,source,table,key,a['row'])]
+            current.pop('field_reader',None)
             current['stage']='target'
         elif current['stage']=='target':
             b=await read(r,task,target,table,key,context=True)
@@ -149,22 +160,28 @@ async def advance(r,task,p=None):
             if a is None:item['title']=str((b['row'] or {}).get(TITLE[table]) or key)[:160]
             if source=='remote':r.auth.require(r.p,table,{'add':'create','update':'edit','delete':'delete'}[item['action']])
             statements=[put(uid,target,table,key,b['row'])]
-            if a is not None:
-                from .data_restore import normalize_record
-                normalized=normalize_record(r,table,dict(a,uid=b['uid'] or a['uid']),b['row'] or {})
-                statements.append(put(uid,'local','@write:'+table,key,normalized))
-                inputs,errors=core.reference_inputs(table,a,with_kind=True)
-                if errors:raise Error('；'.join(errors),409)
-                if len(inputs)>20:raise Error('单条引用超过20项，请精简后重试')
-                current['refs']=inputs;current['stage']='refs'
-                if table=='media_assets':
-                    from .site_sync_execute_plan import media_entry
-                    media=media_entry(a,b['row'])
-                    if media:
-                        from .site_sync_media import TOTAL_LIMIT
-                        if len(s['media'])>=100 or s['media_bytes']+media['size']>TOTAL_LIMIT:raise Error('本次媒体超过100个或24MiB，请分批选择')
-                        s['media'].append(media);s['media_bytes']+=media['size']
-            else:current['stage']='back'
+            current['stage']='normalize' if a is not None else 'back'
+        elif current['stage']=='normalize':
+            a=await get(r.sql,uid,source,table,key)
+            b=await get(r.sql,uid,target,table,key)
+            from .data_restore import normalize_record
+            normalized=normalize_record(r,table,dict(a,uid=item['target_uid'] or a['uid']),b or {})
+            statements.append(put(uid,'local','@write:'+table,key,normalized))
+            current['stage']='references'
+        elif current['stage']=='references':
+            a=await get(r.sql,uid,source,table,key)
+            inputs,errors=core.reference_inputs(table,a,with_kind=True)
+            if errors:raise Error('；'.join(errors),409)
+            if len(inputs)>20:raise Error('单条引用超过20项，请精简后重试')
+            current['refs']=inputs;current['stage']='refs'
+            if table=='media_assets':
+                b=await get(r.sql,uid,target,table,key)
+                from .site_sync_execute_plan import media_entry
+                media=media_entry(a,b)
+                if media:
+                    from .site_sync_media import TOTAL_LIMIT
+                    if len(s['media'])>=100 or s['media_bytes']+media['size']>TOTAL_LIMIT:raise Error('本次媒体超过100个或24MiB，请分批选择')
+                    s['media'].append(media);s['media_bytes']+=media['size']
         elif current['stage']=='refs':
             refs=current['refs'];n=current['ref_index']
             if n<len(refs):

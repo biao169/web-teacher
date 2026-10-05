@@ -268,10 +268,10 @@ test('monitor displays checkpoints safely and viewing does not advance',async t=
  w.eval(rawSource);await tick();assert.match(d.querySelector('#sync-monitor-rows').textContent,/等待重试/);assert.equal(d.querySelector('#sync-monitor-rows img'),null);
  d.querySelector('#sync-monitor-rows button').click();await tick();assert.deepEqual(calls,['monitor','get']);assert.match(d.querySelector('#sync-status').textContent,/尚未推进/);
 });
-test('monitor failure disables automatic refresh and preserves task UI',async t=>{
+test('monitor failure keeps automatic refresh and preserves task UI',async t=>{
  const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
  w.notify=()=>{};w.adminFetch=async()=>({ok:false,status:503,json:async()=>({error:'temporary failure'})});w.eval(rawSource);await tick();
- assert.equal(d.querySelector('#sync-monitor-auto').checked,false);assert.match(d.querySelector('#sync-monitor-info').textContent,/已停止自动刷新/);
+ assert.equal(d.querySelector('#sync-monitor-auto').checked,true);assert.match(d.querySelector('#sync-monitor-info').textContent,/60秒后自动重试/);
  assert.equal(d.querySelector('#sync-result').hidden,true);
 });
 test('monitor page cursor is forwarded without loading full tasks',async t=>{
@@ -397,4 +397,65 @@ test('latest-preview minimal initialization route has clear monitor labels',asyn
  w.adminFetch=async()=>({ok:true,json:async()=>({server_time:stamp,jobs:[{uid:'latest-task',status:'reading',scheduler:{initialization:{stages:['latest_gate','latest_modules','latest_resources'].map(phase=>({phase,status:'completed',started_at:stamp,finished_at:stamp,elapsed_ms:1}))}}}]})});
  w.eval(rawSource);await tick();const text=d.querySelector('#sync-monitor-rows details').textContent;
  assert.match(text,/检查候选读取专用路径/);assert.match(text,/加载候选读取组件/);assert.match(text,/创建候选读取最小上下文/);
+});
+
+test('monitor failure retains automatic retries instead of disabling the checkbox',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};w.adminFetch=async()=>({ok:false,status:503,json:async()=>({code:'worker_request_failed',error:'temporary'})});
+ w.eval(rawSource);await tick();
+ assert(d.querySelector('#sync-monitor-auto').checked);
+ assert.match(d.querySelector('#sync-monitor-info').textContent,/60秒后自动重试/);
+});
+
+test('stale worker scheduler wakes only once and renders Cron and missing phase information',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ Object.defineProperty(d,'hidden',{value:false,configurable:true});w.notify=()=>{};
+ w.adminFetch=async url=>{calls.push(url);return {ok:true,json:async()=>url.endsWith('/wake')?{status:'ok'}:{browser_wake_available:true,runtime_version:'0.15.174',server_time:'2026-10-05T05:00:00Z',cron:{arrived_at:'2026-10-05T04:00:00Z',status:'failed',error_type:'RuntimeError'},schedule:{scheduler:{arrived_at:'2026-10-05T04:00:00Z'}},jobs:[{uid:'task',status:'reading',advance_mode:'background',preparation_stage:'normalize',scheduler:{started_at:'2026-10-05T04:00:00Z'}}]}}};
+ w.eval(rawSource);await tick();
+ assert.equal(calls.filter(x=>x.endsWith('/wake')).length,1);
+ assert.match(d.querySelector('#sync-monitor-info').textContent,/服务端版本 0.15.174.*最近 Cron 到达.*超过3分钟/);
+ assert.match(d.querySelector('#sync-monitor-rows').textContent,/此轮未记录阶段明细/);
+ assert.match(d.querySelector('#sync-monitor-rows').textContent,/准备写入字段/);
+ d.querySelector('#sync-monitor-refresh').click();await tick();
+ assert.equal(calls.filter(x=>x.endsWith('/wake')).length,1);
+});
+
+test('monitor never wakes paused tasks or a healthy scheduler',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document,calls=[];
+ Object.defineProperty(d,'hidden',{value:false,configurable:true});w.notify=()=>{};
+ let active=false;
+ w.adminFetch=async url=>{calls.push(url);return {ok:true,json:async()=>({browser_wake_available:true,runtime_version:'0.15.174',server_time:'2026-10-05T05:00:00Z',schedule:{scheduler:{arrived_at:active?'2026-10-05T05:00:00Z':'2026-10-05T04:00:00Z'}},jobs:[{uid:'task',status:'reading',advance_mode:active?'background':'manual'}]})}};
+ w.eval(rawSource);await tick();active=true;d.querySelector('#sync-monitor-refresh').click();await tick();
+ assert(calls.every(x=>x.endsWith('/monitor')));
+});
+
+test('Cron preflight is shown as waiting for a separate business round',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};w.adminFetch=async()=>({ok:true,json:async()=>({runtime_version:'0.15.175',server_time:'2026-10-05T06:00:00Z',jobs:[{uid:'preflight',status:'reading',advance_mode:'background',scheduler:{stage:'finished',result:'prepared',started_at:'2026-10-05T05:59:00Z',finished_at:'2026-10-05T05:59:01Z'}}]})});
+ w.eval(rawSource);await tick();
+ assert.match(d.querySelector('#sync-monitor-rows').textContent,/预检查完成，等待下一轮业务推进/);
+ assert.match(d.querySelector('#sync-monitor-info').textContent,/服务端版本 0.15.175/);
+});
+
+test('long field checkpoint shows saved character offset without field contents',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};w.adminFetch=async()=>({ok:true,json:async()=>({runtime_version:'0.15.176',server_time:'2026-10-05T06:00:00Z',jobs:[{uid:'fields',status:'reading',field_stage:'chunks',field_name:'content',field_offset:512,field_total:6002}]})});
+ w.eval(rawSource);await tick();
+ assert.match(d.querySelector('#sync-monitor-rows').textContent,/长字段分片：content · 512 \/ 6002 JSON 字符 · 读取并保存/);
+});
+
+test('media verification renders durable offset and per-step budget',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};w.adminFetch=async()=>({ok:true,json:async()=>({runtime_version:'0.15.177',server_time:'2026-10-05T06:00:00Z',jobs:[{uid:'media',status:'ready',media_stage:'verify-assembled',media_verify_offset:8192,media_verify_size:21000,media_verify_block:1024}]})});
+ w.eval(rawSource);await tick();
+ assert.match(d.querySelector('#sync-monitor-rows').textContent,/媒体恢复步骤：校验暂存文件 · 已校验 8192 \/ 21000 字节 · 校验每步最多 1024 字节/);
+});
+
+test('three hour patrol has separate health and never hides stale minute cron',async t=>{
+ const dom=new JSDOM(markup(),{runScripts:'outside-only',url:'https://a.example.org'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.notify=()=>{};w.adminFetch=async()=>({ok:true,json:async()=>({runtime_version:'0.15.178',server_time:'2026-10-05T06:00:00Z',jobs:[],cron:{arrived_at:'2026-10-05T05:00:00Z',status:'finished'},watchdog:{arrived_at:'2026-10-05T06:00:00Z',status:'finished',result:'prepared'},schedule:{scheduler:{arrived_at:'2026-10-05T06:00:00Z',source:'worker-watchdog'}}})});
+ w.eval(rawSource);await tick();const text=d.querySelector('#sync-monitor-info').textContent;
+ assert.match(text,/最近三小时恢复巡检.*预检查完成/);
+ assert.match(text,/分钟 Cron 超过3分钟未到达/);
+ assert.match(text,/（三小时巡检）/);
 });

@@ -1,5 +1,5 @@
 """Recover receipts before importing the full business resource graph."""
-async def run(sql, bindings):
+async def run(sql, bindings,*,source='worker',staged=False):
     from backend.app.native.site_sync_dispatch import run as dispatch
     async def execute(uid):
         import sys
@@ -22,7 +22,7 @@ async def run(sql, bindings):
         return await tick(base,prune_history=False,dispatch_uid=uid)
     from worker_runtime.diagnostics import emit
     try:
-        result=await dispatch(sql,execute,kind='worker')
+        result=await dispatch(sql,execute,kind=source,staged=staged)
         emit('SYNC-CRON','PAUSED' if result.get('status')=='paused' else 'OK')
         return result
     except Exception as exc:

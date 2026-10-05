@@ -1,7 +1,7 @@
 """Read-only bounded task monitoring; never load task payloads or contact peers."""
 import json
 from .catalog import Error,now
-from .site_sync_schedule import status as schedule_status
+from .site_sync_schedule_status import status as schedule_status
 from .site_sync_work import policy
 from .site_sync_checkpoint import recovery_state
 from .site_sync_gate import waiting
@@ -15,7 +15,7 @@ async def read(r,options=None):
     if after is not None:
         if not isinstance(after,list) or len(after)!=2 or any(not isinstance(x,str) or len(x)>128 for x in after):raise Error('任务状态游标无效')
         where+=' AND (created_at,uid)<(?,?)';args+=after
-    fields={'direction':'direction','phase':'phase','execution_phase':'execution.phase',
+    fields={'field_stage':'current.field_reader.stage','field_offset':'current.field_reader.offset','field_bytes':'current.field_reader.bytes','field_index':'current.field_reader.index','preparation_stage':'current.stage','direction':'direction','phase':'phase','execution_phase':'execution.phase',
         'work_status':'work.status','started_at':'work.started_at','completed_at':'work.completed_at',
         'retry_after':'work.retry_after','recover_after':'work.recover_after','retry_count':'work.retry_count',
         'retryable':'work.retryable','operation':'work.operation','work_phase':'work.phase',
@@ -25,8 +25,14 @@ async def read(r,options=None):
         'approval_id':'approval.request_id','latest_only':'latest_only','auto_latest':'auto_latest','parent_uid':'parent_uid',
         'prepared_uid':'prepared_uid','restart_uid':'restart_uid','load_index':'load_index'}
     fields.update({key:'work.'+key for key in ('checkpoint_version','progress_events','last_progress_at','total_failures','uncertain_attempts','stalled_attempts','last_outcome','failures_with_progress','no_progress_failures','last_error_code','last_error_at','reconciled_at')})
+    index="coalesce(json_extract(state,'$.current.field_reader.index'),0)"
+    field_projection=","+",".join("json_extract(state,'$.current.field_reader.fields['||"+index+"||']."+key+"') AS field_"+name for key,name in (('name','name'),('chars','total')))
+    media_index="coalesce(json_extract(state,'$.execution.file_index'),0)"
+    media_projection=","+",".join("json_extract(state,'$.execution.media['||"+media_index+"||']."+path+"') AS "+name for name,path in (
+        ('media_stage','finalize_stage'),('media_verify_offset','verify.offset'),('media_merge_checked','merge_pending.checked'),
+        ('media_merge_size','merge_pending.size'),('media_verify_size','size'),('media_verify_block','verify_block_bytes')))
     projection=','.join("json_extract(state,'$."+path+"') AS "+name for name,path in fields.items())
-    rows=await r.sql.query('SELECT uid,status,created_at,'+projection+
+    rows=await r.sql.query('SELECT uid,status,created_at,'+projection+field_projection+media_projection+
         ",substr(coalesce(json_extract(state,'$.work.error'),json_extract(state,'$.execution.error'),''),1,500) AS error"
         ",json_array_length(state,'$.execution.media') AS media_count"
         ",json_extract(state,'$.execution.media['||coalesce(json_extract(state,'$.execution.file_index'),0)||'].chunk_bytes') AS chunk_bytes"
@@ -66,5 +72,9 @@ async def read(r,options=None):
         else:mode='background'
         job.update(advance_mode=mode,wait_reason=reason,next_attempt_at=deadline if mode=='background' else None)
 
-    return {'jobs':jobs,'next':[jobs[-1]['created_at'],jobs[-1]['uid']] if len(rows)>20 else None,
+    from .site_sync_gate import load
+    from .runtime_version import VERSION
+    cron=await load(r.sql,'site-sync:cron-health')
+    watchdog=await load(r.sql,'site-sync:watchdog-health')
+    return {'runtime_version':VERSION,'cron':cron,'watchdog':watchdog,'jobs':jobs,'next':[jobs[-1]['created_at'],jobs[-1]['uid']] if len(rows)>20 else None,
             'schedule':schedule,'policy':policy(r),'server_time':stamp}

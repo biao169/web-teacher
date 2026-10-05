@@ -26,7 +26,7 @@ def test_first_http_then_real_login_and_subsequent_requests(builder, monkeypatch
         for path in ('/en','/zh','/auth/login'):
             assert client.get(path).status_code==200,path
         assert factory.call_count==1
-        assert not hasattr(entry.application.application.app.state, "worker_transfer")
+        assert not hasattr(entry.application.application.app.app.state, "worker_transfer")
     finally:
         client.close()
 

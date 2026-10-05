@@ -7,5 +7,7 @@ def test_incremental_media_and_references_across_adapters(pair):
     for r in pair[2:4]:
         if r.kind=='r2':
             assert max(r.sql.binding.batches)<=25
-            assert not any('json_group_array' in sql for sql in r.sql.binding.reads)
+            from backend.app.native.site_sync_checkpoint import PROJECTION
+            # Compact cursor aggregation is allowed; full business snapshot aggregation is not.
+            assert not any('json_group_array' in sql and PROJECTION not in sql for sql in r.sql.binding.reads)
             assert not any(k.startswith('cache/site-sync/') for k in r.cache_store.bucket.objects)

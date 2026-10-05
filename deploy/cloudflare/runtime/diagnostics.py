@@ -2,10 +2,11 @@
 from contextlib import contextmanager
 import json
 import time
+from backend.app.native.runtime_version import VERSION
 
 
 def emit(stage, status, **values):
-    print(json.dumps({'component': 'teacher-worker', 'patch': 'cloudflare-cpu-step4',
+    print(json.dumps({'component': 'teacher-worker', 'patch': 'cloudflare-cpu-step4', 'version':VERSION,
                       'stage': stage, 'status': status, **values}), flush=True)
 
 

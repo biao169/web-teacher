@@ -19,6 +19,8 @@ def test_missing_source_file_stops_before_content_commit_and_can_resume(pair):
  assert state['phase']=='download' and not state['committed']
  assert not run(ra.sql.query("SELECT uid FROM profiles WHERE uid='new-teacher'"))
  run(rb.media_store.put('new.jpg',raw))
+ # A non-transient missing-file error needs an explicit retry after repair.
+ api('resume',{'uid':uid})
  finish(api,uid)
  assert run(ra.sql.query("SELECT avatar_key FROM profiles WHERE uid='new-teacher'"))[0]['avatar_key']=='new.jpg'
  assert run(ra.media_store.get('new.jpg'))==raw

@@ -12,7 +12,7 @@ async def run(sql, bindings, controller=None):
     job = job_for(controller)
     if job == 'sync':
         from worker_runtime.sync_schedule import run as sync
-        result = await sync(sql, bindings)
+        result = await sync(sql, bindings,staged=True)
     elif job == 'history':
         from backend.app.native.site_sync_history import prune
         from backend.app.native.site_sync_limits import WORKER

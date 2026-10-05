@@ -15,9 +15,7 @@ CONTENT=('profiles','students','research_interests','projects','publications','p
 SECRET={f for t in TABLES.values() for f in t['columns'] if any(s in f for s in ('password_hash','api_key','client_secret','translator_key','token_hash'))}
 READONLY={'id','uid','created_at','updated_at','last_login_at','is_system','translation_job_state','source_hash','source_ref_key','source_refs','error_message'}|SECRET
 TITLE={t:next((f for f in ('name','title','label','site_name','username','source_ref_key','subject','action') if f in s['columns']),'uid') for t,s in TABLES.items()}
-class Error(Exception):
-    """Expected domain error rendered without SQL, credentials or tracebacks."""
-    def __init__(self,message,status=422,code=None):"""保存构造参数和适配器，供此对象后续操作复用。""";self.message=message;self.status=status;self.code=code;super().__init__(message)
+from .errors import Error
 def now(after=None,seconds=0):
     """Canonical 24-character timestamps; strict monotonic update tokens avoid lost writes."""
     value=datetime.now(timezone.utc)+timedelta(seconds=seconds)

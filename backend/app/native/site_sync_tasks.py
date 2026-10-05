@@ -47,7 +47,7 @@ async def start(r,direction,scopes,*,previous=None,lightweight=False,prepare_par
     if lightweight and remote.get('brief_preview')!=1:raise Error('简要预览需要两站更新至 v0.15.140；请先更新对端',409)
     if latest_only and (direction!='pull' or not lightweight or remote.get('latest_preview')!=1):raise Error('最新500项自动拉取需要两站更新至 v0.15.149；请更新对端后重试',409)
     uid=secrets.token_hex(16)
-    state={'preview_format':TASK_FORMAT,'policy':policy(r,remote.get('policy')),'work':{'status':'saved','completed_steps':0,'created_at':now()},'direction':direction,'scopes':scopes,'remote_id':remote['site_id'],'peer_revision':p['revision'],
+    state={'field_chunks':1 if remote.get('field_chunks')==1 else 0,'preview_format':TASK_FORMAT,'policy':policy(r,remote.get('policy')),'work':{'status':'saved','completed_steps':0,'created_at':now()},'direction':direction,'scopes':scopes,'remote_id':remote['site_id'],'peer_revision':p['revision'],
         'phase':'baseline','side':'local','table_index':0,'after':'','count':0,'bytes':0,'table_count':0,
         'version_hash':'','version_count':0,'totals':{'local':{},'remote':{}}}
     if lightweight:

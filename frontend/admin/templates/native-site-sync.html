@@ -1,5 +1,5 @@
 {% extends 'admin/layout.html' %}
-{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.170"></script>{% endblock %}
+{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-site-sync.js?v=0.15.178"></script>{% endblock %}
 {% block content %}
 <div id="site-sync" data-csrf="{{ csrf }}" data-interval-ms="{{ sync_policy.request_interval_ms }}" data-retry-seconds='{{ sync_policy.retry_seconds|tojson }}' data-retry-limit="{{ sync_policy.no_progress_retry_limit }}" data-retry-codes='{{ sync_policy.retry_codes|tojson }}'>
 <div class="native-title"><h1>两站同步</h1><span class="native-muted">双向预览 · 审批 · 定时拉取</span></div>
@@ -10,6 +10,7 @@
 <h2 id="sync-monitor-title">任务运行状态</h2>
 <p class="native-muted">本站：{{ 'Worker 超低资源模式' if sync_policy.mode=='ultra_low' else '本地标准模式' }}。显示持久化检查点；“等待完成回执”不代表服务器仍在执行；回执逾期也不等于失败。重试时间到达后，由原执行端或后台下一轮调度继续，状态面板不会触发重试。最多20条/页，可翻页查看。</p>
 <div class="native-helper-actions"><button id="sync-monitor-refresh" type="button" class="btn btn-outline-primary btn-sm">刷新任务状态</button><button id="sync-monitor-latest" type="button" class="btn btn-outline-secondary btn-sm">回到最新任务</button><label><input type="checkbox" id="sync-monitor-active" checked> 仅未完成任务</label><label><input type="checkbox" id="sync-monitor-auto" checked> 每60秒自动刷新</label></div>
+<p class="small text-muted">自动刷新遇到临时错误会退避重试。Worker 同步调度超过3分钟未到达时，本页面可限频辅助推进已有授权任务；关闭页面后仍需 Cron 正常运行。</p>
 <p id="sync-monitor-info" role="status" aria-live="polite">正在读取任务状态…</p>
 <p id="sync-monitor-summary" class="small text-muted" aria-label="本页状态汇总"></p>
 <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>任务 / 方向</th><th>状态 / 阶段</th><th>已保存进度</th><th>时间 / 等待原因</th><th>操作</th></tr></thead><tbody id="sync-monitor-rows"></tbody></table></div>

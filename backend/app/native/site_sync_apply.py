@@ -158,6 +158,13 @@ async def cleanup(r,task):
     item=e['media'][i]
     from .site_sync_media import cleanup_step
     if await cleanup_step(r,task,i,item,for_resource(r)['cleanup_batch']):
+        if item.get('publication'):
+            from .site_sync_stream import discard_temp
+            async with lease(r,REFERENCE_LOCK,'edit'):
+                discard_temp(r.media_store,item['key'])
+                if not item.get('created_version') and not await r.sql.query('SELECT 1 FROM media_assets WHERE object_key=?',(item['key'],)):
+                    head=await inventory(r.media_store).head(item['key'])
+                    if head and item['key'] not in e.setdefault('retained_files',[]):e['retained_files'].append(item['key'])
         # Cancel removes only our version of unregistered staged media, never referenced/live files.
         if (task['state'].get('incremental') or not e['committed']) and item.get('created_version'):
             async with lease(r,REFERENCE_LOCK,'edit'):
