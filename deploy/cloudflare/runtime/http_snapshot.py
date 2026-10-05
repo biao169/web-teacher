@@ -1,4 +1,4 @@
-"""Load HTTP definitions only when the website application is requested; do not construct transfer session state.
+"""Preload public/admin HTTP definitions during deployment; never construct request state.
 
 Keep the original worker entrypoint out: importing it also constructs an app.
 Request-scoped randomness, bindings and I/O still belong to event handlers.

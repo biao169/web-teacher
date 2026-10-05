@@ -56,16 +56,21 @@ def check(runtime, source=None):
         spec=importlib.util.spec_from_file_location('worker_runtime.entrypoint',runtime/'entrypoint.py')
         module=importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        assert module.application.application is None, 'Application built during startup'
+        assert module.application.application is not None, 'Website routes not prebuilt'
+        site = sys.modules['worker_runtime.web_application'].site
+        assert site.middleware_stack is not None, 'Middleware not prebuilt'
+        assert not hasattr(site.state, 'worker_transfer'), 'Transfer state built during startup'
         assert 'backend.entrypoints.worker' not in sys.modules, 'Legacy entrypoint constructed an unused app'
         if (runtime/'snapshot.py').exists():
-            for name in ('backend.app.adapters.d1.sql','backend.app.native.site_sync_dispatch'):
-                assert name in sys.modules, 'Minimal Cron preload missing: '+name
-            for name in ('backend.app.native.web','backend.app.native.catalog','worker_runtime.http_snapshot',
-                         'worker_runtime.transfer','backend.app.native.site_sync_schedule','fastapi','generated_resources'):
-                assert name not in sys.modules, 'Heavy module on Cron startup path: '+name
+            for name in ('backend.app.adapters.d1.sql','backend.app.native.site_sync_dispatch',
+                         'backend.app.native.web','backend.app.native.catalog','worker_runtime.http_snapshot',
+                         'worker_runtime.transfer','fastapi','worker_runtime.routing'):
+                assert name in sys.modules, 'Snapshot definition missing: '+name
+            for name in ('generated_resources','worker_runtime.resources','worker_runtime.sync_resources',
+                         'worker_runtime.cron_entry','worker_runtime.watchdog'):
+                assert name not in sys.modules, 'Execution-only module on startup path: '+name
         assert hasattr(module.Default,'fetch') and hasattr(module.TransferCoordinator,'fetch')
-    print('Minimal Cron imports checked; HTTP/schema/business graphs remain unloaded. SDK/cloud validation still required.')
+    print('Website routes/middleware prebuilt without startup I/O, entropy or transfer state. SDK/cloud validation still required.')
 
 
 if __name__=='__main__':

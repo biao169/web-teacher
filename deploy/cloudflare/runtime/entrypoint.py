@@ -1,5 +1,6 @@
-"""Create request applications after startup; never snapshot random identifiers."""
-from workers import WorkerEntrypoint, DurableObject
+"""Prebuild stateless website routes; create transfer state only after startup."""
+from workers import asgi, WorkerEntrypoint, DurableObject
+from worker_runtime.routing import dispatch
 from worker_runtime.diagnostics import phase, emit
 from worker_runtime import snapshot  # deterministic imports enter the Python snapshot
 
@@ -7,7 +8,6 @@ from worker_runtime import snapshot  # deterministic imports enter the Python sn
 def build_application(include_transfer=False):
     """Build a fresh app synchronously; a failed attempt cannot leave cached routes."""
     with phase('INIT-RESOURCES'):
-        from worker_runtime import http_snapshot
         from worker_runtime.resources import resource_factory
         from backend.app.native.web import create_app
         from worker_runtime.bridge import BoundApplication
@@ -39,13 +39,14 @@ class LazyApplication:
         await self.application(scope, receive, send)
 
 
+from worker_runtime.web_application import application as website_application
 application = LazyApplication()
+application.application = website_application
 
 
 class TransferCoordinator(DurableObject):
     """Keep one request-created application per coordinator instance."""
     async def fetch(self, request):
-        from workers import asgi
         if not hasattr(self, '_application'):
             self._application = LazyApplication(include_transfer=True)
         try:
@@ -58,8 +59,6 @@ class TransferCoordinator(DurableObject):
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
-        from workers import asgi
-        from worker_runtime.routing import dispatch
         try:
             with phase('FETCH', progress=False):
                 return await dispatch(application, request, self.env, self.ctx, asgi.fetch)

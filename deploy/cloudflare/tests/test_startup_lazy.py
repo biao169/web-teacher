@@ -25,6 +25,7 @@ def entry(monkeypatch):
     with monkeypatch.context() as patch:
         patch.setattr(secrets,'token_hex',Mock(side_effect=OSError('startup entropy forbidden')))
         spec.loader.exec_module(module)
+    module.application = module.LazyApplication()  # isolated lazy/coordinator fallback tests
     return module
 
 
