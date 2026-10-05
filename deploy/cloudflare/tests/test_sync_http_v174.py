@@ -30,7 +30,7 @@ def test_monitor_without_media_binding_or_full_app(lean,entry,monkeypatch):
  monkeypatch.setattr(entry,'build_application',Mock(side_effect=AssertionError('full app forbidden')))
  c=make();v=c.post('/api/admin/site-sync/monitor',headers=h,json={})
  assert v.status_code==200,v.text
- assert v.json()['runtime_version']=='0.15.181' and v.json()['browser_wake_available']
+ assert v.json()['runtime_version']=='0.15.182' and v.json()['browser_wake_available']
  assert v.headers['cache-control']=='no-store' and not hasattr(env,'MEDIA')
  assert entry.application.application is None
 

@@ -16,9 +16,26 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 
+def validate_generated(path):
+    """Only package-generated literal data may enter the deployment snapshot."""
+    allowed={'NATIVE','TEMPLATES','TRANSFER_TEMPLATES','TRANSFER_DEFAULTS','TRANSFER_CATALOG'}
+    seen=set()
+    for node in ast.parse(path.read_text(encoding='utf-8'),filename=str(path)).body:
+        if not isinstance(node,ast.Assign) or len(node.targets)!=1 or not isinstance(node.targets[0],ast.Name):
+            raise ValueError('Generated resources must contain literal assignments only')
+        name=node.targets[0].id
+        if name not in allowed or name in seen:
+            raise ValueError('Unexpected generated resource assignment: '+name)
+        ast.literal_eval(node.value)
+        seen.add(name)
+    if seen!=allowed:raise ValueError('Incomplete generated resources')
+
+
 def check(runtime, source=None):
     if source:
         sys.path.insert(0, str(source))
+        generated=source/'generated_resources.py'
+        if generated.exists():validate_generated(generated)
     def blocked(*args, **kwargs):
         raise RuntimeError('Startup side effect blocked / 启动阶段副作用被阻止')
     # SDK is supplied by Cloudflare; this test checks our import graph, not its internals.
@@ -66,7 +83,7 @@ def check(runtime, source=None):
                          'backend.app.native.web','backend.app.native.catalog','worker_runtime.http_snapshot',
                          'worker_runtime.transfer','fastapi','worker_runtime.routing'):
                 assert name in sys.modules, 'Snapshot definition missing: '+name
-            for name in ('generated_resources','worker_runtime.resources','worker_runtime.sync_resources',
+            for name in ('worker_runtime.resources','worker_runtime.sync_resources',
                          'worker_runtime.cron_entry','worker_runtime.watchdog'):
                 assert name not in sys.modules, 'Execution-only module on startup path: '+name
         assert hasattr(module.Default,'fetch') and hasattr(module.TransferCoordinator,'fetch')

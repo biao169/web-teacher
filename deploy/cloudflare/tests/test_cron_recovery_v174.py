@@ -27,7 +27,7 @@ def test_heartbeat_before_business_failure_and_original_exception_preserved(pair
  with pytest.raises(RuntimeError) as caught:asyncio.run(w.scheduled(SimpleNamespace(scheduledTime=120000)))
  assert caught.value is fail
  saved=asyncio.run(load(r.sql,'site-sync:cron-health'))
- assert saved['status']=='failed' and saved['job']=='dispatch' and saved['version']=='0.15.181'
+ assert saved['status']=='failed' and saved['job']=='dispatch' and saved['version']=='0.15.182'
  logs=capsys.readouterr().out
  assert 'CRON-ENTRY' in logs and 'PRIVATE' not in logs and 'PRIVATE' not in str(saved)
 
