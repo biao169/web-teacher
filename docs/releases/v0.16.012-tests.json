@@ -1,0 +1,17 @@
+{
+  "version": "0.16.012",
+  "base": "v0.16.011-step2",
+  "cloudflare_tests": {
+    "passed": 204,
+    "subtests_passed": 22,
+    "warnings": 1,
+    "seconds": 19.36
+  },
+  "native_wrangler_build": "passed",
+  "native_upload_bytes": 18839,
+  "offline_separate_staging": "passed",
+  "snapshot_imports": "passed",
+  "live_cloud_deploy": "not_run_no_credentials",
+  "live_sync_and_failure_recovery": "not_run",
+  "only_sql": "database/schema.sql"
+}

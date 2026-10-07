@@ -106,23 +106,55 @@ class PipelineTests(unittest.TestCase):
             if name=='WRANGLER':
                 p=Path(cwd)/'node_modules/wrangler/bin';p.mkdir(parents=True)
                 (p/'wrangler.js').write_text('')
+            self.assertNotIn('TEACHER_AUX_API_TOKEN',env)
+            if name=='DEPLOY':
+                release.return_value.prepare.assert_called_once()
+                self.assertEqual(env.get('WRANGLER_CI_OVERRIDE_NAME'),'teacher-site')
+                self.assertEqual(env.get('WRANGLER_CI_MATCH_TAG'),'main-tag')
+                self.assertEqual(json.loads(Path(command[command.index('--secrets-file')+1]).read_text()),{'TEACHER_SYNC_KEY':'6a'*32})
             stages.append((name,command))
-        for mode,separate in [('bundle',False),('deploy',False),('bundle',True),('deploy',True)]:
+            if name=='DEPLOY' and failure:raise RuntimeError('injected main upload failure')
+        for mode,separate in [('bundle',False),('deploy',False),('bundle',True),('deploy',True),('verify-companions',True),('deploy-failure',True)]:
+            failure=mode=='deploy-failure'
+            if failure:mode='deploy'
             stages=[]
-            with patch.dict(pipeline.os.environ,self.env(TEACHER_SYNC_EXECUTOR_MODE='separate' if separate else 'inline',TEACHER_SYNC_KEY='6a'*32)), patch.object(pipeline.shutil,'which',return_value='/bin/node'), \
+            with patch.dict(pipeline.os.environ,self.env(TEACHER_SYNC_EXECUTOR_MODE='separate' if separate else 'inline',TEACHER_SYNC_KEY='6a'*32,CLOUDFLARE_ACCOUNT_ID='a'*32,TEACHER_AUX_API_TOKEN='test-token',WRANGLER_CI_OVERRIDE_NAME='teacher-site',WRANGLER_CI_MATCH_TAG='main-tag')), patch.object(pipeline.shutil,'which',return_value='/bin/node'), \
                  patch.object(pipeline.subprocess,'check_output',return_value='v22.0.0'), \
-                 patch.object(pipeline.venv.EnvBuilder,'create'),patch.object(pipeline,'verify_stage'), patch('d1_setup.setup') as db_setup, patch('r2_check.check') as r2_check:
-                pipeline.execute(mode,fake_stage,lambda *a,**kw:None)
+                 patch.object(pipeline.venv.EnvBuilder,'create'),patch.object(pipeline,'verify_stage'), patch('d1_setup.setup') as db_setup, patch('r2_check.check') as r2_check, patch('companions.inspect_artifact',return_value={'artifact_validation':'passed'}) as inspect, patch('companion_release.Release') as release:
+                release.return_value.key='6a'*32
+                if failure:
+                    with self.assertRaisesRegex(RuntimeError,'injected'):pipeline.execute(mode,fake_stage,lambda *a,**kw:None)
+                else:pipeline.execute(mode,fake_stage,lambda *a,**kw:None)
+            if failure:
+                release.return_value.activate.assert_not_called()
+                command=next(c for n,c in stages if n=='DEPLOY')
+                self.assertFalse(Path(command[command.index('--secrets-file')+1]).exists())
+                continue
+            if mode=='verify-companions':
+                db_setup.assert_not_called();r2_check.assert_not_called()
+                self.assertEqual(inspect.call_count,2 if separate else 1)
+                self.assertFalse(any(n in ('DEPLOY','SYNC-NATIVE-DEPLOY','SYNC-EXECUTOR-DEPLOY','SYNC-SECRET','BUNDLE') for n,c in stages))
+                continue
             self.assertEqual(db_setup.call_args.kwargs['publish'], mode == 'deploy')
             self.assertEqual(r2_check.call_args.kwargs['publish'], mode == 'deploy')
             self.assertEqual(sum(n=='DEPLOY' for n,c in stages),int(mode=='deploy'))
             self.assertIn('--dry-run',next(c for n,c in stages if n=='BUNDLE'))
             self.assertEqual(sum(n=='SYNC-EXECUTOR-BUNDLE' for n,c in stages),int(separate))
-            self.assertEqual(sum(n=='SYNC-EXECUTOR-DEPLOY' for n,c in stages),int(separate and mode=='deploy'))
-            self.assertEqual(sum(n=='SYNC-SECRET' for n,c in stages),(3 if separate else 2) if mode=='deploy' else 0)
-            if separate and mode=='deploy':
-                names=[n for n,c in stages]
-                self.assertLess(names.index('SYNC-EXECUTOR-DEPLOY'),names.index('DEPLOY'))
+            self.assertEqual(sum(n=='SYNC-EXECUTOR-DEPLOY' for n,c in stages),0)
+            self.assertEqual(sum(n=='SYNC-SECRET' for n,c in stages),0)
+            if mode=='deploy':
+                release.return_value.preflight.assert_called_once()
+                release.return_value.prepare.assert_called_once()
+                release.return_value.activate.assert_called_once()
+                self.assertIn('--secrets-file',next(c for n,c in stages if n=='DEPLOY'))
+            else:release.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()
+
+class NativeShortcutTests(unittest.TestCase):
+    def test_native_verification_never_enters_python_build(self):
+        for command in ('verify-native','verify-companions'):
+            with patch.dict(pipeline.os.environ,PipelineTests().env()), patch('native_build.execute',return_value={'native_only':True}) as native, patch.object(pipeline.venv.EnvBuilder,'create') as venv:
+                result=pipeline.execute(command,lambda *a:None,lambda *a,**kw:None)
+                self.assertTrue(result['native_only']);native.assert_called_once();venv.assert_not_called()

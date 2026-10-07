@@ -1,3 +1,15 @@
+## v0.16.012：部署恢复验证与原生轻量构建
+
+新增云端只读配置检查、辅助上传复用与中断恢复测试。网页操作见 [部署教程](deploy/cloudflare/README.md)。本轮未使用真实 Cloudflare 凭据，线上验收仍待执行。
+
+## v0.16.011：单构建项目自动发布辅助 Worker
+
+支持 inline/separate 两种模式，辅助模块通过授权 API 发布，主站保留 Cloudflare 构建身份校验。网页变量与权限设置见 [Cloudflare 部署教程](deploy/cloudflare/README.md)。真实云端验收尚未执行。
+
+## v0.16.010：辅助 Worker 上传产物验证
+
+新增不发布的 `verify-companions` 命令，完成 JavaScript/Python 实际上传包校验。单项目 API 自动发布尚待下一步接入。见 [网页验证教程](deploy/cloudflare/README.md) 和 [验证结果](docs/releases/v0.16.010.md)。
+
 ## v0.16.009：修复 Cloudflare 部署源码导入
 
 修复部署时找不到 backend；check 提前校验云端部署配置。详见 [修复与验证说明](docs/releases/v0.16.009.md)。

@@ -1,0 +1,46 @@
+{
+  "mode": "inline",
+  "native_only": true,
+  "python_dependencies": "not_installed",
+  "website_staging": "not_run",
+  "publication": "not_run",
+  "artifacts": [
+    {
+      "worker": "teacher-api-probe-sync-native",
+      "role": "native",
+      "main_module": "native_service.js",
+      "module_count": 1,
+      "content_sha256": "5fa11a06259b0db067ec38b0d5afa760d69682871509c7d26ae83d0b9759af74",
+      "bytes": 18839,
+      "sha256": "13f16ceb3283a564698bf493eba4cf761f8aa684b98b0398258cc7d81ed265e7",
+      "content_type": "multipart/form-data; boundary=----formdata-undici-060958974804",
+      "module_types": [
+        "application/javascript+module"
+      ],
+      "bindings": [
+        {
+          "name": "DB",
+          "type": "d1"
+        },
+        {
+          "name": "MEDIA",
+          "type": "r2_bucket"
+        },
+        {
+          "name": "TEACHER_MEDIA_PREFIX",
+          "type": "plain_text"
+        }
+      ],
+      "artifact_validation": "passed",
+      "cloud_upload": "not_run",
+      "cloud_startup": "not_run",
+      "additional_release_steps": [
+        "ownership_check",
+        "secret_configuration",
+        "disable_public_access",
+        "schedule_configuration",
+        "runtime_check"
+      ]
+    }
+  ]
+}

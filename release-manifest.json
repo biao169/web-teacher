@@ -1,7 +1,8 @@
 {
   "format": "teacher-release-v1",
-  "version": "0.16.009",
-  "based_on": "v0.16.008 (this conversation branch; original v0.15.160-step6)",
+  "version": "0.16.012",
+  "based_on": "v0.16.011-step2",
+  "original_baseline": "v0.15.160-step6",
   "files": {
     ".gitattributes": {
       "bytes": 280,
@@ -12,8 +13,8 @@
       "sha256": "1bb1b2af56ecd35a42a615b8ca2051a63893dd3db513ff7361ede6316c67f10f"
     },
     "README.md": {
-      "bytes": 88006,
-      "sha256": "d54c731dc5b2085e2a2e4cfc44faa271382d1c83207c5ad1b08c3c272c19a634"
+      "bytes": 88872,
+      "sha256": "1e30fa5a035788dff46a9818996e998d1d039df60b33c995f8baeac8b2a1798c"
     },
     "backend/__init__.py": {
       "bytes": 0,
@@ -660,8 +661,8 @@
       "sha256": "0adba319f7dd563d1baf5a028ae3413ca3a6742a994528d64779a67f72faff3a"
     },
     "deploy/cloudflare/README.md": {
-      "bytes": 33818,
-      "sha256": "2c0d418d9c553fb661802345d9008eee15aaeae64658aac3b3be98fd10999197"
+      "bytes": 7764,
+      "sha256": "b015c47d35b1af692d68705de8c77adb297c9433168f909e6a2ef2cf91877f23"
     },
     "deploy/cloudflare/STARTUP-ACCEPTANCE.md": {
       "bytes": 3060,
@@ -672,12 +673,28 @@
       "sha256": "5f5151c668c9c3e83c314b8e6991f2bbef8bd7530805dd187fdf4affdb993e87"
     },
     "deploy/cloudflare/build.py": {
-      "bytes": 8228,
-      "sha256": "99f4dc137ccdc555d71938ab1a29b58a8cde491615d5806f1d9e7a648141c8ee"
+      "bytes": 9107,
+      "sha256": "6fb27f4695c8b32ef5405a8011b495443a6d211e5023745bc72af13ba9817a60"
+    },
+    "deploy/cloudflare/cloud_check.py": {
+      "bytes": 3445,
+      "sha256": "0e649abc5750bb83f424e4e8b2bb8551528608794ac874bc04e9fef806620e74"
+    },
+    "deploy/cloudflare/companion_release.py": {
+      "bytes": 10199,
+      "sha256": "205ca34538c967ce06c8a5d2f651e1c0b95cb633b66f3bef718c8f3f3c5a978f"
+    },
+    "deploy/cloudflare/companions.py": {
+      "bytes": 6893,
+      "sha256": "af80d917a0593ab581950b6fce4908a2c674fde533325f5b73c4357ee0bb1783"
     },
     "deploy/cloudflare/d1_setup.py": {
       "bytes": 7668,
       "sha256": "5d3f9fbfee774f428206c66f2baa61db3b3227eea84a0829b4c11ab802bdd35c"
+    },
+    "deploy/cloudflare/deploy_config.py": {
+      "bytes": 1198,
+      "sha256": "02a5bf2bee6d73f7fe6c1eef2b5c40f47a6019480dba950180e107a3d60cc889"
     },
     "deploy/cloudflare/domains.py": {
       "bytes": 3725,
@@ -686,6 +703,10 @@
     "deploy/cloudflare/integration_package.py": {
       "bytes": 4286,
       "sha256": "0bb206241c398c8a25a14e5e3f6edd6f85e57863569aecf3dfcd2a874e607d06"
+    },
+    "deploy/cloudflare/native_build.py": {
+      "bytes": 2219,
+      "sha256": "de370b5e79dab4fd663ec066d152bf74e0e91aaecb624cae4ae2c0e60da42a7b"
     },
     "deploy/cloudflare/package-lock.json": {
       "bytes": 49380,
@@ -696,8 +717,8 @@
       "sha256": "543992c309267858d5b11ebf66f117f47ef4af898bdf38e7215cf99d389a40b8"
     },
     "deploy/cloudflare/pipeline.py": {
-      "bytes": 11433,
-      "sha256": "076694fa214163687f4fc4891081816055cfe7786272348fc2be1f8f240df404"
+      "bytes": 12975,
+      "sha256": "2f06b3e054b00b216f01312834048bde4f5497058c496b1ed53b43e9e7a3c4ef"
     },
     "deploy/cloudflare/prepare.py": {
       "bytes": 261,
@@ -804,8 +825,20 @@
       "sha256": "b0206033e307377892d26299287b994c2adef5d6802405242753d1b5ff2d3d44"
     },
     "deploy/cloudflare/tests/test_cli_source_path.py": {
-      "bytes": 2905,
-      "sha256": "893b80fe5de517249baa967c4b4bb58fc9a6446dd873c722aa8220fb1ecb23e7"
+      "bytes": 3016,
+      "sha256": "bc043197aebf00d682bc11518999aa5dd08a35c80805aebb68c8b971f133be7d"
+    },
+    "deploy/cloudflare/tests/test_cloud_check.py": {
+      "bytes": 2172,
+      "sha256": "2bdfa47654f8bf7ba617dfb1743e375375895822a598caabfd3b767bf87d00a9"
+    },
+    "deploy/cloudflare/tests/test_companion_artifacts.py": {
+      "bytes": 4963,
+      "sha256": "ca9431bb505afa3cf9240085ebb2dbe4df664681caeb0dda4788d22714b7deb8"
+    },
+    "deploy/cloudflare/tests/test_companion_release.py": {
+      "bytes": 9226,
+      "sha256": "7294312621d6991c6b879fb722ce69d15bce8af9e3f2d3d73d7d50e26516ad11"
     },
     "deploy/cloudflare/tests/test_d1_setup.py": {
       "bytes": 8415,
@@ -824,8 +857,8 @@
       "sha256": "28317555545338906ab88fed716164470badcf61be92ffb72a007bee3421066f"
     },
     "deploy/cloudflare/tests/test_pipeline_step2.py": {
-      "bytes": 7355,
-      "sha256": "5b7989072af86906d3cc7d011a455f910ebd9c6ac3d63bdf41a74f9446f8fcf8"
+      "bytes": 9831,
+      "sha256": "d3a794334c7ccaaf69cc158aabed9a06ed6508c192941d22ebcb36ec199c2aac"
     },
     "deploy/cloudflare/tests/test_r2_check.py": {
       "bytes": 3300,
@@ -920,8 +953,8 @@
       "sha256": "58171f040ebdc6b905996164a087c4c2b13ad3a73ba8fbdef8714ad8737a4032"
     },
     "deploy/shared/worker_package.py": {
-      "bytes": 7912,
-      "sha256": "8206e84b6226cd2ae3859842074cc690610373413639bd745562685b0132ea45"
+      "bytes": 7950,
+      "sha256": "d68684c9802107ed3c67f0d9a025a37e2ac2c90b4a7809d4238eb92ec081e962"
     },
     "deploy/vps/Caddyfile.example": {
       "bytes": 986,
@@ -1827,39 +1860,39 @@
       "bytes": 17376,
       "sha256": "19f4106b5f7c7301584f9f3d83c8aa6f6ea8e1946126ac20a92bc33a95bde228"
     },
-    "docs/reference/05_文档导航与维护规则.md": {
+    "docs/reference/05_\u6587\u6863\u5bfc\u822a\u4e0e\u7ef4\u62a4\u89c4\u5219.md": {
       "bytes": 9916,
       "sha256": "0b0b2dc7a34f0bdbca09b834e42dbe0799819113b91b861f676dea7065636ad5"
     },
-    "docs/reference/06_网站设计与系统架构.md": {
+    "docs/reference/06_\u7f51\u7ad9\u8bbe\u8ba1\u4e0e\u7cfb\u7edf\u67b6\u6784.md": {
       "bytes": 18400,
       "sha256": "300050e36a826c540196e37b9c50769f79274d24ed16708abf8b208ee7cd51cb"
     },
-    "docs/reference/07_项目目录规划与文件功能索引.md": {
+    "docs/reference/07_\u9879\u76ee\u76ee\u5f55\u89c4\u5212\u4e0e\u6587\u4ef6\u529f\u80fd\u7d22\u5f15.md": {
       "bytes": 217647,
       "sha256": "87e1252f7d6347ffbcc2b3b55cfa663b4fbc92fcbae2fb9ba99bc785e1fcd52a"
     },
-    "docs/reference/08_源码功能说明阅读指南.md": {
+    "docs/reference/08_\u6e90\u7801\u529f\u80fd\u8bf4\u660e\u9605\u8bfb\u6307\u5357.md": {
       "bytes": 1857,
       "sha256": "79578e8c897e084196df3cd9a00f244c04d46bc297daff77b92aedb5e27ccb55"
     },
-    "docs/reference/09_后台对象编辑统一设计.md": {
+    "docs/reference/09_\u540e\u53f0\u5bf9\u8c61\u7f16\u8f91\u7edf\u4e00\u8bbe\u8ba1.md": {
       "bytes": 7631,
       "sha256": "0879c3c4fd46a0ef5c28e5a132a5ad099f8f568dcec8256c92194f0c3ac46977"
     },
-    "docs/reference/11_新闻富文本编辑与验收.md": {
+    "docs/reference/11_\u65b0\u95fb\u5bcc\u6587\u672c\u7f16\u8f91\u4e0e\u9a8c\u6536.md": {
       "bytes": 5016,
       "sha256": "baf5cece508ac2a12d814eef2b4edd985dc4c1b656246c939cf71fb79bba9904"
     },
-    "docs/reference/12_媒体完整显示与预览链路验收.md": {
+    "docs/reference/12_\u5a92\u4f53\u5b8c\u6574\u663e\u793a\u4e0e\u9884\u89c8\u94fe\u8def\u9a8c\u6536.md": {
       "bytes": 3471,
       "sha256": "fed7ddc7f290d4d11e6b570bcbdb0896d590a7a902e27bee50a5a89a6c4d3ea9"
     },
-    "docs/reference/13_备份与配置生效链路验收.md": {
+    "docs/reference/13_\u5907\u4efd\u4e0e\u914d\u7f6e\u751f\u6548\u94fe\u8def\u9a8c\u6536.md": {
       "bytes": 4508,
       "sha256": "81596d6a73103f61da6259e2e1cb26e1925d5aea7870d83f17fc9c482021a16f"
     },
-    "docs/reference/14_媒体实体备份与恢复验收.md": {
+    "docs/reference/14_\u5a92\u4f53\u5b9e\u4f53\u5907\u4efd\u4e0e\u6062\u590d\u9a8c\u6536.md": {
       "bytes": 3265,
       "sha256": "f97cd3dffe4c49b92f8749be98a87a27e177fc7984ede0cce2f68c2d270709e7"
     },
@@ -1930,6 +1963,38 @@
     "docs/releases/v0.16.009.md": {
       "bytes": 1542,
       "sha256": "7ac9729a9090ae446517d76822eceee0e2cb4e36dc64243c05c184c7b25f6706"
+    },
+    "docs/releases/v0.16.010-artifacts.json": {
+      "bytes": 3229,
+      "sha256": "b62166e326551aefb33fce9d284e6927dd5aa605b6a017071c247297213ae034"
+    },
+    "docs/releases/v0.16.010.md": {
+      "bytes": 2051,
+      "sha256": "d35b18eeb646bf7654dd46fd23fd6ced28941c74378f94b01db6343b3cd0eacf"
+    },
+    "docs/releases/v0.16.011-payloads.json": {
+      "bytes": 249,
+      "sha256": "06822632462dc6336ede1861081b5501e3c3b4c76f06200242069893d4777af0"
+    },
+    "docs/releases/v0.16.011-tests.json": {
+      "bytes": 336,
+      "sha256": "32e5e7abb2791a03827e092ec922f561d398b1f9abf13af3124198f01a96e6d0"
+    },
+    "docs/releases/v0.16.011.md": {
+      "bytes": 2585,
+      "sha256": "75b9983e5041cdf0ad1454362e370a99ef388459a3d221065f411ff49fd7ae58"
+    },
+    "docs/releases/v0.16.012-native.json": {
+      "bytes": 1248,
+      "sha256": "553c29fb68cbdba180c5f853ad1dbe47d94462031a6f463ce85cc7067fe273a2"
+    },
+    "docs/releases/v0.16.012-tests.json": {
+      "bytes": 446,
+      "sha256": "6c9245b100ec632402e7af9ede3b0ac7dbee5b6bc5a35076f8b9d5fc6759d48a"
+    },
+    "docs/releases/v0.16.012.md": {
+      "bytes": 1410,
+      "sha256": "345ad2b33e7818aded6b9db08558234c0c3297fa6e188051147ea74db9b9d5f3"
     },
     "docs/request-cache-v159-benchmark.json": {
       "bytes": 1881,
@@ -3717,7 +3782,7 @@
     },
     "pyproject.toml": {
       "bytes": 352,
-      "sha256": "85408474ef9c92e36ebb68053e8775a7552956b4cfde07930f336d021e2ee50f"
+      "sha256": "cae3e4732e41bf3a3d3fd942a7f92c96063e40eef087446c5a747ac6acb17152"
     },
     "site_sync/README.md": {
       "bytes": 7171,
@@ -3980,8 +4045,8 @@
       "sha256": "c35cb78c53dd9b5fc452125474f02e17f284d7f3affba79095243e6e64fedc3a"
     },
     "site_sync/integration/package.py": {
-      "bytes": 4070,
-      "sha256": "f4910017aa2054d73071357cd970da901a3812f1bc574246b18a0621b7d009dc"
+      "bytes": 4271,
+      "sha256": "7ed24c232bd66b44f04a89cb8dfb83ed2b299c09a8b3ff277c54eba1031dded3"
     },
     "site_sync/integration/proposals.py": {
       "bytes": 3347,

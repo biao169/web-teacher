@@ -1,0 +1,15 @@
+{
+  "version": "0.16.011",
+  "cloudflare_tests": {
+    "passed": 199,
+    "subtests_passed": 20
+  },
+  "final_targeted_tests": {
+    "passed": 27,
+    "subtests_passed": 14
+  },
+  "real_artifact_binary_fidelity": "passed",
+  "offline_separate_staging": "passed",
+  "live_cloudflare_upload": "not_run",
+  "production_mutations": "none"
+}

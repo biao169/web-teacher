@@ -1,0 +1,123 @@
+{
+  "mode": "separate",
+  "wrangler": "4.143.0",
+  "artifacts": [
+    {
+      "worker": "teacher-api-probe-sync-native",
+      "role": "native",
+      "main_module": "native_service.js",
+      "module_count": 1,
+      "bytes": 18839,
+      "sha256": "905de52929122f38f11259c74c444a12b7e095910ce418fc725f4c47b62618b5",
+      "content_type": "multipart/form-data; boundary=----formdata-undici-062305262501",
+      "module_types": [
+        "application/javascript+module"
+      ],
+      "bindings": [
+        {
+          "name": "DB",
+          "type": "d1"
+        },
+        {
+          "name": "MEDIA",
+          "type": "r2_bucket"
+        },
+        {
+          "name": "TEACHER_MEDIA_PREFIX",
+          "type": "plain_text"
+        }
+      ],
+      "artifact_validation": "passed",
+      "cloud_upload": "not_run",
+      "cloud_startup": "not_run",
+      "additional_release_steps": [
+        "ownership_check",
+        "secret_configuration",
+        "disable_public_access",
+        "schedule_configuration",
+        "runtime_check"
+      ]
+    },
+    {
+      "worker": "teacher-api-probe-sync-executor",
+      "role": "executor",
+      "main_module": "sync_executor.py",
+      "module_count": 1345,
+      "bytes": 12622759,
+      "sha256": "4d3e3e98bd8b0e9eeee014ec778ad9fa66f7fe5f319ce8d9252ebe2d9fac1645",
+      "content_type": "multipart/form-data; boundary=----formdata-undici-049519480778",
+      "module_types": [
+        "application/javascript+module",
+        "application/octet-stream",
+        "text/x-python"
+      ],
+      "bindings": [
+        {
+          "name": "DB",
+          "type": "d1"
+        },
+        {
+          "name": "MEDIA",
+          "type": "r2_bucket"
+        },
+        {
+          "name": "SYNC_NATIVE",
+          "type": "service"
+        },
+        {
+          "name": "TEACHER_ALLOWED_ORIGINS",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_CACHE_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_CACHE_PREFIX",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_DATABASE_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_MEDIA_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_MEDIA_PREFIX",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_ORIGIN",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_SYNC_EXECUTOR_MODE",
+          "type": "plain_text"
+        }
+      ],
+      "artifact_validation": "passed",
+      "cloud_upload": "not_run",
+      "cloud_startup": "not_run",
+      "additional_release_steps": [
+        "ownership_check",
+        "secret_configuration",
+        "disable_public_access",
+        "schedule_configuration",
+        "runtime_check"
+      ]
+    }
+  ],
+  "publication": "not_run",
+  "database_changes": "not_run",
+  "cloud_runtime": "not_run",
+  "version": "0.16.010",
+  "host_python": "3.13.15",
+  "tests": {
+    "passed": 30,
+    "subtests_passed": 16
+  },
+  "http_request_test": "original multipart body preserved; explicit companion URL; request constructed but not sent",
+  "cloud_credentials": "not_available"
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "role": "native",
+    "module_count": 1,
+    "binary_modules_preserved": true,
+    "live_upload": "not_run"
+  },
+  {
+    "role": "executor",
+    "module_count": 1345,
+    "binary_modules_preserved": true,
+    "live_upload": "not_run"
+  }
+]

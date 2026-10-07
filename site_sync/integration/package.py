@@ -1,14 +1,18 @@
 """Package private native stream companion from this source tree only."""
 import json,shutil,ast
 
-def native_package(root,stage,config):
+def worker_names(main):
+    import re,hashlib
+    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,62}',main):raise ValueError('Invalid main Worker name')
+    def name(limit,suffix):
+        base=main if len(main)<=limit else main[:limit-9]+'-'+hashlib.sha256(main.encode()).hexdigest()[:8]
+        return base+suffix
+    return {'native':name(51,'-sync-native'),'executor':name(49,'-sync-executor')}
+
+def write_native(root,stage,config):
     native=stage/'sync-native';native.mkdir()
     shutil.copytree(root/'site_sync/worker',native/'worker',ignore=shutil.ignore_patterns('*.test.mjs'))
-    base=config['name']
-    if len(base)>51:
-        import hashlib
-        base=base[:42]+'-'+hashlib.sha256(base.encode()).hexdigest()[:8]
-    name=base+'-sync-native'
+    name=worker_names(config['name'])['native']
     media=next(b for b in config['r2_buckets'] if b['binding']==config['vars']['TEACHER_MEDIA_BINDING'])
     db=config['d1_databases'][0]
     cfg={'name':name,'main':'worker/native_service.mjs','compatibility_date':config['compatibility_date'],
@@ -16,6 +20,11 @@ def native_package(root,stage,config):
          'vars':{'TEACHER_MEDIA_PREFIX':config['vars']['TEACHER_MEDIA_PREFIX']},
          'd1_databases':[dict(db,binding='DB')],'r2_buckets':[dict(media,binding='MEDIA')]}
     (native/'wrangler.jsonc').write_text(json.dumps(cfg,indent=2))
+    return cfg
+
+def native_package(root,stage,config):
+    native=write_native(root,stage,config)
+    name=native['name']
     config['services']=[{'binding':'SYNC_NATIVE','service':name}]
     config['assets']['run_worker_first'].append('/sync/*')
     mode=config.get('vars',{}).get('TEACHER_SYNC_EXECUTOR_MODE','inline')
@@ -23,12 +32,8 @@ def native_package(root,stage,config):
     if mode=='separate':
         # Same staged source and locked Python dependencies; no second website,
         # database initialization file, public route, assets or admin session.
-        executor_name=config['name']
-        if len(executor_name)>49:
-            import hashlib
-            executor_name=executor_name[:40]+'-'+hashlib.sha256(executor_name.encode()).hexdigest()[:8]
         executor={k:config[k] for k in ('compatibility_date','compatibility_flags','vars','d1_databases','r2_buckets','services')}
-        executor.update(name=executor_name+'-sync-executor',main='src/sync_executor.py',workers_dev=False,preview_urls=False,triggers={'crons':['* * * * *']})
+        executor.update(name=worker_names(config['name'])['executor'],main='src/sync_executor.py',workers_dev=False,preview_urls=False,triggers={'crons':['* * * * *']})
         (stage/'src/sync_executor.py').write_text('from worker_runtime.sync_executor import Default\n')
         (stage/'wrangler.sync-executor.jsonc').write_text(json.dumps(executor,indent=2))
 

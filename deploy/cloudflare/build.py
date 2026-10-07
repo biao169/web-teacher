@@ -23,7 +23,7 @@ ROOT = HERE.parents[1]
 # Resolve local source independently of the caller's cwd or PYTHONPATH.
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-PATCH = 'cloudflare-cpu-step4'
+PATCH = 'cloudflare-deploy-recovery-step3'
 
 
 class BuildError(Exception):
@@ -119,19 +119,30 @@ def dependency_environment(dependencies):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('check', 'prepare', 'bundle', 'deploy'), help='check: preflight; prepare: application deps; bundle: dry run; deploy: publish')
+    parser.add_argument('command', choices=('check', 'prepare', 'bundle', 'deploy', 'verify-companions', 'verify-native', 'cloud-check'), help='check: preflight; prepare: application deps; bundle: dry run; deploy: publish; verify-companions: offline API artifacts')
     parser.add_argument('--deployment-config', action='store_true',
                         help='Validate deployment variables without installing or publishing')
+    parser.add_argument('--report', help='JSON output for verification commands')
     args = parser.parse_args(argv)
+    if args.report and args.command not in ('verify-companions','verify-native','cloud-check'):
+        parser.error('--report requires verify-companions, verify-native or cloud-check')
     try:
         dependencies = preflight()
         if args.command == 'check' and (args.deployment_config or os.environ.get('WORKERS_CI') == '1'):
             from pipeline import settings
-            settings(os.environ)
+            from deploy_config import validate
+            validate(os.environ,settings(os.environ)['name'])
             log('DEPLOY-CONFIG', '部署配置通过 / Deployment configuration checked')
-        if args.command in ('bundle', 'deploy'):
+        if args.command=='cloud-check':
+            from pipeline import settings
+            from cloud_check import check
+            return 0 if check(os.environ,settings(os.environ),log,args.report)['passed'] else 1
+        if args.command in ('bundle', 'deploy', 'verify-companions','verify-native'):
             from pipeline import execute
-            execute(args.command, run_stage, log)
+            if args.command in ('verify-companions','verify-native'):
+                execute(args.command, run_stage, log, report_path=args.report)
+            else:
+                execute(args.command, run_stage, log)
             return 0
         if args.command == 'prepare':
             with dependency_environment(dependencies) as (python, work, env):

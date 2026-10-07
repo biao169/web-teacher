@@ -97,8 +97,18 @@ def workspace():
         yield Path(folder)
 
 
-def execute(command, runner, log):
+def execute(command, runner, log, *, report_path=None):
     config = settings(os.environ)
+    from deploy_config import validate
+    validate(os.environ,config['name'],credentials=command=='deploy')
+    if command=='verify-native' or (command=='verify-companions' and config['sync_executor']=='inline'):
+        from native_build import execute as native_execute
+        return native_execute(config,runner,log,report_path)
+    release=None
+    if command=='deploy':
+        from companion_release import Release
+        release=Release(os.environ,config,log)
+        release.preflight()
     for name in FILES:
         if not (HERE/name).is_file():
             raise ValueError('缺少锁文件 / Missing deployment file: '+name)
@@ -120,6 +130,7 @@ def execute(command, runner, log):
         for key in ('PYTHONPATH','PYTHONHOME','VIRTUAL_ENV','CONDA_PREFIX','UV_PROJECT_ENVIRONMENT',
                     'UV_PYTHON','PIP_TARGET','PIP_PREFIX','PIP_USER'):
             env.pop(key, None)
+        env.pop('TEACHER_AUX_API_TOKEN',None)
         env.update(PYTHONDONTWRITEBYTECODE='1', WRANGLER_SEND_METRICS='false',
                    UV_NO_PROGRESS='1', PATH=str(binary)+os.pathsep+env.get('PATH',''))
         runner('UV', [str(python), '-m', 'pip', 'install', '--disable-pip-version-check',
@@ -166,9 +177,23 @@ def execute(command, runner, log):
         wrangler = stage/'node_modules/wrangler/bin/wrangler.js'
         if not wrangler.is_file():
             raise ValueError('缺少锁定的 Wrangler / Missing locked Wrangler')
-        runner('SYNC-NATIVE-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'sync-native/wrangler.jsonc'),'--dry-run','--outdir',str(work/'sync-native-bundle')], stage, env)
+        artifact_args=['--outfile',str(work/'native.multipart')] if command in ('verify-companions','deploy') else []
+        runner('SYNC-NATIVE-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'sync-native/wrangler.jsonc'),'--dry-run','--outdir',str(work/'sync-native-bundle'),*artifact_args], stage, env)
         if config['sync_executor']=='separate':
-            runner('SYNC-EXECUTOR-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'wrangler.sync-executor.jsonc'),'--dry-run','--outdir',str(work/'sync-executor-bundle')],stage,env)
+            artifact_args=['--outfile',str(work/'executor.multipart')] if command in ('verify-companions','deploy') else []
+            runner('SYNC-EXECUTOR-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'wrangler.sync-executor.jsonc'),'--dry-run','--outdir',str(work/'sync-executor-bundle'),*artifact_args],stage,env)
+        if command=='verify-companions':
+            from companions import inspect_artifact
+            reports=[inspect_artifact(work/'native.multipart',json.loads((stage/'sync-native/wrangler.jsonc').read_text()),config['name'],'native')]
+            if config['sync_executor']=='separate':
+                reports.append(inspect_artifact(work/'executor.multipart',json.loads((stage/'wrangler.sync-executor.jsonc').read_text()),config['name'],'executor'))
+            result={'mode':config['sync_executor'],'wrangler':'4.143.0','artifacts':reports,
+                    'publication':'not_run','database_changes':'not_run','cloud_runtime':'not_run'}
+            if report_path:
+                report=Path(report_path);report.parent.mkdir(parents=True,exist_ok=True)
+                report.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+            log('COMPANION-ARTIFACTS','上传产物本地验证通过；未发布 / Local artifacts verified; nothing published',**result)
+            return
         runner('BUNDLE', [node,str(wrangler),'deploy','--dry-run','--outdir',str(work/'bundle')], stage, env)
         log('VERIFIED', '打包通过；尚未验证线上业务 / Bundle verified, runtime acceptance pending',
             worker=config['name'], origin=config['origin'])
@@ -177,20 +202,18 @@ def execute(command, runner, log):
         from d1_setup import setup
         setup(node, wrangler, stage, env, config, log, publish=command == 'deploy')
         if command == 'deploy':
-            runner('SYNC-NATIVE-DEPLOY', [node,str(wrangler),'deploy','--config',str(stage/'sync-native/wrangler.jsonc')], stage, env)
-            if config['sync_executor']=='separate':
-                runner('SYNC-EXECUTOR-DEPLOY', [node,str(wrangler),'deploy','--config',str(stage/'wrangler.sync-executor.jsonc')],stage,env)
-            runner('DEPLOY', [node,str(wrangler),'deploy'], stage, env)
-            key=env.get('TEACHER_SYNC_KEY','')
-            if key:
-                keyfile=work/'sync-secret.json'
-                fd=os.open(keyfile,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
-                with os.fdopen(fd,'w') as output:json.dump({'TEACHER_SYNC_KEY':key},output)
-                try:
-                    secret_configs=[stage/'wrangler.jsonc',stage/'sync-native/wrangler.jsonc']
-                    if config['sync_executor']=='separate':secret_configs.append(stage/'wrangler.sync-executor.jsonc')
-                    for cfgfile in secret_configs:
-                        runner('SYNC-SECRET', [node,str(wrangler),'secret','bulk',str(keyfile),'--config',str(cfgfile)],stage,env)
-                finally:keyfile.unlink(missing_ok=True)
+            release.prepare(stage,work)
+            keyfile=work/'sync-secret.json'
+            fd=os.open(keyfile,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+            with os.fdopen(fd,'w') as output:json.dump({'TEACHER_SYNC_KEY':release.key},output)
+            try:
+                # Only the primary Worker is published by linked Builds/Wrangler.
+                # Its CI identity and tag remain intact; secret is part of upload.
+                runner('DEPLOY', [node,str(wrangler),'deploy','--secrets-file',str(keyfile)], stage, env)
+                release.activate()
+            except Exception:
+                log('RELEASE-INCOMPLETE','发布未全部完成；请核对辅助调度状态并重试 / Incomplete release; inspect scheduling and retry')
+                raise
+            finally:keyfile.unlink(missing_ok=True)
             log('PUBLISHED', '平台发布成功，D1 结构与 R2 读写已验证；仍需线上业务验收 / Published with verified D1 schema and R2 storage; runtime checks still required')
     log('CLEANUP', '临时源码、依赖与产物已清理 / Temporary source and artifacts removed')

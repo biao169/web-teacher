@@ -1,0 +1,133 @@
+"""Release API contract, interruption and credential isolation without cloud writes."""
+import io,json,copy,tempfile,unittest
+from pathlib import Path
+from email.parser import BytesParser
+from email import policy
+from unittest.mock import patch
+from urllib.error import HTTPError
+from deploy.cloudflare.companion_release import Client,Release,APIError
+from deploy.cloudflare.deploy_config import validate
+from test_companion_artifacts import ArtifactTests
+
+
+class Response(io.BytesIO):
+    status=200
+
+class FakeAPI:
+    def __init__(self):self.scripts={};self.calls=[];self.fail=None
+    def request(self,method,name,suffix='',body=None,content_type=None,missing=False):
+        self.calls.append((method,name,suffix))
+        if self.fail==(method,suffix):raise APIError(403)
+        if method=='GET' and suffix=='/settings':return copy.deepcopy(self.scripts.get(name,{}).get('settings'))
+        if method=='PUT' and suffix=='':
+            msg=BytesParser(policy=policy.default).parsebytes(('Content-Type: '+content_type+'\r\n\r\n').encode()+body)
+            metadata=json.loads(next(p.get_payload(decode=True) for p in msg.iter_parts() if p.get_param('name',header='content-disposition')=='metadata'))
+            self.scripts.setdefault(name,{})['settings']=metadata
+            return {'id':'version-one'}
+        obj=self.scripts[name]
+        if method=='POST':obj['subdomain']=body;return body
+        if suffix=='/subdomain':return obj['subdomain']
+        if method=='PUT' and suffix=='/schedules':obj['schedules']={'schedules':body};return obj['schedules']
+        if suffix=='/schedules':return obj.get('schedules',{'schedules':[]})
+        raise AssertionError((method,name,suffix))
+
+
+class ReleaseTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture=ArtifactTests();self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
+        self.root=Path(self.fixture.tmp.name);self.stage=self.root/'stage';self.stage.mkdir();(self.stage/'sync-native').mkdir()
+        self.fixture.write();(self.root/'native.multipart').write_bytes(self.fixture.path.read_bytes())
+        (self.stage/'sync-native/wrangler.jsonc').write_text(json.dumps(self.fixture.cfg))
+        self.env={'CLOUDFLARE_ACCOUNT_ID':'a'*32,'TEACHER_AUX_API_TOKEN':'sensitive-api-token','TEACHER_SYNC_KEY':'ab'*32,
+                  'WRANGLER_CI_OVERRIDE_NAME':'teacher','WRANGLER_CI_MATCH_TAG':'keep-this-tag'}
+        self.api=FakeAPI();self.logs=[]
+    def release(self,mode='inline'):
+        return Release(self.env,{'name':'teacher','sync_executor':mode},lambda *a,**kw:self.logs.append((a,kw)),client=self.api)
+    def add_executor_artifact(self):
+        f=self.fixture;f.cfg['name']='teacher-sync-executor';f.cfg['compatibility_flags'].append('python_workers')
+        f.meta['compatibility_flags'].append('python_workers');f.meta['main_module']='executor.py'
+        f.parts=[('executor.py','text/x-python',b'pass'),('worker_runtime/sync_executor.py','text/x-python',b'pass'),
+                 ('site_sync/integration/worker_schedule.py','text/x-python',b'pass'),
+                 ('python_modules/workers_runtime_sdk/__init__.py','application/octet-stream',b'\x00\xff')]
+        f.write();(self.root/'executor.multipart').write_bytes(f.path.read_bytes())
+        (self.stage/'wrangler.sync-executor.jsonc').write_text(json.dumps(f.cfg))
+    def test_first_and_repeated_inline_deploy_is_private_with_atomic_secret(self):
+        release=self.release();release.preflight();release.prepare(self.stage,self.root);release.activate()
+        script=self.api.scripts['teacher-sync-native'];self.assertEqual(script['subdomain'],{'enabled':False,'previews_enabled':False})
+        self.assertEqual(script['schedules'],{'schedules':[]})
+        bindings={b['name']:b for b in script['settings']['bindings']}
+        self.assertEqual(bindings['TEACHER_SYNC_KEY']['text'],self.env['TEACHER_SYNC_KEY'])
+        release.prepare(self.stage,self.root)
+        self.assertEqual(len(self.api.scripts),1)
+        self.assertFalse(any(name=='teacher' for _,name,_ in self.api.calls))
+        self.assertNotIn('sensitive-api-token',repr(self.logs));self.assertNotIn('ab'*32,repr(self.logs))
+        self.assertEqual(self.env['WRANGLER_CI_MATCH_TAG'],'keep-this-tag')
+    def test_separate_activation_and_return_to_inline(self):
+        self.add_executor_artifact();release=self.release('separate');release.prepare(self.stage,self.root)
+        worker=self.api.scripts['teacher-sync-executor'];self.assertEqual(worker['schedules']['schedules'],[])
+        release.activate();self.assertEqual(worker['schedules']['schedules'],[{'cron':'* * * * *'}])
+        self.release().prepare(self.stage,self.root)
+        self.assertEqual(worker['schedules']['schedules'],[])
+        self.assertEqual(len(self.api.scripts),2)
+    def test_unowned_name_is_rejected_before_upload(self):
+        self.api.scripts['teacher-sync-native']={'settings':{'bindings':[]}}
+        with self.assertRaisesRegex(ValueError,'ownership'):self.release().prepare(self.stage,self.root)
+        self.assertTrue(all(method=='GET' for method,_,_ in self.api.calls))
+    def test_permission_failure_stops_release(self):
+        self.api.fail=('GET','/settings')
+        with self.assertRaises(APIError):self.release().preflight()
+        self.assertFalse(self.api.scripts)
+    def test_privacy_failure_can_be_retried(self):
+        self.api.fail=('POST','/subdomain')
+        with self.assertRaises(APIError):self.release().prepare(self.stage,self.root)
+        self.api.fail=None;self.release().prepare(self.stage,self.root)
+        self.assertFalse(self.api.scripts['teacher-sync-native']['subdomain']['enabled'])
+        self.assertEqual(sum(m=='PUT' and suffix=='' for m,_,suffix in self.api.calls),1)
+    def test_boundary_changes_reuse_but_key_and_code_changes_upload(self):
+        self.release().prepare(self.stage,self.root)
+        path=self.root/'native.multipart'
+        path.write_bytes(path.read_bytes().replace(b'test_boundary',b'another_boundary'))
+        self.release().prepare(self.stage,self.root)
+        uploads=lambda:sum(m=='PUT' and s=='' for m,_,s in self.api.calls)
+        self.assertEqual(uploads(),1)
+        self.env['TEACHER_SYNC_KEY']='cd'*32
+        self.release().prepare(self.stage,self.root);self.assertEqual(uploads(),2)
+        path.write_bytes(path.read_bytes().replace(b'export default {}',b'export default {newVersion:true}'))
+        self.release().prepare(self.stage,self.root);self.assertEqual(uploads(),3)
+
+    def test_activation_failure_rerun_reuses_both_artifacts(self):
+        self.add_executor_artifact();release=self.release('separate')
+        release.prepare(self.stage,self.root);self.api.fail=('PUT','/schedules')
+        with self.assertRaises(APIError):release.activate()
+        self.api.fail=None;release=self.release('separate')
+        release.prepare(self.stage,self.root);release.activate()
+        self.assertEqual(sum(m=='PUT' and s=='' for m,_,s in self.api.calls),2)
+        self.assertEqual(self.api.scripts['teacher-sync-executor']['schedules']['schedules'],[{'cron':'* * * * *'}])
+
+    def test_invalid_identity_or_credentials(self):
+        for key,value in [('WRANGLER_CI_OVERRIDE_NAME','wrong'),('TEACHER_AUX_API_TOKEN',''),('CLOUDFLARE_ACCOUNT_ID','bad'),('TEACHER_SYNC_KEY','bad')]:
+            with self.subTest(key=key),self.assertRaises(ValueError):validate(dict(self.env,**{key:value}),'teacher')
+
+
+class ClientTests(unittest.TestCase):
+    def test_exact_endpoint_and_token_with_bounded_retry(self):
+        class Opener:
+            def __init__(self):self.calls=[]
+            def open(self,req,timeout):
+                self.calls.append(req)
+                if len(self.calls)==1:raise HTTPError(req.full_url,503,'',{},io.BytesIO(b'{"success":false}'))
+                return Response(b'{"success":true,"result":{"ok":true}}')
+        opener=Opener();client=Client('a'*32,'token',opener=opener,sleep=lambda _:None)
+        self.assertEqual(client.request('PUT','teacher-sync-native',body=b'raw',content_type='multipart/form-data; boundary=x'),{'ok':True})
+        req=opener.calls[-1];self.assertEqual(req.data,b'raw');self.assertEqual(req.get_header('Authorization'),'Bearer token')
+        self.assertEqual(req.full_url,'https://api.cloudflare.com/client/v4/accounts/'+'a'*32+'/workers/scripts/teacher-sync-native')
+    def test_unauthorized_is_not_absence_and_never_echoes_response(self):
+        class Opener:
+            def open(self,req,timeout):raise HTTPError(req.full_url,403,'',{},io.BytesIO(b'{"success":false,"errors":[{"code":10000,"message":"secret-echo"}]}'))
+        client=Client('a'*32,'token',opener=Opener())
+        with self.assertRaises(APIError) as result:client.request('GET','teacher-sync-native','/settings',missing=True)
+        self.assertNotIn('secret-echo',str(result.exception));self.assertEqual(result.exception.status,403)
+    def test_unknown_404_not_accepted_as_new_worker(self):
+        class Opener:
+            def open(self,req,timeout):raise HTTPError(req.full_url,404,'',{},io.BytesIO(b'{"success":false,"errors":[]}'))
+        with self.assertRaises(APIError):Client('a'*32,'token',opener=Opener()).request('GET','teacher','/settings',missing=True)

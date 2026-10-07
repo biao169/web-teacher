@@ -20,6 +20,7 @@ class SourcePathTests(unittest.TestCase):
                    TEACHER_D1_ID='12345678-1234-1234-1234-123456789abc',
                    TEACHER_D1_NAME='teacher-site', TEACHER_MEDIA_BUCKET='teacher-media',
                    TEACHER_SYNC_EXECUTOR_MODE=mode,
+                   CLOUDFLARE_ACCOUNT_ID='a'*32, TEACHER_AUX_API_TOKEN='test-token', TEACHER_SYNC_KEY='6a'*32,
                    WORKERS_CI='1', WORKERS_CI_BRANCH='web-py', SKIP_DEPENDENCY_INSTALL='1')
         if invalid:
             env.pop('TEACHER_D1_ID')
