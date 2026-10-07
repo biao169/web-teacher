@@ -3,6 +3,7 @@ The source freezes <=1MiB in SQLite/D1, slices bytes in SQL, and never transfers
 accounts or secrets in ordinary module mode. Privileged full clones delegate
 to clone.py and include account/password-hash restoration.
 """
+from site_sync.core.selection import is_restore,normalize,selected_tables
 import hashlib,json,time
 from .catalog import SCOPES,COLUMNS,RELATIONS,row_json
 from site_sync.runtime.mapping import MappedWebsite
@@ -16,12 +17,12 @@ class TeacherWebsite(MappedWebsite):
     async def check(self,db):
         await db.query('SELECT module FROM sync_exports LIMIT 0')
     async def discover(self,ctx):
-        if json.loads(ctx.task['scope_json'])==['site_clone']:
+        if is_restore(json.loads(ctx.task['scope_json'])):
             from .clone import discover
             return await discover(self,ctx)
         return await super().discover(ctx)
     async def source_candidates(self,q):
-        if q.get('scope')==['site_clone']:
+        if is_restore(q.get('scope')):
             from .clone import candidates
             return await candidates(self,q)
         if 'site_clone' in q.get('scope',[]):raise AuthorizationError('Clone must be selected alone')
@@ -47,7 +48,7 @@ class TeacherWebsite(MappedWebsite):
         i=rows[0] if rows else None
         return {'item':i,'cursor':[i['updated'],i['module'],i['id']] if i else None}
     async def snapshot(self,q):
-        if q['module']=='site_clone':
+        if is_restore([q['module']]):
             from .clone import snapshot
             return await snapshot(self,q)
         t=q['module'];self.mapping(t)
@@ -97,7 +98,7 @@ class TeacherWebsite(MappedWebsite):
         await self.db.batch([('UPDATE sync_exports SET expires_at=? WHERE module=? AND record_id=? AND version=? AND request_id=?',(int(time.time())+604800,q['module'],q['record'],q['version'],q.get('task','')))])
         return bytes(rows[0]['data'])
     async def apply(self,ctx):
-        if json.loads(ctx.task['scope_json'])==['site_clone']:
+        if is_restore(json.loads(ctx.task['scope_json'])):
             from .clone import apply
             return await apply(self,ctx)
         records=await self.db.query("SELECT * FROM sync_items WHERE task_id=? AND selected=1 AND status='staged' ORDER BY item_id LIMIT 1",(ctx.task['task_id'],))

@@ -8,13 +8,14 @@ import time
 from urllib.parse import urlsplit
 from site_sync.adapters.sqlite import SQLite
 from site_sync.adapters.tasks import Tasks
+from site_sync.core.selection import RESTORE_SCOPES
 from site_sync.deploy.schema import Plan,ensure
 from site_sync.admin.service import Admin,Actor
 from site_sync.admin.asgi import AdminASGI
 ROOT=Path(__file__).resolve().parents[2]
 run=asyncio.run;db=SQLite();run(ensure(db,core_plan(ROOT/'database/schema.sql')));repo=Tasks(db)
 db.connection.execute("INSERT INTO sync_peers VALUES('peer-test','https://invalid.example','env:UNUSED','p1',1)")
-run(repo.put_grant(grant_id='test',principal_id='test',scope=['news','profiles','site_clone'],can_write=True,can_delete=True))
+run(repo.put_grant(grant_id='test',principal_id='test',scope=['news','profiles','site_clone',*RESTORE_SCOPES],can_write=True,can_delete=True))
 now=int(time.time());task=run(repo.create(peer_id='peer-test',grant_id='test',scope=['news'],operation_id='fixture',now=now,mode='manual'));t=run(repo.claim(now))
 run(repo.add_item(t,item_id='item-1',module='news',record_id='<img src=x onerror=alert(1)>',source_version='v1',now=now));run(repo.advance(t,'await_confirmation',now));run(repo.finish(t,now))
 async def authenticate(scope):return Actor('test','test')

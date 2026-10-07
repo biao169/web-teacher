@@ -3,6 +3,7 @@
 All methods are internal capabilities: the host resolves the authenticated actor
 before issuing commands and updates grant revisions when account/role rules change.
 """
+from site_sync.core.selection import is_restore,normalize,selected_tables
 import hashlib
 import json
 import uuid
@@ -61,10 +62,12 @@ class Tasks:
         if type(auto_confirm)!=bool or type(auto_delete)!=bool:raise ValueError('Invalid confirmation policy')
         auto_confirm=auto_confirm or mode=='scheduled'
         if isinstance(scope,list) and 'site_clone' in scope and (scope!=['site_clone'] or (auto_confirm and not auto_delete)):raise ValueError('Full clone must be selected alone with deletion enabled')
+        scope=normalize(scope)
+        if is_restore(scope) and auto_confirm and not auto_delete:raise ValueError('Restore requires replacement approval')
         encoded=scopes(scope); g=await self.grant(grant_id,now)
         if expected_grant_revision is not None and g['revision']!=expected_grant_revision:raise AuthorizationError('Approval policy changed; retry proposal')
         if not set(json.loads(encoded)).issubset(json.loads(g['scopes_json'])):raise AuthorizationError('Scope denied')
-        if scope==['site_clone'] and not g['can_delete']:raise AuthorizationError('Full clone requires delete permission')
+        if is_restore(scope) and not g['can_delete']:raise AuthorizationError('Full clone requires delete permission')
         if auto_confirm and not g['can_write']:raise AuthorizationError('Scheduled writing not authorized')
         from site_sync.core.settings import resolve
         config=await resolve(self.db,self.platform,settings)
@@ -217,7 +220,7 @@ class Tasks:
         g=await self.grant(task['grant_id'],now)
         selected=task['auto_confirm'] and (action!='delete' or (g['can_delete'] and task['auto_delete']))
         await self.db.batch([
-          self.assertion(task,now,extra="t.phase='discover' AND (EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id AND item_id=?) OR json_extract(t.scope_json,'$[0]')='site_clone' OR NOT EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id LIMIT 1 OFFSET 1999))",args=(item_id,)),
+          self.assertion(task,now,extra="t.phase='discover' AND (EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id AND item_id=?) OR json_extract(t.scope_json,'$[0]')='site_clone' OR substr(json_extract(t.scope_json,'$[0]'),1,8)='restore_' OR NOT EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id LIMIT 1 OFFSET 1999))",args=(item_id,)),
           ('''INSERT INTO sync_items(task_id,item_id,module,record_id,action,source_version,target_version,apply_key,selected)
            VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(task_id,item_id) DO NOTHING''',
            (task['task_id'],item_id,module,record_id,action,source_version,target_version,task['task_id']+':'+item_id,int(selected))),

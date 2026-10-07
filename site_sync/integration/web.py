@@ -1,5 +1,6 @@
 """Existing admin session/CSRF plus a signed read-only peer endpoint."""
 import json,time
+from site_sync.core.selection import descriptions
 from fastapi import Request
 from fastapi.responses import Response,JSONResponse
 from backend.app.native.catalog import Error
@@ -29,7 +30,7 @@ def install(app,resources,csrf,render):
     async def page(request:Request):
         r=await resources(request);authorize(r)
         rows=await r.sql.query('SELECT p.origin,p.enabled,c.incoming_auto_scope,c.incoming_auto_delete FROM sync_peers p JOIN sync_connections c ON c.peer_id=p.peer_id WHERE p.peer_id=\'peer\'')
-        return await render(r,'sync/page.html','site-sync',title='两站同步',sync_peer=rows[0] if rows else {},sync_modules=scopes(r.p),incoming_scope=json.loads(rows[0]['incoming_auto_scope']) if rows else [])
+        return await render(r,'sync/page.html','site-sync',title='两站同步',sync_peer=rows[0] if rows else {},sync_modules=descriptions(scopes(r.p)),incoming_scope=json.loads(rows[0]['incoming_auto_scope']) if rows else [])
     @app.post('/api/admin/site-sync/connection')
     async def connection(request:Request):
         r=await resources(request);data=await payload(request,4096);csrf(request,r,data)
@@ -79,7 +80,10 @@ def install(app,resources,csrf,render):
                 from .proposals import receive
                 body=encode(await receive(r,q));meta={'version':'proposal-v1'}
             elif q.get('kind')=='clone_check':
-                await authorize_export(r,'site_clone')
+                from site_sync.core.selection import is_restore
+                selection=q.get('scope',['site_clone'])
+                if not is_restore(selection):raise AuthorizationError('Invalid restore scope')
+                for module in selection:await authorize_export(r,module)
                 from .clone import check_source
                 body=encode(await check_source(source,q));meta={'version':'catalog-v1'}
             elif q.get('kind')=='candidates':
@@ -89,6 +93,9 @@ def install(app,resources,csrf,render):
             else:
                 if any(not isinstance(q.get(k),str) or not 0<len(q[k])<=256 for k in ('module','record','version')):raise ValueError('Identity bound')
                 await authorize_export(r,q['module'])
+                if q['record'].startswith('00meta-'):
+                    from site_sync.core.selection import meta_scope
+                    for module in meta_scope(q['record']):await authorize_export(r,module)
                 from .catalog import RELATIONS
                 for dep in set(RELATIONS.get(q['module'],{}).values()):await authorize_export(r,dep)
                 if q.get('kind')=='manifest':
@@ -102,7 +109,7 @@ def install(app,resources,csrf,render):
                             await source.snapshot(dict(q,kind='manifest',version=q['record_version']))
                         rows=await db.query("SELECT json_extract(f.value,'$.object_key') object_key,json_extract(f.value,'$.size') size FROM sync_exports e,json_each(e.files_json) f WHERE e.module=? AND e.record_id=? AND e.request_id=? AND json_extract(f.value,'$.id')=? AND json_extract(f.value,'$.version')=? LIMIT 1",(q['module'],q['record'],q.get('task',''),q.get('file'),q['version']))
                         if not rows or type(q.get('total'))!=int or not 0<q['total']<=MAX_MEDIA or rows[0]['size']!=q['total'] or offset+length>q['total']:raise ConflictError('Media changed')
-                        current=await db.query('SELECT object_key,size FROM media_assets WHERE uid=? AND updated_at=? AND (status=\'active\' OR ?=\'site_clone\')',(q['file'],q['version'],q['module']))
+                        current=await db.query('SELECT object_key,size FROM media_assets WHERE uid=? AND updated_at=? AND (status=\'active\' OR ? IN (\'site_clone\',\'restore_media_assets\'))',(q['file'],q['version'],q['module']))
                         if not current or current[0]!=rows[0]:raise ConflictError('Media changed')
                         from backend.app.native.media_inventory_store import inventory
                         from backend.app.native.media_response import LocalMediaResponse

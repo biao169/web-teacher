@@ -201,7 +201,9 @@ class Release:
             private(self.client,worker)
             schedule(self.client,worker,[])
             settings=self.client.request('GET',worker,'/settings');owned(settings,self.main,role)
-            check_bindings(settings,cfg,bool(self.key))
+            confirmed=check_bindings(settings,cfg,bool(self.key))
+            if confirmed.get('TEACHER_AUX_REVISION',{}).get('text')!=revision(info,self.key):raise ValueError('Companion revision not confirmed; main deployment stopped')
+            self.log('AUX-REVISION','辅助产物版本已核对 / Companion artifact revision confirmed',worker=worker,role=role)
             self.log('AUX-READY','辅助已发布并关闭公开访问，Cron 暂停 / Companion ready; scheduling paused',worker=worker)
     def activate(self):
         # Resolve the new site's circular binding only after the main deploy.

@@ -1,6 +1,7 @@
 """Shared teacher-site wiring; no independent account, database or HTTP port."""
 import asyncio,hashlib,json,os,time,secrets
-from .catalog import SCOPES
+from .catalog import BASE_SCOPES
+from site_sync.core.selection import RESTORE_SCOPES
 from .database import adapter
 from .website import TeacherWebsite
 from site_sync.adapters.tasks import Tasks
@@ -17,8 +18,8 @@ async def secret(r):
     from .credentials import require_secret
     return await require_secret(r)
 def scopes(p):
-    allowed=[t for t in SCOPES if t!='site_clone' and all(p['permissions'].get(t,{}).get(k) for k in ('can_view','can_edit','can_create','can_export'))]
-    if p.get('is_system') and all(p['permissions'].get('data_tools',{}).get(k) for k in ('can_view','can_edit','can_export')):allowed.append('site_clone')
+    allowed=[t for t in BASE_SCOPES if all(p['permissions'].get(t,{}).get(k) for k in ('can_view','can_edit','can_create','can_export'))]
+    if p.get('is_system') and all(p['permissions'].get('data_tools',{}).get(k) for k in ('can_view','can_edit','can_export')):allowed.extend(('site_clone',*RESTORE_SCOPES))
     return allowed
 def grant_id(p):return 'website:'+p['uid']
 async def authorize_export(r,module=None):
@@ -50,7 +51,7 @@ async def configure(r,body):
     await db.batch([guard,("INSERT INTO sync_peers VALUES('peer',?,'env:TEACHER_SYNC_KEY',?,?) ON CONFLICT(peer_id) DO UPDATE SET origin=excluded.origin,revision=excluded.revision,enabled=excluded.enabled",(origin,revision,int(enabled))),
        ("INSERT INTO sync_connections VALUES('peer',?,?,?,?) ON CONFLICT(peer_id) DO UPDATE SET export_scope_json=excluded.export_scope_json,incoming_auto_scope=excluded.incoming_auto_scope,incoming_auto_delete=excluded.incoming_auto_delete",(r.p['uid'],json.dumps(allowed),json.dumps(sorted(set(incoming))),int(delete))),
        ('INSERT INTO sync_grants VALUES(?,?,?,?,?,?,?,0) ON CONFLICT(grant_id) DO UPDATE SET revision=excluded.revision,enabled=excluded.enabled,scopes_json=excluded.scopes_json,can_write=excluded.can_write,can_delete=excluded.can_delete WHERE principal_id=excluded.principal_id',
-        (grant_id(r.p),r.p['uid'],secrets.token_hex(16),int(enabled),json.dumps(allowed),1,int(all(r.p['permissions'][t]['can_delete'] for t in allowed if t!='site_clone')))),
+        (grant_id(r.p),r.p['uid'],secrets.token_hex(16),int(enabled),json.dumps(allowed),1,int(all(r.p['permissions'][t]['can_delete'] for t in allowed if t in BASE_SCOPES)))),
        ('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
     return {'saved':True}
 

@@ -100,7 +100,7 @@
 .sync-scope-card:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 .sync-scope-card span{display:flex;flex-direction:column;gap:4px}
 .sync-scope-card small{font-size:.75rem;color:var(--muted);font-weight:400}
-.sync-panel .sync-scope-card:has(input[value=site_clone]){grid-column:1/-1}
+
 .sync-page #sync-connection fieldset label:has(input[name=incoming_auto_scope]){padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .sync-panel td:nth-child(2){min-width:11rem}
 .sync-panel td:last-child{min-width:10rem}
@@ -109,3 +109,23 @@
 .sync-connection-settings>summary{cursor:pointer;padding:14px 0;font-weight:600}
 .sync-page .sync-help{color:var(--muted);font-weight:400;font-size:.78rem;line-height:1.5}
 .sync-probe{padding-top:8px}
+
+/* Reuse the teacher admin's native section navigation and theme. */
+.sync-page .sync-section-nav{margin:0 0 24px;padding:10px 0;z-index:9;scrollbar-width:thin}
+.sync-section-nav a{display:inline-flex;align-items:center;flex:none;font-size:var(--admin-small,.875rem)}
+.sync-section-nav a[aria-current=location]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.sync-section-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sync-page [id^=sync-]{scroll-margin-top:80px}
+.sync-page [data-sync-target]:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.sync-page .sync-settings-block{width:100%;border-top:1px solid var(--line);padding:24px 0;margin-top:16px}
+.sync-settings-block h3{flex-basis:100%;font-size:var(--admin-section,16px);font-weight:600;margin:0 0 8px}
+.sync-connection-card .sync-key-form{width:100%}
+.sync-connection-card .sync-scope-grid{width:100%;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));margin:4px 0}
+.sync-page #sync-connection .sync-scope-card{display:flex;flex-direction:row;gap:10px;align-items:flex-start}
+.sync-page #sync-connection .sync-scope-card:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.sync-page #sync-connection .sync-scope-card>span{min-width:0}
+.sync-page #sync-connection .sync-scope-card small{display:block}
+.sync-page #sync-connection>label:has(input[type=checkbox]){flex-wrap:wrap}
+.sync-page #sync-connection>label>.sync-help{flex-basis:100%}
+.sync-page #sync-connection>label:has(input[name=origin]){flex:1 1 360px}
+@media(max-width:700px){.sync-page .sync-section-nav{margin-bottom:16px}.sync-page .sync-settings-block{padding:16px 0}.sync-connection-card .sync-scope-grid{grid-template-columns:1fr}}

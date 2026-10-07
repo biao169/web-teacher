@@ -1,7 +1,8 @@
 """Explicit mappings from the user-selected v0.15.160 website only."""
 from backend.app.native.catalog import TABLES,SECRET,CONTENT
 BASE_SCOPES=(*CONTENT,'student_category_displays','navigation_items','site_settings','translation_cache')
-SCOPES=(*BASE_SCOPES,'site_clone')
+from site_sync.core.selection import RESTORE_SCOPES
+SCOPES=(*BASE_SCOPES,'site_clone',*RESTORE_SCOPES)
 OMIT={'id','error_message','translation_job_state'}|SECRET
 COLUMNS={t:tuple(k for k in TABLES[t]['columns'] if k not in OMIT) for t in (*BASE_SCOPES,'media_assets')}
 RELATIONS={'news':{'related_publication_uid':'publications','related_project_uid':'projects','related_student_uid':'students'},'site_settings':{'homepage_profile_uid':'profiles'}}

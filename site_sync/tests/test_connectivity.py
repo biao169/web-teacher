@@ -26,3 +26,11 @@ class ConnectivityTests(unittest.TestCase):
   self.assertEqual(result['causes'][0]['stage'],'credential_read')
   self.assertEqual(result['causes'][0]['platform_code'],1102)
   self.assertNotIn('SECRET',json.dumps(result))
+ def test_fetch_substage_and_safe_code_survive_rpc(self):
+  binding=SimpleNamespace(read=AsyncMock(return_value=json.dumps({'ok':False,'kind':'temporary','stage':'fetch_request','error_type':'TypeError','code':'INVOCATION_CONTEXT','reason':'PRIVATE KEY AND URL'})))
+  try:asyncio.run(NativeBridge(binding,None).call('read',{}))
+  except NativeError as exc:result=failure(exc)
+  self.assertEqual(result['causes'][0]['code'],'INVOCATION_CONTEXT')
+  self.assertEqual(result['causes'][0]['stage'],'fetch_request')
+  self.assertIn('更新原生辅助',result['causes'][0]['reason'])
+  self.assertNotIn('PRIVATE',json.dumps(result))

@@ -107,6 +107,19 @@ class ReleaseTests(unittest.TestCase):
         path.write_bytes(path.read_bytes().replace(b'export default {}',b'export default {newVersion:true}'))
         self.release().prepare(self.stage,self.root);self.assertEqual(uploads(),3)
 
+    def test_wrong_uploaded_revision_stops_before_main_release(self):
+        original=self.api.request
+        def request(method,name,suffix='',*args,**kwargs):
+            result=original(method,name,suffix,*args,**kwargs)
+            if method=='PUT' and suffix=='':
+                for binding in self.api.scripts[name]['settings']['bindings']:
+                    if binding['name']=='TEACHER_AUX_REVISION':binding['text']='stale-artifact'
+            return result
+        self.api.request=request
+        with self.assertRaisesRegex(ValueError,'revision not confirmed'):
+            self.release().prepare(self.stage,self.root)
+        self.assertFalse(any(args[0]=='AUX-READY' for args,kw in self.logs))
+
     def test_activation_failure_rerun_reuses_both_artifacts(self):
         self.add_executor_artifact();release=self.release('separate')
         release.prepare(self.stage,self.root);self.api.fail=('PUT','/schedules')

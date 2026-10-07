@@ -22,9 +22,11 @@ def failure(exc):
         ray=getattr(cause,'ray_id',None)
         if isinstance(ray,str) and re.fullmatch(r'[a-fA-F0-9]{8,32}-[A-Z]{3}',ray):info['ray_id']=ray
         stage=getattr(cause,'stage',None)
-        if stage in ('control','credential_read','peer_config','peer_read','response_encode'):
-            info['stage']=stage
-            info['reason']={'control':'控制参数无效','credential_read':'原生辅助服务读取同步密钥失败；检查密钥配置及数据库结构','peer_config':'对端地址或密钥引用配置无效','peer_read':'对端请求失败；检查 HTTP 状态、签名及导出权限','response_encode':'响应编码失败'}[stage]
+        reasons={'control':'控制参数无效','credential_read':'原生辅助读取同步密钥失败','peer_config':'对端地址或密钥引用配置无效','peer_read':'对端请求失败','response_encode':'响应编码失败','request_encode':'请求编码失败','request_sign':'请求签名失败','fetch_request':'发出对端请求失败，尚未获得 HTTP 响应','response_headers':'对端 HTTP 状态或响应头检查失败','response_body':'读取对端响应流失败','response_verify':'对端响应签名或摘要验证失败','response_metadata':'对端响应元数据校验失败'}
+        if isinstance(stage,str) and stage in reasons:info['stage']=stage;info['reason']=reasons[stage]
+        code=getattr(cause,'code',None)
+        diagnostics={'INVOCATION_CONTEXT':'原生函数调用上下文错误；需更新原生辅助 Worker','NETWORK_REQUEST_FAILED':'请求未获得响应；需检查网络、域名与路由','STREAM_READ_FAILED':'响应流读取失败；保留断点重试','NATIVE_TYPE_ERROR':'原生类型错误；请结合阶段定位','REQUEST_TIMEOUT':'请求超时；保留进度重试'}
+        if isinstance(code,str) and code in diagnostics:info['code']=code;info['reason']=diagnostics[code]
         name=getattr(cause,'error_type',None)
         if isinstance(name,str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9]{0,63}',name):info['native_type']=name
         codes.append(info);cause=cause.__cause__

@@ -1,8 +1,10 @@
+原生请求修复与辅助自动更新说明见 [v0.16.025](../../docs/releases/v0.16.025.md)。正常执行 `python build.py deploy` 会自动检查并更新辅助 Worker，无需逐个手动部署。
+
 本版同步重试及自动调度绑定说明见 [配置教程](../../docs/sync-retry-setup.md)。
 
 # Cloudflare 网页部署
 
-一个主站构建项目自动发布主站和辅助 Worker，无需 GitHub Actions。源码 v0.16.018；API 流程已通过模拟测试和实际上传包校验，尚未在真实 Cloudflare 账号完成发布验收。
+一个主站构建项目自动发布主站和辅助 Worker，无需 GitHub Actions。源码 v0.16.025；API 流程已通过模拟测试和实际上传包校验，尚未在真实 Cloudflare 账号完成发布验收。
 
 ## 1. 准备
 

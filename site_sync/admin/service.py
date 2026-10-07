@@ -1,3 +1,4 @@
+from site_sync.core.selection import is_restore,normalize,selected_tables,visible_scopes,descriptions
 import hashlib
 import json
 import secrets
@@ -54,7 +55,7 @@ class Admin:
     async def options(self,actor):
         g=await self.grant(actor)
         peers=await self.db.query('SELECT peer_id FROM sync_peers WHERE enabled=1 ORDER BY peer_id LIMIT 100')
-        return {'peers':peers,'modules':json.loads(g['scopes_json']),'can_write':bool(g['can_write'] and g['enabled'] and (not g['expires_at'] or g['expires_at']>self.clock())),
+        return {'peers':peers,'modules':visible_scopes(json.loads(g['scopes_json'])),'scope_details':descriptions(json.loads(g['scopes_json'])),'can_write':bool(g['can_write'] and g['enabled'] and (not g['expires_at'] or g['expires_at']>self.clock())),
                 'timezone':'Asia/Shanghai','retention_days':self.retention_days,'platform':self.repo.platform,'defaults':await site(self.db,self.repo.platform)}
     async def tasks(self,actor,*,view='active',cursor=None,limit=50):
         await self.grant(actor)
@@ -83,13 +84,13 @@ class Admin:
             offsets=await self.db.query('SELECT field,max(offset+length(data)) next_offset FROM sync_parts WHERE task_id=? AND item_id=? GROUP BY field LIMIT 32',(task_id,i['item_id']))
             media_current=await self.db.query('SELECT file_id,source_file_id,status,committed_bytes,total_bytes,storage_kind,staging_key FROM sync_files WHERE task_id=? AND item_id=? ORDER BY file_id LIMIT 16',(task_id,i['item_id']))
         clone=None
-        if json.loads(t['scope_json'])==['site_clone']:
+        if is_restore(json.loads(t['scope_json'])):
             from site_sync.integration.clone import ORDER,AUTH
-            tables=[name for name in ORDER if name not in AUTH]
+            tables=[name for name in selected_tables(json.loads(t['scope_json'])) if name not in AUTH]
             saved=await self.db.query('SELECT value FROM service_meta WHERE key=?',('sync:clone-state:'+task_id,))
             state=json.loads(saved[0]['value']) if saved else {}
             phase=state.get('phase') or ('stage' if t['phase']=='apply' else t['phase'])
-            labels={'discover':'发现完整清单','await_confirmation':'等待整任务批准','transfer':'下载正文与媒体','stage':'整理持久暂存记录','verify':'检查清单与管理员','restore':'恢复业务数据','prune':'清理目标多余记录','cleanup':'清理暂存分片，随后统一切换账号','done':'已完成'}
+            labels={'discover':'发现完整清单','await_confirmation':'等待整任务批准','transfer':'下载正文与媒体','stage':'整理持久暂存记录','verify':'检查清单与管理员','restore':'恢复业务数据','prune':'清理目标多余记录','cleanup':'清理暂存分片；选入账号时统一切换账号','done':'已完成'}
             index=max(0,min(int(state.get('table',0)),len(tables)))
             ordered=list(reversed(tables)) if phase=='prune' else tables
             if t['status']=='cancelled':phase='cancelled';index=0;labels['cancelled']='已取消；已应用内容不回滚'
@@ -115,7 +116,7 @@ class Admin:
         await self.grant(actor,True)
         if set(body)-{'peer_id','scope','request_id','auto_confirm','auto_delete','settings'} or not {'peer_id','scope','request_id'}<=set(body) or not isinstance(body['request_id'],str) or not 8<=len(body['request_id'])<=128:raise ValueError('无效创建参数')
         op='manual:'+hashlib.sha256((actor.grant_id+'\0'+body['request_id']).encode()).hexdigest()
-        t=await self.repo.create(peer_id=body['peer_id'],grant_id=actor.grant_id,scope=body['scope'],operation_id=op,now=self.clock(),mode='manual',auto_confirm=body.get('auto_confirm',True),auto_delete=body.get('auto_delete',True),settings=body.get('settings'))
+        t=await self.repo.create(peer_id=body['peer_id'],grant_id=actor.grant_id,scope=normalize(body['scope']),operation_id=op,now=self.clock(),mode='manual',auto_confirm=body.get('auto_confirm',True),auto_delete=body.get('auto_delete',True),settings=body.get('settings'))
         return {'task_id':t['task_id']}
     async def command(self,actor,task_id,command,body):
         t=await self.own_task(actor,task_id,True)
@@ -168,9 +169,9 @@ class Admin:
         required={'schedule_id','revision','peer_id','scope','interval_seconds','enabled'}
         if not required<=set(body) or set(body)-required-{'request_id','settings'}:raise ValueError('无效计划设置')
         if not g['can_write']:raise AuthorizationError('无定时写入权限')
-        scope=body['scope']
+        scope=normalize(body['scope'])
         if not isinstance(scope,list) or not 0<len(scope)<=64 or any(not isinstance(x,str) for x in scope) or not set(scope).issubset(json.loads(g['scopes_json'])):raise AuthorizationError('计划超出授权范围')
-        if 'site_clone' in scope and (scope!=['site_clone'] or not g['can_delete']):raise AuthorizationError('整站克隆需单独选择并具备删除权限')
+        if is_restore(scope) and not g['can_delete']:raise AuthorizationError('整站克隆需单独选择并具备删除权限')
         interval=integer(body['interval_seconds'],60,2592000)
         if type(body['enabled'])!=bool:raise ValueError('无效启用状态')
         request=body.get('request_id')

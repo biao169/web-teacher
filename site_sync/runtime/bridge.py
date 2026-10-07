@@ -19,7 +19,7 @@ class NativeBridge:
         data=json.loads(result)
         if not data.get('ok'):
             error=NativeError(data.get('kind','temporary'))
-            for key in ('http_status','platform_code','ray_id','stage','error_type','reason'):setattr(error,key,data.get(key))
+            for key in ('http_status','platform_code','ray_id','stage','error_type','reason','code'):setattr(error,key,data.get(key))
             raise error
         return data['value']
     async def read(self,request):
