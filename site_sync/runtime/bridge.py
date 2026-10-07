@@ -19,7 +19,7 @@ class NativeBridge:
         data=json.loads(result)
         if not data.get('ok'):
             error=NativeError(data.get('kind','temporary'))
-            for key in ('http_status','platform_code','ray_id'):setattr(error,key,data.get(key))
+            for key in ('http_status','platform_code','ray_id','stage','error_type','reason'):setattr(error,key,data.get(key))
             raise error
         return data['value']
     async def read(self,request):
@@ -28,5 +28,5 @@ class NativeBridge:
         return base64.b64decode(result,validate=True)
     async def step(self,f,item,parts):
         peers=await self.db.query('SELECT p.origin,p.secret_ref FROM sync_peers p JOIN sync_tasks t ON t.peer_id=p.peer_id WHERE t.task_id=?',(f['task_id'],))
-        return await self.call('step',{'peer':peers[0],'file':f,'item':{'task_id':f['task_id'],'module':item['module'],'record_id':item['record_id'],'source_version':item['source_version'],'snapshot_hash':json.loads(item.get('manifest_json') or '{}').get('snapshot_hash')},'parts':parts})
+        return await self.call('step',{'peer':peers[0],'file':f,'item':{'task_id':f['task_id'],'module':item['module'],'record_id':item['record_id'],'source_version':item['source_version'],'snapshot_hash':json.loads(item.get('manifest_json') or '{}').get('snapshot_hash')}})
     async def discard(self,f):return await self.call('discard',{'file':f})

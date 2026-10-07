@@ -19,6 +19,8 @@ def write_native(root,stage,config):
          'compatibility_flags':['global_fetch_strictly_public'],'workers_dev':False,'preview_urls':False,
          'vars':{'TEACHER_MEDIA_PREFIX':config['vars']['TEACHER_MEDIA_PREFIX']},
          'd1_databases':[dict(db,binding='DB')],'r2_buckets':[dict(media,binding='MEDIA')]}
+    cfg['durable_objects']={'bindings':[{'name':'SYNC_COORDINATOR','class_name':'SyncCoordinator'}]}
+    cfg['migrations']=[{'tag':'teacher-sync-alarm-v1','new_sqlite_classes':['SyncCoordinator']}]
     (native/'wrangler.jsonc').write_text(json.dumps(cfg,indent=2))
     return cfg
 

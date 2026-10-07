@@ -55,3 +55,20 @@ test('resource diagnostics retain HTTP status platform code and Ray ID only',asy
  const peer=new SignedPeer('https://peer.invalid',new Uint8Array(32).fill(1),{fetcher:async()=>new Response('Error 1102: resource limit; private-details',{status:503,headers:{'cf-ray':'a45366641dc5fdce-SIN'}})});
  await assert.rejects(peer.read({kind:'manifest',version:'v1'}),e=>e.kind==='resource'&&e.http_status===503&&e.platform_code===1102&&e.ray_id==='a45366641dc5fdce-SIN'&&!e.message.includes('private-details'));
 });
+test('media over former 20 MiB bound streams one part per step',async()=>{
+ const s=setup(5*PART_BYTES+123),parts=await uploadAll(s);
+ assert.equal(parts.length,6);assert.equal((await s.media.step(s.f,{},parts)).kind,'uploaded');
+});
+test('empty R2 object publishes without multipart or peer request',async()=>{
+ const s=setup(0);let calls=0;
+ s.bucket.put=async(key,body,options)=>{calls++;assert.equal(body.length,0);assert.equal(options.customMetadata.sync_operation,s.f.operation_id);};
+ s.bucket.createMultipartUpload=()=>{throw Error('unexpected multipart');};
+ assert.deepEqual(await s.media.step(s.f,{},[]),{kind:'uploaded'});assert.equal(calls,1);
+});
+test('native snapshot hash does not return snapshot bytes through RPC',async()=>{
+ const {dispatch}=await import('./native_dispatch.mjs');
+ const bytes=new TextEncoder().encode('x'.repeat(240000));let args;
+ const env={DB:{prepare(sql){assert.match(sql,/SELECT body FROM sync_exports/);return {bind(...values){args=values;return {first:async()=>({body:Array.from(bytes)})};}};}}};
+ const result=JSON.parse(await dispatch(env,'snapshot_hash',JSON.stringify({identity:['site_clone','news:n','v1','task']})));
+ assert.equal(result.ok,true);assert.equal(result.value,createHash('sha256').update(bytes).digest('hex'));assert.equal(args.length,4);
+});

@@ -26,8 +26,13 @@ def inspect_artifact(path, config, main_name, role):
         raise ValueError('Companion target mismatch')
     if config.get('workers_dev') is not False or config.get('preview_urls') is not False:
         raise ValueError('Companions must be private')
-    if any(key in config for key in ('assets','routes','durable_objects','migrations')):
+    if any(key in config for key in ('assets','routes')):
         raise ValueError('Companion contains website-only configuration')
+    expected_do={'bindings':[{'name':'SYNC_COORDINATOR','class_name':'SyncCoordinator'}]}
+    expected_migrations=[{'tag':'teacher-sync-alarm-v1','new_sqlite_classes':['SyncCoordinator']}]
+    if role=='native':
+        if config.get('durable_objects')!=expected_do or config.get('migrations')!=expected_migrations:raise ValueError('Sync coordinator configuration mismatch')
+    elif any(k in config for k in ('durable_objects','migrations')):raise ValueError('Executor cannot own DOs')
     path=Path(path)
     if not 0<path.stat().st_size<=MAX_ARTIFACT:
         raise ValueError('Invalid multipart artifact size')
@@ -56,16 +61,20 @@ def inspect_artifact(path, config, main_name, role):
     main=metadata.get('main_module')
     if main not in parts:
         raise ValueError('Entrypoint missing from upload')
-    for key in ('assets','migrations','containers','exports'):
+    for key in ('assets','containers','exports'):
         if metadata.get(key):raise ValueError('Unexpected website upload metadata')
     if metadata.get('compatibility_date')!=config['compatibility_date'] or set(metadata.get('compatibility_flags',[]))!=set(config.get('compatibility_flags',[])):
         raise ValueError('Compatibility metadata mismatch')
     bindings=metadata.get('bindings',[])
     if len({b.get('name') for b in bindings})!=len(bindings):
         raise ValueError('Duplicate binding names')
-    if any(b.get('type') not in ('plain_text','d1','r2_bucket','service') for b in bindings):
+    if any(b.get('type') not in ('plain_text','d1','r2_bucket','service','durable_object_namespace') for b in bindings):
         raise ValueError('Unexpected or secret binding in artifact')
     actual={b['name']:b for b in bindings}
+    if role=='native':
+        migration=metadata.get('migrations')
+        if migration not in (None,{'new_tag':'teacher-sync-alarm-v1','steps':[{'new_sqlite_classes':['SyncCoordinator']}]}):raise ValueError('Sync coordinator migration mismatch')
+    elif metadata.get('migrations'):raise ValueError('Unexpected migration')
     expected={}
     for key,value in config.get('vars',{}).items():
         if re.search(r'(TOKEN|SECRET|PASSWORD|API_KEY|SYNC_KEY)',key,re.I):
@@ -78,6 +87,7 @@ def inspect_artifact(path, config, main_name, role):
             if key in b:expected[b['binding']][key]=b[key]
     for b in config.get('services',[]):
         expected[b['binding']]={'type':'service','name':b['binding'],'service':b['service']}
+    if role=='native':expected['SYNC_COORDINATOR']={'type':'durable_object_namespace','name':'SYNC_COORDINATOR','class_name':'SyncCoordinator'}
     if actual!=expected:raise ValueError('Upload bindings differ from generated configuration')
     if role=='native':
         if parts[main][0]!='application/javascript+module':raise ValueError('Native entrypoint is not an ES module')

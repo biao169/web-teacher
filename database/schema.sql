@@ -1065,7 +1065,7 @@ CREATE TABLE sync_items (
  source_version TEXT NOT NULL,
  target_version TEXT,
  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','staged','applied','conflict')),
- staged_bytes INTEGER NOT NULL DEFAULT 0 CHECK(staged_bytes BETWEEN 0 AND 200000),
+ staged_bytes INTEGER NOT NULL DEFAULT 0 CHECK(staged_bytes BETWEEN 0 AND 1048576),
  apply_key TEXT NOT NULL UNIQUE,
  selected INTEGER NOT NULL DEFAULT 0 CHECK(selected IN (0,1)),
  manifest_json TEXT CHECK(manifest_json IS NULL OR (json_valid(manifest_json) AND length(CAST(manifest_json AS BLOB))<=8192)),
@@ -1085,7 +1085,7 @@ CREATE TABLE sync_files (
  task_id TEXT NOT NULL REFERENCES sync_tasks(task_id) ON DELETE CASCADE,
  file_id TEXT NOT NULL,
  source_version TEXT NOT NULL,
- total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 20971520),
+ total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 1073741824),
  committed_bytes INTEGER NOT NULL DEFAULT 0 CHECK(committed_bytes BETWEEN 0 AND total_bytes),
  storage_kind TEXT NOT NULL CHECK(storage_kind IN ('local','r2')),
  staging_key TEXT NOT NULL UNIQUE,
@@ -1125,7 +1125,7 @@ CREATE INDEX sync_schedules_due ON sync_schedules(enabled,next_run_at,schedule_i
 CREATE TABLE sync_connections(peer_id TEXT PRIMARY KEY REFERENCES sync_peers(peer_id) ON DELETE CASCADE,owner_uid TEXT NOT NULL REFERENCES auth_users(uid) ON DELETE CASCADE,export_scope_json TEXT NOT NULL CHECK(json_valid(export_scope_json)),incoming_auto_scope TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(incoming_auto_scope)),incoming_auto_delete INTEGER NOT NULL DEFAULT 0 CHECK(incoming_auto_delete IN (0,1))) STRICT;
 CREATE TABLE sync_tombstones(module TEXT NOT NULL,record_id TEXT NOT NULL,version TEXT NOT NULL,updated INTEGER NOT NULL,PRIMARY KEY(module,record_id)) STRICT;
 CREATE INDEX sync_tombstones_latest ON sync_tombstones(module,updated DESC,record_id);
-CREATE TABLE sync_exports(request_id TEXT NOT NULL DEFAULT '' CHECK(length(request_id)<=128),module TEXT NOT NULL,record_id TEXT NOT NULL,version TEXT NOT NULL,body BLOB NOT NULL CHECK(length(body)<=200000),body_sha256 TEXT CHECK(body_sha256 IS NULL OR length(body_sha256)=64),files_json TEXT NOT NULL CHECK(json_valid(files_json) AND length(files_json)<=16000),expires_at INTEGER NOT NULL,PRIMARY KEY(module,record_id,version,request_id)) STRICT;
+CREATE TABLE sync_exports(request_id TEXT NOT NULL DEFAULT '' CHECK(length(request_id)<=128),module TEXT NOT NULL,record_id TEXT NOT NULL,version TEXT NOT NULL,body BLOB NOT NULL CHECK(length(body)<=1048576),body_sha256 TEXT CHECK(body_sha256 IS NULL OR length(body_sha256)=64),files_json TEXT NOT NULL CHECK(json_valid(files_json) AND length(files_json)<=16000),expires_at INTEGER NOT NULL,PRIMARY KEY(module,record_id,version,request_id)) STRICT;
 CREATE INDEX sync_exports_expiry ON sync_exports(expires_at);
 CREATE TABLE sync_media_versions(peer_id TEXT NOT NULL,source_uid TEXT NOT NULL,source_version TEXT NOT NULL,target_uid TEXT NOT NULL REFERENCES media_assets(uid) ON DELETE CASCADE,PRIMARY KEY(peer_id,source_uid,source_version)) STRICT;
 

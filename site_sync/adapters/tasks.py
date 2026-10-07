@@ -60,9 +60,11 @@ class Tasks:
         if mode not in ('manual','scheduled','proposal') or not operation_id or len(operation_id)>128:raise ValueError('Invalid task request')
         if type(auto_confirm)!=bool or type(auto_delete)!=bool:raise ValueError('Invalid confirmation policy')
         auto_confirm=auto_confirm or mode=='scheduled'
+        if isinstance(scope,list) and 'site_clone' in scope and (scope!=['site_clone'] or (auto_confirm and not auto_delete)):raise ValueError('Full clone must be selected alone with deletion enabled')
         encoded=scopes(scope); g=await self.grant(grant_id,now)
         if expected_grant_revision is not None and g['revision']!=expected_grant_revision:raise AuthorizationError('Approval policy changed; retry proposal')
         if not set(json.loads(encoded)).issubset(json.loads(g['scopes_json'])):raise AuthorizationError('Scope denied')
+        if scope==['site_clone'] and not g['can_delete']:raise AuthorizationError('Full clone requires delete permission')
         if auto_confirm and not g['can_write']:raise AuthorizationError('Scheduled writing not authorized')
         from site_sync.core.settings import resolve
         config=await resolve(self.db,self.platform,settings)
@@ -92,6 +94,9 @@ class Tasks:
         return row
 
     async def confirm(self,task_id,grant_id,selected,now):
+        if selected==['*']:
+            from site_sync.integration.clone import approve_all
+            return await approve_all(self,task_id,grant_id,now)
         if not isinstance(selected,list) or not selected or len(selected)>500 or any(not isinstance(x,str) for x in selected):raise ValueError('Select 1 to 500 items')
         selected=sorted(set(selected)); task,g=await self.command_task(task_id,grant_id,now)
         if not g['can_write']:raise AuthorizationError('Write denied')
@@ -212,7 +217,7 @@ class Tasks:
         g=await self.grant(task['grant_id'],now)
         selected=task['auto_confirm'] and (action!='delete' or (g['can_delete'] and task['auto_delete']))
         await self.db.batch([
-          self.assertion(task,now,extra="t.phase='discover' AND (EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id AND item_id=?) OR NOT EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id LIMIT 1 OFFSET 1999))",args=(item_id,)),
+          self.assertion(task,now,extra="t.phase='discover' AND (EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id AND item_id=?) OR json_extract(t.scope_json,'$[0]')='site_clone' OR NOT EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id LIMIT 1 OFFSET 1999))",args=(item_id,)),
           ('''INSERT INTO sync_items(task_id,item_id,module,record_id,action,source_version,target_version,apply_key,selected)
            VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(task_id,item_id) DO NOTHING''',
            (task['task_id'],item_id,module,record_id,action,source_version,target_version,task['task_id']+':'+item_id,int(selected))),
@@ -234,7 +239,7 @@ class Tasks:
           ('UPDATE sync_tasks SET phase=?,progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=?',(phase,now,task['task_id']))])
 
     async def mark_staged(self,task,item_id,expected_bytes,now):
-        if not isinstance(expected_bytes,int) or not 0<=expected_bytes<=200000:raise ValueError('Invalid record size')
+        if not isinstance(expected_bytes,int) or not 0<=expected_bytes<=1048576:raise ValueError('Invalid record size')
         await self.db.batch([self.assertion(task,now,write=True,extra="t.phase='transfer'"),
           ("UPDATE sync_items SET status='staged' WHERE task_id=? AND item_id=? AND selected=1 AND status='pending' AND staged_bytes=?",(task['task_id'],item_id,expected_bytes)),
           ('UPDATE sync_tasks SET progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=? AND changes()=1',(now,task['task_id']))])
@@ -270,19 +275,25 @@ class Tasks:
 
     async def finish(self,task,now,*,error=None,permanent=False,resource=False,uncertain=False,diagnostic=None):
         current=await self.read(task['task_id'])
-        if current['attempt_id']!=task['attempt_id'] or current['status']!='running' or current['lease_token']!=task['lease_token']:
-            return False
+        if current['attempt_id']!=task['attempt_id'] or current['lease_token']!=task['lease_token']:return False
+        if current['status'] in ('paused','cancel_requested'):
+            # Only the returning owner may release an interrupted command's lease.
+            # Never change the user's pause/cancel choice or accept stale writes.
+            await self.db.batch([('UPDATE sync_tasks SET lease_token=NULL,lease_until=0,next_run_at=?,revision=revision+1 WHERE task_id=? AND attempt_id=? AND lease_token=? AND status IN (\'paused\',\'cancel_requested\')',(now,task['task_id'],task['attempt_id'],task['lease_token']))])
+            return True
+        if current['status']!='running':return False
         if not uncertain and current['lease_until']<=now:return False
         valid=await self.db.query(f'SELECT task_id FROM sync_tasks t WHERE task_id=? AND {LIVE}',(task['task_id'],now))
         permanent=permanent or not valid
+        from site_sync.core.retry_settings import read as retry_settings
+        cadence=await retry_settings(self.db)
         decision=recover(current['attempt_start_seq'],current['progress_seq'],current['no_progress_count'],
-          failed=bool(error) or uncertain,permanent=permanent,fast_retries=current['fast_retries'],slow_seconds=current['slow_retry_seconds'])
+          failed=bool(error) or uncertain,permanent=permanent,fast_retries=current['fast_retries'],slow_seconds=current['slow_retry_seconds'],fast_seconds=cadence['fast_retry_seconds'])
         delay=decision.delay
-        if self.platform=='local' and decision.outcome=='retry':delay=(5,15,60)[min(decision.consecutive-1,2)]
         status='paused' if permanent else ('cancelled' if current['cancel_intent'] else 'done') if current['phase']=='done' else 'waiting'
         wait=delay if delay else (1 if current['progress_seq']>current['attempt_start_seq'] else 60)
         if resource or uncertain:
-            wait=max(wait,5 if self.platform=='local' else 60)
+            wait=max(wait,cadence['fast_retry_seconds'])
         size=smaller(current['slice_bytes'],current['min_slice_bytes']) if (resource or uncertain) and current['auto_shrink'] else current['slice_bytes']
         from site_sync.core.journal import statements as journal
         await self.db.batch([('''UPDATE sync_tasks SET status=?,no_progress_count=?,next_run_at=?,slice_bytes=?,

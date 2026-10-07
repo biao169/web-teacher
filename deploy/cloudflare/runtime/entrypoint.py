@@ -57,6 +57,15 @@ class Default(WorkerEntrypoint):
         with phase('FETCH', progress=False):
             return await dispatch(application, request, self.env, self.ctx, asgi.fetch)
 
+    async def sync_tick(self):
+        import json
+        from worker_runtime.bridge import Environment
+        from backend.app.adapters.d1.sql import D1SQL
+        from site_sync.integration.worker_schedule import run
+        bindings=Environment(self.env)
+        sql=D1SQL(getattr(bindings,str(bindings.TEACHER_DATABASE_BINDING)))
+        return json.dumps(await run(sql,bindings,wake=False))
+
     async def scheduled(self, controller, env=None, ctx=None):
         with phase('CRON', progress=False):
             # Cron does not need to initialize the HTTP application or its room state.

@@ -14,7 +14,7 @@ PATH='/sync/v1/read'
 MAX_CONTROL=8192
 MAX_REQUEST=2048
 MAX_SLICE=4*1024*1024
-MAX_MEDIA=20*1024*1024
+MAX_MEDIA=1024*1024*1024
 
 
 def encode(value):return json.dumps(value,ensure_ascii=True,separators=(',',':'),sort_keys=True).encode()
@@ -65,12 +65,12 @@ def manifest(value,version):
     if not isinstance(fields,dict) or len(fields)>32 or not isinstance(files,list) or len(files)>16:
         raise ConflictError('Manifest exceeds bounds')
     for key,size in fields.items():
-        if not isinstance(key,str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}',key) or type(size)!=int or not 0<=size<=200000:
+        if not isinstance(key,str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}',key) or type(size)!=int or not 0<=size<=1048576:
             raise ConflictError('Invalid field descriptor')
-    if sum(fields.values())>200000:raise ConflictError('Record exceeds byte limit')
+    if sum(fields.values())>1048576:raise ConflictError('Record exceeds byte limit')
     seen=set()
     for f in files:
-        if not isinstance(f,dict) or set(f)!={'id','version','size'} or any(not isinstance(f[k],str) or not 0<len(f[k])<=256 for k in ('id','version')) or type(f['size'])!=int or not 0<f['size']<=MAX_MEDIA or f['id'] in seen:
+        if not isinstance(f,dict) or set(f)!={'id','version','size'} or any(not isinstance(f[k],str) or not 0<len(f[k])<=256 for k in ('id','version')) or type(f['size'])!=int or not 0<=f['size']<=MAX_MEDIA or f['id'] in seen:
             raise ConflictError('Invalid media descriptor')
         seen.add(f['id'])
     return value

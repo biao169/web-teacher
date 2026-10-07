@@ -18,6 +18,15 @@ test('real admin API with DOM: folding, XSS, pause/resume, polling, pagination a
  await panel.link(()=>model);await panel.evaluate();
  const ready=()=>doc.querySelector('#site-sync-panel').getAttribute('aria-busy')==='false';
  await until(()=>ready()&&doc.querySelector('[data-tasks]').textContent.includes(info.task_id));
+ const create=doc.querySelector('[data-create]'),schedule=doc.querySelector('[data-schedule]');
+ assert.equal(doc.querySelectorAll('select[multiple]').length,0);
+ create.querySelector('[data-scope-all]').click();
+ assert.deepEqual([...create.querySelectorAll('[name=scope]:checked')].map(x=>x.value).sort(),['news','profiles']);
+ create.querySelector('[value=site_clone]').click();assert.equal(create.querySelectorAll('[name=scope]:checked').length,1);
+ create.querySelector('[value=news]').click();assert.equal(create.querySelector('[value=site_clone]').checked,false);
+ schedule.querySelector('[value=site_clone]').click();assert.equal(create.querySelector('[value=news]').checked,true);
+ schedule.querySelector('[data-scope-clear]').click();assert.equal(schedule.querySelectorAll('[name=scope]:checked').length,0);
+ assert.match(create.querySelector('[data-scope-count]').textContent,/已选 1/);
  async function click(selector,text){const el=text?[...doc.querySelectorAll(selector)].find(x=>x.textContent===text):doc.querySelector(selector);assert.ok(el,selector+' '+text);el.click();await until(ready);}
  async function api(route,body){const res=await fetch(origin+'/admin/site-sync/api'+route,{method:body?'POST':'GET',headers:{'content-type':'application/json','x-csrf-token':'test-csrf'},body:body?JSON.stringify(body):undefined});assert.equal(res.status,200,await res.clone().text());return res.json();}
  await click('[data-tasks] button','展开进度 / 日志');assert.equal(doc.querySelector('[data-detail]').hidden,false);

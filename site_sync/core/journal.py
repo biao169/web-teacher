@@ -21,6 +21,12 @@ def failure(exc):
             if found:info['platform_code']=int(found.group())
         ray=getattr(cause,'ray_id',None)
         if isinstance(ray,str) and re.fullmatch(r'[a-fA-F0-9]{8,32}-[A-Z]{3}',ray):info['ray_id']=ray
+        stage=getattr(cause,'stage',None)
+        if stage in ('control','credential_read','peer_config','peer_read','response_encode'):
+            info['stage']=stage
+            info['reason']={'control':'控制参数无效','credential_read':'原生辅助服务读取同步密钥失败；检查密钥配置及数据库结构','peer_config':'对端地址或密钥引用配置无效','peer_read':'对端请求失败；检查 HTTP 状态、签名及导出权限','response_encode':'响应编码失败'}[stage]
+        name=getattr(cause,'error_type',None)
+        if isinstance(name,str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9]{0,63}',name):info['native_type']=name
         codes.append(info);cause=cause.__cause__
     result={'error':type(exc).__name__[:80],'frames':frames,'causes':codes}
     if type(exc).__name__=='CredentialRetryError':result['reason']='对端鉴权未通过或密钥未就绪；保留进度，等待退避重试，请核对两端密钥及导出授权'

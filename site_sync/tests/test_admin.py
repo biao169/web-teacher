@@ -54,7 +54,7 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(len({x['task_id'] for x in first['items']+second['items']}),53)
     def test_settings_cas_and_no_fake_progress(self):
         uid=self.create();before=self.task(uid)
-        body={'revision':before['revision'],'fast_retries':0,'slice_bytes':4096,'min_slice_bytes':4096,'auto_shrink':True,'slow_retry_seconds':3600}
+        body={'revision':before['revision'],'fast_retries':0,'slice_bytes':4096,'min_slice_bytes':4096,'auto_shrink':True,'slow_retry_seconds':1800}
         run(self.admin.command(self.actor,uid,'settings',body));after=self.task(uid)
         self.assertEqual(after['slice_bytes'],4096);self.assertEqual(before['progress_seq'],after['progress_seq'])
         with self.assertRaises(ConflictError):run(self.admin.command(self.actor,uid,'settings',body))

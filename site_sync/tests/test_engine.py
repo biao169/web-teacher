@@ -264,7 +264,7 @@ class EngineTests(unittest.TestCase):
         task=self.create();owned=self.claim()
         self.assertEqual(owned['fast_retries'],8);self.assertEqual(owned['slow_retry_seconds'],900)
         run(self.repo.finish(owned,self.clock(),error='NetworkError'))
-        self.clock.step(5);owned=self.claim();run(self.repo.finish(owned,self.clock()))
+        self.clock.step(10);owned=self.claim();run(self.repo.finish(owned,self.clock()))
         self.assertEqual(self.read(task)['no_progress_count'],1)
 
     def test_expired_grant_and_manual_delete_not_approved(self):

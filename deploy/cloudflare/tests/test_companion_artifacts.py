@@ -12,9 +12,11 @@ class ArtifactTests(unittest.TestCase):
                   'compatibility_date':'2026-09-14','compatibility_flags':['global_fetch_strictly_public'],
                   'vars':{'TEACHER_MEDIA_PREFIX':'media/'},'d1_databases':[{'binding':'DB','database_id':'id'}],
                   'r2_buckets':[{'binding':'MEDIA','bucket_name':'media'}]}
+        self.cfg.update(durable_objects={'bindings':[{'name':'SYNC_COORDINATOR','class_name':'SyncCoordinator'}]},migrations=[{'tag':'teacher-sync-alarm-v1','new_sqlite_classes':['SyncCoordinator']}])
         self.meta={'main_module':'worker.js','compatibility_date':'2026-09-14','compatibility_flags':['global_fetch_strictly_public'],
                    'bindings':[{'name':'DB','type':'d1','id':'id'},{'name':'MEDIA','type':'r2_bucket','bucket_name':'media'},
                                {'name':'TEACHER_MEDIA_PREFIX','type':'plain_text','text':'media/'}]}
+        self.meta['bindings'].append({'name':'SYNC_COORDINATOR','type':'durable_object_namespace','class_name':'SyncCoordinator'})
         self.parts=[('worker.js','application/javascript+module',b'export default {}'),('binary.bin','application/octet-stream',b'\x00\xff\r\n\x80')]
     def write(self):
         items=[('metadata','application/json',json.dumps(self.meta).encode()),*self.parts]
@@ -50,6 +52,7 @@ class ArtifactTests(unittest.TestCase):
         self.meta['bindings'][0]['id']='other';self.write()
         with self.assertRaisesRegex(ValueError,'bindings differ'):inspect_artifact(self.path,self.cfg,'teacher','native')
     def test_python_dependencies_required(self):
+        self.cfg.pop('durable_objects');self.cfg.pop('migrations');self.meta['bindings']=[b for b in self.meta['bindings'] if b['name']!='SYNC_COORDINATOR']
         self.cfg['name']='teacher-sync-executor';self.cfg['compatibility_flags'].append('python_workers')
         self.meta['compatibility_flags'].append('python_workers');self.meta['main_module']='executor.py'
         self.parts=[('executor.py','text/x-python',b'pass'),('worker_runtime/sync_executor.py','text/x-python',b'pass'),

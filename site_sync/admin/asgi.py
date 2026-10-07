@@ -48,6 +48,7 @@ class AdminASGI:
         await send({'type':'http.response.body','body':data})
     async def dispatch(self,actor,method,p,q,b):
         a=self.admin
+        if p==['retry-policy']:return await a.retry_policy(actor,b if method=='POST' else None)
         if method=='GET':
             if p==['options']:return await a.options(actor)
             if p==['tasks']:return await a.tasks(actor,view=q.get('view',['active'])[0],cursor=json.loads(q['cursor'][0]) if 'cursor' in q else None,limit=int(q.get('limit',['50'])[0]))

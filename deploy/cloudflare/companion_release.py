@@ -35,6 +35,13 @@ class Client:
             raise ValueError('Invalid auxiliary API target')
         return self._request(self.base+worker+suffix,method,body,content_type,missing,bool(suffix))
 
+    def migration_tag(self,worker):
+        if not re.fullmatch('[a-z0-9][a-z0-9-]{0,62}',worker):raise ValueError('Invalid Worker')
+        url=self.base.replace('/workers/scripts/','/workers/services/')+worker
+        result=self._request(url,'GET',None,'application/json',False,True)
+        try:return result['default_environment']['script'].get('migration_tag')
+        except (KeyError,TypeError):raise APIError(200,('invalid_migration_metadata',)) from None
+
     def credential_status(self,database):
         if not re.fullmatch(r'[a-fA-F0-9-]{36}',database):raise ValueError('Invalid D1 database ID')
         from credential_probe import SQL
@@ -109,6 +116,8 @@ def check_bindings(settings,cfg,require_key=False):
         if remote.get(b['binding'],{}).get('id')!=b['database_id']:raise ValueError('Companion D1 ID mismatch')
     for b in cfg.get('r2_buckets',[]):
         if remote.get(b['binding'],{}).get('bucket_name')!=b['bucket_name']:raise ValueError('Companion R2 bucket mismatch')
+    for b in cfg.get('durable_objects',{}).get('bindings',[]):
+        if remote.get(b['name'],{}).get('class_name')!=b['class_name']:raise ValueError('Companion coordinator mismatch')
     for b in cfg.get('services',[]):
         if remote.get(b['binding'],{}).get('service')!=b['service']:raise ValueError('Companion service mismatch')
     for key,value in cfg.get('vars',{}).items():
@@ -116,7 +125,7 @@ def check_bindings(settings,cfg,require_key=False):
     return remote
 
 
-def payload_with_secret(path,info,main,role,key):
+def payload_with_secret(path,info,main,role,key,migration_tag=None,runner=None):
     """Change metadata only, preserving the original binary module parts."""
     raw=Path(path).read_bytes()
     import hashlib
@@ -126,6 +135,10 @@ def payload_with_secret(path,info,main,role,key):
     matches=list(re.finditer(pattern,raw,re.S))
     if len(matches)!=1:raise ValueError('Cannot locate unique upload metadata')
     match=matches[0];metadata=json.loads(match.group(2))
+    if role=='native' and not migration_tag:metadata['migrations']={'new_tag':'teacher-sync-alarm-v1','steps':[{'new_sqlite_classes':['SyncCoordinator']}]}
+    if role=='native' and migration_tag:
+        if migration_tag!='teacher-sync-alarm-v1':raise ValueError('Unknown native migration tag')
+        metadata.pop('migrations',None)
     binding_names={b['name'] for b in metadata.get('bindings',[])}
     if binding_names & {'TEACHER_AUX_OWNER','TEACHER_AUX_ROLE','TEACHER_AUX_REVISION','TEACHER_SYNC_KEY'}:
         raise ValueError('Reserved companion binding in artifact')
@@ -133,6 +146,7 @@ def payload_with_secret(path,info,main,role,key):
         {'name':'TEACHER_AUX_OWNER','type':'plain_text','text':main},
         {'name':'TEACHER_AUX_ROLE','type':'plain_text','text':role},
         {'name':'TEACHER_AUX_REVISION','type':'plain_text','text':revision(info,key)}])
+    if runner:metadata['bindings'].append({'name':'SYNC_RUNNER','type':'service','service':runner})
     if key:metadata['bindings'].append({'name':'TEACHER_SYNC_KEY','type':'secret_text','text':key})
     else:metadata['keep_bindings']=['secret_text','secret_key']
     # No key means preserve existing secrets; new sites configure the key in admin.
@@ -144,7 +158,7 @@ class Release:
         self.main=config['name'];self.mode=config['sync_executor'];self.targets=validate(env,self.main)
         self.key=env.get('TEACHER_SYNC_KEY','');self.log=log
         self.client=client or Client(env['CLOUDFLARE_ACCOUNT_ID'],env['TEACHER_AUX_API_TOKEN'])
-        self.existing={};self.remote={}
+        self.existing={};self.remote={};self.migration_tags={}
     def preflight(self):
         # Inspect both names before any database or Worker mutation, including an
         # old executor which must be stopped when returning to inline mode.
@@ -154,6 +168,7 @@ class Release:
             if value is not None:owned(value,self.main,role)
             self.existing[role]=value is not None
             self.remote[role]=value
+            if role=='native':self.migration_tags[role]=self.client.migration_tag(worker) if value is not None else None
         self.log('AUX-PREFLIGHT','辅助名称/现有归属检查通过；写入权限在发布时确认 / Targets checked; write permission checked on upload')
     def prepare(self,stage,work):
         stage=Path(stage);work=Path(work)
@@ -163,13 +178,15 @@ class Release:
             cfgpath=stage/'sync-native/wrangler.jsonc' if role=='native' else stage/'wrangler.sync-executor.jsonc'
             cfg=json.loads(cfgpath.read_text());path=work/(role+'.multipart')
             info=inspect_artifact(path,cfg,self.main,role)
-            artifacts[role]=(info,payload_with_secret(path,info,self.main,role,self.key),cfg)
+            artifacts[role]=(info,payload_with_secret(path,info,self.main,role,self.key,self.migration_tags.get(role)),cfg)
+        self.native_artifact=(work/'native.multipart',artifacts['native'][0])
         # Recheck ownership immediately before changes. Do not touch unowned names.
         self.preflight()
         if self.existing.get('executor'):schedule(self.client,self.targets['executor'],[])
         for role in roles:
             worker=self.targets[role];info,payload,cfg=artifacts[role]
             current=self.remote.get(role)
+            payload=payload_with_secret(work/(role+'.multipart'),info,self.main,role,self.key,self.migration_tags.get(role))
             reuse=False
             if current is not None:
                 try:
@@ -187,5 +204,16 @@ class Release:
             check_bindings(settings,cfg,bool(self.key))
             self.log('AUX-READY','辅助已发布并关闭公开访问，Cron 暂停 / Companion ready; scheduling paused',worker=worker)
     def activate(self):
+        # Resolve the new site's circular binding only after the main deploy.
+        worker=self.targets['native']
+        settings=self.client.request('GET',worker,'/settings');owned(settings,self.main,'native')
+        runner=self.targets['executor'] if self.mode=='separate' else self.main
+        if not any(b.get('name')=='SYNC_RUNNER' and b.get('service')==runner for b in settings.get('bindings',[])):
+            path,info=self.native_artifact
+            payload=payload_with_secret(path,info,self.main,'native',self.key,self.client.migration_tag(worker),runner=runner)
+            self.client.request('PUT',worker,body=payload,content_type=info['content_type'])
+            actual=self.client.request('GET',worker,'/settings')
+            if not any(b.get('name')=='SYNC_RUNNER' and b.get('service')==runner for b in actual.get('bindings',[])):raise ValueError('Sync callback binding not confirmed')
+        private(self.client,worker)
         if self.mode=='separate':schedule(self.client,self.targets['executor'],['* * * * *'])
         self.log('AUX-ACTIVE','同步执行模式已配置 / Sync execution mode configured',mode=self.mode)

@@ -1,11 +1,13 @@
 """One invocation, one bounded handler or one expired-attempt reconciliation."""
 from .authority import AuthorizationError, ConflictError, ResourceError
 from .journal import failure
+import asyncio
 
 
 class Engine:
-    def __init__(self, repository, handlers, clock):
+    def __init__(self, repository, handlers, clock, *, step_timeout=None):
         self.repo,self.handlers,self.clock=repository,handlers,clock
+        self.step_timeout=step_timeout
 
     async def tick(self):
         # Do not catch BaseException: hard termination deliberately leaves the
@@ -19,7 +21,11 @@ class Engine:
             handler=self.handlers.get(task['phase'])
             if handler is None:
                 raise ConflictError('No handler installed for '+task['phase'])
-            await handler(Context(self.repo,task,self.clock))
+            work=handler(Context(self.repo,task,self.clock))
+            if self.step_timeout is None:await work
+            else:
+                try:await asyncio.wait_for(work,self.step_timeout)
+                except asyncio.TimeoutError as exc:raise ResourceError("Sync step deadline exceeded") from exc
         except (AuthorizationError,ConflictError) as exc:
             await self.repo.finish(task,self.clock(),error=type(exc).__name__,permanent=True,diagnostic=failure(exc))
         except Exception as exc:

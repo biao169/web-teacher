@@ -12,6 +12,8 @@ class Retention:
           AND NOT EXISTS(SELECT 1 FROM sync_files WHERE task_id=t.task_id AND status!='done')"""+clause+(' AND delete_requested=1' if requested_only else '')+' ORDER BY delete_requested DESC,coalesce(last_progress_at,created_at),task_id LIMIT 1',args)
         if not rows:return {'action':'idle'}
         uid=rows[0]['task_id']
+        removed=await self.db.batch([('DELETE FROM service_meta WHERE key IN (SELECT key FROM service_meta WHERE key LIKE ? OR key=? LIMIT 10)',('sync:clone:'+uid+':%','sync:clone-state:'+uid))])
+        if removed[0]['meta']['changes']:return {'action':'clone-archive-trimmed','task_id':uid}
         # Terminal tasks cannot be resumed. Rows with object keys are historical
         # receipts, not the source of truth for live website media references.
         extra=await self.db.query("SELECT name FROM sqlite_schema WHERE type='table' AND name='sync_record_receipts'")

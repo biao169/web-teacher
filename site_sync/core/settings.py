@@ -19,7 +19,7 @@ def validate(values,*,partial=False):
         elif k=='auto_shrink':
             if type(v)!=bool:raise ValueError('Invalid auto_shrink')
         else:
-            lo,hi=(0,1000) if k=='fast_retries' else (60,86400)
+            lo,hi=(0,1000) if k=='fast_retries' else (60,1800)
             if type(v)!=int or not lo<=v<=hi:raise ValueError('Invalid retry setting')
         out[k]=v
     if 'slice_bytes' in out and 'min_slice_bytes' in out and out['min_slice_bytes']>out['slice_bytes']:raise ValueError('Minimum exceeds initial slice')

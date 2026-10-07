@@ -9,7 +9,7 @@ class Decision:
 
 
 def recover(before, after, consecutive, *, failed=False, permanent=False,
-            fast_retries=30, slow_seconds=3600):
+            fast_retries=30, slow_seconds=900, fast_seconds=10):
     if min(before, after, consecutive, fast_retries) < 0 or slow_seconds < 1:
         raise ValueError('invalid policy')
     if after < before:
@@ -24,8 +24,8 @@ def recover(before, after, consecutive, *, failed=False, permanent=False,
     count = consecutive + 1
     # Count the initial failed attempt separately from the configured retries.
     if count > fast_retries:
-        return Decision('slow_retry', count, slow_seconds)
-    return Decision('retry', count, (60, 180, 600)[min(count - 1, 2)])
+        return Decision('slow_retry', count, min(1800,max(fast_seconds,slow_seconds)))
+    return Decision('retry', count, min(1800,max(10,fast_seconds)))
 
 
 def smaller(current, minimum):

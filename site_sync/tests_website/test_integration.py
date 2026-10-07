@@ -108,7 +108,7 @@ class IntegrationTests(unittest.TestCase):
         c.execute("INSERT INTO profiles(uid,name) VALUES('keep','existing')");c.commit();c.close()
         db=Database(path);db.initialize();db.initialize()
         self.assertEqual(run(db.query('SELECT name FROM profiles')),[{'name':'existing'}])
-        self.assertEqual(len(list(self.root.glob('legacy.db.before-v0.16.001-*'))),1)
+        self.assertEqual(len(list(self.root.glob('legacy.db.before-v0.16.022-*'))),1)
         self.assertEqual(run(db.query('SELECT version FROM sync_schema')),[{'version':4}])
     def test_unknown_schema_untouched(self):
         path=self.root/'unknown.db';c=sqlite3.connect(path);c.execute('CREATE TABLE unknown(value TEXT)');c.close()

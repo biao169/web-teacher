@@ -1,0 +1,15 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {webcrypto} from 'node:crypto';
+import {dispatch} from './native_dispatch.mjs';
+import {SignedPeer} from './transport.mjs';
+globalThis.crypto ||= webcrypto;
+test('database failure retains safe stage without leaking SQL or credentials',async()=>{
+ const env={DB:{prepare(){throw new TypeError('secret SQL key=PRIVATE');}}};
+ const result=JSON.parse(await dispatch(env,'read',JSON.stringify({peer:{origin:'https://example.com',secret_ref:'env:TEACHER_SYNC_KEY'},request:{kind:'candidates'}})));
+ assert.equal(result.stage,'credential_read');assert.equal(result.error_type,'TypeError');assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+});
+test('large Cloudflare error page keeps 1102 and ray ID',async()=>{
+ const peer=new SignedPeer('https://example.com',new Uint8Array(32),{fetcher:async()=>new Response('Error 1102 '+ 'x'.repeat(20000),{status:503,headers:{'cf-ray':'abcdef1234567890-SIN'}})});
+ await assert.rejects(peer.read({kind:'candidates',version:'catalog-v1'}),e=>e.platform_code===1102&&e.http_status===503&&e.ray_id==='abcdef1234567890-SIN');
+});

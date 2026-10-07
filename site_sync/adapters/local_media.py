@@ -83,18 +83,26 @@ class LocalMedia:
         else:
             await asyncio.to_thread(self.complete,f)
             await self.receipts.uploaded(ctx,f)
-    async def discard(self,f):await asyncio.to_thread(self._discard,f)
+    async def discard(self,f):return await asyncio.to_thread(self._discard,f)
     def _discard(self,f):
         d=self.directory(f)
+        # At most 16 payload entries per invocation; owner survives until empty.
+        entries=[]
         for path in d.iterdir():
+            if path.name=='owner.json':continue
             if path.is_symlink() or not path.is_file():raise ConflictError('Unknown staging entry')
-            if path.name not in ('owner.json','object') and not re.fullmatch(r'(part-[0-9]+|pending-[A-Za-z0-9_-]+)',path.name):raise ConflictError('Unknown staging entry')
-        for path in d.iterdir():path.unlink()
-        d.rmdir()
+            if path.name!='object' and not re.fullmatch(r'(part-[0-9]+|pending-[A-Za-z0-9_-]+)',path.name):raise ConflictError('Unknown staging entry')
+            entries.append(path)
+            if len(entries)==16:break
+        for path in entries:path.unlink()
+        if any(path.name!='owner.json' for path in d.iterdir()):return False
+        (d/'owner.json').unlink();d.rmdir();return True
     async def prune_parts(self,f):
         def prune():
-            d=self.directory(f)
+            d=self.directory(f);count=0
             for p in d.glob('part-*'):
-                if p.is_symlink():raise ConflictError('Unknown part')
-                p.unlink()
-        await asyncio.to_thread(prune)
+                if p.is_symlink() or not p.is_file():raise ConflictError('Unknown part')
+                p.unlink();count+=1
+                if count==16:break
+            return not any(d.glob('part-*'))
+        return await asyncio.to_thread(prune)

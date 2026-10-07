@@ -1,0 +1,9 @@
+{
+  "python_runtime_tests": 28,
+  "python_http_and_credentials_tests": 14,
+  "native_tests": 20,
+  "dom_tests": 1,
+  "offline_inline_staging": "passed",
+  "live_cloudflare": "not_run",
+  "real_browser": "not_run"
+}

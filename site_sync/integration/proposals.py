@@ -13,6 +13,7 @@ async def receive(r,q):
     connection=(await db.query("SELECT c.owner_uid,c.incoming_auto_scope,c.incoming_auto_delete,g.revision FROM sync_connections c JOIN sync_grants g ON g.grant_id='website:'||c.owner_uid WHERE c.peer_id='peer'"))[0]
     owner=connection['owner_uid']
     auto=set(scope)<=set(json.loads(connection['incoming_auto_scope']))
+    if scope==['site_clone'] and not connection['incoming_auto_delete']:auto=False
     gid='website:'+owner;op='proposal:'+hashlib.sha256(q['request_id'].encode()).hexdigest()
     existing=await db.query("SELECT task_id,operation_id FROM sync_tasks WHERE peer_id='peer' AND mode='proposal' AND status NOT IN ('done','cancelled') LIMIT 1")
     if existing and existing[0]['operation_id']!=op:raise ConflictError('An incoming proposal is already pending')

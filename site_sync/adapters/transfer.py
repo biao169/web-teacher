@@ -66,7 +66,7 @@ class MediaReceipts:
             ("UPDATE sync_files SET committed_bytes=committed_bytes+?,status='transferring' WHERE task_id=? AND file_id=?",(length,f['task_id'],f['file_id'])),self.progress(ctx.task,ctx.clock())])
     async def uploaded(self,ctx,f):
         await self.db.batch([self.repo.assertion(ctx.task,ctx.clock(),write=True,extra="t.phase='transfer' AND EXISTS(SELECT 1 FROM sync_files WHERE task_id=t.task_id AND file_id=? AND committed_bytes=total_bytes)",args=(f['file_id'],)),
-            ("UPDATE sync_files SET status='uploaded' WHERE task_id=? AND file_id=? AND status='transferring'",(f['task_id'],f['file_id'])),self.progress(ctx.task,ctx.clock())])
+            ("UPDATE sync_files SET status='uploaded' WHERE task_id=? AND file_id=? AND status IN ('pending','transferring')",(f['task_id'],f['file_id'])),self.progress(ctx.task,ctx.clock())])
 
     async def commit_item(self,ctx,item_id,statement):
         # Business statement includes immutable object keys in its own update.
@@ -76,6 +76,9 @@ class MediaReceipts:
 
 class Cleanup:
     def __init__(self,repo,media):self.repo,self.media=repo,media
+    async def partial_progress(self,ctx):
+        await self.repo.db.batch([self.repo.assertion(ctx.task,ctx.clock(),extra="t.phase='cleanup'"),
+          ('UPDATE sync_tasks SET progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=?',(ctx.clock(),ctx.task['task_id']))])
     async def __call__(self,ctx):
         if await self.repo.cleanup_one(ctx.task,ctx.clock()):return
         rows=await self.repo.db.query("SELECT * FROM sync_files WHERE task_id=? AND status!='done' ORDER BY file_id LIMIT 1",(ctx.task['task_id'],))
@@ -83,12 +86,15 @@ class Cleanup:
             f=rows[0]
             await self.repo.db.batch([self.repo.assertion(ctx.task,ctx.clock(),extra="t.phase='cleanup'")])
             if f['status']=='published' and hasattr(self.media,'prune_parts'):
-                await self.media.prune_parts(f)
+                if await self.media.prune_parts(f) is False:
+                    await self.partial_progress(ctx);return
             if f['status']!='published':
                 if self.media is None:raise ConflictError('Media cleanup adapter missing')
                 # Only owned staging objects; published business files survive.
-                await self.media.discard(f)
+                if await self.media.discard(f) is False:
+                    await self.partial_progress(ctx);return
             await self.repo.db.batch([self.repo.assertion(ctx.task,ctx.clock(),extra="t.phase='cleanup'"),
               ("UPDATE sync_files SET status='done' WHERE task_id=? AND file_id=?",(f['task_id'],f['file_id'])),
               MediaReceipts(self.repo).progress(ctx.task,ctx.clock())]);return
+        await self.repo.db.batch([("DELETE FROM service_meta WHERE key='sync:clone-lock' AND value=?",(ctx.task['task_id'],))])
         await ctx.advance('done')

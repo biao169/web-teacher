@@ -120,7 +120,7 @@ class TransferTests(unittest.TestCase):
         self.assertEqual(run(self.db.query('SELECT body FROM news'))[0]['body'],self.source.body.decode())
 
     def test_manifest_bounds_pause(self):
-        self.source.body=b'x'*200001;self.assertEqual(self.tick()['status'],'paused')
+        self.source.body=b'x'*1048577;self.assertEqual(self.tick()['status'],'paused')
     def test_abort_media_does_not_advance_and_later_finishes(self):
         self.until(lambda r:bool(run(self.db.query("SELECT * FROM sync_files WHERE committed_bytes>0"))))
         before=self.file()['committed_bytes'];self.source.abort=True
@@ -252,7 +252,7 @@ class ProtocolTests(unittest.TestCase):
             with self.assertRaises(ValueError):HTTPPeer(u,KEY)
     def test_manifest_rejects_duplicate_or_oversize_media(self):
         f=dict(id='f',version='v1',size=1)
-        for files in [[f,f],[dict(f,size=MAX_MEDIA+1)],[dict(f,size=0)]]:
+        for files in [[f,f],[dict(f,size=MAX_MEDIA+1)],[dict(f,size=-1)]]:
             with self.assertRaises(ConflictError):manifest(dict(version='v1',fields={},files=files),'v1')
     def test_upgrade_v2_preserves_and_pauses(self):
         old=json.loads((ROOT/'site_sync/deploy/schema_v2.json').read_text());db=SQLite()

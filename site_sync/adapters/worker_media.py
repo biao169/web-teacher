@@ -12,7 +12,7 @@ class WorkerMedia:
     def __init__(self,repo,bridge):self.repo,self.bridge,self.receipts=repo,bridge,MediaReceipts(repo)
     async def step(self,ctx,item,f,peer):
         await self.repo.db.batch([self.repo.assertion(ctx.task,ctx.clock(),write=True)])
-        parts=await self.repo.db.query('SELECT part_number AS partNumber,etag FROM sync_file_parts WHERE task_id=? AND file_id=? ORDER BY part_number',(f['task_id'],f['file_id']))
+        parts=[]  # Native service loads bounded R2 receipts directly from D1.
         try:r=await self.bridge.step(f,item,parts)
         except Exception as e:
             kind=getattr(e,'kind',None)

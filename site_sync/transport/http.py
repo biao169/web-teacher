@@ -10,6 +10,16 @@ from .protocol import *
 from site_sync.core.authority import ResourceError,CredentialRetryError
 
 
+class DeadlineReader:
+    """Bounded reads and a wall deadline, in addition to the socket idle timeout."""
+    def __init__(self,response,deadline):self.response,self.deadline=response,deadline
+    def read(self,size):
+        if time.monotonic()>=self.deadline:raise ResourceError('Peer response deadline exceeded')
+        data=self.response.read1(min(size,65536))
+        if time.monotonic()>=self.deadline:raise ResourceError('Peer response deadline exceeded')
+        return data
+    def close(self):self.response.close()
+
 class HTTPPeer:
     def __init__(self,origin,secret,*,allow_loopback=False,clock=time.time,timeout=20):
         u=urlsplit(origin)
@@ -19,6 +29,7 @@ class HTTPPeer:
         self.url,self.secret,self.clock,self.timeout=u,secret,clock,timeout
 
     def open(self,request,*,stream=False,recovered=False):
+        deadline=time.monotonic()+45
         body=encode(request);headers=request_headers(self.secret,body,clock=self.clock)
         if stream:headers['x-sync-stream']='1'
         cls=http.client.HTTPSConnection if self.url.scheme=='https' else http.client.HTTPConnection
@@ -48,7 +59,7 @@ class HTTPPeer:
                 raise error
             if response.status!=200:raise ConflictError('Peer rejected version or route')
             size=h.get('content-length','')
-            limit=request['length'] if stream else MAX_CONTROL if request['kind'] in ('manifest','candidates','proposal') else request['length']
+            limit=request['length'] if stream else MAX_CONTROL if request['kind'] in ('manifest','candidates','proposal','clone_check') else request['length']
             if not size.isdecimal() or int(size)>limit or h.get('content-encoding','identity')!='identity' or 'transfer-encoding' in h:
                 raise ConflictError('Invalid bounded response')
             size=int(size)
@@ -56,8 +67,13 @@ class HTTPPeer:
                 meta=verify_response(self.secret,headers['x-sync-nonce'],200,h,stream=True)
                 expected={'version':request['version'],'offset':request['offset'],'length':request['length'],'total':request['total']}
                 if meta!=expected or size!=request['length']:raise ConflictError('Media version/range mismatch')
-                return connection,response
-            data=response.read(size+1)
+                return connection,DeadlineReader(response,deadline)
+            reader=DeadlineReader(response,deadline);chunks=[];remaining=size
+            while remaining:
+                part=reader.read(remaining)
+                if not part:break
+                chunks.append(part);remaining-=len(part)
+            data=b''.join(chunks)
             if len(data)!=size:raise IOError('Truncated body')
             meta=verify_response(self.secret,headers['x-sync-nonce'],200,h,data)
             if meta.get('version')!=request['version']:raise ConflictError('Source changed')

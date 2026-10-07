@@ -7,6 +7,15 @@ class Default(WorkerEntrypoint):
         from pyodide.ffi import to_js
         return Response.new('Not found',to_js({'status':404},dict_converter=Object.fromEntries))
 
+    async def sync_tick(self):
+        import json
+        from worker_runtime.bridge import Environment
+        from backend.app.adapters.d1.sql import D1SQL
+        from site_sync.integration.worker_schedule import run
+        bindings=Environment(self.env)
+        sql=D1SQL(getattr(bindings,str(bindings.TEACHER_DATABASE_BINDING)))
+        return json.dumps(await run(sql,bindings,wake=False))
+
     async def scheduled(self,controller,env=None,ctx=None):
         from worker_runtime.bridge import Environment
         from backend.app.adapters.d1.sql import D1SQL

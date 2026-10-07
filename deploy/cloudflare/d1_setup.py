@@ -87,11 +87,14 @@ def setup(node, wrangler, stage, env, config, log, *, publish, query=execute_jso
         query([*remote, '--file', str(stage/'initialize.sql'), '--yes'], stage, env)
         actual = query([*remote, '--command', CATALOG], stage, env)
     if actual and catalog(actual)!=catalog(expected) and mode!='check':
-        from site_sync.integration.migration import definitions,statements
+        from site_sync.integration.migration import definitions,statements,clone_upgrade_statements
         old=definitions('teacher-v0.15.160.json')
         want={name:normalized(sql) for name,sql in old.items()}
         got={r['name']:normalized(r['sql']) for r in actual if r['sql'] is not None}
-        if got!=want:raise ValueError('Schema mismatch: unknown predecessor; only exact v0.15.160 accepted; database unchanged')
+        upgrade_sql=statements
+        clone_before={name:normalized(sql) for name,sql in definitions('teacher-v0.16.021.json').items()}
+        if got==clone_before:want=clone_before;upgrade_sql=clone_upgrade_statements
+        elif got!=want:raise ValueError('Schema mismatch: unknown predecessor; database unchanged')
         import asyncio,os,secrets
         from pathlib import Path
         from site_sync.deploy.d1_remote import RemoteD1
@@ -105,7 +108,7 @@ def setup(node, wrangler, stage, env, config, log, *, publish, query=execute_jso
         if not isinstance(bookmark,str) or not bookmark:raise ValueError('Missing recovery bookmark')
         recovery=Path(env.get('TEACHER_RECOVERY_DIR',str(Path.cwd()/'sync-recovery')))
         recovery.mkdir(parents=True,exist_ok=True)
-        dest=recovery/('before-v0.16.001-'+secrets.token_hex(8)+'.json')
+        dest=recovery/('before-v0.16.022-'+secrets.token_hex(8)+'.json')
         fd=os.open(dest,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
         with os.fdopen(fd,'w') as f:
             json.dump({'database_id':config['database'],'bookmark':bookmark},f);f.flush();os.fsync(f.fileno())
@@ -114,9 +117,9 @@ def setup(node, wrangler, stage, env, config, log, *, publish, query=execute_jso
         async def upgrade():
             latest=await db.query(CATALOG)
             if {r['name']:normalized(r['sql']) for r in latest if r['sql'] is not None}!=want:raise ValueError('Predecessor changed before migration')
-            await db.batch([(sql,()) for sql in statements()])
+            await db.batch([(sql,()) for sql in upgrade_sql()])
         asyncio.run(upgrade())
-        log('D1-UPGRADE','v0.15.160 -> v0.16.001; old sync tasks retained in recovery bookmark',recovery=str(dest))
+        log('D1-UPGRADE','Verified predecessor upgraded to current schema; recovery bookmark saved',recovery=str(dest))
         actual=query([*remote,'--command',CATALOG],stage,env)
     validate(expected, actual)
     log('D1-READY', '结构检查通过；不重置、不覆盖已有记录 / Schema verified; existing records preserved', objects=len(actual))

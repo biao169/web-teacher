@@ -17,6 +17,14 @@ def install(app,resources,csrf,render):
     from backend.app.native.web import payload
     from .credentials_api import install as install_credentials
     install_credentials(app,resources,csrf)
+    @app.middleware('http')
+    async def clone_write_gate(request,call_next):
+        path=request.url.path
+        if request.method not in ('GET','HEAD','OPTIONS') and not path.startswith(('/sync/','/api/admin/site-sync','/admin/site-sync/api','/auth/login','/auth/logout')):
+            r=await resources(request)
+            lock=await r.sql.query("SELECT 1 FROM service_meta m JOIN sync_tasks t ON t.task_id=m.value WHERE m.key='sync:clone-lock' AND t.phase='apply' AND t.status NOT IN ('done','cancelled','cancel_requested') LIMIT 1")
+            if lock:return JSONResponse({'error':'整站克隆正在应用数据，请暂缓编辑；可在同步页面暂停或取消任务'},status_code=409,headers={'Cache-Control':'no-store'})
+        return await call_next(request)
     @app.get('/admin/site-sync')
     async def page(request:Request):
         r=await resources(request);authorize(r)
@@ -27,6 +35,13 @@ def install(app,resources,csrf,render):
         r=await resources(request);data=await payload(request,4096);csrf(request,r,data)
         try:return JSONResponse(await configure(r,data))
         except (ValueError,AuthorizationError) as e:raise Error(str(e),400) from None
+    @app.post('/api/admin/site-sync/connectivity')
+    async def connectivity(request:Request):
+        r=await resources(request);authorize(r,'edit')
+        data=await payload(request,1024);csrf(request,r,data)
+        if data:raise Error('测试使用已保存连接，请勿提交额外参数',400)
+        from site_sync.admin.connectivity import probe
+        return JSONResponse(await probe(r),headers={'Cache-Control':'no-store'})
     @app.post('/api/admin/site-sync/proposal')
     async def propose(request:Request):
         r=await resources(request);data=await payload(request,2048);csrf(request,r,data)
@@ -45,6 +60,9 @@ def install(app,resources,csrf,render):
         async def send(event):events.append(event)
         await AdminASGI(service,auth,verify)(request.scope,request.receive,send)
         if not events:return Response(status_code=499)
+        if request.method=='POST' and events[0]['status']==200:
+            from site_sync.integration.worker_schedule import arm
+            await arm(r)
         return Response(b''.join(e.get('body',b'') for e in events),status_code=events[0]['status'],headers={k.decode():v.decode() for k,v in events[0]['headers']})
     @app.post('/sync/v1/read')
     async def peer_read(request:Request):
@@ -60,6 +78,10 @@ def install(app,resources,csrf,render):
             if q.get('kind')=='proposal':
                 from .proposals import receive
                 body=encode(await receive(r,q));meta={'version':'proposal-v1'}
+            elif q.get('kind')=='clone_check':
+                await authorize_export(r,'site_clone')
+                from .clone import check_source
+                body=encode(await check_source(source,q));meta={'version':'catalog-v1'}
             elif q.get('kind')=='candidates':
                 allowed=await authorize_export(r)
                 if not isinstance(q.get('scope'),list) or not set(q['scope'])<=allowed or q.get('version')!='catalog-v1':raise AuthorizationError('Export scope denied')
@@ -80,7 +102,7 @@ def install(app,resources,csrf,render):
                             await source.snapshot(dict(q,kind='manifest',version=q['record_version']))
                         rows=await db.query("SELECT json_extract(f.value,'$.object_key') object_key,json_extract(f.value,'$.size') size FROM sync_exports e,json_each(e.files_json) f WHERE e.module=? AND e.record_id=? AND e.request_id=? AND json_extract(f.value,'$.id')=? AND json_extract(f.value,'$.version')=? LIMIT 1",(q['module'],q['record'],q.get('task',''),q.get('file'),q['version']))
                         if not rows or type(q.get('total'))!=int or not 0<q['total']<=MAX_MEDIA or rows[0]['size']!=q['total'] or offset+length>q['total']:raise ConflictError('Media changed')
-                        current=await db.query('SELECT object_key,size FROM media_assets WHERE uid=? AND updated_at=? AND status=\'active\'',(q['file'],q['version']))
+                        current=await db.query('SELECT object_key,size FROM media_assets WHERE uid=? AND updated_at=? AND (status=\'active\' OR ?=\'site_clone\')',(q['file'],q['version'],q['module']))
                         if not current or current[0]!=rows[0]:raise ConflictError('Media changed')
                         from backend.app.native.media_inventory_store import inventory
                         from backend.app.native.media_response import LocalMediaResponse
@@ -92,6 +114,9 @@ def install(app,resources,csrf,render):
                     body=await source.source_read(q)
                     if len(body)!=length:raise ConflictError('Truncated slice')
                     meta={'version':q['version'],'offset':offset}
+            if q.get('kind')=='proposal':
+                from site_sync.integration.worker_schedule import arm
+                await arm(r)
             return Response(body,headers=response_headers(key,nonce,200,meta,body))
         except AuthorizationError:return Response(status_code=403)
         except (ValueError,TypeError,KeyError,ConflictError):return Response(status_code=409)

@@ -165,7 +165,7 @@ class StagingTests(unittest.TestCase):
         self.assertEqual(self.seq(),0)
 
     def test_constraint_failure_rolls_back_fragment_and_cursor(self):
-        self.db.connection.execute('UPDATE sync_items SET staged_bytes=200000')
+        self.db.connection.execute('UPDATE sync_items SET staged_bytes=1048576')
         with self.assertRaises(Exception):self.append()
         self.assertEqual(self.seq(),0)
         self.assertEqual(self.db.connection.execute('SELECT count(*) FROM sync_parts').fetchone()[0],0)
@@ -182,14 +182,14 @@ class StagingTests(unittest.TestCase):
     def test_record_byte_limit_is_atomic(self):
         self.db.connection.execute('UPDATE sync_tasks SET slice_bytes=65536')
         position=0; seq=0
-        while position < 200000:
-            size=min(65536,200000-position)
+        while position < 1048576:
+            size=min(65536,1048576-position)
             self.append(offset=position,expected_seq=seq,data=b'x'*size)
             position+=size;seq+=1
         with self.assertRaises(Exception):
             self.append(offset=position,expected_seq=seq,data=b'x')
         self.assertEqual(self.seq(),seq)
-        self.assertEqual(self.db.connection.execute('SELECT sum(length(data)) FROM sync_parts').fetchone()[0],200000)
+        self.assertEqual(self.db.connection.execute('SELECT sum(length(data)) FROM sync_parts').fetchone()[0],1048576)
 
 
 class D1StagingTests(StagingTests):

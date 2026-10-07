@@ -1,6 +1,7 @@
 """Bounded DB-side record envelopes for the selected teacher website schema.
-The source freezes <=200KB in SQLite/D1, slices bytes in SQL, and never transfers
-an account, secret, permission, internal setting or local-only media deletion.
+The source freezes <=1MiB in SQLite/D1, slices bytes in SQL, and never transfers
+accounts or secrets in ordinary module mode. Privileged full clones delegate
+to clone.py and include account/password-hash restoration.
 """
 import hashlib,json,time
 from .catalog import SCOPES,COLUMNS,RELATIONS,row_json
@@ -14,7 +15,16 @@ class TeacherWebsite(MappedWebsite):
         self.modules={t:{'table':t,'id':'uid','version':'updated_at'} for t in SCOPES}
     async def check(self,db):
         await db.query('SELECT module FROM sync_exports LIMIT 0')
+    async def discover(self,ctx):
+        if json.loads(ctx.task['scope_json'])==['site_clone']:
+            from .clone import discover
+            return await discover(self,ctx)
+        return await super().discover(ctx)
     async def source_candidates(self,q):
+        if q.get('scope')==['site_clone']:
+            from .clone import candidates
+            return await candidates(self,q)
+        if 'site_clone' in q.get('scope',[]):raise AuthorizationError('Clone must be selected alone')
         scope=q.get('scope');cursor=q.get('cursor')
         if not isinstance(scope,list) or not scope or len(scope)>len(SCOPES) or any(t not in SCOPES for t in scope):raise AuthorizationError('Invalid scope')
         if cursor is not None and (not isinstance(cursor,list) or len(cursor)!=3 or type(cursor[0])!=int or any(not isinstance(x,str) for x in cursor[1:])):raise ConflictError('Invalid cursor')
@@ -37,6 +47,9 @@ class TeacherWebsite(MappedWebsite):
         i=rows[0] if rows else None
         return {'item':i,'cursor':[i['updated'],i['module'],i['id']] if i else None}
     async def snapshot(self,q):
+        if q['module']=='site_clone':
+            from .clone import snapshot
+            return await snapshot(self,q)
         t=q['module'];self.mapping(t)
         request_id=q.get('task','')
         if not isinstance(request_id,str) or len(request_id)>128:raise ValueError('Snapshot identity bound')
@@ -52,10 +65,10 @@ class TeacherWebsite(MappedWebsite):
             # cannot alter the immutable export used by subsequent slices.
             rows="(SELECT json_group_array(json_object('module',module,'row',json(row))) FROM ("+' UNION ALL '.join(selects)+" ORDER BY rank))"
             payload=f"WITH records AS (SELECT {rows} value), assets AS (SELECT m.* FROM media_assets m,records WHERE m.status='active' AND (instr(records.value,m.object_key)>0 OR instr(records.value,m.uid)>0) ORDER BY m.uid LIMIT 17) SELECT json_object('rows',json(records.value),'media',json((SELECT json_group_array(json({row_json('media_assets','m')})) FROM assets m))) body,(SELECT count(*) FROM assets) media_count FROM records"
-            sql="INSERT INTO sync_exports(module,record_id,version,request_id,body,files_json,expires_at) SELECT ?,?,?,?,CAST(body AS BLOB),'[]',? FROM ("+payload+") WHERE length(CAST(body AS BLOB))<=200000 AND media_count<=16 AND json_array_length(body,'$.rows')>0 AND EXISTS(SELECT 1 FROM \""+t+'\" WHERE uid=? AND updated_at=?) ON CONFLICT(module,record_id,version,request_id) DO NOTHING'
+            sql="INSERT INTO sync_exports(module,record_id,version,request_id,body,files_json,expires_at) SELECT ?,?,?,?,CAST(body AS BLOB),'[]',? FROM ("+payload+") WHERE length(CAST(body AS BLOB))<=1048576 AND media_count<=16 AND json_array_length(body,'$.rows')>0 AND EXISTS(SELECT 1 FROM \""+t+'\" WHERE uid=? AND updated_at=?) ON CONFLICT(module,record_id,version,request_id) DO NOTHING'
             await self.db.batch([(sql,(t,q['record'],q['version'],request_id,int(time.time())+604800,*params,q['record'],q['version']))])
             saved=await self.db.query('SELECT length(body) bytes,files_json,body_sha256 FROM sync_exports WHERE module=? AND record_id=? AND version=? AND request_id=?',(t,q['record'],q['version'],request_id))
-            if not saved:raise ConflictError('Source changed or envelope exceeds 200KB / 16 media')
+            if not saved:raise ConflictError('Source changed or envelope exceeds 1MiB / 16 media')
         identity=(t,q['record'],q['version'],request_id)
         digest=saved[0]['body_sha256']
         if digest is None:
@@ -66,7 +79,7 @@ class TeacherWebsite(MappedWebsite):
             await self.db.batch([('UPDATE sync_exports SET body_sha256=? WHERE module=? AND record_id=? AND version=? AND request_id=? AND body_sha256 IS NULL',(digest,*identity))])
         if q.get('snapshot_hash') is not None and q['snapshot_hash']!=digest:raise ConflictError('Snapshot content changed; retained progress cannot be mixed')
         media=await self.db.query("SELECT json_extract(value,'$.uid') id,json_extract(value,'$.updated_at') version,json_extract(value,'$.size') size,json_extract(value,'$.storage_kind') kind,json_extract(value,'$.object_key') object_key FROM sync_exports,json_each(CAST(body AS TEXT),'$.media') WHERE module=? AND record_id=? AND version=? AND request_id=?",(t,q['record'],q['version'],request_id))
-        if any(m['kind'] not in ('local','r2') or not 0<m['size']<=20*1024*1024 for m in media):raise ConflictError('Unsupported media storage or size (1B..20MiB)')
+        if any(m['kind'] not in ('local','r2') or not 0<=m['size']<=1024*1024*1024 for m in media):raise ConflictError('Unsupported media storage or size (0..1GiB)')
         files=[{k:m[k] for k in ('id','version','size')} for m in media]
         await self.db.batch([('UPDATE sync_exports SET files_json=?,expires_at=? WHERE module=? AND record_id=? AND version=? AND request_id=?',(json.dumps(media,separators=(',',':')),int(time.time())+604800,t,q['record'],q['version'],request_id))])
         return manifest({'version':q['version'],'snapshot_hash':digest,'fields':{'payload':saved[0]['bytes']},'files':files},q['version'])
@@ -84,6 +97,9 @@ class TeacherWebsite(MappedWebsite):
         await self.db.batch([('UPDATE sync_exports SET expires_at=? WHERE module=? AND record_id=? AND version=? AND request_id=?',(int(time.time())+604800,q['module'],q['record'],q['version'],q.get('task','')))])
         return bytes(rows[0]['data'])
     async def apply(self,ctx):
+        if json.loads(ctx.task['scope_json'])==['site_clone']:
+            from .clone import apply
+            return await apply(self,ctx)
         records=await self.db.query("SELECT * FROM sync_items WHERE task_id=? AND selected=1 AND status='staged' ORDER BY item_id LIMIT 1",(ctx.task['task_id'],))
         if not records:await ctx.advance('cleanup');return
         i=records[0];t=i['module'];self.mapping(t)

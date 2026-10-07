@@ -15,6 +15,7 @@ class Response(io.BytesIO):
 
 class FakeAPI:
     def __init__(self):self.scripts={};self.calls=[];self.fail=None
+    def migration_tag(self,worker):return self.scripts[worker]['settings'].get('migration_tag')
     def credential_status(self,database):return 'missing'
     def request(self,method,name,suffix='',body=None,content_type=None,missing=False):
         self.calls.append((method,name,suffix))
@@ -26,6 +27,11 @@ class FakeAPI:
             previous=self.scripts.get(name,{}).get('settings',{}).get('bindings',[])
             if metadata.get('keep_bindings'):
                 metadata['bindings'].extend(b for b in previous if b.get('type') in metadata['keep_bindings'] and b['name'] not in {x['name'] for x in metadata['bindings']})
+            old_tag=self.scripts.get(name,{}).get('settings',{}).get('migration_tag')
+            if metadata.get('migrations'):
+                assert old_tag is None, 'migration must not be replayed'
+                metadata['migration_tag']=metadata['migrations']['new_tag']
+            elif old_tag:metadata['migration_tag']=old_tag
             self.scripts.setdefault(name,{})['settings']=metadata
             return {'id':'version-one'}
         obj=self.scripts[name]
@@ -48,7 +54,9 @@ class ReleaseTests(unittest.TestCase):
     def release(self,mode='inline'):
         return Release(self.env,{'name':'teacher','sync_executor':mode},lambda *a,**kw:self.logs.append((a,kw)),client=self.api)
     def add_executor_artifact(self):
-        f=self.fixture;f.cfg['name']='teacher-sync-executor';f.cfg['compatibility_flags'].append('python_workers')
+        f=self.fixture
+        f.cfg.pop('durable_objects');f.cfg.pop('migrations');f.meta['bindings']=[b for b in f.meta['bindings'] if b['name']!='SYNC_COORDINATOR']
+        f.cfg['name']='teacher-sync-executor';f.cfg['compatibility_flags'].append('python_workers')
         f.meta['compatibility_flags'].append('python_workers');f.meta['main_module']='executor.py'
         f.parts=[('executor.py','text/x-python',b'pass'),('worker_runtime/sync_executor.py','text/x-python',b'pass'),
                  ('site_sync/integration/worker_schedule.py','text/x-python',b'pass'),
@@ -105,7 +113,7 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(APIError):release.activate()
         self.api.fail=None;release=self.release('separate')
         release.prepare(self.stage,self.root);release.activate()
-        self.assertEqual(sum(m=='PUT' and s=='' for m,_,s in self.api.calls),2)
+        self.assertEqual(sum(m=='PUT' and s=='' for m,_,s in self.api.calls),3)
         self.assertEqual(self.api.scripts['teacher-sync-executor']['schedules']['schedules'],[{'cron':'* * * * *'}])
 
     def test_optional_key_new_deploy_and_preserved_existing_secret(self):

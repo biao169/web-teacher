@@ -17,11 +17,11 @@ export async function sourceMedia(env,request){
   if(!await crypto.subtle.verify('HMAC',k,Uint8Array.from(signature.match(/../g),x=>parseInt(x,16)),enc.encode(['sync-v1-request',stamp,nonce,'POST','/sync/v1/read',await sha(body)].join('\n'))))return new Response('Denied',{status:403});
   const q=JSON.parse(new TextDecoder().decode(body));
   if((q.task!==undefined&&(typeof q.task!=='string'||q.task.length>128))||(q.snapshot_hash!=null&&(typeof q.snapshot_hash!=='string'||!/^[a-f0-9]{64}$/.test(q.snapshot_hash)))||(q.record_version!=null&&(typeof q.record_version!=='string'||!q.record_version.length||q.record_version.length>256)))throw Error('Identity');
-  if(q.kind!=='media'||!['module','record','version','file'].every(x=>typeof q[x]==='string'&&q[x].length>0&&q[x].length<=256)||![q.offset,q.length,q.total].every(Number.isSafeInteger)||q.offset<0||q.length<=0||q.length>5*1024*1024||q.total>20*1024*1024||q.offset+q.length>q.total)throw Error('Range');
+  if(q.kind!=='media'||!['module','record','version','file'].every(x=>typeof q[x]==='string'&&q[x].length>0&&q[x].length<=256)||![q.offset,q.length,q.total].every(Number.isSafeInteger)||q.offset<0||q.length<=0||q.length>5*1024*1024||q.total>1024*1024*1024||q.offset+q.length>q.total)throw Error('Range');
   storage=true;
   const allowed=await env.DB.prepare(`SELECT 1 FROM sync_connections c JOIN sync_peers p ON p.peer_id=c.peer_id JOIN sync_grants g ON g.principal_id=c.owner_uid WHERE p.enabled=1 AND g.enabled=1 AND g.can_write=1 AND (g.expires_at=0 OR g.expires_at>?) AND ? IN (SELECT value FROM json_each(c.export_scope_json)) AND ? IN (SELECT value FROM json_each(g.scopes_json)) LIMIT 1`).bind(Math.floor(Date.now()/1000),q.module,q.module).first();
   if(!allowed)return new Response('Denied',{status:403});
-  const f=await env.DB.prepare(`SELECT a.object_key,a.size,e.version record_version,e.body_sha256 FROM sync_exports e,json_each(e.files_json) f JOIN media_assets a ON a.uid=json_extract(f.value,'$.id') AND a.updated_at=json_extract(f.value,'$.version') WHERE e.module=? AND e.record_id=? AND e.request_id=? AND a.uid=? AND a.updated_at=? AND a.size=? AND a.status='active' AND a.storage_kind='r2' LIMIT 1`).bind(q.module,q.record,q.task||'',q.file,q.version,q.total).first();
+  const f=await env.DB.prepare(`SELECT a.object_key,a.size,e.version record_version,e.body_sha256 FROM sync_exports e,json_each(e.files_json) f JOIN media_assets a ON a.uid=json_extract(f.value,'$.id') AND a.updated_at=json_extract(f.value,'$.version') WHERE e.module=? AND e.record_id=? AND e.request_id=? AND a.uid=? AND a.updated_at=? AND a.size=? AND (a.status='active' OR ?='site_clone') AND a.storage_kind='r2' LIMIT 1`).bind(q.module,q.record,q.task||'',q.file,q.version,q.total,q.module).first();
   if(!f){
     const snapshot=await env.DB.prepare('SELECT 1 FROM sync_exports WHERE module=? AND record_id=? AND request_id=? LIMIT 1').bind(q.module,q.record,q.task||'').first();
     return new Response(snapshot?'Media version changed':'Snapshot unavailable',{status:snapshot?409:410});
@@ -37,7 +37,7 @@ export async function sourceMedia(env,request){
 }
 export function mediaBucket(env){
  const prefix=env.TEACHER_MEDIA_PREFIX||'media/',b=env.MEDIA;
- return {head:key=>b.head(prefix+key),get:key=>b.get(prefix+key),delete:key=>b.delete(prefix+key),
+ return {put:(key,body,opts)=>b.put(prefix+key,body,opts),head:key=>b.head(prefix+key),get:key=>b.get(prefix+key),delete:key=>b.delete(prefix+key),
   createMultipartUpload:(key,opts)=>b.createMultipartUpload(prefix+key,opts),
   resumeMultipartUpload:(key,id)=>b.resumeMultipartUpload(prefix+key,id)};
 }

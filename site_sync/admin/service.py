@@ -42,6 +42,15 @@ class Admin:
         rows=await self.db.query('SELECT * FROM sync_tasks WHERE task_id=? AND grant_id=?',(task_id,actor.grant_id))
         if not rows:raise AuthorizationError('任务不存在或不可访问')
         return rows[0]
+    async def retry_policy(self,actor,body=None):
+        g=await self.grant(actor,body is not None)
+        from site_sync.core.retry_settings import read,validate,KEY as RETRY_KEY
+        if body is not None:
+            if not g['can_write']:raise AuthorizationError('Settings denied')
+            value=validate(body)
+            result=await self.db.batch([('INSERT INTO service_meta(key,value) SELECT ?,? WHERE EXISTS(SELECT 1 FROM sync_grants WHERE grant_id=? AND revision=? AND enabled=1 AND can_write=1 AND (expires_at=0 OR expires_at>?)) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(RETRY_KEY,json.dumps(value),actor.grant_id,g['revision'],self.clock()))])
+            if result[0]['meta']['changes']!=1:raise AuthorizationError('Settings changed')
+        return await read(self.db)
     async def options(self,actor):
         g=await self.grant(actor)
         peers=await self.db.query('SELECT peer_id FROM sync_peers WHERE enabled=1 ORDER BY peer_id LIMIT 100')
@@ -73,7 +82,19 @@ class Admin:
             i=current[0];i.pop('manifest_json',None)
             offsets=await self.db.query('SELECT field,max(offset+length(data)) next_offset FROM sync_parts WHERE task_id=? AND item_id=? GROUP BY field LIMIT 32',(task_id,i['item_id']))
             media_current=await self.db.query('SELECT file_id,source_file_id,status,committed_bytes,total_bytes,storage_kind,staging_key FROM sync_files WHERE task_id=? AND item_id=? ORDER BY file_id LIMIT 16',(task_id,i['item_id']))
-        return {'task':{k:t[k] for k in TASK_FIELDS.split(',')},'counts':counts,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
+        clone=None
+        if json.loads(t['scope_json'])==['site_clone']:
+            from site_sync.integration.clone import ORDER,AUTH
+            tables=[name for name in ORDER if name not in AUTH]
+            saved=await self.db.query('SELECT value FROM service_meta WHERE key=?',('sync:clone-state:'+task_id,))
+            state=json.loads(saved[0]['value']) if saved else {}
+            phase=state.get('phase') or ('stage' if t['phase']=='apply' else t['phase'])
+            labels={'discover':'发现完整清单','await_confirmation':'等待整任务批准','transfer':'下载正文与媒体','stage':'整理持久暂存记录','verify':'检查清单与管理员','restore':'恢复业务数据','prune':'清理目标多余记录','cleanup':'清理暂存分片，随后统一切换账号','done':'已完成'}
+            index=max(0,min(int(state.get('table',0)),len(tables)))
+            ordered=list(reversed(tables)) if phase=='prune' else tables
+            if t['status']=='cancelled':phase='cancelled';index=0;labels['cancelled']='已取消；已应用内容不回滚'
+            clone={'phase':phase,'label':labels.get(phase,phase),'table':ordered[index] if phase in ('restore','prune') and index<len(ordered) else None,'completed_tables':len(tables) if phase in ('cleanup','done') else index,'total_tables':len(tables),'storage':'service_meta / sync:clone-state:'+task_id+'；分片见 sync_parts / sync_file_parts'}
+        return {'task':{k:t[k] for k in TASK_FIELDS.split(',')},'counts':counts,'clone':clone,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'retry_policy':await self.retry_policy(actor),'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
 
     async def logs(self,actor,task_id,*,before=None):
         await self.own_task(actor,task_id)
@@ -149,6 +170,7 @@ class Admin:
         if not g['can_write']:raise AuthorizationError('无定时写入权限')
         scope=body['scope']
         if not isinstance(scope,list) or not 0<len(scope)<=64 or any(not isinstance(x,str) for x in scope) or not set(scope).issubset(json.loads(g['scopes_json'])):raise AuthorizationError('计划超出授权范围')
+        if 'site_clone' in scope and (scope!=['site_clone'] or not g['can_delete']):raise AuthorizationError('整站克隆需单独选择并具备删除权限')
         interval=integer(body['interval_seconds'],60,2592000)
         if type(body['enabled'])!=bool:raise ValueError('无效启用状态')
         request=body.get('request_id')
