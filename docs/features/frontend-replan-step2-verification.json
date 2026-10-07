@@ -1,0 +1,43 @@
+{
+  "version": "0.15.54",
+  "step": "frontend replan step 2: homepage layout",
+  "python": {
+    "passed": 295,
+    "failed": 0
+  },
+  "simulated_dom": {
+    "passed": 108,
+    "failed": 0
+  },
+  "new_tests": {
+    "python": 6,
+    "simulated_dom": 1
+  },
+  "unchanged_protected_files": 509,
+  "unchanged_trees": [
+    "backend",
+    "database",
+    "frontend/admin",
+    "frontend/shared",
+    "transfer",
+    "deploy"
+  ],
+  "homepage_groups": {
+    "primary": [
+      "publications",
+      "news"
+    ],
+    "secondary": [
+      "projects",
+      "patents",
+      "students"
+    ]
+  },
+  "migration_added": false,
+  "worker_templates_and_home_css": "verified",
+  "real_windows_browser": "not_run; no local browser executable available",
+  "deployed": false,
+  "production_data_modified": false,
+  "next_step": "all list cards, citation display/copy and detail-entry cleanup",
+  "known_prior_metadata_cache_issue": "implementation unchanged; this passing run does not establish a fix"
+}

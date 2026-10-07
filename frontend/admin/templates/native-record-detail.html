@@ -1,0 +1,23 @@
+{% extends 'admin/layout.html' %}
+{% block footer_class %}native-editor-footer native-record-footer{% endblock %}
+{% block content %}
+<div class="native-title"><h1>{{ page_title }}</h1><span class="native-muted">{{ '查看不会自动标记已读' if table=='messages' else '只读记录 · 敏感详情已隐藏' }}</span></div>
+<nav class="native-section-nav" aria-label="详情区快速跳转">{% for group in groups %}<a href="#{{ group.id }}">{{ group.label }}</a>{% endfor %}</nav>
+<div data-record-detail data-table-name="{{ table }}" data-record-uid="{{ row.uid }}" data-record-stamp="{{ row.updated_at }}" data-csrf="{{ csrf }}">
+{% for group in groups %}<section class="panel native-editor-section native-record-section" id="{{ group.id }}"><h2>{{ group.label }}</h2><dl class="native-record-grid">
+{% for field in group.fields %}<div class="{{ 'native-wide' if field in ['content','detail_json','summary','subject'] else '' }}"><dt>{{ label(table,field) }}</dt><dd>
+{% if field=='status' and message_view %}<span class="native-message-state" data-state="{{ message_view.state_style }}">{{ message_view.state_label }}</span>
+{% elif field=='message_type' and message_view %}{% include 'admin/native-message-source.html' %}
+{% elif field in ['content','detail_json'] %}<pre class="native-record-text" tabindex="0">{{ row.get(field) or '暂无内容' }}</pre>
+{% elif field.endswith('_at') %}{{ row.get(field)|admin_datetime }}
+{% elif field=='attachment_key' %}{% if attachment %}<a href="/admin/media/{{ attachment.uid }}/inspect" class="btn btn-outline-primary btn-sm" title="在媒体库查看附件预览及使用位置">◉ {{ attachment.title or '预览附件' }}</a>{% elif row.get(field) %}<span class="native-muted">附件不可用或没有媒体查看权限</span>{% else %}—{% endif %}
+{% else %}<span>{{ row.get(field) or '—' }}</span>{% endif %}
+{% if field in ['email','target_uid','uid'] and row.get(field) %}<button type="button" class="btn btn-outline-secondary btn-sm native-copy-button" data-copy-value="{{ row[field] }}" data-copy-label="{{ '邮箱' if field=='email' else '标识' }}" title="复制{{ '邮箱地址，不发送邮件' if field=='email' else '此标识' }}">⧉ 复制</button>{% endif %}
+</dd></div>{% endfor %}</dl></section>{% endfor %}
+{% if table=='messages' %}<section class="panel native-record-section"><p class="native-muted">已回复仅为人工处理标记，不代表发送邮件。附件通过统一媒体库管理，留言不会作为公开评论展示。</p><noscript><p>浏览器未启用JavaScript；如需处理留言，请进入编辑页保存状态。</p></noscript></section>
+{% else %}<section class="panel native-record-section"><p class="native-muted">凭据、邮箱、常见网络地址及未知详情字段已隐藏；过长或无效JSON不回显原文。详情仅公开允许的诊断字段，数据库原日志保持不变。</p></section>{% endif %}
+</div>
+{% endblock %}
+{% block workspace_footer %}<span class="native-muted">{{ '原始留言只读，状态立即保存' if table=='messages' else '操作日志不可修改' }}</span><div class="native-footer-actions">
+{% if can_edit %}<label class="native-muted" for="detail-message-status">处理状态</label><select id="detail-message-status" class="form-select form-select-sm" data-detail-message-status title="选择处理状态后点击更新；不会发送通知">{% if row.status not in message_states %}<option value="" selected>选择状态</option>{% endif %}{% for value,text in message_states.items() %}<option value="{{ value }}" {% if row.status==value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select><button type="button" class="btn btn-primary btn-sm" data-detail-status-save title="只更新此留言的处理状态，使用当前记录版本防止覆盖">✓ 更新状态</button><a class="btn btn-outline-primary btn-sm" href="/admin/messages/{{ row.uid }}/edit">✎ 编辑</a>{% endif %}
+<a class="btn btn-outline-secondary btn-sm" href="/admin/{{ table }}">返回列表</a></div>{% endblock %}

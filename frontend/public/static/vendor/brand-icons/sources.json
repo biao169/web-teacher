@@ -1,0 +1,27 @@
+[
+  {
+    "file": "orcid.svg",
+    "source": "https://orcid.org/assets/vectors/orcid.logo.icon.svg",
+    "bytes": 2016
+  },
+  {
+    "file": "github.svg",
+    "source": "https://github.githubassets.com/favicons/favicon.svg",
+    "bytes": 959
+  },
+  {
+    "file": "google_scholar.ico",
+    "source": "https://scholar.google.com/favicon.ico",
+    "bytes": 3871
+  },
+  {
+    "file": "dblp.png",
+    "source": "https://dblp.org/img/dblp.icon.192x192.png",
+    "bytes": 7399
+  },
+  {
+    "file": "cnki.ico",
+    "source": "https://www.cnki.net/favicon.ico",
+    "bytes": 1150
+  }
+]

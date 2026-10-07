@@ -1,0 +1,31 @@
+{% extends 'shared/base.html' %}
+{% from 'shared/macros.html' import icon,module_name %}
+{% block title %}{{ page_title|default('网站管理') }} · {{ site.title }}{% endblock %}
+{% block metadata %}<link rel="stylesheet" href="/assets/admin/css/native-order.css?v=0.15.118"><link rel="stylesheet" href="/assets/admin/css/native-translation-groups.css?v=0.15.40"><link rel="stylesheet" href="/assets/admin/css/native-permissions.css?v=0.15.28"><link rel="stylesheet" href="/assets/admin/css/native-source-navigation.css?v=0.15.88"><link rel="stylesheet" href="/assets/admin/css/native-media-preview.css?v=0.15.26">{{ super() }}<link rel="stylesheet" href="/assets/shared/css/news-body.css?v=0.15.43"><script src="/assets/admin/js/workspace.js" defer></script><script type="module" src="/assets/admin/js/native-table-headers.js?v=0.15.113"></script><script type="module" src="/assets/admin/js/native.js?v=0.15.118"></script>{% if table=='news' and row is defined %}<link rel="stylesheet" href="/assets/shared/vendor/quill-2.0.3/dist/quill.snow.css"><script src="/assets/shared/vendor/quill-2.0.3/dist/quill.js" defer></script><script type="module" src="/assets/admin/js/native-richtext.js?v=0.15.88"></script>{% endif %}{% endblock %}
+{% block shell %}
+{# 后台工作区只负责布局，权限仍由服务端 nav_modules 和各操作入口检查。 #}
+<div class="{{ 'admin-workspace' if authenticated else 'admin-auth' }}" {% if authenticated %}data-workspace{% endif %}>
+{% if authenticated %}
+<aside class="workspace-sidebar" id="workspace-sidebar" aria-label="后台功能导航">
+<a class="workspace-brand" href="/admin" title="管理首页">{{ icon('book') }}<span class="nav-label">{{ site.title }}<small>教师网站 · 内容管理</small></span></a>
+<div class="sidebar-caption"><span class="nav-label">工作空间</span><button type="button" class="workspace-icon drawer-close" data-drawer-close aria-label="关闭导航">×</button></div>
+<nav class="workspace-menu" aria-label="内容模块">
+{% for group in admin_menu_groups|default([]) %}<h2 class="workspace-menu-title"><span>{{ group.label }}</span></h2>{% for entry in group.entries %}<a href="{{ entry.url }}" data-menu-key="{{ entry.key }}" data-nav-style="{{ entry.style|default('normal') }}" title="{{ entry.label }}{{ ' · 权限不足' if entry.locked|default(False) else '' }}" {% if entry.locked|default(False) %}data-access-denied="{{ entry.label }}" aria-haspopup="dialog" aria-label="{{ entry.label }}，权限不足"{% endif %} {% if current_module==entry.key %}aria-current="page"{% endif %}>{{ icon(entry.icon|default('file')) }}<span class="nav-label">{{ entry.label }}</span>{% if entry.locked|default(False) %}<span class="native-nav-lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg></span>{% endif %}</a>{% endfor %}{% endfor %}
+</nav>
+<div class="sidebar-bottom"><span class="nav-label">🔒 表示当前角色无权进入</span><button type="button" class="workspace-icon sidebar-collapse" data-sidebar-toggle aria-label="收起侧栏" aria-expanded="true" aria-controls="workspace-sidebar">«</button></div>
+</aside>
+<button class="workspace-backdrop" data-drawer-close aria-label="关闭导航遮罩" tabindex="-1" hidden></button>
+{% endif %}
+<section class="workspace-pane">
+{# Fixed, session-bound notices never add height to a list or move the independent sidebar. #}
+<div class="admin-notifications" data-notifications data-owner="{{ principal.uid if principal else '' }}" data-session="{{ notification_session }}" aria-label="操作通知"></div>
+<header class="workspace-topbar">
+{% if authenticated %}<button type="button" class="workspace-icon drawer-open" data-drawer-open aria-label="打开导航" aria-expanded="false" aria-controls="workspace-sidebar">☰</button>{% endif %}
+<nav class="workspace-breadcrumb" aria-label="当前位置"><a href="/admin">管理首页</a>{% if current_entry|default(None) %}<span aria-hidden="true">/</span><a href="{{ current_entry.url }}">{{ current_entry.label }}</a>{% endif %}<span aria-hidden="true">/</span><span aria-current="page">{{ page_title|default('网站管理') }}</span></nav>
+<div class="workspace-account"><a href="/transfer" title="文件快传" {% if principal and not principal.permissions.get('transfer',{}).get('can_view') %}data-access-denied="文件快传" aria-haspopup="dialog"{% endif %}>文件快传 ↗</a><a href="/zh" title="访问网站">访问网站 ↗</a>{% if authenticated %}<a href="/auth/password" title="账户安全">账户安全</a>{% endif %}</div>
+</header>
+<main id="main" class="main-content workspace-content" tabindex="-1">{% block content %}{% endblock %}</main>
+{% if authenticated %}<footer class="workspace-footer {% block footer_class %}{% endblock %}"><span title="后台日期时间统一按{{ admin_timezone }}显示">时间：{{ admin_timezone }}</span>{% block workspace_footer %}<span>教师网站管理</span><div><a class="btn btn-outline-secondary" href="/admin">返回概览</a><a class="btn btn-outline-secondary" href="#main" data-scroll-top>回到顶部 ↑</a></div>{% endblock %}</footer>{% endif %}
+</section></div>
+{% if authenticated %}{% include 'admin/native-media-picker.html' %}{% include 'admin/native-media-crop.html' %}{% endif %}
+{% endblock %}

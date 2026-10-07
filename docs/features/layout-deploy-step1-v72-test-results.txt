@@ -1,0 +1,61 @@
+................................                                         [100%]
+=============================== warnings summary ===============================
+../../list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37
+  /workspace/scratch/9d6e0b0ba117/list-test-venv/lib/python3.12/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+32 passed, 1 warning in 13.00s
+
+✔ select loaded, append preserves choices and new rows stay unchecked (81.659599ms)
+✔ copy uses only explicit public fields in current display order (25.030132ms)
+✔ expansion loads only requested entry, caches text and toggles clamp (24.13335ms)
+✔ failed or mismatched detail preserves preview and allows retry (16.460073ms)
+✔ Clipboard denial uses legacy fallback and accurately reports failure (19.755725ms)
+✔ explicit filter submit marks selection reset; automatic append does not (14.744275ms)
+✔ detail links retain filters for back navigation (11.421882ms)
+✔ details copy public fields and restore same-module return URL (13.894743ms)
+✔ details reject cross-origin or different-module return URLs (20.959612ms)
+✔ empty biography is reported without inventing content (11.509534ms)
+✔ group heading appears once across appended batches, selection and copy exclude heading (16.805976ms)
+✔ facet options append safely without changing active filter or selected records (14.68858ms)
+✔ facet failure preserves options and page; retry stays on the same page (12.146616ms)
+✔ batch citations copy selected loaded raw text in list order with zero requests (14.086382ms)
+✔ missing-format cards stop the batch instead of copying fallback (15.209085ms)
+✔ single citation copy works on homepage and appended cards without selection form (12.510254ms)
+✔ short biographies hide expand button and resizing reveals it only on overflow (9.878663ms)
+✔ retained detail copies rich text with paragraph boundaries without reader buttons (9.453362ms)
+✔ 100 fictional gbt citations append without changing selected entries and copy exact stored text (161.25933ms)
+✔ 100 fictional elsevier citations append without changing selected entries and copy exact stored text (131.224786ms)
+✔ 100 fictional apa citations append without changing selected entries and copy exact stored text (168.68294ms)
+✔ 100 fictional ieee citations append without changing selected entries and copy exact stored text (122.734989ms)
+✔ students: short description expands locally and long description lazily loads safely (12.077351ms)
+✔ courses: short description expands locally and long description lazily loads safely (13.107645ms)
+✔ description request is cancelled by filters and late text cannot overwrite the card (11.210262ms)
+✔ news copy excludes PDF controls, loaded text layers and online watermark (7.5426ms)
+✔ language preserves detail, repeated parameters and hash without rewriting external origins (61.582589ms)
+✔ filtered navigation matches only appropriate query state (12.733271ms)
+✔ nonlanguage auth paths retain safe server-rendered fallback (13.690164ms)
+✔ module prefix does not mark a different route active (9.340778ms)
+✔ failed and already-broken branding images hide while site text remains (9.918744ms)
+✔ intersection starts one request and carries query filters without changing current URL (69.753736ms)
+✔ appends once per UID, including duplicate rows in the same response (19.244904ms)
+✔ last page removes continuation and disconnects automatic requests (12.188349ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (12.500089ms)
+✔ homepage streams share a one-request queue and keep independent record sets (19.373488ms)
+✔ wrong language/table/page response cannot contaminate current list (10.053708ms)
+✔ cross-origin or backwards continuation is rejected before append (10.223944ms)
+✔ HTML error pages do not replace cards (7.595669ms)
+✔ pagehide aborts active request and clears queued requests (11.38755ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (10.880645ms)
+✔ data-saving preference disables auto preload, keeps explicit click (8.989823ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (9.792544ms)
+✔ five nested homepage modules share one request queue and retain independent rows (19.828655ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1298.311467

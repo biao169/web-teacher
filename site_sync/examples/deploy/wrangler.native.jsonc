@@ -1,0 +1,9 @@
+{
+  "name": "teacher-sync-native",
+  "main": "../site_sync/worker/native_service.mjs",
+  "compatibility_date": "2026-10-05",
+  "workers_dev": false,
+  "preview_urls": false,
+  "r2_buckets": [{"binding": "MEDIA", "bucket_name": "REPLACE_BUCKET_NAME"}],
+  "observability": {"enabled": false}
+}

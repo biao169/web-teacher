@@ -1,0 +1,4936 @@
+{
+  "format": "teacher-editor-contract-v1",
+  "status": "active_native_runtime",
+  "authority": "latest_user_overrides_with_documented_fields",
+  "complete_old_form_definition_verified": false,
+  "storage_schema_extended": true,
+  "shared": {
+    "one_record_one_editor": true,
+    "whole_record_save": true,
+    "permissions_checked_server_side": true,
+    "public_templates_changed_in_this_stage": true,
+    "theme_file": "frontend/admin/static/css/admin-theme.css",
+    "action_column": {
+      "width": "measure_rendered_controls",
+      "max_buttons_per_row": 3,
+      "sticky": "right"
+    },
+    "navigation_scope": "permission AND stored_base_filters AND additional_filters",
+    "browser_filter_encoding": "ASCII navigation identifier; original values remain server-side"
+  },
+  "tables": {
+    "site_settings": {
+      "label": "网站设置",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 53
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 54
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 55
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 56
+          }
+        },
+        "is_active": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "当前启用",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 57
+          }
+        },
+        "site_name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "中文站点名称",
+          "validation_documented": "必填；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 58
+          }
+        },
+        "site_name_en": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "英文站点名称",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 59
+          }
+        },
+        "hero_title": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页主标题",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 300",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 60
+          }
+        },
+        "hero_subtitle": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页副标题",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 2000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 61
+          }
+        },
+        "logo_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Logo",
+          "validation_documented": "可选/按默认值；表单 media；最多字符 512",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 62
+          }
+        },
+        "favicon_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "浏览器图标",
+          "validation_documented": "可选/按默认值；表单 media；最多字符 512",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 63
+          }
+        },
+        "og_image_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "社交分享图",
+          "validation_documented": "可选/按默认值；表单 media；最多字符 512",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 64
+          }
+        },
+        "seo_title": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "SEO 标题",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 300",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 65
+          }
+        },
+        "seo_description": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "SEO 描述",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 1000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 66
+          }
+        },
+        "seo_keywords": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "SEO 关键词",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 1000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 67
+          }
+        },
+        "footer_text": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "页脚内容（支持 HTML）",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 10000；支持安全 HTML；统一控制前台页脚。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 68
+          }
+        },
+        "homepage_profile_uid": {
+          "disposition": "stored_hidden",
+          "reason": "目标保留字段；首页教师选择不使用此兼容字段。",
+          "label": "旧版首页成员（兼容保留）",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 128；兼容保存字段；当前首页主教师按公开、启用、精选及排序选择。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 69
+          }
+        },
+        "homepage_publication_limit": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页论文数量",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 100",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 70
+          }
+        },
+        "homepage_news_limit": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页动态数量",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 100",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 71
+          }
+        },
+        "homepage_project_limit": {
+          "disposition": "edit",
+          "reason": "首页项目总展示数量，读取时仍按小批次加载。",
+          "label": "首页项目数量",
+          "validation_documented": "非负整数；默认10，0隐藏首页项目模块；超过首批数量的内容滚动时继续加载。",
+          "source": {
+            "file": "docs/features/frontend-step2-complete.md",
+            "line": 1
+          }
+        },
+        "homepage_student_limit": {
+          "disposition": "edit",
+          "reason": "前台重规划第一步的配置与公开取数。",
+          "label": "首页学生数量",
+          "validation_documented": "非负整数；默认0，0隐藏；第二步首页模块重排后启用展示。",
+          "source": {
+            "file": "docs/features/frontend-replan-step1.md",
+            "line": 1
+          }
+        },
+        "homepage_patent_limit": {
+          "disposition": "edit",
+          "reason": "前台重规划第一步的配置与公开取数。",
+          "label": "首页专利数量",
+          "validation_documented": "非负整数；默认0，0隐藏；第二步首页模块重排后启用展示。",
+          "source": {
+            "file": "docs/features/frontend-replan-step1.md",
+            "line": 1
+          }
+        },
+        "publication_citation_style": {
+          "disposition": "edit",
+          "reason": "前台重规划第一步的配置与公开取数。",
+          "label": "论文显示格式",
+          "validation_documented": "GB/T、Elsevier、APA、IEEE；默认GB/T，第三步引文卡片使用此配置。",
+          "source": {
+            "file": "docs/features/frontend-replan-step1.md",
+            "line": 1
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "站点与首页",
+          "fields": [
+            "site_name",
+            "site_name_en",
+            "hero_title",
+            "hero_subtitle",
+            "homepage_publication_limit",
+            "homepage_project_limit",
+            "homepage_news_limit",
+            "homepage_student_limit",
+            "homepage_patent_limit",
+            "publication_citation_style"
+          ]
+        },
+        {
+          "label": "品牌图片",
+          "fields": [
+            "logo_key",
+            "favicon_key",
+            "og_image_key"
+          ]
+        },
+        {
+          "label": "搜索与分享",
+          "fields": [
+            "seo_title",
+            "seo_description",
+            "seo_keywords"
+          ]
+        },
+        {
+          "label": "页脚",
+          "fields": [
+            "footer_text"
+          ]
+        },
+        {
+          "label": "启用配置",
+          "fields": [
+            "is_active"
+          ]
+        }
+      ]
+    },
+    "global_settings": {
+      "label": "全局设置",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 94
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 95
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 96
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 97
+          }
+        },
+        "allow_public_registration": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许公开注册",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 98
+          }
+        },
+        "allow_anonymous_messages": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许匿名留言",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 99
+          }
+        },
+        "upload_max_size_mb": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "上传上限（MB）",
+          "validation_documented": "可选/按默认值；表单 integer；最小 1；最大 20",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 100
+          }
+        },
+        "upload_allowed_extensions": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许上传扩展名",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 2000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 101
+          }
+        },
+        "media_trash_retention_days": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "回收站保留天数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 1；最大 3650",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 102
+          }
+        },
+        "news_pdf_engine": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "PDF 展示引擎",
+          "validation_documented": "可选/按默认值；表单 select；候选 browser, pdfjs；兼容配置；当前新闻内嵌 PDF 固定使用 PDF.js，不读取此项。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 103
+          }
+        },
+        "news_pdf_allow_download": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "允许 PDF 下载",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1；兼容配置；不控制当前新闻内嵌 PDF 的下载行为。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 104
+          }
+        },
+        "news_pdf_watermark": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "PDF 水印说明",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 500；兼容配置；当前新闻内嵌 PDF 不绘制此水印。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 105
+          }
+        },
+        "translation_provider": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "默认翻译服务",
+          "validation_documented": "可选/按默认值；表单 select；候选 libretranslate, deepl, google, microsoft, mymemory",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 106
+          }
+        },
+        "translation_providers": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "可用翻译服务 JSON",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 10000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 107
+          }
+        },
+        "libretranslate_url": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "LibreTranslate 地址",
+          "validation_documented": "可选/按默认值；表单 url；最多字符 2000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 108
+          }
+        },
+        "libretranslate_api_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "LibreTranslate API Key",
+          "validation_documented": "可选/按默认值；表单 secret；最多字符 4096",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 109
+          },
+          "widget": "secret_write_only",
+          "read_back_value": false,
+          "blank_preserves_existing": true
+        },
+        "deepl_api_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "DeepL API Key",
+          "validation_documented": "可选/按默认值；表单 secret；最多字符 4096",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 110
+          },
+          "widget": "secret_write_only",
+          "read_back_value": false,
+          "blank_preserves_existing": true
+        },
+        "google_translate_api_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Google Translate API Key",
+          "validation_documented": "可选/按默认值；表单 secret；最多字符 4096",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 111
+          },
+          "widget": "secret_write_only",
+          "read_back_value": false,
+          "blank_preserves_existing": true
+        },
+        "microsoft_translator_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Microsoft Translator Key",
+          "validation_documented": "可选/按默认值；表单 secret；最多字符 4096",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 112
+          },
+          "widget": "secret_write_only",
+          "read_back_value": false,
+          "blank_preserves_existing": true
+        },
+        "microsoft_translator_region": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Microsoft 区域",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 113
+          }
+        },
+        "microsoft_translator_endpoint": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Microsoft Endpoint",
+          "validation_documented": "可选/按默认值；表单 url；最多字符 2000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 114
+          }
+        },
+        "mymemory_email": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "MyMemory 邮箱",
+          "validation_documented": "可选/按默认值；表单 email；最多字符 320",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 115
+          }
+        },
+        "translation_batch_size": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "每批翻译条数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 1；最大 50",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 116
+          }
+        },
+        "translation_worker_count": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "翻译并发数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 1；最大 8",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 117
+          }
+        },
+        "translation_timeout_seconds": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "翻译超时（秒）",
+          "validation_documented": "可选/按默认值；表单 integer；最小 1；最大 120",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 118
+          }
+        },
+        "translation_job_state": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "翻译任务状态 JSON",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 200000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 119
+          }
+        },
+        "publication_metadata_provider": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "论文元数据服务",
+          "validation_documented": "可选/按默认值；表单 select；候选 crossref, openalex, semantic-scholar, datacite, europe-pmc, pubmed",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 120
+          }
+        },
+        "publication_metadata_providers": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "论文元数据服务 JSON",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 10000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 121
+          }
+        },
+        "publication_display_style": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "论文引用样式",
+          "validation_documented": "可选/按默认值；表单 select；候选 gbt, elsevier, apa, ieee",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 122
+          }
+        },
+        "publication_suggestion_cache_seconds": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "论文建议缓存秒数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 86400；保留的建议缓存配置；当前历史值建议查询不使用此项控制缓存时长。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 123
+          }
+        },
+        "profile_suggestion_cache_seconds": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "人员建议缓存秒数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 86400；保留的建议缓存配置；当前历史值建议查询不使用此项控制缓存时长。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 124
+          }
+        },
+        "project_suggestion_cache_seconds": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "项目建议缓存秒数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 86400；保留的建议缓存配置；当前历史值建议查询不使用此项控制缓存时长。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 125
+          }
+        },
+        "patent_suggestion_cache_seconds": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "专利建议缓存秒数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 86400；保留的建议缓存配置；当前历史值建议查询不使用此项控制缓存时长。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 126
+          }
+        },
+        "student_suggestion_cache_seconds": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "学生建议缓存秒数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 86400；保留的建议缓存配置；当前历史值建议查询不使用此项控制缓存时长。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 127
+          }
+        },
+        "news_suggestion_cache_seconds": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "动态建议缓存秒数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 86400；保留的建议缓存配置；当前历史值建议查询不使用此项控制缓存时长。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 128
+          }
+        },
+        "course_suggestion_cache_seconds": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "课程建议缓存秒数",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；最大 86400；保留的建议缓存配置；当前历史值建议查询不使用此项控制缓存时长。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 129
+          }
+        },
+        "patent_metadata_providers": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "专利元数据服务 JSON",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 10000；保存服务配置；当前实际专利查询调用 PatentsView。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 130
+          }
+        },
+        "patentsview_api_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "PatentsView API Key",
+          "validation_documented": "可选/按默认值；表单 secret；最多字符 4096",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 131
+          },
+          "widget": "secret_write_only",
+          "read_back_value": false,
+          "blank_preserves_existing": true
+        },
+        "epo_ops_client_id": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "EPO OPS Client ID",
+          "validation_documented": "可选/按默认值；表单 secret；最多字符 4096；保存凭据字段；当前专利查询没有 EPO OPS 通道。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 132
+          },
+          "widget": "secret_write_only",
+          "read_back_value": false,
+          "blank_preserves_existing": true
+        },
+        "epo_ops_client_secret": {
+          "disposition": "stored_hidden",
+          "reason": "文档描述为当前不参与功能的保留配置，不显示成有效开关。",
+          "label": "EPO OPS Client Secret",
+          "validation_documented": "可选/按默认值；表单 secret；最多字符 4096；敏感凭据；当前专利查询没有 EPO OPS 通道。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 133
+          },
+          "widget": "secret_write_only",
+          "read_back_value": false,
+          "blank_preserves_existing": true
+        },
+        "notify_email": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "系统通知邮箱",
+          "validation_documented": "可选/按默认值；表单 email；最多字符 320；通知联系配置，也供适用元数据请求使用；不等于已实现邮件发送。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 134
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "网站互动与上传",
+          "fields": [
+            "allow_public_registration",
+            "allow_anonymous_messages",
+            "upload_max_size_mb",
+            "upload_allowed_extensions",
+            "media_trash_retention_days"
+          ]
+        },
+        {
+          "label": "翻译服务与调度",
+          "fields": [
+            "translation_provider",
+            "translation_providers",
+            "libretranslate_url",
+            "libretranslate_api_key",
+            "deepl_api_key",
+            "google_translate_api_key",
+            "microsoft_translator_key",
+            "microsoft_translator_region",
+            "microsoft_translator_endpoint",
+            "mymemory_email",
+            "translation_batch_size",
+            "translation_worker_count",
+            "translation_timeout_seconds"
+          ]
+        },
+        {
+          "label": "论文与专利辅助",
+          "fields": [
+            "publication_metadata_provider",
+            "publication_metadata_providers",
+            "publication_display_style",
+            "patent_metadata_providers",
+            "patentsview_api_key"
+          ]
+        },
+        {
+          "label": "通知联系",
+          "fields": [
+            "notify_email"
+          ]
+        }
+      ]
+    },
+    "navigation_items": {
+      "label": "导航与按钮",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 145
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 146
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 147
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 148
+          }
+        },
+        "title": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "中文文本",
+          "validation_documented": "必填；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 149
+          }
+        },
+        "title_en": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "英文文本",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 150
+          }
+        },
+        "kind": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "类型",
+          "validation_documented": "必填；表单 select；候选 route, external, anchor, button",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 151
+          }
+        },
+        "url_name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "预设路由",
+          "validation_documented": "可选/按默认值；表单 select；最多字符 200；候选 home, team, research, publications, featured_publications, projects, patents, students, news, courses, contact, login, admin",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 152
+          }
+        },
+        "path": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "链接路径",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 2000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 153
+          }
+        },
+        "fragment": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "页面锚点",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 64",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 154
+          }
+        },
+        "icon": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "图标",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 100",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 155
+          }
+        },
+        "style": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "样式",
+          "validation_documented": "可选/按默认值；表单 select；候选 normal, primary, secondary",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 156
+          }
+        },
+        "location": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "位置",
+          "validation_documented": "必填；表单 select；候选 header, hero, footer, admin-sidebar",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 157
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 158
+          }
+        },
+        "enabled": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "启用",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 159
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "排序",
+          "validation_documented": "可选/按默认值；表单 integer；最小 -1000000；最大 1000000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 160
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "名称与图标",
+          "fields": [
+            "title",
+            "title_en",
+            "icon"
+          ]
+        },
+        {
+          "label": "目标与固定筛选",
+          "fields": [
+            "kind",
+            "url_name",
+            "path",
+            "fragment"
+          ]
+        },
+        {
+          "label": "展示设置",
+          "fields": [
+            "style",
+            "location",
+            "visibility",
+            "enabled",
+            "sort_order"
+          ]
+        }
+      ],
+      "virtual_sections": [
+        {
+          "name": "filter_builder",
+          "stores_in": "path",
+          "adds_database_column": false,
+          "auto_preview": true
+        }
+      ]
+    },
+    "profiles": {
+      "label": "教师与团队",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 172
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 173
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 174
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 175
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "中文姓名",
+          "validation_documented": "必填；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 176
+          }
+        },
+        "name_en": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "英文姓名",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 177
+          }
+        },
+        "role": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "团队角色",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 178
+          }
+        },
+        "title": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "职称或头衔",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 179
+          }
+        },
+        "organization": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "单位",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 180
+          }
+        },
+        "lab": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "实验室/团队",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 181
+          }
+        },
+        "avatar_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "头像媒体 Key",
+          "validation_documented": "可选/按默认值；表单 media",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 182
+          }
+        },
+        "email": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "邮箱",
+          "validation_documented": "可选/按默认值；表单 email",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 183
+          }
+        },
+        "phone": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "电话",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 184
+          }
+        },
+        "office": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "办公室",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 185
+          }
+        },
+        "bio": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "中文简介",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 186
+          }
+        },
+        "bio_en": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "英文简介",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 187
+          }
+        },
+        "education": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "教育经历",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 188
+          },
+          "widget": "textarea",
+          "structured_dates_required": false
+        },
+        "experience": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "工作/科研经历",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 189
+          },
+          "widget": "textarea",
+          "structured_dates_required": false
+        },
+        "recruiting": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "招生说明",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 190
+          }
+        },
+        "orcid": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "ORCID",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 191
+          }
+        },
+        "personal_homepage": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "个人主页",
+          "validation_documented": "可选/按默认值；表单 url",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 192
+          }
+        },
+        "google_scholar": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Google Scholar",
+          "validation_documented": "可选/按默认值；表单 url",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 193
+          }
+        },
+        "dblp": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "DBLP",
+          "validation_documented": "可选/按默认值；表单 url",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 194
+          }
+        },
+        "github": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "GitHub",
+          "validation_documented": "可选/按默认值；表单 url",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 195
+          }
+        },
+        "cnki": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "CNKI",
+          "validation_documented": "可选/按默认值；表单 url",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 196
+          }
+        },
+        "contact_visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "联系方式可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 197
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "内容可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 198
+          }
+        },
+        "is_active": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "启用成员",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 199
+          }
+        },
+        "is_featured": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页精选",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 200
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 201
+          }
+        },
+        "orcid_value": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "ORCID显示数值",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；手动配置的非负整数显示值；0 可显示，不会自动抓取第三方统计。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 202
+          }
+        },
+        "personal_homepage_value": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "个人主页显示数值",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；手动配置的非负整数显示值；0 可显示，不会自动抓取第三方统计。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 203
+          }
+        },
+        "google_scholar_value": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Google Scholar显示数值",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；手动配置的非负整数显示值；0 可显示，不会自动抓取第三方统计。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 204
+          }
+        },
+        "dblp_value": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "DBLP显示数值",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；手动配置的非负整数显示值；0 可显示，不会自动抓取第三方统计。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 205
+          }
+        },
+        "github_value": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "GitHub显示数值",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；手动配置的非负整数显示值；0 可显示，不会自动抓取第三方统计。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 206
+          }
+        },
+        "cnki_value": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "CNKI显示数值",
+          "validation_documented": "可选/按默认值；表单 integer；最小 0；手动配置的非负整数显示值；0 可显示，不会自动抓取第三方统计。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 207
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "基本身份",
+          "fields": [
+            "name",
+            "name_en",
+            "role",
+            "title",
+            "organization",
+            "lab",
+            "avatar_key"
+          ]
+        },
+        {
+          "label": "联系方式",
+          "fields": [
+            "email",
+            "phone",
+            "office",
+            "contact_visibility"
+          ]
+        },
+        {
+          "label": "个人介绍",
+          "fields": [
+            "bio",
+            "bio_en",
+            "recruiting"
+          ]
+        },
+        {
+          "label": "教育与工作经历",
+          "fields": [
+            "education",
+            "experience"
+          ]
+        },
+        {
+          "label": "学术与社交链接",
+          "fields": [
+            "orcid",
+            "personal_homepage",
+            "google_scholar",
+            "dblp",
+            "github",
+            "cnki",
+            "orcid_value",
+            "personal_homepage_value",
+            "google_scholar_value",
+            "dblp_value",
+            "github_value",
+            "cnki_value"
+          ]
+        },
+        {
+          "label": "展示控制",
+          "fields": [
+            "visibility",
+            "is_active",
+            "is_featured",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "research_interests": {
+      "label": "研究方向",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 226
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 227
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 228
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 229
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "中文名称",
+          "validation_documented": "必填；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 230
+          }
+        },
+        "name_en": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "英文名称",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 231
+          }
+        },
+        "description": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "方向说明",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 232
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 233
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 234
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "方向内容",
+          "fields": [
+            "name",
+            "name_en",
+            "description"
+          ]
+        },
+        {
+          "label": "展示控制",
+          "fields": [
+            "visibility",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "publications": {
+      "label": "论文",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 245
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 246
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 247
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 248
+          }
+        },
+        "title": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "论文题名",
+          "validation_documented": "必填；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 249
+          }
+        },
+        "source_citation": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "原始引用文本",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 250
+          }
+        },
+        "authors": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "作者列表",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 251
+          }
+        },
+        "venue": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "期刊或会议",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 252
+          }
+        },
+        "year": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "年份",
+          "validation_documented": "可选/按默认值；表单 integer；最小 1；最大 9999",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 253
+          }
+        },
+        "volume": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "卷号",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 254
+          }
+        },
+        "issue": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "期号",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 255
+          }
+        },
+        "pages": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "页码/文章号",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 256
+          }
+        },
+        "doi": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "DOI",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 257
+          }
+        },
+        "url": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "外部链接",
+          "validation_documented": "可选/按默认值；表单 url",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 258
+          }
+        },
+        "pdf_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "PDF 媒体 Key",
+          "validation_documented": "可选/按默认值；表单 media",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 259
+          }
+        },
+        "bibtex": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "BibTeX",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 260
+          }
+        },
+        "citation_gbt": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "GB/T 引用",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 261
+          }
+        },
+        "citation_elsevier": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "Elsevier 引用",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 262
+          }
+        },
+        "citation_apa": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "APA 引用",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 263
+          }
+        },
+        "citation_ieee": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "IEEE 引用",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 264
+          }
+        },
+        "highlight_gbt": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "GB/T 高亮文本",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 265
+          }
+        },
+        "highlight_elsevier": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "Elsevier 高亮文本",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 266
+          }
+        },
+        "highlight_apa": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "APA 高亮文本",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 267
+          }
+        },
+        "highlight_ieee": {
+          "disposition": "generated_editable",
+          "reason": "生成预览和人工修订分别处理；不静默覆盖人工结果。",
+          "label": "IEEE 高亮文本",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 268
+          }
+        },
+        "publication_type": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "论文类型",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 269
+          }
+        },
+        "author_role": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "作者角色",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 270
+          }
+        },
+        "corresponding_authors": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "通讯作者",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 271
+          }
+        },
+        "index_type": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "收录/索引类型",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 272
+          }
+        },
+        "display_tags": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "展示标签",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 273
+          }
+        },
+        "abstract": {
+          "disposition": "stored_hidden",
+          "reason": "最新要求取消摘要录入；保留目标列及历史数据。",
+          "label": "摘要",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 274
+          },
+          "automatic_backfill": false,
+          "translation_scan": false,
+          "preserve_existing": true
+        },
+        "keywords": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "关键词",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 275
+          }
+        },
+        "pdf_visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "PDF 可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 276
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "内容可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 277
+          }
+        },
+        "is_featured": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页精选",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 278
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 279
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "题名与作者",
+          "fields": [
+            "title",
+            "authors",
+            "author_role",
+            "corresponding_authors"
+          ]
+        },
+        {
+          "label": "发表信息",
+          "fields": [
+            "venue",
+            "year",
+            "volume",
+            "issue",
+            "pages",
+            "doi",
+            "url"
+          ]
+        },
+        {
+          "label": "分类与标签",
+          "fields": [
+            "publication_type",
+            "index_type",
+            "display_tags",
+            "keywords"
+          ]
+        },
+        {
+          "label": "附件",
+          "fields": [
+            "pdf_key",
+            "pdf_visibility"
+          ]
+        },
+        {
+          "label": "原始引用与输入辅助",
+          "fields": [
+            "source_citation"
+          ]
+        },
+        {
+          "label": "多格式引用",
+          "fields": [
+            "citation_gbt",
+            "citation_elsevier",
+            "citation_apa",
+            "citation_ieee",
+            "bibtex",
+            "highlight_gbt",
+            "highlight_elsevier",
+            "highlight_apa",
+            "highlight_ieee"
+          ]
+        },
+        {
+          "label": "展示控制",
+          "fields": [
+            "visibility",
+            "is_featured",
+            "sort_order"
+          ]
+        }
+      ],
+      "virtual_sections": [
+        {
+          "name": "metadata_diff",
+          "writes_database": false,
+          "reject_backfill_fields": [
+            "abstract"
+          ]
+        },
+        {
+          "name": "citation_preview",
+          "formats": [
+            "gbt",
+            "elsevier",
+            "apa",
+            "ieee",
+            "bibtex"
+          ],
+          "writes_database": false
+        }
+      ]
+    },
+    "projects": {
+      "label": "科研项目",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 298
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 299
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 300
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 301
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "项目名称",
+          "validation_documented": "必填；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 302
+          }
+        },
+        "source": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "项目来源",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 303
+          }
+        },
+        "fund_name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "基金/计划名称",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 304
+          }
+        },
+        "project_number": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "项目编号",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 305
+          }
+        },
+        "project_role": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "承担角色",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 306
+          }
+        },
+        "principal": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "负责人",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 307
+          }
+        },
+        "members": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "项目成员",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 308
+          }
+        },
+        "start_date": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "开始日期",
+          "validation_documented": "可选/按默认值；表单 date；格式 date",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 309
+          }
+        },
+        "end_date": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "结束日期",
+          "validation_documented": "可选/按默认值；表单 date；格式 date",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 310
+          }
+        },
+        "status": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "项目状态",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 311
+          }
+        },
+        "amount": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "经费金额（万元）",
+          "validation_documented": "可选/按默认值；表单 decimal；格式 decimal；按万元存储的非负十进制文本，最多四位小数；英文显示乘以 10,000。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 312
+          },
+          "storage_unit": "万元",
+          "storage_type": "TEXT",
+          "conversion": "Decimal(amount_yuan) / 10000",
+          "null_is_not_zero": true
+        },
+        "summary": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "项目简介",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 313
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "内容可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 314
+          }
+        },
+        "is_featured": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页精选",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 315
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 316
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "项目信息",
+          "fields": [
+            "name",
+            "source",
+            "fund_name",
+            "project_number",
+            "project_role",
+            "status"
+          ]
+        },
+        {
+          "label": "项目人员",
+          "fields": [
+            "principal",
+            "members"
+          ]
+        },
+        {
+          "label": "时间与经费",
+          "fields": [
+            "start_date",
+            "end_date",
+            "amount"
+          ]
+        },
+        {
+          "label": "内部说明",
+          "fields": [
+            "summary"
+          ]
+        },
+        {
+          "label": "展示控制",
+          "fields": [
+            "visibility",
+            "is_featured",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "patents": {
+      "label": "专利与软件著作",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 330
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 331
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 332
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 333
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "名称",
+          "validation_documented": "必填；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 334
+          }
+        },
+        "country": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "国家或地区",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 335
+          }
+        },
+        "patent_type": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "类型",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 336
+          }
+        },
+        "application_number": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "申请号",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 337
+          }
+        },
+        "grant_number": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "授权号",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 338
+          }
+        },
+        "application_date": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "申请日期",
+          "validation_documented": "可选/按默认值；表单 date；格式 date",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 339
+          }
+        },
+        "grant_date": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "授权日期",
+          "validation_documented": "可选/按默认值；表单 date；格式 date",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 340
+          }
+        },
+        "inventors": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "发明人/作者",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 341
+          }
+        },
+        "owner": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "权利人",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 342
+          }
+        },
+        "legal_status": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "法律状态",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 343
+          }
+        },
+        "summary": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "简介",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 344
+          }
+        },
+        "certificate_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "证书媒体 Key",
+          "validation_documented": "可选/按默认值；表单 media",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 345
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "内容可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 346
+          }
+        },
+        "is_featured": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页精选",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 347
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 348
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "名称与类型",
+          "fields": [
+            "name",
+            "country",
+            "patent_type"
+          ]
+        },
+        {
+          "label": "编号与日期",
+          "fields": [
+            "application_number",
+            "grant_number",
+            "application_date",
+            "grant_date"
+          ]
+        },
+        {
+          "label": "权属信息",
+          "fields": [
+            "inventors",
+            "owner",
+            "legal_status"
+          ]
+        },
+        {
+          "label": "说明与附件",
+          "fields": [
+            "summary",
+            "certificate_key"
+          ]
+        },
+        {
+          "label": "展示控制",
+          "fields": [
+            "visibility",
+            "is_featured",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "students": {
+      "label": "学生",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 366
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 367
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 368
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 369
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "中文姓名",
+          "validation_documented": "必填；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 370
+          }
+        },
+        "name_en": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "英文姓名",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 371
+          }
+        },
+        "avatar_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "头像媒体 Key",
+          "validation_documented": "可选/按默认值；表单 media",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 372
+          }
+        },
+        "student_id": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "学号",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 373
+          }
+        },
+        "degree": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "培养层次",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 374
+          }
+        },
+        "category": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "分类",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 375
+          }
+        },
+        "grade": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "年级",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 376
+          }
+        },
+        "direction": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "研究方向",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 377
+          }
+        },
+        "status": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "状态",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 378
+          }
+        },
+        "email": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "邮箱",
+          "validation_documented": "可选/按默认值；表单 email",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 379
+          }
+        },
+        "homepage": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "个人主页",
+          "validation_documented": "可选/按默认值；表单 url",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 380
+          }
+        },
+        "enrollment_date": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "入学日期",
+          "validation_documented": "可选/按默认值；表单 date；格式 date",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 381
+          }
+        },
+        "graduation_date": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "毕业日期",
+          "validation_documented": "可选/按默认值；表单 date；格式 date",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 382
+          }
+        },
+        "destination": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "毕业去向",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 383
+          }
+        },
+        "awards": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "获奖情况",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 384
+          }
+        },
+        "bio": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "简介",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 385
+          }
+        },
+        "contact_visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "联系方式可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 386
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "内容可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 387
+          }
+        },
+        "is_featured": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页精选",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 388
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 389
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "基本身份",
+          "fields": [
+            "name",
+            "name_en",
+            "student_id",
+            "avatar_key"
+          ]
+        },
+        {
+          "label": "培养信息",
+          "fields": [
+            "degree",
+            "category",
+            "grade",
+            "direction",
+            "status"
+          ]
+        },
+        {
+          "label": "入学与毕业",
+          "fields": [
+            "enrollment_date",
+            "graduation_date",
+            "destination"
+          ]
+        },
+        {
+          "label": "个人资料",
+          "fields": [
+            "email",
+            "homepage",
+            "awards",
+            "bio"
+          ]
+        },
+        {
+          "label": "展示控制",
+          "fields": [
+            "contact_visibility",
+            "visibility",
+            "is_featured",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "student_category_displays": {
+      "label": "学生分类显示",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 408
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 409
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 410
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 411
+          }
+        },
+        "key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "分类 Key",
+          "validation_documented": "必填；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 412
+          }
+        },
+        "label": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "中文标签",
+          "validation_documented": "必填；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 413
+          }
+        },
+        "label_en": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "英文标签",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 414
+          }
+        },
+        "keywords": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "匹配关键词",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 415
+          }
+        },
+        "enabled": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "启用",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 416
+          }
+        },
+        "display_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "显示顺序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 417
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "分类标识",
+          "fields": [
+            "key",
+            "label",
+            "label_en"
+          ]
+        },
+        {
+          "label": "匹配规则",
+          "fields": [
+            "keywords"
+          ]
+        },
+        {
+          "label": "启用与排序",
+          "fields": [
+            "enabled",
+            "display_order"
+          ]
+        }
+      ],
+      "actions": {
+        "preview_matches": {
+          "writes_database": false,
+          "uses": "draft keywords + visible student categories"
+        },
+        "save_and_activate": {
+          "writes": [
+            "student_category_displays"
+          ],
+          "enabled": 1,
+          "rewrites_student_category": false
+        },
+        "match_algorithm_status": "awaiting_original_definition_or_explicitly_reviewed_new_rule"
+      }
+    },
+    "news": {
+      "label": "新闻动态",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 428
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 429
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 430
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 431
+          }
+        },
+        "title": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "标题",
+          "validation_documented": "必填；表单 text；最多字符 500",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 432
+          }
+        },
+        "slug": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "Slug",
+          "validation_documented": "必填；表单 text；最多字符 200",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 433
+          }
+        },
+        "category": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "分类",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 500",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 434
+          }
+        },
+        "cover_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "封面图",
+          "validation_documented": "可选/按默认值；表单 media；最多字符 512",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 435
+          }
+        },
+        "content": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "正文",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 500000；纯文本、Markdown 或安全 HTML；富文本图片/PDF 记录媒体 Key。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 436
+          }
+        },
+        "content_format": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "正文格式",
+          "validation_documented": "必填；表单 select；值 plain, html, markdown",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 437
+          }
+        },
+        "related_publication_uid": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "关联论文",
+          "validation_documented": "可选/按默认值；表单 relation；最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 438
+          }
+        },
+        "related_project_uid": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "关联项目",
+          "validation_documented": "可选/按默认值；表单 relation；最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 439
+          }
+        },
+        "related_student_uid": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "关联学生",
+          "validation_documented": "可选/按默认值；表单 relation；最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 440
+          }
+        },
+        "allow_comments": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许评论或留言入口",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1；控制详情留言表单入口；不是公共评论线程开关。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 441
+          }
+        },
+        "published_at": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "发布时间",
+          "validation_documented": "可选/按默认值；表单 datetime；格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 442
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 443
+          }
+        },
+        "is_featured": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "精选",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 444
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "排序",
+          "validation_documented": "可选/按默认值；表单 integer；最小 -1000000；最大 1000000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 445
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "基本信息",
+          "fields": [
+            "title",
+            "slug",
+            "category"
+          ]
+        },
+        {
+          "label": "封面与正文",
+          "fields": [
+            "cover_key",
+            "content",
+            "content_format"
+          ]
+        },
+        {
+          "label": "关联记录",
+          "fields": [
+            "related_publication_uid",
+            "related_project_uid",
+            "related_student_uid"
+          ]
+        },
+        {
+          "label": "发布与展示",
+          "fields": [
+            "allow_comments",
+            "published_at",
+            "visibility",
+            "is_featured",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "courses": {
+      "label": "课程",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 471
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 472
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 473
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 474
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "课程名称",
+          "validation_documented": "必填；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 475
+          }
+        },
+        "semester": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "开课学期",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 476
+          }
+        },
+        "audience": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "授课对象",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 477
+          }
+        },
+        "summary": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "课程简介",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 478
+          }
+        },
+        "syllabus_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "教学大纲媒体 Key",
+          "validation_documented": "可选/按默认值；表单 media",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 479
+          }
+        },
+        "material_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "课程材料媒体 Key",
+          "validation_documented": "可选/按默认值；表单 media",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 480
+          }
+        },
+        "material_visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "材料可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 481
+          }
+        },
+        "references_text": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "参考资料",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 482
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "内容可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 483
+          }
+        },
+        "is_featured": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "首页精选",
+          "validation_documented": "必填；表单 boolean；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 484
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "必填；表单 integer",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 485
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "课程信息",
+          "fields": [
+            "name",
+            "semester",
+            "audience"
+          ]
+        },
+        {
+          "label": "教学资料",
+          "fields": [
+            "summary",
+            "references_text",
+            "syllabus_key",
+            "material_key"
+          ]
+        },
+        {
+          "label": "展示控制",
+          "fields": [
+            "material_visibility",
+            "visibility",
+            "is_featured",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "messages": {
+      "label": "留言",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 506
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 507
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 508
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 509
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "留言人姓名",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 510
+          }
+        },
+        "email": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "留言人邮箱",
+          "validation_documented": "可选/按默认值；表单 email",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 511
+          }
+        },
+        "message_type": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "留言类型",
+          "validation_documented": "可选/按默认值；表单 text",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 512
+          }
+        },
+        "subject": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "主题",
+          "validation_documented": "可选/按默认值；表单 textarea",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 513
+          }
+        },
+        "content": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "留言正文",
+          "validation_documented": "必填；表单 textarea；新闻留言前缀保存新闻标题、链接和 UID；没有独立 news_uid 列。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 514
+          }
+        },
+        "attachment_key": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "附件媒体 Key",
+          "validation_documented": "可选/按默认值；表单 media；后台可维护附件引用，前台留言表单当前没有上传入口。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 515
+          }
+        },
+        "status": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "处理状态",
+          "validation_documented": "必填；表单 select；候选 new, read, replied, archived",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 516
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "记录可见性",
+          "validation_documented": "必填；表单 select；值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 517
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "留言信息",
+          "fields": [
+            "name",
+            "email",
+            "message_type",
+            "subject",
+            "content",
+            "attachment_key"
+          ]
+        },
+        {
+          "label": "处理状态",
+          "fields": [
+            "status",
+            "visibility"
+          ]
+        }
+      ]
+    },
+    "media_assets": {
+      "label": "媒体资源",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 534
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 535
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 536
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 537
+          }
+        },
+        "object_key": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "受管理文件的对象 Key",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 538
+          }
+        },
+        "title": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "标题",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 300",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 539
+          }
+        },
+        "category": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "分类",
+          "validation_documented": "可选/按默认值；表单 text；最多字符 100",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 540
+          }
+        },
+        "mime_type": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "媒体 MIME 类型",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 541
+          }
+        },
+        "size": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "原文件大小，字节",
+          "validation_documented": "最小 0",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 542
+          }
+        },
+        "storage_kind": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "存储类型",
+          "validation_documented": "值 static, local, r2, external",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 543
+          }
+        },
+        "status": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "状态",
+          "validation_documented": "可选/按默认值；表单 select；值 active, trash",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 544
+          }
+        },
+        "checksum": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "文件校验摘要",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 545
+          }
+        },
+        "original_filename": {
+          "label": "原文件名",
+          "disposition": "readonly"
+        }
+      },
+      "sections": [
+        {
+          "label": "媒体信息",
+          "fields": [
+            "title",
+            "category"
+          ]
+        }
+      ]
+    },
+    "translation_cache": {
+      "label": "翻译缓存",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 558
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 559
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 560
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 561
+          }
+        },
+        "source_hash": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "原文内容摘要",
+          "validation_documented": "最多字符 64",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 562
+          }
+        },
+        "source_ref_key": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "来源记录与字段标识",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 563
+          }
+        },
+        "source_text": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "来源原文",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 564
+          }
+        },
+        "source_lang": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "来源语言",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 565
+          }
+        },
+        "target_lang": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "目标语言",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 566
+          }
+        },
+        "translated_text": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "译文",
+          "validation_documented": "可选/按默认值；表单 textarea；最多字符 500000",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 567
+          }
+        },
+        "provider": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "翻译服务标识",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 568
+          }
+        },
+        "status": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "翻译任务状态",
+          "validation_documented": "值 pending, success, failed",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 569
+          }
+        },
+        "is_manual": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "人工维护",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 570
+          }
+        },
+        "is_current": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "当前有效",
+          "validation_documented": "可选/按默认值；表单 boolean；候选 1, 0；数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 571
+          }
+        },
+        "source_refs": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "来源及调度元数据 JSON",
+          "validation_documented": "系统维护/按业务校验；含来源表/UID/字段、来源更新时间，以及重试次数、重试时间和任务租约等元数据。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 572
+          }
+        },
+        "error_message": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "最近错误说明",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 573
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "人工译文",
+          "fields": [
+            "translated_text"
+          ]
+        }
+      ]
+    },
+    "auth_users": {
+      "label": "用户",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 587
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 588
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 589
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 590
+          }
+        },
+        "username": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "登录用户名",
+          "validation_documented": "最多字符 150",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 591
+          }
+        },
+        "password_hash": {
+          "disposition": "secret_action",
+          "reason": "只由独立改密/重置动作生成，界面不读取或编辑哈希。",
+          "label": "密码哈希，不保存明文",
+          "validation_documented": "系统维护/按业务校验；账号密码至少 6 位；字段保存哈希，不保存可恢复明文。",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 592
+          }
+        },
+        "display_name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "显示名称",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 593
+          }
+        },
+        "email": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "邮箱",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 594
+          }
+        },
+        "role_uid": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "所属角色 UID",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 595
+          }
+        },
+        "status": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "账号状态",
+          "validation_documented": "值 active, disabled, locked",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 596
+          }
+        },
+        "must_change_password": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "要求修改密码",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 597
+          }
+        },
+        "last_login_at": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "最近登录时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 598
+          }
+        },
+        "visibility": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "记录可见性",
+          "validation_documented": "值 public, authenticated, staff, owner, hidden",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 599
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "账号资料",
+          "fields": [
+            "username",
+            "display_name",
+            "email"
+          ]
+        },
+        {
+          "label": "角色与状态",
+          "fields": [
+            "role_uid",
+            "status",
+            "must_change_password",
+            "visibility"
+          ]
+        }
+      ],
+      "actions": {
+        "initial_password": {
+          "virtual_fields": [
+            "password",
+            "password_confirm"
+          ],
+          "stores": "password_hash"
+        },
+        "reset_password": {
+          "revokes_sessions": true
+        },
+        "revoke_sessions": {
+          "separate_action": true
+        }
+      }
+    },
+    "auth_roles": {
+      "label": "角色",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 616
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 617
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 618
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 619
+          }
+        },
+        "name": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "角色名称",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 620
+          }
+        },
+        "level": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "角色等级",
+          "validation_documented": "最小 0",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 621
+          }
+        },
+        "description": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "角色说明",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 622
+          }
+        },
+        "visibility_scopes": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "可见性范围 JSON 数组",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 623
+          }
+        },
+        "is_system": {
+          "disposition": "read_only",
+          "reason": "服务端维护或由专用动作改变，不由通用记录表单任意写入。",
+          "label": "系统角色标记",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 624
+          }
+        },
+        "is_active": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "角色启用标记",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 625
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 626
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "角色资料",
+          "fields": [
+            "name",
+            "level",
+            "description"
+          ]
+        },
+        {
+          "label": "范围与状态",
+          "fields": [
+            "visibility_scopes",
+            "is_active",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "auth_permissions": {
+      "label": "模块权限",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 636
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 637
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 638
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 639
+          }
+        },
+        "role_uid": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "所属角色 UID",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 640
+          }
+        },
+        "module": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "模块标识",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 641
+          }
+        },
+        "can_view": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许查看",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 642
+          }
+        },
+        "can_create": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许新建",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 643
+          }
+        },
+        "can_edit": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许编辑",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 644
+          }
+        },
+        "can_delete": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许删除",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 645
+          }
+        },
+        "can_export": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "允许导出",
+          "validation_documented": "数据库 0/1",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 646
+          }
+        },
+        "sort_order": {
+          "disposition": "edit",
+          "reason": "目标模块的本次可编辑字段；保存时仍需后端权限和校验。",
+          "label": "人工排序",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 647
+          }
+        }
+      },
+      "sections": [
+        {
+          "label": "角色与模块",
+          "fields": [
+            "role_uid",
+            "module"
+          ]
+        },
+        {
+          "label": "模块权限",
+          "fields": [
+            "can_view",
+            "can_create",
+            "can_edit",
+            "can_delete",
+            "can_export",
+            "sort_order"
+          ]
+        }
+      ]
+    },
+    "auth_sessions": {
+      "label": "登录会话",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 664
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 665
+          }
+        },
+        "user_uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "所属用户 UID",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 666
+          }
+        },
+        "token_hash": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "会话令牌摘要",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 667
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 668
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 669
+          }
+        },
+        "last_seen_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近活动时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 670
+          }
+        },
+        "idle_expires_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "空闲到期时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 671
+          }
+        },
+        "expires_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "绝对到期时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 672
+          }
+        },
+        "revoked_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "撤销时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 673
+          }
+        },
+        "revoke_reason": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "撤销原因",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 674
+          }
+        },
+        "user_agent_hash": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "客户端标识摘要",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 675
+          }
+        }
+      },
+      "sections": []
+    },
+    "auth_login_throttles": {
+      "label": "登录限流",
+      "fields": {
+        "key_hash": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "限流主体摘要",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 694
+          }
+        },
+        "scope": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "限制范围",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 695
+          }
+        },
+        "failures": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "失败次数",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 696
+          }
+        },
+        "window_started_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "统计窗口开始",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 697
+          }
+        },
+        "blocked_until": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "禁止请求截止",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 698
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 699
+          }
+        },
+        "expires_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "记录到期",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 700
+          }
+        }
+      },
+      "sections": []
+    },
+    "public_action_throttles": {
+      "label": "公共动作限流",
+      "fields": {
+        "key_hash": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "公共动作限流键摘要",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 711
+          }
+        },
+        "action": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "动作类型",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 712
+          }
+        },
+        "scope": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "主体/网络范围",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 713
+          }
+        },
+        "attempts": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "尝试次数",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 714
+          }
+        },
+        "window_started_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "窗口开始",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 715
+          }
+        },
+        "blocked_until": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "阻止截止",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 716
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 717
+          }
+        },
+        "expires_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "记录到期",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 718
+          }
+        }
+      },
+      "sections": []
+    },
+    "operation_logs": {
+      "label": "操作日志",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "内部主键编号",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 730
+          }
+        },
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "稳定业务标识",
+          "validation_documented": "最多字符 128",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 731
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "创建时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 732
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "最近更新时间",
+          "validation_documented": "格式 timestamp",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 733
+          }
+        },
+        "actor_uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "操作用户 UID，可空",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 734
+          }
+        },
+        "actor_name": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "操作用户显示名",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 735
+          }
+        },
+        "action": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "操作动作",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 736
+          }
+        },
+        "module": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "所属模块",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 737
+          }
+        },
+        "target_uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "目标记录 UID",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 738
+          }
+        },
+        "summary": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "操作摘要",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 739
+          }
+        },
+        "detail_json": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "结构化详情 JSON",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 740
+          }
+        },
+        "status": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "执行结果",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 741
+          }
+        }
+      },
+      "sections": []
+    },
+    "cache_generations": {
+      "label": "缓存版本",
+      "fields": {
+        "tag": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "缓存标签",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 753
+          }
+        },
+        "generation": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "缓存版本号",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 754
+          }
+        },
+        "updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "版本更新时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 755
+          }
+        }
+      },
+      "sections": []
+    },
+    "admin_mutation_guards": {
+      "label": "并发修改保护",
+      "fields": {
+        "uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "并发修改保护标识",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 765
+          }
+        },
+        "module": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "受保护模块",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 766
+          }
+        },
+        "target_uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "目标记录 UID",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 767
+          }
+        },
+        "expected_updated_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "期望的记录版本时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 768
+          }
+        },
+        "created_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "保护记录创建时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 769
+          }
+        }
+      },
+      "sections": []
+    },
+    "auth_bootstrap_state": {
+      "label": "首次管理员初始化状态",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "初始化状态主键",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 781
+          }
+        },
+        "completed_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "首次管理员初始化完成时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 782
+          }
+        },
+        "user_uid": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "初始化管理员 UID",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 783
+          }
+        }
+      },
+      "sections": []
+    },
+    "demo_seed_state": {
+      "label": "演示数据状态",
+      "fields": {
+        "id": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "演示数据状态主键",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 789
+          }
+        },
+        "dataset_version": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "数据集版本",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 790
+          }
+        },
+        "seeded_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "填充时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 791
+          }
+        },
+        "seed_digest": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "数据集摘要",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 792
+          }
+        }
+      },
+      "sections": []
+    },
+    "_cms_migrations": {
+      "label": "数据库结构状态",
+      "fields": {
+        "name": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "已应用的数据库结构文件名",
+          "validation_documented": "主键；系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 798
+          }
+        },
+        "sha256": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "结构文件 SHA-256 摘要",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 799
+          }
+        },
+        "applied_at": {
+          "disposition": "system",
+          "reason": "系统维护的结构或运行状态，不作为普通输入项。",
+          "label": "应用时间",
+          "validation_documented": "系统维护/按业务校验",
+          "source": {
+            "file": "02_database_schema.md",
+            "line": 800
+          }
+        }
+      },
+      "sections": []
+    }
+  },
+  "base_navigation": [
+    {
+      "key": "profiles",
+      "label": "教师与团队",
+      "current_path": "/admin/content/profiles",
+      "current_permission_module": "profiles"
+    },
+    {
+      "key": "research_interests",
+      "label": "研究方向",
+      "current_path": "/admin/content/research_interests",
+      "current_permission_module": "research_interests"
+    },
+    {
+      "key": "students",
+      "label": "学生管理",
+      "current_path": "/admin/content/students",
+      "current_permission_module": "students"
+    },
+    {
+      "key": "student_categories",
+      "label": "学生分类",
+      "current_path": "/admin/categories",
+      "current_permission_module": "students"
+    },
+    {
+      "key": "projects",
+      "label": "科研项目",
+      "current_path": "/admin/content/projects",
+      "current_permission_module": "projects"
+    },
+    {
+      "key": "publications",
+      "label": "学术论文",
+      "current_path": "/admin/content/publications",
+      "current_permission_module": "publications"
+    },
+    {
+      "key": "patents",
+      "label": "专利与软著",
+      "current_path": "/admin/content/patents",
+      "current_permission_module": "patents"
+    },
+    {
+      "key": "courses",
+      "label": "课程教学",
+      "current_path": "/admin/content/courses",
+      "current_permission_module": "courses"
+    },
+    {
+      "key": "news",
+      "label": "新闻动态",
+      "current_path": "/admin/content/news",
+      "current_permission_module": "news"
+    },
+    {
+      "key": "messages",
+      "label": "留言管理",
+      "current_path": "/admin/messages",
+      "current_permission_module": "messages"
+    },
+    {
+      "key": "media",
+      "label": "媒体库",
+      "current_path": "/admin/media",
+      "current_permission_module": "media"
+    },
+    {
+      "key": "translation",
+      "label": "翻译管理",
+      "current_path": "/admin/translation",
+      "current_permission_module": "data_tools"
+    },
+    {
+      "key": "navigation",
+      "label": "导航与按钮",
+      "current_path": "/admin/navigation",
+      "current_permission_module": "navigation"
+    },
+    {
+      "key": "settings",
+      "label": "网站设置",
+      "current_path": "/admin/settings/overview",
+      "current_permission_module": "settings"
+    },
+    {
+      "key": "global_settings",
+      "label": "全局设置",
+      "current_path": "/admin/settings/global",
+      "current_permission_module": "settings"
+    },
+    {
+      "key": "accounts",
+      "label": "账号与权限",
+      "current_path": "/admin/accounts",
+      "current_permission_module": "accounts"
+    },
+    {
+      "key": "audit_logs",
+      "label": "操作日志",
+      "current_path": "/admin/logs",
+      "current_permission_module": "audit_logs"
+    },
+    {
+      "key": "data_tools",
+      "label": "数据与备份",
+      "current_path": "/admin/data_tools",
+      "current_permission_module": "data_tools"
+    },
+    {
+      "key": "transfer",
+      "label": "文件快传",
+      "current_path": "/admin/transfer",
+      "current_permission_module": null
+    }
+  ]
+}

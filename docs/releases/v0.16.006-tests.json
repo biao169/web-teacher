@@ -1,0 +1,35 @@
+{
+  "version": "0.16.006",
+  "python_tests": ".................................................................................................................................. [ 47%]\n........................................................................ [ 73%]\n.............................................................. [ 96%]\n...........                                                              [100%]\n275 passed, 1 warning, 24 subtests passed in 15.39s\n",
+  "javascript_tests": "✔ all times explicitly use Shanghai rather than browser zone (0.946806ms)\n✔ expired execution is visible as recovery pending (0.190601ms)\n✔ slow retry is not labelled failed (0.109551ms)\n✔ manual approval and cancellation are distinct (0.106387ms)\n✔ native RPC rejects huge controls (0.973736ms)\n✔ native cleanup cannot delete published objects (0.214236ms)\n✔ native service rejects arbitrary RPC method (0.206965ms)\n✔ native read rejects media into Python bridge (0.426519ms)\n✔ signed native source streams bounded range under configured prefix (19.533006ms)\n✔ revoked source grant rejects before touching storage (9.961701ms)\n✔ unsigned native request cannot query database (0.740152ms)\n✔ native bucket wrapper prefixes multipart upload and resume (1.07816ms)\n✔ D1/R2 temporary failures remain retriable and renew export TTL (3.419863ms)\n✔ missing media snapshot is rebuilt once with fresh signed requests (8.938251ms)\n✔ missing snapshot requests recovery but removed media is a conflict (3.044529ms)\n✔ WebCrypto signatures interoperate with standard HMAC (7.794445ms)\n✔ signed bounded body verifies (9.560534ms)\n✔ tamper (5.892821ms)\n✔ oversize (2.401501ms)\n✔ wrong range (3.112019ms)\n✔ 1102 platform page (1.35628ms)\n✔ redirect (1.178488ms)\n✔ authenticated media retains native readable stream (2.355323ms)\n✔ native R2 5MiB plus tail and completion (6.154236ms)\n✔ lost complete reply recovered by owned HEAD (3.775307ms)\n✔ foreign object never published or deleted (0.227486ms)\n✔ owned incomplete upload aborts (0.105236ms)\n✔ storage part cannot shrink below R2 floor (0.141339ms)\n✔ stream failure produces no completed part (0.449803ms)\n✔ expired multipart session resets only after checking completion (0.500168ms)\n✔ resource diagnostics retain HTTP status platform code and Ray ID only (5.108364ms)\nℹ tests 31\nℹ suites 0\nℹ pass 31\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 162.33261\n",
+  "javascript_syntax": "passed",
+  "offline_staging_inline": {
+    "worker_source_staging": "passed",
+    "worker_snapshot_imports": "passed",
+    "vps_config_generation": "passed",
+    "assets_and_feature_modules": "passed",
+    "worker_custom_domain_count": 2,
+    "cron": [
+      "* * * * *"
+    ],
+    "wrangler_sdk_bundle": "not_run",
+    "production_d1_r2": "not_run",
+    "real_server_deployment": "not_run"
+  },
+  "offline_staging_separate": {
+    "worker_source_staging": "passed",
+    "worker_snapshot_imports": "passed",
+    "vps_config_generation": "passed",
+    "assets_and_feature_modules": "passed",
+    "worker_custom_domain_count": 2,
+    "cron": [
+      "* * * * *"
+    ],
+    "wrangler_sdk_bundle": "not_run",
+    "production_d1_r2": "not_run",
+    "real_server_deployment": "not_run"
+  },
+  "browser": "not_run: Chromium unavailable; no visual or browser interaction acceptance claimed",
+  "cloud_live": false,
+  "wrangler_bundle": "not_run"
+}

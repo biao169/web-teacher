@@ -1,0 +1,8 @@
+{% macro cover(row,media_map,css='content-cover',detail=false,lang='zh') -%}
+{% set category=(row.get('category') or '').strip() %}{% set src=media_map.get(row.get('cover_key')) %}{% set video=row.get('_cover_type','') in ['video/mp4','video/webm'] %}
+{% if src or not detail %}
+<div class="{{ css }} public-media" data-public-media{% if not video %} role="img"{% endif %} aria-label="{{ row.get('title') or category or 'News' }}"{% if detail %} data-media-detail{% endif %}>
+{% if src %}{% if video %}<video src="/media/{{ src }}" controls playsinline preload="{{ 'metadata' if detail else 'none' }}" aria-label="{{ ('News cover video' if lang=='en' else '新闻封面视频') }}"></video>{% else %}<img src="/media/{{ src }}" alt="{{ row.get('title','') if detail else '' }}"{% if not detail %} width="96" height="80"{% endif %} loading="{{ 'eager' if detail else 'lazy' }}" decoding="async">{% endif %}{% endif %}
+<span data-media-fallback{% if not detail %} aria-hidden="true"{% endif %}{% if src %} hidden{% endif %}>{{ ('Cover unavailable' if lang=='en' else '封面暂时无法显示') if detail else (category[:1] or 'N') }}</span>
+</div>{% endif %}
+{%- endmacro %}

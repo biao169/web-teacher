@@ -1,0 +1,64 @@
+{
+  "version": "0.15.70",
+  "step": 6,
+  "base_version": "0.15.69",
+  "status": "code_delivered_target_device_acceptance_pending",
+  "schema_change": false,
+  "production_data_modified": false,
+  "deployed": false,
+  "full_regression": {
+    "python_passed": 476,
+    "seconds": 173.42,
+    "frontend_passed": 182
+  },
+  "final_targeted": {
+    "offline_and_bounded_python_passed": 27,
+    "new_after_full_run": 3,
+    "unique_python_coverage": 479,
+    "note": "Includes the final linked-directory deletion protection; not a second full regression."
+  },
+  "memory_and_disk_probes": [
+    {
+      "file_mib": 8,
+      "heap_peak_bytes": 2121321,
+      "process_peak_rss_kib": 44444,
+      "max_metadata_page": 8,
+      "sha256_verified": true,
+      "physical_cleanup_verified": true,
+      "disk_budget_enabled": true
+    },
+    {
+      "file_mib": 256,
+      "heap_peak_bytes": 3108521,
+      "process_peak_rss_kib": 45228,
+      "max_metadata_page": 64,
+      "sha256_verified": true,
+      "physical_cleanup_verified": true,
+      "disk_budget_enabled": true
+    }
+  ],
+  "checks": [
+    "new >200MiB metadata and configured limits",
+    "concurrent disk reservations",
+    "ENOSPC injection leaves checkpoint and charge unchanged",
+    "cache quota remains reserved until physical cleanup",
+    "bounded cleanup restart checkpoint",
+    "failure state and retry delay",
+    "generated orphan part/temp cleanup",
+    "unknown files and symlinks protected",
+    "live task cannot be auto-cleaned",
+    "main lifespan starts cleanup without transfer page visit",
+    "auto-cleanup switch independent of transfer enabled switch",
+    "manager-only disk status"
+  ],
+  "log": "transfer-offline-v70-test-results.txt",
+  "limitations": [
+    "disk capacity is checked, not OS-level preallocation",
+    "single local process only",
+    "Worker keeps existing 200MiB limit and has no local reaper",
+    "expiry starts at task creation",
+    "unknown taskless directories are not auto-deleted",
+    "target Windows/VPS/browser/multi-GiB tests pending"
+  ],
+  "old_test_update": "The obsolete maxFileBytes=209715201 rejection case now tests 9007199254740992, preserving the safe-integer overflow guard."
+}

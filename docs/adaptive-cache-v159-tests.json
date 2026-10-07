@@ -1,0 +1,35 @@
+{
+  "version": "0.15.159",
+  "base": "this-thread-v0.15.158",
+  "python_passed": 204,
+  "validation": [
+    "isolated HTTP and SQLite",
+    "exact expiry without full sweep per hit",
+    "Worker request cache budgets and isolation",
+    "write invalidation including in-flight reads",
+    "frontend translations/navigation/visibility",
+    "previous four steps and Worker startup/scheduling",
+    "schema and image byte equality",
+    "Python syntax"
+  ],
+  "benchmark_reports": [
+    "local-cache-v159-benchmark.json",
+    "request-cache-v159-benchmark.json"
+  ],
+  "production_deployment_tested": false,
+  "changed_files": [
+    "pyproject.toml",
+    "README.md",
+    "tests/benchmark_request_cache_v159.py",
+    "tests/test_adaptive_cache_v159.py",
+    "docs/adaptive-cache-v159.md",
+    "docs/local-cache-v159-benchmark.json",
+    "docs/request-cache-v159-benchmark.json",
+    "backend/entrypoints/worker.py",
+    "backend/app/resource_budget.py",
+    "backend/app/native/request_cache.py",
+    "backend/app/native/web.py",
+    "backend/app/native/public_cache.py",
+    "backend/app/web/rendering.py"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "version": "0.15.156",
+  "base_version": "0.15.155",
+  "passed": 16,
+  "files": [
+    "tests/test_public_icons_social_v156.py",
+    "tests/test_public_social_v154.py",
+    "site_sync/tests/test_module_layout_v155.py"
+  ],
+  "original_attachment_bytes_preserved": true,
+  "asset_sha256": {
+    "favicon.svg": "09aaa05fc0b36ec1d46371808d2efdfe3117416ec43230fd6827b18a77880cff",
+    "site-logo.png": "3fe66de6a384680355728b2a9301830615842e73852791cf390b0e89700a50e5",
+    "apple-touch-icon.png": "3fe66de6a384680355728b2a9301830615842e73852791cf390b0e89700a50e5"
+  },
+  "real_apple_device": "not_run",
+  "production_deployment": "not_run"
+}

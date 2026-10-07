@@ -1,0 +1,15 @@
+{# Shared query controls have no record-field names; edits are never submitted as metadata settings. #}
+<div data-metadata-query data-csrf="{{ csrf }}">
+{% if not metadata_options|selectattr('enabled')|list %}<p class="native-muted" role="status">论文服务配置无效或未启用，请在全局设置中配置。仍可手动编辑论文。</p>{% endif %}
+<div class="native-metadata-querybar">
+<label class="visually-hidden" for="metadata-kind">查询类型</label><select id="metadata-kind" class="form-select form-select-sm"><option value="auto">自动识别</option><option value="doi">DOI</option><option value="title">论文题名</option></select>
+<label class="visually-hidden" for="metadata-doi">DOI或论文题名</label><input class="form-control form-control-sm" id="metadata-doi" maxlength="350" data-enter-button="metadata-fetch" placeholder="输入 DOI、doi.org 链接或论文题名" aria-label="DOI或论文题名">
+<label class="visually-hidden" for="metadata-provider">查询服务</label><select id="metadata-provider" class="form-select form-select-sm"><option value="default">默认服务</option><option value="fallback">按配置顺序回退</option>{% for p in metadata_options %}<option value="{{ p.id }}" {% if not p.enabled %}disabled{% endif %}>{{ p.label }}{{ '（未启用）' if not p.enabled else '' }}</option>{% endfor %}</select>
+<button type="button" class="btn btn-outline-primary btn-sm" id="metadata-fetch" title="查询候选并核对，不自动保存论文">⌕ 查询并核对</button><button type="button" class="btn btn-outline-secondary btn-sm" data-metadata-cancel hidden>取消等待</button>
+</div>
+<p class="native-muted">仅发送本次 DOI／题名及配置的服务身份信息；不发送正文、附件或其他表单内容。最多显示5个候选，题名相关不等于同一论文。</p>
+<label class="native-muted"><input type="checkbox" data-correspondence checked> 按DOI补查通讯作者（仅使用已启用的OpenAlex；不据作者顺序推断）</label>
+<p id="metadata-feedback" role="status" aria-live="polite"></p>
+<ol class="native-metadata-attempts" data-metadata-attempts aria-label="服务尝试情况"></ol>
+<div class="native-metadata-candidates" data-metadata-candidates aria-label="论文候选"></div>
+</div>

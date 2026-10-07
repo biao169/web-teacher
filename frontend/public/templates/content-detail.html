@@ -1,0 +1,10 @@
+{% import 'public/content-config.html' as content_config with context %}
+<article class="person-detail content-detail my-4" data-person-detail data-record-id="{{ row.uid }}" data-table="{{ table }}" data-lang="{{ lang }}">
+<div class="person-detail-tools"><a href="{{ public_back_url|default(public_list_path|default('/'~lang~'/'~table)) }}" data-person-back{% if public_back_url is defined %} data-return-resolved{% endif %}>← {{ 'Back to list' if lang=='en' else '返回列表' }}</a><button type="button" class="btn btn-sm btn-outline-secondary" data-person-copy-detail hidden>{{ 'Copy entry' if lang=='en' else '复制当前条目' }}</button><span data-person-tool-status role="status" aria-live="polite"></span></div>
+<h1 data-copy-field>{{ row.get('name_en') if lang=='en' and row.get('name_en') else row[title_field[table]] }}</h1>
+<div class="content-facts">{% include 'public/content-fields.html' %}</div>
+<div class="content-links">{% include 'public/content-links.html' %}</div>
+{% if table=='news' %}{% from 'public/news-media.html' import cover %}{{ cover(row,media_map,css='content-detail-cover',detail=true,lang=lang) }}<div class="native-public-richtext news-body" data-copy-field data-copy-rich>{{ row.body_html|safe }}</div>{% endif %}
+</article>
+
+{% if table=='news' and row.allow_comments==1 %}<section class="contact-card news-contact" id="news-message" aria-labelledby="news-message-title"><h2 id="news-message-title">{{ 'Leave a message' if lang=='en' else '关于这条新闻留言' }}</h2><p>{{ 'Your message is private and will be sent to the website administrator.' if lang=='en' else '留言仅提交给网站管理员，不会公开展示。' }}</p>{% include 'public/contact-fields.html' %}</section><script src="/assets/public/js/contact.js?v=0.15.64" defer></script>{% endif %}

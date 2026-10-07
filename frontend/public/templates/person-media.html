@@ -1,0 +1,8 @@
+{# Shared avatar fallback. Initials are used where a family name cannot be inferred safely. #}
+{% macro avatar(row,lang,media_map,css='person-photo',size=88,eager=false) -%}
+{% set name=(row.get('name_en') if lang=='en' and row.get('name_en') else row.get('name','')).strip() %}
+{% set clean=name.split(' · ')[-1] %}{% set words=clean.split() %}{% set letter=namespace(value=clean[:1]) %}
+{% if clean and clean[0] in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' %}{% set letter.value=(words[0][:1] ~ (words[-1][:1] if words|length>1 else '')).upper() %}{% else %}{% for surname in ['欧阳','司马','上官','诸葛','东方','皇甫','尉迟','公孙','慕容','司徒','司空','令狐','宇文','长孙'] %}{% if clean.startswith(surname) %}{% set letter.value=surname %}{% endif %}{% endfor %}{% endif %}
+{% set src=media_map.get(row.get('avatar_key')) %}
+<div class="{{ css }} public-media" data-public-media role="img" aria-label="{{ name }}">{% if src %}<img src="/media/{{ src }}" alt="" loading="{{ 'eager' if eager else 'lazy' }}"{% if eager %} fetchpriority="high"{% endif %} decoding="async" width="{{ size }}" height="{{ size }}">{% endif %}<span data-media-fallback aria-hidden="true"{% if src %} hidden{% endif %}>{{ letter.value or '?' }}</span></div>
+{%- endmacro %}

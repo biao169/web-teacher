@@ -1,0 +1,20 @@
+{
+  "version": "0.16.004",
+  "python_tests": ".................................................................................................................................. [ 60%]\n........................................................................ [ 93%]\n..............                                                           [100%]\n216 passed, 1 warning, 14 subtests passed in 12.81s\n",
+  "javascript_tests": "✔ all times explicitly use Shanghai rather than browser zone (1.4382ms)\n✔ expired execution is visible as recovery pending (0.187897ms)\n✔ slow retry is not labelled failed (0.193586ms)\n✔ manual approval and cancellation are distinct (0.209359ms)\n✔ native RPC rejects huge controls (1.854394ms)\n✔ native cleanup cannot delete published objects (0.367762ms)\n✔ native service rejects arbitrary RPC method (0.177081ms)\n✔ native read rejects media into Python bridge (0.214066ms)\n✔ signed native source streams bounded range under configured prefix (19.511346ms)\n✔ revoked source grant rejects before touching storage (3.557521ms)\n✔ unsigned native request cannot query database (1.239398ms)\n✔ native bucket wrapper prefixes multipart upload and resume (1.801516ms)\n✔ WebCrypto signatures interoperate with standard HMAC (7.687897ms)\n✔ signed bounded body verifies (10.710924ms)\n✔ tamper (4.023602ms)\n✔ oversize (1.947071ms)\n✔ wrong range (1.909797ms)\n✔ 1102 platform page (1.722551ms)\n✔ redirect (1.41028ms)\n✔ authenticated media retains native readable stream (2.763896ms)\n✔ native R2 5MiB plus tail and completion (7.960759ms)\n✔ lost complete reply recovered by owned HEAD (5.077838ms)\n✔ foreign object never published or deleted (0.337318ms)\n✔ owned incomplete upload aborts (0.13551ms)\n✔ storage part cannot shrink below R2 floor (0.155219ms)\n✔ stream failure produces no completed part (0.562179ms)\nℹ tests 26\nℹ suites 0\nℹ pass 26\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 155.719962\n",
+  "offline_staging": {
+    "worker_source_staging": "passed",
+    "worker_snapshot_imports": "passed",
+    "vps_config_generation": "passed",
+    "assets_and_feature_modules": "passed",
+    "worker_custom_domain_count": 2,
+    "cron": [
+      "* * * * *"
+    ],
+    "wrangler_sdk_bundle": "not_run",
+    "production_d1_r2": "not_run",
+    "real_server_deployment": "not_run"
+  },
+  "browser": "blocked: executable missing; browser download failed",
+  "cloud_live": false
+}

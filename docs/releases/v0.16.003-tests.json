@@ -1,0 +1,21 @@
+{
+  "version": "0.16.003",
+  "step": 2,
+  "fresh_deployment": true,
+  "tests": ".................................................................................................................................. [ 61%]\n........................................................................ [ 96%]\n........                                                                 [100%]\n210 passed, 1 warning, 14 subtests passed in 12.60s\n",
+  "browser": "PASS maintenance page, preview, sidebar and real website browser: login, shared admin layout, CSRF, approval, pause, settings, schedule toggle, XSS text, mobile overflow; browser zone differs from UI zone\n",
+  "offline_staging": {
+    "worker_source_staging": "passed",
+    "worker_snapshot_imports": "passed",
+    "vps_config_generation": "passed",
+    "assets_and_feature_modules": "passed",
+    "worker_custom_domain_count": 2,
+    "cron": [
+      "* * * * *"
+    ],
+    "wrangler_sdk_bundle": "not_run",
+    "production_d1_r2": "not_run",
+    "real_server_deployment": "not_run"
+  },
+  "production_deployed": false
+}

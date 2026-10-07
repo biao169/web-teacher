@@ -1,0 +1,23 @@
+# Optional settings template. Without overrides all runtime data uses project-root/data.
+# Omitted paths are resolved by Settings using the actual project root, not shell cwd.
+# When overriding, use absolute paths; relative paths are based on THIS TOML file.
+[storage]
+# data_dir = "/absolute/project/data"
+# database_path = "/absolute/project/data/database/site.sqlite3"
+# media_dir = "/absolute/project/data/media"
+# cache_dir = "/absolute/project/data/cache"
+# transfer_media_dir = "/absolute/project/data/transfer-data/files"
+# transfer_cache_dir = "/absolute/project/data/transfer-data/cache"
+# transfer_database_path is a legacy source only, never the active transfer database.
+asset_mode = "local"
+# Worker bindings are names; actual D1 database IDs / R2 bucket names live in Wrangler.
+database_binding = "DB"
+cache_binding = "MEDIA"
+media_binding = "MEDIA"
+transfer_database_binding = "TRANSFER_DB"
+cache_prefix = "cache/"
+media_prefix = "media/"
+transfer_media_binding = "TRANSFER_FILES"
+transfer_cache_binding = "TRANSFER_FILES"
+transfer_media_prefix = "transfer/media/"
+transfer_cache_prefix = "transfer/cache/"

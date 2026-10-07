@@ -1,0 +1,26 @@
+{
+  "version": "0.15.60",
+  "baseline": "0.15.59",
+  "python_full_initial": {
+    "passed": 354,
+    "failed": 2,
+    "reason": "old raw amount expectations in test_public_content_v49 and test_public_home_step2"
+  },
+  "python_targeted_after_fix": {
+    "passed": 25,
+    "failed": 0,
+    "modules": [
+      "test_public_content_v49.py",
+      "test_public_home_step2.py"
+    ]
+  },
+  "python_unique_cases_with_pass_evidence": 356,
+  "simulated_dom": {
+    "passed": 133,
+    "failed": 0
+  },
+  "windows_browser": "manual_acceptance_required",
+  "database_admin_transfer_deploy": "unchanged",
+  "local_worker_prepare": "passed_not_deployed",
+  "new_migration": false
+}

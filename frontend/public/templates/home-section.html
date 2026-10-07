@@ -1,0 +1,6 @@
+{% from 'public/home-icons.html' import arrow %}
+<section class="academic-home-section public-stream" aria-labelledby="home-{{ table }}" data-public-stream data-table="{{ table }}" data-lang="{{ lang }}" data-home="1" data-page="{{ home_pages[table].page }}" data-total="{{ home_pages[table].total }}" data-next="{{ home_pages[table].next_url }}">
+<div class="academic-section-head"><h2 id="home-{{ table }}">{{ eng if en else cn }}</h2><a class="home-view-all" href="/{{ lang }}/{{ table }}" aria-label="{{ ('View all ' ~ eng) if en else ('查看全部' ~ cn) }}">{{ 'View all' if en else '查看全部' }}{{ arrow() }}</a></div>
+<div class="academic-card-list" data-stream-items>{% for row in rows %}{% include 'public/home-card.html' %}{% endfor %}</div>
+{% with pages=home_pages[table],home_mode=true %}{% include 'public/stream-controls.html' %}{% endwith %}
+</section>

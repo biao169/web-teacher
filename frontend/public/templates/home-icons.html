@@ -1,0 +1,2 @@
+{% from 'public/card-icons.html' import icon %}
+{% macro arrow(external=false) -%}{{ icon('box-arrow-up-right' if external else 'arrow-right') }}{%- endmacro %}

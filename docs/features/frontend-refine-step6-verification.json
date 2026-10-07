@@ -1,0 +1,23 @@
+{
+  "version": "0.15.63",
+  "baseline": "0.15.62",
+  "python_full_initial": {
+    "passed": 382,
+    "failed": 2,
+    "reason": "obsolete theme cache version and exact cover class assertions"
+  },
+  "python_targeted_after_update": {
+    "passed": 14,
+    "failed": 0
+  },
+  "python_unique_with_pass_evidence": 384,
+  "simulated_dom": {
+    "passed": 152,
+    "failed": 0
+  },
+  "windows_browser": "manual_acceptance_required",
+  "local_worker_prepare": "passed_not_deployed",
+  "new_migration": false,
+  "downloaded_pdf_watermark": "not_modified_online_overlay_only",
+  "admin_database_transfer_deploy": "unchanged; shared reader has opt-in public mode"
+}

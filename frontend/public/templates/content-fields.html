@@ -1,0 +1,4 @@
+{% for field,zh,en in content_config.content_fields[table]+(content_config.content_extra[table] if detail else []) %}{% if row.get(field) is not none and row.get(field) != '' %}
+<p class="content-field" data-copy-field><span class="person-label">{{ en if lang=='en' else zh }}：</span>{% if field=='published_at' %}{% from 'public/time.html' import timestamp %}{{ timestamp(row[field]) }}{% else %}<span>{{ row[field] }}</span>{% endif %}</p>
+{% endif %}{% endfor %}
+{% set prose_field='description' if table=='research_interests' else ('summary' if table in ['courses','patents'] else '') %}{% if prose_field and row.get(prose_field) %}<div class="person-biography{% if detail or table in ['research_interests','patents'] %} is-expanded{% endif %}" data-copy-field>{{ row[prose_field] }}</div>{% endif %}

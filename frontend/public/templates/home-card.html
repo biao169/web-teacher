@@ -1,0 +1,5 @@
+{% set home_mode=true %}
+{% set cover=row.get('cover_key') %}{% set news_media=table=='news' %}{% from 'public/news-media.html' import cover as news_cover %}
+<article id="record-{{ row.uid }}" data-record-id="{{ row.uid }}" class="academic-card home-card home-card-{{ table }}{% if news_media %} academic-card-with-media{% endif %}">
+{% if news_media %}{{ news_cover(row,media_map,'academic-card-media',lang=lang) }}{% endif %}
+<div class="academic-card-copy">{% if table=='students' %}<h3 data-copy-field>{{ row.get('name_en') if lang=='en' and row.get('name_en') else row.name }}</h3>{% set person_detail=false %}{% include 'public/person-fields.html' %}{% else %}{% include 'public/content-body.html' %}{% endif %}</div></article>

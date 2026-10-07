@@ -1,0 +1,10 @@
+{# Each format keeps its original field names and the shared field renderer. #}
+<div class="paper-citation-groups">
+{% for style,title in [('gbt','GB/T'),('elsevier','Elsevier'),('apa','APA'),('ieee','IEEE')] %}
+<article class="paper-citation-group" aria-label="{{ title }}引用与高亮"><div class="paper-citation-pair">
+{% set field='citation_'+style %}{{ control(field,dict(specs[field],rows=3,wide=false,help='保护开关用于防止随论文信息自动变化；点击更新全部引用会直接重算，原值可撤销。'),row.get(field),choices,json_dump) }}
+{% set field='highlight_'+style %}<div class="paper-highlight" data-highlight-style="{{ style }}">{{ control(field,dict(specs[field],rows=1,wide=false,help='按本格式引用中的姓名生成；点击自动高亮可直接更新此项，原值可撤销。'),row.get(field),choices,json_dump) }}<button type="button" class="btn btn-outline-primary btn-sm" data-auto-highlight="{{ style }}" title="从对应{{ title }}引用中匹配首页教师姓名，生成本项高亮；不改其他格式">自动高亮</button><p class="native-muted" data-highlight-feedback="{{ style }}" role="status"></p></div>
+</div></article>
+{% endfor %}
+<div class="paper-citation-group">{{ control('bibtex',dict(specs['bibtex'],rows=6,help='点击更新全部引用会一并更新BibTeX，原值可撤销；也可直接手工编辑。'),row.get('bibtex'),choices,json_dump) }}</div>
+</div>

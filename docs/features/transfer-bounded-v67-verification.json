@@ -1,0 +1,43 @@
+{
+  "version": "0.15.67",
+  "date": "2026-09-25",
+  "python": {
+    "passed": 441,
+    "failed": 0
+  },
+  "simulated_dom": {
+    "passed": 167,
+    "failed": 0
+  },
+  "command": "python -B tests/run_acceptance.py --dom",
+  "synthetic_service_memory": [
+    {
+      "file_mib": 8,
+      "heap_peak_bytes": 2118490,
+      "process_peak_rss_kib": 44428,
+      "max_metadata_page": 8,
+      "sha256_verified": true
+    },
+    {
+      "file_mib": 192,
+      "heap_peak_bytes": 3105785,
+      "process_peak_rss_kib": 45004,
+      "max_metadata_page": 64,
+      "sha256_verified": true
+    }
+  ],
+  "memory_scope": "Fresh Linux process; single service-layer task, no TLS/browser/main-site concurrent load; includes bounded reads and SHA-256 verification",
+  "not_performed": [
+    "Production database migration/deployment",
+    "Real Windows/mobile file-picker and disk-save validation",
+    "LAN/WAN online transfer or multi-GB live transfer",
+    "Production concurrent process-RSS benchmark",
+    "Integrated Worker deployment"
+  ],
+  "final_targeted_python": {
+    "passed": 15,
+    "failed": 0,
+    "includes_new_case": "Idle input returns 408 and releases the shared slot"
+  },
+  "unique_python_cases_covered": 442
+}

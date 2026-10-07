@@ -1,0 +1,9 @@
+{
+  "account_id": "REPLACE_ACCOUNT_ID",
+  "database_id": "REPLACE_DATABASE_ID",
+  "database_name": "REPLACE_DATABASE_NAME",
+  "wrangler_config": "deploy/wrangler.sync.jsonc",
+  "backup_hook": "site_sync.deploy.recovery:wrangler_bookmark",
+  "recovery_directory": "./recovery",
+  "native_config": "deploy/wrangler.native.jsonc"
+}

@@ -1,0 +1,41 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {spawn}=require('node:child_process'),{JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
+const root=path.resolve(__dirname,'../..');
+const flush=()=>new Promise(r=>setTimeout(r,15));
+async function until(fn){for(let n=0;n<200;n++){if(fn())return;await flush();}throw Error('DOM operation timeout');}
+test('real admin API with DOM: folding, XSS, pause/resume, polling, pagination and queued deletion',async t=>{
+ const server=spawn(process.env.TEST_PYTHON||'python3',['-B','-m','site_sync.tests.ui_fixture'],{cwd:root,env:process.env,stdio:['ignore','pipe','pipe']});
+ t.after(()=>server.kill('SIGTERM'));
+ let errors='';server.stderr.on('data',d=>errors+=d);
+ const info=await new Promise((resolve,reject)=>{let text='';const timeout=setTimeout(()=>reject(Error('Fixture timeout '+errors)),10000);server.stdout.on('data',d=>{text+=d;if(text.includes('\n')){clearTimeout(timeout);resolve(JSON.parse(text.split('\n')[0]));}});server.once('exit',()=>{clearTimeout(timeout);reject(Error('Fixture exit '+errors));});});
+ const origin='http://127.0.0.1:'+info.port,html=await (await fetch(origin)).text();
+ const dom=new JSDOM(html,{url:origin,pretendToBeVisual:true,runScripts:'outside-only'});t.after(()=>dom.window.close());
+ const w=dom.window,doc=w.document,timers=new Map();let seq=0,fetches=0;
+ w.fetch=async(...args)=>{fetches++;return fetch(...args);};w.AbortSignal=AbortSignal;w.confirm=()=>true;
+ w.setTimeout=(fn,ms)=>{const id=++seq;timers.set(id,{fn,ms});return id;};w.clearTimeout=id=>timers.delete(id);
+ const context=dom.getInternalVMContext(),model=new vm.SourceTextModule(fs.readFileSync(path.join(root,'site_sync/frontend/static/model.mjs'),'utf8'),{context});
+ const panel=new vm.SourceTextModule(fs.readFileSync(path.join(root,'site_sync/frontend/static/panel.mjs'),'utf8'),{context});
+ await panel.link(()=>model);await panel.evaluate();
+ const ready=()=>doc.querySelector('#site-sync-panel').getAttribute('aria-busy')==='false';
+ await until(()=>ready()&&doc.querySelector('[data-tasks]').textContent.includes(info.task_id));
+ async function click(selector,text){const el=text?[...doc.querySelectorAll(selector)].find(x=>x.textContent===text):doc.querySelector(selector);assert.ok(el,selector+' '+text);el.click();await until(ready);}
+ async function api(route,body){const res=await fetch(origin+'/admin/site-sync/api'+route,{method:body?'POST':'GET',headers:{'content-type':'application/json','x-csrf-token':'test-csrf'},body:body?JSON.stringify(body):undefined});assert.equal(res.status,200,await res.clone().text());return res.json();}
+ await click('[data-tasks] button','展开进度 / 日志');assert.equal(doc.querySelector('[data-detail]').hidden,false);
+ assert.ok(doc.querySelector('[data-detail]').closest('td'));assert.match(doc.querySelector('[data-checkpoint]').textContent,/等待接收端批准/);
+ assert.match(doc.querySelector('[data-items]').textContent,/<img src=x/);assert.equal(doc.querySelectorAll('[data-items] img').length,0);
+ assert.ok(doc.querySelectorAll('[data-logs] tr').length>0);
+ await click('[data-tasks] button','暂停');assert.match(doc.querySelector('[data-detail-summary]').textContent,/已暂停/);
+ await click('[data-tasks] button','继续');assert.match(doc.querySelector('[data-detail-summary]').textContent,/等待人工批准/);
+ const polling=()=>[...timers.values()].find(x=>x.ms===10000).fn();
+ const field=doc.querySelector('[data-settings] [name=slice_bytes]');field.value='4m';field.focus();const before=fetches;await polling();assert.equal(fetches,before);field.blur();
+ await api('/tasks/'+info.task_id+'/pause',{});await polling();assert.match(doc.querySelector('[data-detail-summary]').textContent,/已暂停/);assert.equal(field.value,'4m');
+ await click('[data-tasks] button','收起详情');assert.equal(doc.querySelector('[data-detail]').hidden,true);
+ for(let n=0;n<22;n++)await api('/tasks',{peer_id:'peer-test',scope:['news'],request_id:'dom-page-'+n});
+ await click('[data-refresh]');assert.equal(doc.querySelector('[data-tasks]').children.length,20);
+ await click('[data-more]');assert.equal(doc.querySelector('[data-tasks]').children.length,3);assert.match(doc.querySelector('[data-page-number]').textContent,/第2页/);
+ await polling();assert.equal(doc.querySelector('[data-tasks]').children.length,3);assert.match(doc.querySelector('[data-page-number]').textContent,/第2页/);
+ await click('[data-prev]');assert.equal(doc.querySelector('[data-tasks]').children.length,20);
+ const size=doc.querySelector('[data-page-size]');size.value='10';size.dispatchEvent(new w.Event('change'));await until(ready);assert.equal(doc.querySelector('[data-tasks]').children.length,10);
+ await click('[data-tasks] button','删除');assert.match(doc.querySelector('[data-tasks]').textContent,/正在安全删除/);
+ assert.equal(doc.querySelectorAll('[data-tasks] img').length,0);assert.ok(!doc.querySelector('[data-message]').textContent.includes('失败'));
+});

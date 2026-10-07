@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "description": "Optional DOM regression tests only; not needed to start the website",
+  "scripts": {
+    "test": "node run_dom_tests.cjs",
+    "test:sync": "cd .. && node --test site_sync/tests/*.test.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

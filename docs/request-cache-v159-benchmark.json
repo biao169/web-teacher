@@ -1,0 +1,113 @@
+{
+  "environment": "local TestClient + SQLite, anonymous Worker code path, seeded demo; excludes actual D1/network/Worker CPU",
+  "results": {
+    "/en": {
+      "memo_off": {
+        "sql_calls": [
+          31,
+          31,
+          31,
+          31,
+          31
+        ],
+        "median_ms": 63.93,
+        "samples_ms": [
+          62.86,
+          62.36,
+          75.19,
+          64.33,
+          63.93
+        ]
+      },
+      "memo_on": {
+        "sql_calls": [
+          30,
+          30,
+          30,
+          30,
+          30
+        ],
+        "median_ms": 68.19,
+        "samples_ms": [
+          68.19,
+          67.03,
+          63.74,
+          74.25,
+          76.46
+        ]
+      }
+    },
+    "/en/projects": {
+      "memo_off": {
+        "sql_calls": [
+          33,
+          33,
+          33,
+          33,
+          33
+        ],
+        "median_ms": 74.9,
+        "samples_ms": [
+          71.74,
+          72.8,
+          79.82,
+          76.46,
+          74.9
+        ]
+      },
+      "memo_on": {
+        "sql_calls": [
+          32,
+          32,
+          32,
+          32,
+          32
+        ],
+        "median_ms": 71.64,
+        "samples_ms": [
+          77.29,
+          71.96,
+          71.34,
+          71.64,
+          70.83
+        ]
+      }
+    },
+    "/en/students": {
+      "memo_off": {
+        "sql_calls": [
+          37,
+          37,
+          37,
+          37,
+          37
+        ],
+        "median_ms": 81.6,
+        "samples_ms": [
+          90.99,
+          81.99,
+          80.53,
+          81.6,
+          81.13
+        ]
+      },
+      "memo_on": {
+        "sql_calls": [
+          36,
+          36,
+          36,
+          36,
+          36
+        ],
+        "median_ms": 81.9,
+        "samples_ms": [
+          86.39,
+          81.9,
+          83.29,
+          81.83,
+          81.63
+        ]
+      }
+    }
+  }
+}

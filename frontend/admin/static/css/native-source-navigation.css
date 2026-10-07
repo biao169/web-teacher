@@ -1,0 +1,27 @@
+/* Shared headers keep sorting separate from search and the resize grip. */
+.native-column-heading{display:flex;align-items:center;gap:2px;min-width:0;padding-right:6px}
+.native-column-heading>button{border:0;background:transparent;color:inherit;min-height:28px;padding:3px 2px;font:inherit;text-align:left;white-space:nowrap}
+.native-column-heading>[data-column-popup]{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.native-column-heading>[data-column-sort]{flex:0 0 28px;text-align:center;border-radius:5px;color:var(--muted,#526476)}
+.native-column-heading>[data-sort-active=true]{color:var(--accent,#145b4d);background:var(--accent-soft,#e2f3ee)}
+.native-column-heading>[data-filter-active=true]::after{content:' •';color:var(--accent,#145b4d)}
+.native-column-heading>button:focus-visible{outline:2px solid var(--accent,#145b4d);outline-offset:1px}
+.native-popover{position:fixed;z-index:80;width:min(270px,calc(100vw - 16px));padding:14px;background:var(--surface,#fff);border:1px solid var(--line,#c8d2dc);border-radius:10px;box-shadow:0 8px 28px #163f2720;color:var(--ink,#243446)}
+.native-popover input,.native-popover select{margin:7px 0}.native-popover .btn{margin-right:6px}
+.native-field[id^=field-]{scroll-margin-top:80px}
+.native-source-focus{outline:2px solid var(--accent,#145b4d);outline-offset:3px;border-radius:6px;background:var(--accent-soft,#e2f3ee)}
+.native-translation-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.native-translation-pair>div{min-width:0}.native-translation-pair .native-wide{grid-column:auto}
+.native-source-text{white-space:pre-wrap;overflow-wrap:anywhere;max-height:65vh;overflow:auto;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--page);font:inherit;line-height:1.65}
+.native-source-original>label{display:block;font-weight:600;margin-bottom:5px}.native-source-original details{margin-top:8px}
+.native-translation-pair textarea{min-height:18rem;resize:vertical}.native-source-status{margin:8px 0;color:var(--muted)}
+.native-source-card{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px}.native-source-card strong{overflow-wrap:anywhere}.native-source-card .btn{margin-left:auto;white-space:nowrap}
+.native-locations-dialog{width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 24px);padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);overflow:auto}
+.native-locations-dialog::backdrop{background:#102b3b66}.native-locations-dialog .native-title{display:flex;gap:12px}.native-locations-dialog h2{margin:0;font-size:18px}
+.native-source-rows{display:grid;gap:8px;margin-top:12px}.native-source-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.native-source-row>div{min-width:0;flex:1;overflow-wrap:anywhere}.native-source-row .btn{flex-shrink:0;white-space:nowrap}.native-source-row small{display:block}
+@media(max-width:767px){.native-translation-pair{grid-template-columns:1fr}.native-source-card .btn{margin-left:0}.native-source-text{max-height:40vh}}
+
+/* Shared navigation draft: field, operator, value and compact remove action. */
+[data-navigation-editor] .native-nav-condition{grid-template-columns:minmax(130px,1fr) minmax(80px,.6fr) minmax(150px,1.5fr) auto}
+@media(max-width:640px){[data-navigation-editor] .native-nav-condition{grid-template-columns:minmax(0,1fr) auto}[data-navigation-editor] .native-nav-condition>.native-help-control:first-child{grid-column:1/-1}[data-navigation-editor] .native-nav-condition>[data-nav-operator]{grid-column:1/-1}}

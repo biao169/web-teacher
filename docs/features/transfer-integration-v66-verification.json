@@ -1,0 +1,48 @@
+{
+  "version": "0.15.66",
+  "date": "2026-09-25",
+  "scope": "Step 2 local Windows/Linux application integration; tests executed on Linux with synthetic temporary data",
+  "full_regression": {
+    "python_initial": {
+      "passed": 422,
+      "failed": 2,
+      "total": 424
+    },
+    "initial_failures": "Obsolete expectations for a second transfer.service and pre-0014 schema; updated for the authorized integration",
+    "dom": {
+      "passed": 160,
+      "failed": 0
+    }
+  },
+  "targeted_final": {
+    "media_regression_public_stream_and_integration": {
+      "passed": 63,
+      "failed": 0
+    },
+    "integration_after_final_fixes_and_extra_cases": {
+      "passed": 19,
+      "failed": 0
+    }
+  },
+  "covered_current_python_cases": 427,
+  "coverage_note": "Combined full-run and successful targeted reruns; no second all-green full-suite run claimed.",
+  "verified": [
+    "One main uvicorn listener, former transfer port closed",
+    "Main cookie upload/download and quota retained across restart",
+    "CSRF, session revocation, live role permissions and password-change gate",
+    "Old ft_session and imported admin_grants cannot grant local authority",
+    "v65/current-empty migration; original files, IDs and settings preserved",
+    "Missing/corrupt/conflicting/symlink/locked/unknown sources rejected",
+    "Commit failure rolls back SQL; rollback refuses newer database writes",
+    "Migrated share downloadable from main /transfer/s/token",
+    "Private transfer-data excluded from packaging and static routes",
+    "Legacy and integrated frontend path-prefix validation"
+  ],
+  "not_performed": [
+    "Actual user database migration or deployment",
+    "Windows or mobile browser validation",
+    "Production VPS RAM benchmark",
+    "LAN WebRTC, WAN online relay or unlimited-file-size transmission",
+    "Integrated Cloudflare Worker/D1/R2 validation"
+  ]
+}

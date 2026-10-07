@@ -1,0 +1,11 @@
+{% extends 'admin/layout.html' %}
+{% block metadata %}{{ super() }}<meta name="csrf-token" content="{{ csrf }}"><link rel="stylesheet" href="/assets/site-sync/panel.css?v=0.16.008"><script type="module" src="/assets/site-sync/panel.mjs?v=0.16.008"></script><script type="module" src="/assets/site-sync/connection.mjs?v=0.16.008"></script>{% endblock %}
+{% block content %}
+<div class="sync-page">
+<header class="native-title sync-page-title"><h1>两站数据同步</h1><p class="text-secondary">管理同步连接、后台任务与定时拉取计划。</p></header>
+<section class="panel sync-connection-card" aria-labelledby="sync-connection-title"><h2 id="sync-connection-title">同步连接</h2><p>两端均须在部署环境设置相同的 TEACHER_SYNC_KEY（64 位十六进制随机密钥）。保存连接后新建任务。仅接收端开启定时计划，避免两端相互覆盖。</p>
+<form id="sync-connection"><label>对端 HTTPS 域名 <input class="form-control" name="origin" type="url" required value="{{ sync_peer.get('origin','') }}" placeholder="https://peer.example.com"></label><label><input name="enabled" type="checkbox" {% if sync_peer.get('enabled',1) %}checked{% endif %}>允许同步</label><fieldset><legend>接收推送的自动确认策略</legend><p>默认需本站审核。仅当对端请求的全部模块都在以下范围内时，允许自动确认；发送方不能修改此策略。</p>{% for module in sync_modules %}<label><input type="checkbox" name="incoming_auto_scope" value="{{ module }}" {% if module in incoming_scope %}checked{% endif %}>{{ modules.get(module,module) }}</label>{% endfor %}<label><input type="checkbox" name="incoming_auto_delete" {% if sync_peer.get('incoming_auto_delete') %}checked{% endif %}>自动确认收到的明确删除（仍需删除权限）</label></fieldset><button class="btn btn-primary">保存连接与当前授权</button><span role="status" data-connection-message></span></form>
+<p>新版不会继续旧同步任务。记录及必要依赖共用网站数据库；同步不会按“本地多出来”推断删除。单条含依赖正文最多 200KB、16 个媒体，单媒体最多 20MiB。</p></section>
+{% include 'sync/panel.html' %}
+</div>
+{% endblock %}

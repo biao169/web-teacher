@@ -1,0 +1,37 @@
+{
+  "version": "0.15.57",
+  "based_on": "0.15.56",
+  "step": "Frontend replan step 5",
+  "python_http_tests": {
+    "passed": 332,
+    "failed": 0
+  },
+  "simulated_dom_tests": {
+    "passed": 123,
+    "failed": 0
+  },
+  "added_tests": {
+    "python_http": 8,
+    "simulated_dom": 4
+  },
+  "windows_browser": "not_run; manual acceptance required",
+  "windows_entry_python_smoke": "passed on Linux with prepared runtime; Windows cmd not executed",
+  "production_deployment": false,
+  "user_data_written": false,
+  "isolated_business_records_inserted": 130,
+  "database_migration_added": false,
+  "worker": {
+    "prepared": true,
+    "deployed": false,
+    "all_public_templates_match": true,
+    "all_public_assets_match": true
+  },
+  "protected_changed": [],
+  "protected_unchanged": 509,
+  "protected_added": [
+    "backend/app/native/frontend_example_rows.json",
+    "backend/app/native/frontend_examples.py",
+    "deploy/windows/frontend_examples.py"
+  ],
+  "fixture_rebuild_check": true
+}

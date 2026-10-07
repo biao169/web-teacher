@@ -1,0 +1,5 @@
+{# Shared public identity, reading/copy order: name, title, role, organization, lab. #}
+{% set identity_heading=identity_heading|default('h2') %}
+<div class="faculty-identity"><{{ identity_heading }} data-copy-field>{% if identity_link|default(false) %}<a data-person-link href="{{ public_detail_url('profiles',row.uid) if public_detail_url is defined else '/'~lang~'/profiles/'~row.uid }}">{% endif %}{{ row.get('name_en') if lang=='en' and row.get('name_en') else row.get('name','') }}{% if identity_link|default(false) %}</a>{% endif %}</{{ identity_heading }}>
+{% if person_detail|default(false) and lang!='en' and row.get('name_en') %}<p class="faculty-alias" data-copy-field>{{ row.name_en }}</p>{% endif %}
+{% for fields,cls in [([('title','职称/头衔','Title'),('role','团队角色','Team role')],'faculty-rank'),([('organization','单位','Organization'),('lab','实验室/团队','Laboratory / team')],'faculty-affiliation')] %}<div class="{{ cls }}">{% for field,zh,en in fields %}{% if row.get(field) %}<p data-copy-field><span class="person-label">{{ en if lang=='en' else zh }}：</span>{{ row[field] }}</p>{% endif %}{% endfor %}</div>{% endfor %}</div>

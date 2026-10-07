@@ -1,0 +1,22 @@
+{% extends 'admin/layout.html' %}
+{% block metadata %}{{ super() }}<link rel="stylesheet" href="/assets/admin/css/native-maintenance.css?v=0.16.002"><script src="/assets/admin/js/native-maintenance.js?v=0.16.002" defer></script>{% endblock %}
+{% block content %}
+<section class="maintenance" data-maintenance data-csrf="{{ csrf }}" data-revision="{{ policy.revision }}" data-platform="{{ 'local' if maintenance_local else 'worker' }}">
+<div class="native-title"><div><h1>运行维护</h1><p class="text-secondary">查看资源占用，设置历史保留期限，预览并分批清理。</p></div><button class="btn btn-outline-primary" type="button" data-refresh>刷新状态</button></div>
+<p role="status" aria-live="polite" data-notice></p>
+{% if maintenance_local %}<section class="panel"><h2>资源概览</h2><div class="maintenance-metrics" data-metrics><p>正在读取资源状态…</p></div>
+<div class="maintenance-actions"><button type="button" class="btn btn-outline-primary" data-scan>更新文件占用统计</button><span data-scan-status>文件占用按需分批统计，刷新状态不会重新扫描。</span></div><div class="maintenance-table"><table class="table"><thead><tr><th>目录类别</th><th>文件占用</th><th>文件数</th><th>所在磁盘可用</th><th>跳过项</th></tr></thead><tbody data-storage></tbody></table></div><p class="text-secondary">统计期间文件可能变化；不同类别可能位于同一磁盘，磁盘可用量不要重复相加。内存显示当前网站进程，不含反向代理。</p></section>
+{% else %}<section class="panel"><h2>Cloudflare Worker</h2><p>数据库日志由 Cron 分批清理，每批最多 20 条。这里管理数据库日志，不提供本地磁盘或进程内存统计。</p></section>{% endif %}
+<section class="panel"><h2>保留策略</h2><form data-policy>
+<label class="maintenance-switch"><input type="checkbox" name="enabled" {% if policy['values']['enabled'] %}checked{% endif %}> 启用自动清理</label>
+<div class="maintenance-fields">
+{% for key,title,unit,low,high in [('interval_minutes','自动检查间隔','分钟',1,1440),('session_days','失效会话保留','天',1,3650),('report_grace_hours','检查报告过期宽限','小时',24,8760),('temporary_hours','临时文件最小保留','小时',24,8760),('operation_days','操作记录保留','天',1,3650),('operation_max','操作记录目标上限','条',1000,100000),('transfer_days','快传历史保留','天',1,3650),('log_mb','单份运行日志上限','MiB',1,100),('log_backups','日志归档数量','份',1,20),('log_days','日志归档保留','天',1,365)] %}
+{% if maintenance_local or key in ('operation_days','operation_max') %}<label>{{ title }}<span><input class="form-control" name="{{ key }}" type="number" min="{{ low }}" max="{{ high }}" step="1" required value="{{ policy['values'][key] }}"><small>{{ unit }}</small></span></label>{% endif %}
+{% endfor %}</div>
+<p class="text-secondary">缩短期限可能使更多历史记录进入清理范围。当前日／周／月配额和未完成任务始终保留；媒体原文件、译文和留言不自动清理。关闭自动清理不影响日志轮转，也不改变快传文件自身的到期设置。</p>
+<button class="btn btn-primary" type="submit">保存策略</button><span data-policy-status>{{ '自动任务通常在 30 秒内读取新策略，日志轮转设置立即生效。' if maintenance_local else '后续 Cron 使用新策略，手动清理立即使用。' }}</span>
+</form></section>
+<section class="panel"><h2>安全清理</h2><p>先查看下一批候选数量，再执行。每次仅处理有限数量，预览不是全库总量；执行时会重新核对资格。</p><div class="maintenance-actions"><button type="button" class="btn btn-outline-primary" data-preview>预览下一批</button><button type="button" class="btn btn-danger" data-run hidden>执行这一批清理</button></div><div data-preview-result></div></section>
+<section class="panel"><h2>{{ '最近清理结果' if maintenance_local else '最近手动清理结果' }}</h2><div data-last>暂无记录</div><p data-transfer></p></section>
+</section>
+{% endblock %}

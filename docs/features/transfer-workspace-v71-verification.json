@@ -1,0 +1,49 @@
+{
+  "version": "0.15.71",
+  "step": 7,
+  "base_version": "0.15.70",
+  "status": "frontend_and_automated_integration_complete_real_device_acceptance_pending",
+  "schema_change": false,
+  "backend_changed": false,
+  "deployed": false,
+  "production_data_modified": false,
+  "full_regression": {
+    "python_passed": 479,
+    "python_seconds": 174.69,
+    "frontend_passed": 187,
+    "log": "transfer-workspace-v71-test-results.txt"
+  },
+  "new_frontend_tests": 5,
+  "rendered_templates": {
+    "integrated_three_modes": "passed",
+    "legacy_cache_only": "passed",
+    "duplicate_ids": false
+  },
+  "included_http_evidence": {
+    "kind": "real_loopback_shared_launcher_two_clients",
+    "relay_payload_bytes": 8388608,
+    "sha256_verified": true,
+    "main_site_liveness": true,
+    "remote_WAN": false
+  },
+  "checks": [
+    "mode switching preserves file inputs, codes and progress with no API calls",
+    "direction switching across three modes",
+    "keyboard and ARIA tab relationships",
+    "hidden mode feedback and safe text rendering",
+    "cached-only legacy route compatibility",
+    "existing permission, quota, ACK, disk and expiry regression"
+  ],
+  "historical_memory_evidence": [
+    "transfer-relay-v69-verification.json",
+    "transfer-offline-v70-verification.json"
+  ],
+  "manual_pending": [
+    "real two-device LAN/ICE",
+    "Windows and mobile browser visual/capability testing",
+    "real remote WAN and target HTTPS proxy",
+    "multi-GiB and slow-network tests on target devices",
+    "target main/proxy RSS and provider NIC traffic"
+  ],
+  "upgrade": "No schema change from 0.15.70; stop and back up first, preserve database/media/config/transfer-data."
+}

@@ -1,0 +1,51 @@
+{
+  "stage": "independent-sync-redesign-step2",
+  "created_at": "2026-10-05T15:34:00.058739+00:00",
+  "cloud_deployed": false,
+  "real_d1_verified": false,
+  "old_website_code_used": false,
+  "checks": [
+    {
+      "name": "database_sqlite_and_d1_contract",
+      "passed": true,
+      "returncode": 0,
+      "output": "test_append_and_identical_retry (test_database.D1StagingTests.test_append_and_identical_retry) ... ok\ntest_conflicting_retry_gap_and_stale_cursor (test_database.D1StagingTests.test_conflicting_retry_gap_and_stale_cursor) ... ok\ntest_constraint_failure_rolls_back_fragment_and_cursor (test_database.D1StagingTests.test_constraint_failure_rolls_back_fragment_and_cursor) ... ok\ntest_foreign_keys_enabled (test_database.D1StagingTests.test_foreign_keys_enabled) ... ok\ntest_live_guards (test_database.D1StagingTests.test_live_guards) ... ok\ntest_lost_response_has_progress_and_retry_does_not_duplicate (test_database.D1StagingTests.test_lost_response_has_progress_and_retry_does_not_duplicate) ... ok\ntest_record_byte_limit_is_atomic (test_database.D1StagingTests.test_record_byte_limit_is_atomic) ... ok\ntest_revoked_peer_and_paused_task (test_database.D1StagingTests.test_revoked_peer_and_paused_task) ... ok\ntest_shrink_and_multiple_fields (test_database.D1StagingTests.test_shrink_and_multiple_fields) ... ok\ntest_source_schema_upgrade_blocks_old_runtime (test_database.D1StagingTests.test_source_schema_upgrade_blocks_old_runtime) ... ok\ntest_business_tables_preserved_and_backed_up (test_database.SchemaTests.test_business_tables_preserved_and_backed_up) ... ok\ntest_check_only_does_not_initialize (test_database.SchemaTests.test_check_only_does_not_initialize) ... ok\ntest_d1_existing_database_requires_recovery_reference (test_database.SchemaTests.test_d1_existing_database_requires_recovery_reference) ... ok\ntest_drift_is_rejected (test_database.SchemaTests.test_drift_is_rejected) ... ok\ntest_explicit_future_migration_preserves_data_and_can_repeat (test_database.SchemaTests.test_explicit_future_migration_preserves_data_and_can_repeat) ... ok\ntest_failed_initialization_rolls_back_all_ddl (test_database.SchemaTests.test_failed_initialization_rolls_back_all_ddl) ... ok\ntest_failed_upgrade_rolls_back_version_and_ddl (test_database.SchemaTests.test_failed_upgrade_rolls_back_version_and_ddl) ... ok\ntest_init_repeat_and_plan_roundtrip (test_database.SchemaTests.test_init_repeat_and_plan_roundtrip) ... ok\ntest_lost_init_receipt_recovers_from_schema (test_database.SchemaTests.test_lost_init_receipt_recovers_from_schema) ... ok\ntest_only_one_sql (test_database.SchemaTests.test_only_one_sql) ... ok\ntest_sqlite_backup_is_readable (test_database.SchemaTests.test_sqlite_backup_is_readable) ... ok\ntest_unknown_sync_table_is_not_overwritten (test_database.SchemaTests.test_unknown_sync_table_is_not_overwritten) ... ok\ntest_append_and_identical_retry (test_database.StagingTests.test_append_and_identical_retry) ... ok\ntest_conflicting_retry_gap_and_stale_cursor (test_database.StagingTests.test_conflicting_retry_gap_and_stale_cursor) ... ok\ntest_constraint_failure_rolls_back_fragment_and_cursor (test_database.StagingTests.test_constraint_failure_rolls_back_fragment_and_cursor) ... ok\ntest_foreign_keys_enabled (test_database.StagingTests.test_foreign_keys_enabled) ... ok\ntest_live_guards (test_database.StagingTests.test_live_guards) ... ok\ntest_record_byte_limit_is_atomic (test_database.StagingTests.test_record_byte_limit_is_atomic) ... ok\ntest_revoked_peer_and_paused_task (test_database.StagingTests.test_revoked_peer_and_paused_task) ... ok\ntest_shrink_and_multiple_fields (test_database.StagingTests.test_shrink_and_multiple_fields) ... ok\ntest_source_schema_upgrade_blocks_old_runtime (test_database.StagingTests.test_source_schema_upgrade_blocks_old_runtime) ... ok\n\n----------------------------------------------------------------------\nRan 31 tests in 0.076s\n\nOK\n"
+    },
+    {
+      "name": "progress_model",
+      "passed": true,
+      "returncode": 0,
+      "output": "test_changed_source_blocks_mixed_version_payload (test_progress_model.ProgressModelTests.test_changed_source_blocks_mixed_version_payload) ... ok\ntest_invalid_replay_gap_and_overlap (test_progress_model.ProgressModelTests.test_invalid_replay_gap_and_overlap) ... ok\ntest_many_errors_with_durable_progress_do_not_exhaust_budget (test_progress_model.ProgressModelTests.test_many_errors_with_durable_progress_do_not_exhaust_budget) ... ok\ntest_no_progress_enters_slow_retry_without_terminal_failure (test_progress_model.ProgressModelTests.test_no_progress_enters_slow_retry_without_terminal_failure) ... ok\ntest_response_loss_does_not_duplicate_commit (test_progress_model.ProgressModelTests.test_response_loss_does_not_duplicate_commit) ... ok\ntest_revocation_wins_over_progress (test_progress_model.ProgressModelTests.test_revocation_wins_over_progress) ... ok\ntest_rollback_keeps_data_and_cursor_together (test_progress_model.ProgressModelTests.test_rollback_keeps_data_and_cursor_together) ... ok\ntest_slice_floor (test_progress_model.ProgressModelTests.test_slice_floor) ... ok\ntest_smaller_slices_continue_at_actual_byte_offset (test_progress_model.ProgressModelTests.test_smaller_slices_continue_at_actual_byte_offset) ... ok\ntest_stale_lease_and_revocation_block_writes (test_progress_model.ProgressModelTests.test_stale_lease_and_revocation_block_writes) ... ok\ntest_success_without_progress_does_not_reset_or_consume_budget (test_progress_model.ProgressModelTests.test_success_without_progress_does_not_reset_or_consume_budget) ... ok\ntest_zero_fast_retries_and_invalid_progress (test_progress_model.ProgressModelTests.test_zero_fast_retries_and_invalid_progress) ... ok\n\n----------------------------------------------------------------------\nRan 12 tests in 0.003s\n\nOK\n"
+    },
+    {
+      "name": "native_stream_model",
+      "passed": true,
+      "returncode": 0,
+      "output": "TAP version 13\n# Subtest: minimal entry loads without a website or storage binding\nok 1 - minimal entry loads without a website or storage binding\n  ---\n  duration_ms: 4.248817\n  type: 'test'\n  ...\n# Subtest: passes original stream to storage without eager reads\nok 2 - passes original stream to storage without eager reads\n  ---\n  duration_ms: 0.888661\n  type: 'test'\n  ...\n# Subtest: 5 MiB part and final short part use bounded producer chunks\nok 3 - 5 MiB part and final short part use bounded producer chunks\n  ---\n  duration_ms: 11.527557\n  type: 'test'\n  ...\n# Subtest: source failure does not commit a partial storage part; replay replaces same part\nok 4 - source failure does not commit a partial storage part; replay replaces same part\n  ---\n  duration_ms: 11.236564\n  type: 'test'\n  ...\n# Subtest: rejects etag mismatch before storage and cancels body\nok 5 - rejects etag mismatch before storage and cancels body\n  ---\n  duration_ms: 0.380496\n  type: 'test'\n  ...\n# Subtest: rejects range mismatch before storage and cancels body\nok 6 - rejects range mismatch before storage and cancels body\n  ---\n  duration_ms: 0.339645\n  type: 'test'\n  ...\n# Subtest: rejects encoding mismatch before storage and cancels body\nok 7 - rejects encoding mismatch before storage and cancels body\n  ---\n  duration_ms: 0.191755\n  type: 'test'\n  ...\n# Subtest: rejects length mismatch before storage and cancels body\nok 8 - rejects length mismatch before storage and cancels body\n  ---\n  duration_ms: 0.137694\n  type: 'test'\n  ...\n# Subtest: rejects alignment mismatch before storage and cancels body\nok 9 - rejects alignment mismatch before storage and cancels body\n  ---\n  duration_ms: 0.195751\n  type: 'test'\n  ...\n# Subtest: lost completion response is reconciled without completing twice\nok 10 - lost completion response is reconciled without completing twice\n  ---\n  duration_ms: 0.366875\n  type: 'test'\n  ...\n# Subtest: completion checks size before allowing publication\nok 11 - completion checks size before allowing publication\n  ---\n  duration_ms: 0.164515\n  type: 'test'\n  ...\n# Subtest: completion checks owner before allowing publication\nok 12 - completion checks owner before allowing publication\n  ---\n  duration_ms: 0.063955\n  type: 'test'\n  ...\n# Subtest: completion checks source before allowing publication\nok 13 - completion checks source before allowing publication\n  ---\n  duration_ms: 0.065237\n  type: 'test'\n  ...\n1..13\n# tests 13\n# suites 0\n# pass 13\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 111.732347\n"
+    },
+    {
+      "name": "cli_initialize",
+      "passed": true,
+      "returncode": 0,
+      "output": "{\"action\": \"initialized\", \"version\": 1, \"backup\": null}\n"
+    },
+    {
+      "name": "cli_repeat",
+      "passed": true,
+      "returncode": 0,
+      "output": "{\"action\": \"unchanged\", \"version\": 1, \"backup\": null}\n"
+    },
+    {
+      "name": "cli_check",
+      "passed": true,
+      "returncode": 0,
+      "output": "{\"action\": \"unchanged\", \"version\": 1, \"backup\": null}\n"
+    },
+    {
+      "name": "cli_d1_plan",
+      "passed": true,
+      "returncode": 0,
+      "output": "{\"action\": \"plan-built\", \"version\": 1, \"schema_sha256\": \"57676a671dba576adb1c21821233e31cfa1fa08a25c46c90961d7206dc61f1ea\"}\n"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "version": "0.16.002",
+  "targeted_tests": "......................................................................   [100%]\n70 passed, 1 warning in 13.31s\n",
+  "browser": "PASS maintenance page, preview, sidebar and real website browser: login, shared admin layout, CSRF, approval, pause, settings, schedule toggle, XSS text, mobile overflow; browser zone differs from UI zone\n",
+  "offline_worker_stage": "passed",
+  "live_cloud_deployment": false,
+  "schema_changed": false
+}

@@ -1,0 +1,113 @@
+{
+  "environment": "local TestClient; 10 demo rows per content module; anonymous; no network latency",
+  "results": {
+    "/en": {
+      "cache_off": {
+        "median_ms": 67.11,
+        "samples_ms": [
+          70.3,
+          72.94,
+          67.0,
+          67.11,
+          66.97
+        ],
+        "sql_calls": [
+          31,
+          31,
+          31,
+          31,
+          31
+        ]
+      },
+      "cache_on": {
+        "median_ms": 9.66,
+        "samples_ms": [
+          10.11,
+          9.73,
+          9.61,
+          9.48,
+          9.66
+        ],
+        "sql_calls": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ]
+      }
+    },
+    "/en/projects": {
+      "cache_off": {
+        "median_ms": 78.49,
+        "samples_ms": [
+          78.68,
+          78.23,
+          80.79,
+          77.48,
+          78.49
+        ],
+        "sql_calls": [
+          33,
+          33,
+          33,
+          33,
+          33
+        ]
+      },
+      "cache_on": {
+        "median_ms": 7.15,
+        "samples_ms": [
+          7.58,
+          7.08,
+          7.01,
+          7.15,
+          7.44
+        ],
+        "sql_calls": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "/en/students": {
+      "cache_off": {
+        "median_ms": 91.51,
+        "samples_ms": [
+          127.95,
+          89.6,
+          95.82,
+          91.51,
+          87.42
+        ],
+        "sql_calls": [
+          37,
+          37,
+          37,
+          37,
+          37
+        ]
+      },
+      "cache_on": {
+        "median_ms": 8.02,
+        "samples_ms": [
+          8.3,
+          7.91,
+          8.02,
+          8.01,
+          8.32
+        ],
+        "sql_calls": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  }
+}

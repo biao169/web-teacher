@@ -1,0 +1,45 @@
+{
+  "version": "0.15.157",
+  "base": "this-thread-v0.15.156",
+  "passed_unique_tests": 200,
+  "passed_subtests": 10,
+  "suites": {
+    "main_with_previous_icon_and_contact_regressions": 169,
+    "module_sync_status_worker_startup_regressions": 30,
+    "additional_alias_registration_contact": 1
+  },
+  "validation": "pytest with isolated SQLite/HTTP/Worker mocks/Linux manager fixture; shell syntax; Python AST; source asset byte comparisons",
+  "not_run": [
+    "production Worker deployment",
+    "production VPS deployment",
+    "DNS/TLS/proxy validation"
+  ],
+  "changed_files": [
+    "pyproject.toml",
+    "install.sh",
+    "README.md",
+    "install-multi.sh",
+    "deploy/README-multi.md",
+    "tests/test_domain_deploy_v157.py",
+    "tests/test_allowed_origins_v157.py",
+    "docs/multiple-domains-v157.md",
+    "backend/entrypoints/worker.py",
+    "backend/app/native/web.py",
+    "backend/app/native/public_auth.py",
+    "backend/app/security/http.py",
+    "backend/app/security/origins.py",
+    "deploy/vps/release.py",
+    "deploy/linux/tweb.py",
+    "deploy/linux/README.md",
+    "deploy/shared/worker_package.py",
+    "deploy/cloudflare/domains.py",
+    "deploy/cloudflare/DOMAINS.md",
+    "deploy/cloudflare/pipeline.py",
+    "deploy/cloudflare/runtime/setup.py",
+    "deploy/cloudflare/runtime/transfer.py",
+    "deploy/cloudflare/tests/test_pipeline_step2.py",
+    "deploy/cloudflare/tests/test_domains.py",
+    "site_sync/tests/test_sync_resource_modes_v147.py",
+    "transfer/backend/integration.py"
+  ]
+}

@@ -1,0 +1,5 @@
+{# Shared sub-navigation retains the nineteen primary sidebar entries. #}
+<nav class="native-account-tabs" aria-label="账号管理功能">
+{% for key,title in [('auth_users','用户管理'),('auth_roles','角色与权限')] %}{% if principal.permissions.get(key,{}).get('can_view') %}<a class="btn btn-sm {{ 'btn-primary' if table==key else 'btn-outline-secondary' }}" href="/admin/{{ key }}" {% if table==key %}aria-current="page"{% endif %}>{{ '♙' if key=='auth_users' else '▦' }} {{ title }}</a>{% endif %}{% endfor %}
+{% if not principal.is_system %}<span class="native-muted">🔒 当前仅可查阅，账号与授权由系统管理员维护。</span>{% endif %}
+</nav>

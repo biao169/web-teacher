@@ -1,0 +1,190 @@
+{
+  "version": "0.15.160",
+  "base": "this-thread-v0.15.159",
+  "method": "full scan followed by targeted reruns of failures and affected scenarios; not a second clean full-suite run",
+  "initial_full_scan": {
+    "passed": 1444,
+    "failed": 31,
+    "subtests_passed": 10
+  },
+  "resolved_initial_failures": {
+    "tests/test_linux_manager_v76.py::test_uninstall_removes_owned_payload_keeps_other_files_and_symlink_target": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "deployment/schema cases passed in first targeted suite"
+    },
+    "tests/test_linux_manager_v76.py::test_uninstall_refuses_modified_external_unit_before_any_action": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "deployment/schema cases passed in first targeted suite"
+    },
+    "tests/test_linux_process_v77.py::test_real_http_update_restart_reset_and_owned_uninstall": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "tests/test_pip_source_v111.py::test_resume_dependency_failure_preserves_data_and_activates": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "deployment/schema cases passed in first targeted suite"
+    },
+    "tests/test_pip_source_v111.py::test_resume_retry_failure_does_not_activate": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "deployment/schema cases passed in first targeted suite"
+    },
+    "tests/test_schema_unified_v74.py::test_worker_package_has_one_generated_installer_and_preserves_schema[False]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "deployment/schema cases passed in first targeted suite"
+    },
+    "tests/test_schema_unified_v74.py::test_worker_package_has_one_generated_installer_and_preserves_schema[True]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "deployment/schema cases passed in first targeted suite"
+    },
+    "site_sync/tests/test_site_sync_v121.py::test_pause_retry_cancel_and_changed_target": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_site_sync_v121.py::test_same_key_conflict_never_overwrites": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_site_sync_v121.py::test_chunk_resume_and_version_change": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_site_sync_v121.py::test_nonmedia_delete_is_limited_to_selected_uid": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_site_sync_v122.py::test_delivery_approval_and_result": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_site_sync_v122.py::test_waiting_request_reviews_latest_content_and_new_change_blocks_commit": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_site_sync_v122.py::test_lost_delivery_ack_reuses_sequence": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_site_sync_v123.py::test_failure_pauses_execution_until_manual_retry": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_execution_v136.py::test_preparation_uses_no_full_restore_and_late_change_rolls_back": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_sync_incremental_v141.py::test_write_ack_loss_retries_without_duplicate_audit_or_timestamp": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_low_load_v133.py::test_failed_page_keeps_cursor_and_retry_records_completion": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_low_load_v133.py::test_interrupted_attempt_keeps_last_start_and_can_continue": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_low_load_v133.py::test_scheduler_retains_failed_preview_instead_of_restarting": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_media_retention_v137.py::test_missing_source_file_stops_before_content_commit_and_can_resume": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_platform_v131.py::test_media_version_changes_stop_at_saved_offset[worker-to-ubuntu]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_sync_platform_v131.py::test_media_version_changes_stop_at_saved_offset[ubuntu-to-worker]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_sync_platform_v131.py::test_media_version_changes_stop_at_saved_offset[worker-to-worker]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_sync_platform_v131.py::test_network_retry_and_cancel_preserve_changed_content[worker-to-ubuntu]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_sync_platform_v131.py::test_network_retry_and_cancel_preserve_changed_content[ubuntu-to-worker]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_sync_platform_v131.py::test_network_retry_and_cancel_preserve_changed_content[worker-to-worker]": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "28 passed platform/cancellation regression suite"
+    },
+    "site_sync/tests/test_sync_prepare_gate_v144.py::test_parent_and_unfinished_child_cannot_send": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_resource_modes_v147.py::test_profiles_are_immutable_and_isolated": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "site_sync/tests/test_sync_unified_v143.py::test_scheduled_read_failure_keeps_same_preparation": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    },
+    "deploy/cloudflare/tests/test_split_loading.py::test_cron_does_not_build_http_app": {
+      "status": "passed_after_fix_or_test_alignment",
+      "evidence": "38 passed remaining regression suite"
+    }
+  },
+  "new_cancellation_regressions": {
+    "passed": 2
+  },
+  "final_focused_suites": {
+    "remaining_cases_passed": 38,
+    "cross_platform_and_cancellation_passed": 28
+  },
+  "dom": {
+    "passed": 321,
+    "failed": 0
+  },
+  "offline_staging": {
+    "worker_source_staging": "passed",
+    "worker_snapshot_imports": "passed",
+    "vps_config_generation": "passed",
+    "assets_and_feature_modules": "passed",
+    "worker_custom_domain_count": 2,
+    "cron": [
+      "* * * * *"
+    ],
+    "wrangler_sdk_bundle": "not_run",
+    "production_d1_r2": "not_run",
+    "real_server_deployment": "not_run"
+  },
+  "checks": [
+    "shell syntax",
+    "Python syntax",
+    "database schema unchanged",
+    "original icons unchanged",
+    "package manifest verification"
+  ],
+  "production_deployed": false,
+  "changed_files": [
+    "pyproject.toml",
+    "README.md",
+    "tests/run_acceptance.py",
+    "tests/test_linux_manager_v76.py",
+    "tests/test_linux_process_v77.py",
+    "tests/test_schema_unified_v74.py",
+    "tests/stage_release_v160.py",
+    "docs/release-acceptance-v160.md",
+    "deploy/cloudflare/tests/test_split_loading.py",
+    "site_sync/backend/site_sync_work.py",
+    "site_sync/tests/test_site_sync_v123.py",
+    "site_sync/tests/test_sync_cancel_v160.py",
+    "site_sync/tests/test_sync_prepare_gate_v144.py",
+    "site_sync/tests/test_sync_incremental_v141.py",
+    "site_sync/tests/test_sync_low_load_v133.py",
+    "site_sync/tests/test_sync_resource_modes_v147.py",
+    "site_sync/tests/test_sync_media_retention_v137.py",
+    "site_sync/tests/test_site_sync_v122.py",
+    "site_sync/tests/test_site_sync_v121.py",
+    "site_sync/tests/test_sync_unified_v143.py"
+  ]
+}

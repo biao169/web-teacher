@@ -1,0 +1,74 @@
+/* Layout only: colors, buttons and controls reuse the shared admin theme. */
+.sync-page{max-width:1240px;margin:12px auto 24px;padding:12px;min-width:0;color:var(--ink);line-height:1.6}
+.sync-page *,.sync-panel *{box-sizing:border-box}
+.sync-page-title{margin:0 0 24px}
+.sync-page-title h1{margin:0 0 8px}
+.sync-page-title p{margin:0}
+.sync-page .panel{padding:24px;margin:0 0 20px;min-width:0}
+.sync-connection-card h2,.sync-panel h2{font-size:var(--admin-section,16px);font-weight:600;margin:0 0 16px}
+.sync-page p{margin:8px 0 16px;overflow-wrap:anywhere}
+.sync-page-title p{margin:0}
+.sync-connection-card>p,.sync-muted{color:var(--muted);font-size:.875rem}
+.sync-connection-card form,.sync-panel form{display:flex;align-items:flex-end;flex-wrap:wrap;gap:16px;margin:0;padding:16px 0}
+.sync-page label,.sync-panel label{display:flex;flex-direction:column;gap:8px;margin:0;min-width:0;font-weight:500}
+.sync-page label:has(>input[type=checkbox]),.sync-panel label:has(>input[type=checkbox]){flex-direction:row;align-items:flex-start;gap:8px;font-weight:400}
+.sync-page input[type=checkbox],.sync-panel input[type=checkbox]{width:16px;height:16px;flex:none;margin:4px 0 0;accent-color:var(--accent)}
+.sync-page input,.sync-page select,.sync-panel input,.sync-panel select{max-width:100%;min-width:0}
+#sync-connection>label:first-child{flex:1 1 360px}
+#sync-connection fieldset{width:100%;min-width:0;padding:16px;border:1px solid var(--line);border-radius:8px;display:flex;flex-wrap:wrap;gap:12px 24px;background:var(--page)}
+#sync-connection legend{float:none;width:auto;padding:0 6px;font-size:.9375rem;font-weight:600;margin:0}
+#sync-connection fieldset p{flex-basis:100%;margin:0;color:var(--muted)}
+#sync-connection fieldset label:last-child{flex-basis:100%}
+.sync-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.sync-heading h2{margin:0 0 8px}
+.sync-heading p{color:var(--muted);margin:0}
+.sync-heading>button{flex-shrink:0}
+.sync-panel{min-width:0;max-width:100%;line-height:1.6}
+.sync-panel>details{border:1px solid var(--line);border-radius:8px;margin:16px 0;background:var(--surface);padding:0 16px}
+.sync-panel summary{cursor:pointer;padding:12px 0;font-weight:600;color:var(--ink)}
+.sync-panel details[open]>summary{margin-bottom:8px}
+.sync-panel form>details,.sync-panel form>p,.sync-panel form>span,.sync-panel form>h3{flex-basis:100%;min-width:0}
+.sync-panel form>details{padding:0 12px;border:1px solid var(--line);border-radius:8px}
+.sync-panel form>p,.sync-panel form>span{font-size:.875rem;color:var(--muted);margin:0}
+.sync-panel select[multiple]{min-height:120px;min-width:200px}
+.sync-parameter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px;width:100%;padding-bottom:8px}
+.sync-parameter-grid input,.sync-parameter-grid select{width:100%}
+.sync-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 16px}
+.sync-panel button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.sync-tabs [data-trim]{margin-left:auto}
+.sync-table{max-width:100%;overflow:auto;border:1px solid var(--line);border-radius:8px;margin:12px 0}
+.sync-panel table{width:100%;border-collapse:collapse;text-align:left;font-size:.875rem;margin:0}
+.sync-panel th,.sync-panel td{border-bottom:1px solid var(--line);padding:12px;vertical-align:top}
+.sync-panel th{white-space:nowrap;background:var(--page);color:var(--muted);font-weight:600}
+.sync-panel tbody>tr:last-child>td{border-bottom:0}
+.sync-panel td button{margin:3px}
+.sync-id{font-family:ui-monospace,monospace;overflow-wrap:anywhere;min-width:12rem;max-width:25rem}
+.sync-pager{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 24px}
+.sync-pager label{flex-direction:row;align-items:center}
+.sync-pager select{width:auto}
+.sync-panel [data-message]:empty{display:none}
+.sync-panel [data-message]:not(:empty){padding:12px 16px;background:var(--accent-soft);border-radius:8px;color:var(--accent)}
+.sync-page [data-connection-message]{overflow-wrap:anywhere}
+.sync-panel [data-error]{color:var(--danger);overflow-wrap:anywhere}
+.sync-panel [hidden]{display:none!important}
+.sync-panel [data-detail]{padding:20px;border:1px solid var(--line);border-radius:8px;background:var(--page)}
+.sync-progress-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.sync-progress-grid>div{background:var(--surface);padding:16px;border-radius:8px;border:1px solid var(--line)}
+.sync-panel progress{width:100%;height:8px;accent-color:var(--accent)}
+.sync-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8125rem;max-height:22rem;overflow:auto}
+.sync-panel [data-logs] td:first-child{white-space:pre-line}
+.sync-panel [data-detail] table{font-size:.8125rem}
+.sync-panel [data-schedule]{padding:20px;border:1px solid var(--line);border-radius:8px;margin-top:16px;background:var(--page)}
+.sync-panel [data-schedule-title]{font-size:1rem;margin:0}
+.sync-panel>h2{border-top:1px solid var(--line);padding-top:24px;margin-top:24px}
+.sync-page summary:focus-visible,.sync-panel summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+@media(max-width:700px){
+ .sync-page{margin:8px auto 16px;padding:8px}
+ .sync-page-title{margin-bottom:20px}
+ .sync-page .panel{padding:16px;margin-bottom:16px}
+ .sync-heading{flex-direction:column;gap:12px}
+ .sync-panel form>label{flex-basis:100%}
+ .sync-panel table{min-width:760px}
+ .sync-tabs [data-trim]{margin-left:0}
+ .sync-panel [data-detail],.sync-panel [data-schedule]{padding:12px}
+}

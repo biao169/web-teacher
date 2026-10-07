@@ -1,0 +1,11 @@
+{% from 'admin/native-help.html' import hint %}
+{% if table=='translation_cache' %}
+<div class="native-helper-actions">
+<label class="native-help-control">本次使用服务<select class="form-select form-select-sm" data-translation-provider aria-describedby="help-translation-run"><option value="default">默认服务：{{ (translation_options|selectattr('id','equalto',translation_default)|first).label if translation_default else '配置待修复' }}</option><option value="fallback">按配置回退（会向后续服务发送原文）</option>{% for p in translation_options %}{% if p.enabled %}<option value="{{ p.id }}">{{ p.label }}</option>{% endif %}{% endfor %}</select>{{ hint('help-translation-run','只发送此条已保存原文；默认不跨供应商回退。人工译文及原文版本受保护。') }}</label>
+<button type="button" class="btn btn-outline-primary btn-sm" data-run-translation {% if row.is_manual %}disabled{% endif %} title="执行此条已保存原文，完整成功后才更新译文">↗ 翻译此条</button>
+<button type="button" class="btn btn-outline-warning btn-sm" data-invalidate-translation {% if not row.is_current %}disabled{% endif %} title="保留译文正文并停止前台使用；后续扫描不会自动重新启用。人工编辑保存可恢复">⊘ 停用译文</button>
+<a class="btn btn-outline-secondary btn-sm" href="/admin/translation_cache/batch" title="扫描公开来源并控制有限批次">↻ 批量管理</a>
+</div>{% if row.is_manual %}<p class="native-muted">🔒 人工维护的译文保持原样，不使用自动结果覆盖。</p>{% endif %}
+{% if not row.is_current %}<p class="native-muted">此条当前未生效；人工填写译文并保存后可恢复，来源仍须与原文一致。</p>{% endif %}
+{% else %}<button type="button" class="btn btn-outline-primary btn-sm" data-queue-translation="{{ title_field[table] }}" title="根据已保存的标题或名称建立条目，不立即调用外部服务">＋ 建立标题／名称翻译条目</button>{% endif %}
+<p data-translation-feedback role="status" aria-live="polite"></p>

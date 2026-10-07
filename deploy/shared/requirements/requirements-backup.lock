@@ -1,0 +1,4 @@
+# Optional offline VPS/development CLI only; never imported by website/Worker.
+cryptography==46.0.0
+cffi==2.1.1
+pycparser==3.0

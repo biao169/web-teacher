@@ -1,0 +1,73 @@
+/* Shared body geometry. Administrator colors and typography are supplied only by admin-theme.css. */
+.news-body{display:flow-root;overflow-wrap:anywhere;line-height:1.7;min-width:0}
+.news-body img,.native-richtext-host img{max-width:100%;height:auto;object-fit:contain}
+.news-body .ql-align-center{text-align:center}.news-body .ql-align-right{text-align:right}.news-body .ql-align-justify{text-align:justify}
+.news-body pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:.65em;background:var(--page);border:1px solid var(--line);border-radius:.4em}
+.news-body blockquote{margin:1em 0;padding:.2em 1em;border-inline-start:3px solid var(--accent)}
+:is(.news-body,.native-richtext-host) img.image-left{float:left;max-width:48%;margin:0 1em .6em 0}
+:is(.news-body,.native-richtext-host) img.image-right{float:right;max-width:48%;margin:0 0 .6em 1em}
+:is(.news-body,.native-richtext-host) img.image-center{display:block;margin:.7em auto}
+:is(.news-body,.native-richtext-host) img.image-wide{display:block;clear:both;width:100%;margin:.7em auto}
+.pdf-inline{overflow-anchor:none;display:block;clear:both;border-top:1px solid var(--line);margin:1em 0;padding-top:.5em;color:var(--ink);text-align:start;min-width:0}
+.pdf-inline-tools{display:flex;flex-wrap:wrap;align-items:center;gap:.4em .8em;margin-bottom:.4em}.pdf-inline-tools strong{margin-inline-end:auto;overflow-wrap:anywhere}
+.pdf-inline button{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);padding:.25em .6em;border-radius:.4em;cursor:pointer}
+.pdf-inline button:hover,.pdf-inline button:focus-visible{border-color:var(--accent);background:var(--accent-soft,var(--page))}.pdf-inline button:disabled{opacity:.65;cursor:wait}
+.pdf-inline-status{display:block;color:var(--muted);margin:.3em 0}.pdf-inline-pages{display:block}
+.pdf-inline-page{display:block;width:100%;position:relative;margin:.6em 0;background:Canvas;box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.pdf-inline-page>canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pdf-inline-page>button{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+/* Copyright 2014 Mozilla Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/* TextLayer geometry adapted from the bundled PDF.js Apache-2.0 viewer CSS. Its sizes come from the PDF. */
+.pdf-inline .textLayer{position:absolute;inset:0;overflow:clip;line-height:1;letter-spacing:normal;word-spacing:normal;text-align:initial;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;--min-font-size:1;--text-scale-factor:calc(var(--total-scale-factor)*var(--min-font-size));--min-font-size-inv:calc(1/var(--min-font-size))}
+.pdf-inline .textLayer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0 0;user-select:text}
+.pdf-inline .textLayer>:not(.markedContent),.pdf-inline .textLayer .markedContent span:not(.markedContent){--font-height:0;font-size:calc(var(--text-scale-factor)*var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}
+.pdf-inline .textLayer .markedContent{display:contents}.pdf-inline .textLayer ::selection{background:Highlight;color:transparent}
+@media(max-width:600px){:is(.news-body,.native-richtext-host) img.image-left,:is(.news-body,.native-richtext-host) img.image-right{float:none;display:block;max-width:100%;margin:.7em auto}}
+
+.pdf-inline-sentinel{display:block;height:1px}
+
+:is(.news-body,.native-richtext-host) img.image-align-left{display:block;float:none;clear:both;margin:.7em auto .7em 0}
+:is(.news-body,.native-richtext-host) img.image-align-right{display:block;float:none;clear:both;margin:.7em 0 .7em auto}
+:is(.news-body,.native-richtext-host) img[data-image-width]{max-width:100%}
+.native-richtext-image-tools[hidden]{display:none!important}
+.native-richtext-image-tools input,.native-richtext-image-tools select{margin-top:.3rem}
+.native-richtext-image-tools p{flex-basis:100%;margin:.3rem 0;color:var(--muted)}
+.native-richtext-image-tools button{align-self:center}
+.native-richtext-host img[draggable=true]{cursor:grab}
+
+/* Pinned controls live outside the content scroller: no overlay over edited text. */
+.native-richtext-workspace{display:flex;flex-direction:column;height:clamp(380px,70vh,850px);min-height:0;border:1px solid var(--line,#ccd3dc);border-radius:.5rem;background:var(--surface,#fff);overflow:hidden;margin:.5rem 0}
+.native-richtext-workspace[hidden]{display:none!important}
+.native-richtext-top{flex:none;background:var(--surface,#fff);border-bottom:1px solid var(--line,#ccd3dc);padding:.5rem;position:relative;z-index:2;overflow:visible}
+.native-richtext-top .native-helper-actions{margin:0;gap:.35rem}
+.native-richtext-top .media-picker-feedback{margin:.2rem 0;font-size:.85em}
+.native-richtext-top .media-picker-feedback:empty{display:none}
+.native-richtext-top .ql-toolbar{border:0!important;padding:.35rem 0}
+.section-admin .native-richtext-top .native-richtext-image-tools{padding:.35rem;margin:.25rem 0;gap:.35rem;max-height:24vh;overflow:auto;font-size:.85em}
+.section-admin .native-richtext-top .native-richtext-image-tools label{min-width:110px;flex:1 1 110px}
+.section-admin .native-richtext-top .native-richtext-image-tools :is(input,select){padding:.25rem .4rem;font-size:inherit}
+.section-admin .native-richtext-top .native-richtext-image-tools p{margin:0;font-size:.9em}
+.native-richtext-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.native-richtext-scroll .native-richtext-host.ql-container{height:auto;min-height:100%;border:0}
+.native-richtext-scroll .ql-editor{height:auto;min-height:240px;overflow:visible;padding:1rem}
+.native-richtext-dialog{width:min(1440px,96vw);max-width:96vw;height:94vh;height:94dvh;max-height:96dvh;padding:.75rem;border:1px solid var(--line,#ccd3dc);border-radius:.65rem;color:var(--ink,#17202c);background:var(--surface,#fff)}
+.native-richtext-dialog[open]{display:flex;flex-direction:column;gap:.4rem}
+.native-richtext-dialog::backdrop{background:rgba(15,23,42,.55)}
+.native-richtext-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex:none}
+.native-richtext-dialog .native-richtext-workspace{flex:1;height:auto;margin:0;min-height:0}
+@media(max-width:600px){.native-richtext-dialog{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;padding:.4rem;border-radius:0}.native-richtext-dialog>header{font-size:.85rem}.native-richtext-workspace{height:76vh}.native-richtext-top{padding:.3rem}.native-richtext-scroll .ql-editor{padding:.65rem}}
+
+.native-richtext-workspace.is-text-mode{height:auto}.native-richtext-workspace.is-text-mode .native-richtext-scroll{min-height:0}.native-richtext-host[hidden]{display:none!important}

@@ -1,0 +1,50 @@
+{# Shared native field control; metadata belongs to backend/app/native/editor.py. #}
+{% macro control(field, spec, value, choices, json_dump) %}
+<div id="field-{{ field }}" class="native-field {{ 'native-wide' if spec.wide else '' }}{{ ' native-media-field' if spec.media }}" {% if spec.media %}data-media-field{% endif %} {% if spec.history %}data-history-field="{{ field }}" data-history-multiple="{{ 'true' if spec.multiple else 'false' }}"{% endif %}>
+  <label {% if spec.widget=='scopes' %}id="scope-options-label"{% else %}for="f-{{ field }}"{% endif %}>{{ spec.label }}{% if spec.get('required') and spec.widget!='boolean' %} <span title="必填">*</span>{% endif %}</label>
+  {% set described = 'help-'+field if spec.help else '' %}
+  {% if spec.get('readonly') %}
+  <pre id="f-{{ field }}" class="native-record-text" tabindex="0" {% if described %}aria-describedby="{{ described }}"{% endif %}>{{ spec.get('readonly_text',value if value is not none else '—') }}</pre>
+  {% if spec.get('paper_pdf') %}<div class="native-media-field-actions"><button type="button" class="btn btn-outline-primary btn-sm" disabled title="需要媒体库进入权限">⇧ 上传 PDF</button><button type="button" class="btn btn-outline-secondary btn-sm" disabled title="需要媒体库进入权限">▧ 从媒体库选择</button></div>{% endif %}
+  {% elif spec.widget=='zoned-time' %}
+  <div class="native-zoned-time" data-zoned-time data-original="{{ value or '' }}">
+  <input class="form-control form-control-sm" type="datetime-local" step="0.001" id="f-{{ field }}" name="{{ field }}" value="{{ spec.time_value }}" data-time-input {% if spec.get('required') %}required{% endif %}>
+  <label>录入时区<input class="form-control form-control-sm" name="_timezone_{{ field }}" value="{{ spec.time_zone }}" list="zones-{{ field }}" data-time-zone required autocomplete="off" aria-describedby="time-help-{{ field }}"></label>
+  <datalist id="zones-{{ field }}">{% for key,text in spec.time_zones %}<option value="{{ key }}">{{ text }}</option>{% endfor %}</datalist>
+  <label data-time-fold-label>重复时间（如适用）<select class="form-select form-select-sm" name="_fold_{{ field }}" data-time-fold><option value="">请选择</option><option value="0">较早一次</option><option value="1">较晚一次</option></select></label>
+  <small id="time-help-{{ field }}" data-time-status>北京时间 UTC+08:00；可选择或输入 IANA 时区。保存为 UTC。</small>
+  </div>
+  {% elif spec.media %}
+  {# Keep the native key for programmatic selection; the visible link is resolved at whole-form save. #}
+  <select name="{{ field }}" data-media-key hidden aria-describedby="{{ described }}"><option value="">未设置</option>{% for key,text in choices.get(field,[]) %}<option value="{{ key }}" {% if key==value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select>
+  <input class="form-control form-control-sm" type="text" id="f-{{ field }}" name="_media_link_{{ field }}" value="{{ spec.get('media_input',value or '') }}" data-media-link maxlength="4096" autocomplete="off" placeholder="输入媒体链接，或点击选择 / 上传" aria-describedby="{{ described }}" {% if spec.get('required') %}required{% endif %}>
+  <input type="hidden" name="_media_stamp_{{ field }}" value="{{ spec.get('media_stamp','') }}" data-media-stamp>
+  <label class="native-media-type" data-media-type-label {% if not spec.get('media_external') %}hidden{% endif %}>外链类型
+    <select class="form-select form-select-sm" name="_media_type_{{ field }}" data-media-type aria-describedby="media-type-help-{{ field }}"><option value="">请选择外链类型</option>{% for mime,text in spec.get('media_types',[]) %}<option value="{{ mime }}" {% if mime==spec.get('media_mime') %}selected{% endif %}>{{ text }}</option>{% endfor %}</select>
+    <small id="media-type-help-{{ field }}" class="native-field-help">类型由您声明；文件名仅作提示，服务器不核验外部内容或大小。不能预览时请检查链接或上传本地文件。</small>
+  </label>
+  {% elif spec.widget=='select' %}
+  <select class="form-select form-select-sm" name="{{ field }}" id="f-{{ field }}" {% if described %}aria-describedby="{{ described }}"{% endif %} {% if spec.get('required') %}required{% endif %}>
+    {% if (field in choices or spec.get('nullable')) and not spec.get('option_help') %}<option value="">未设置</option>{% endif %}
+    {% for key,text in choices.get(field,spec.options) %}<option value="{{ key }}" {% if key==value or (key=='' and value is none) %}selected{% endif %} {% if spec.get('option_help') %}data-option-help="{{ spec.option_help.get(key,'') }}" title="{{ spec.option_help.get(key,'') }}"{% endif %}>{{ text }}</option>{% endfor %}
+  </select>
+  {% elif spec.widget=='boolean' %}
+  {% if spec.get('locked') %}<input type="hidden" name="{{ field }}" value="{{ 1 if value else 0 }}">{% endif %}
+  <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" name="{{ field }}" id="f-{{ field }}" value="1" {% if value %}checked{% endif %} {% if spec.get('locked') %}disabled{% endif %} {% if described %}aria-describedby="{{ described }}"{% endif %}><span data-state-label>{{ '✓ 已开启' if value else '○ 未开启' }}</span></div>
+  {% elif spec.widget=='scopes' %}
+  <input type="hidden" name="_scopes_present" value="1"><div class="native-scope-choices" role="group" aria-labelledby="scope-options-label">{% for key,text in spec.options %}<label><input class="form-check-input" type="checkbox" name="_scope_{{ key }}" value="1" aria-describedby="{{ described }}" title="允许在已授权模块查看{{ text }}范围的记录" {% if key in spec.selected %}checked{% endif %}>{{ text }}</label>{% endfor %}</div>
+  {% elif spec.widget=='providers' %}
+  {% include 'admin/native-metadata-providers.html' %}
+  {% elif spec.widget=='textarea' %}
+  <textarea class="form-control form-control-sm" name="{{ field }}" id="f-{{ field }}" rows="{{ spec.rows }}" placeholder="{{ spec.placeholder }}" {% if described %}aria-describedby="{{ described }}"{% endif %} {% if spec.get('required') %}required{% endif %}>{{ json_dump(value) }}</textarea>
+  {% else %}
+  <input class="form-control form-control-sm" type="{{ spec.widget }}" name="{{ field }}" id="f-{{ field }}" value="{{ value if value is not none else '' }}" placeholder="{{ spec.placeholder }}" {% if described %}aria-describedby="{{ described }}"{% endif %} {% if spec.get('required') %}required{% endif %} {% if spec.widget=='number' %}step="1" {% if spec.get('min') is not none %}min="{{ spec.min }}"{% endif %} {% if spec.get('max') is not none %}max="{{ spec.max }}"{% endif %}{% endif %}>
+  {% endif %}
+  {% if spec.help %}<small id="help-{{ field }}" class="native-field-help"><span>{{ spec.help }}</span>{% if spec.get('requirements') %}<span class="native-field-rules">{{ spec.requirements }}</span>{% endif %}{% if spec.get('option_help') %}<span data-option-description aria-live="polite">{{ spec.option_help.get(value or '','') }}</span>{% endif %}</small>{% endif %}
+  {% if spec.media %}<div class="native-media-field-actions" data-media-field-actions {% if not spec.get('paper_pdf') %}hidden{% endif %}>
+  {% if spec.get('paper_pdf') %}<button type="button" class="btn btn-outline-primary btn-sm" data-media-upload-direct data-media-permitted="{{ '1' if spec.media_can_upload else '0' }}" disabled title="上传 PDF 到媒体库，确认后填入当前附件；保存后建立论文引用">⇧ 上传 PDF</button>{% endif %}
+  <button type="button" class="btn btn-outline-primary btn-sm" data-media-choose {% if spec.get('paper_pdf') %}data-media-permitted="{{ '1' if spec.media_can_choose else '0' }}" disabled{% endif %}>{{ '▧ 从媒体库选择' if spec.get('paper_pdf') else '▧ 选择 / 上传' }}</button><button type="button" class="btn btn-outline-secondary btn-sm" data-media-edit hidden>✂ 编辑图片</button><button type="button" class="btn btn-outline-secondary btn-sm" data-media-clear title="只清除此处选择，保留媒体文件">× 清空</button></div>
+  {% if spec.get('paper_pdf') %}<small class="native-field-help" data-media-startup role="status">上传与选择需要 JavaScript 完成加载；可先手动填写已有 PDF 链接。</small>{% if spec.media_permission_note %}<small class="native-field-help" data-media-permission role="status">{{ spec.media_permission_note }}</small>{% endif %}{% endif %}
+  {% include 'admin/native-media-field.html' %}{% endif %}
+</div>
+{% endmacro %}

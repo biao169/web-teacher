@@ -1,0 +1,52 @@
+"""Package private native stream companion from this source tree only."""
+import json,shutil,ast
+
+def native_package(root,stage,config):
+    native=stage/'sync-native';native.mkdir()
+    shutil.copytree(root/'site_sync/worker',native/'worker',ignore=shutil.ignore_patterns('*.test.mjs'))
+    base=config['name']
+    if len(base)>51:
+        import hashlib
+        base=base[:42]+'-'+hashlib.sha256(base.encode()).hexdigest()[:8]
+    name=base+'-sync-native'
+    media=next(b for b in config['r2_buckets'] if b['binding']==config['vars']['TEACHER_MEDIA_BINDING'])
+    db=config['d1_databases'][0]
+    cfg={'name':name,'main':'worker/native_service.mjs','compatibility_date':config['compatibility_date'],
+         'compatibility_flags':['global_fetch_strictly_public'],'workers_dev':False,'preview_urls':False,
+         'vars':{'TEACHER_MEDIA_PREFIX':config['vars']['TEACHER_MEDIA_PREFIX']},
+         'd1_databases':[dict(db,binding='DB')],'r2_buckets':[dict(media,binding='MEDIA')]}
+    (native/'wrangler.jsonc').write_text(json.dumps(cfg,indent=2))
+    config['services']=[{'binding':'SYNC_NATIVE','service':name}]
+    config['assets']['run_worker_first'].append('/sync/*')
+    mode=config.get('vars',{}).get('TEACHER_SYNC_EXECUTOR_MODE','inline')
+    if mode not in ('inline','separate'):raise ValueError('TEACHER_SYNC_EXECUTOR_MODE must be inline or separate')
+    if mode=='separate':
+        # Same staged source and locked Python dependencies; no second website,
+        # database initialization file, public route, assets or admin session.
+        executor_name=config['name']
+        if len(executor_name)>49:
+            import hashlib
+            executor_name=executor_name[:40]+'-'+hashlib.sha256(executor_name.encode()).hexdigest()[:8]
+        executor={k:config[k] for k in ('compatibility_date','compatibility_flags','vars','d1_databases','r2_buckets','services')}
+        executor.update(name=executor_name+'-sync-executor',main='src/sync_executor.py',workers_dev=False,preview_urls=False,triggers={'crons':['* * * * *']})
+        (stage/'src/sync_executor.py').write_text('from worker_runtime.sync_executor import Default\n')
+        (stage/'wrangler.sync-executor.jsonc').write_text(json.dumps(executor,indent=2))
+
+def verify(root,stage):
+    for folder in ('core','adapters','runtime','transport','integration','admin'):
+        for p in (root/'site_sync'/folder).rglob('*.py'):
+            target=stage/'src/site_sync'/p.relative_to(root/'site_sync')
+            if not target.is_file() or target.read_bytes()!=p.read_bytes():raise ValueError('Sync source differs: '+str(p))
+    for p in (root/'site_sync/frontend/static').iterdir():
+        if p.is_file() and (stage/'assets/assets/site-sync'/p.name).read_bytes()!=p.read_bytes():raise ValueError('Sync asset differs')
+    cfg=json.loads((stage/'wrangler.jsonc').read_text())
+    if not any(b.get('binding')=='SYNC_NATIVE' for b in cfg.get('services',[])):raise ValueError('Native service binding missing')
+
+    if cfg.get('vars',{}).get('TEACHER_SYNC_EXECUTOR_MODE')=='separate':
+        executor=json.loads((stage/'wrangler.sync-executor.jsonc').read_text())
+        if executor.get('workers_dev') is not False or executor.get('preview_urls') is not False or any(k in executor for k in ('routes','assets','durable_objects')):raise ValueError('Executor must remain private and scheduled only')
+        if executor.get('triggers')!={'crons':['* * * * *']}:raise ValueError('Executor recovery schedule missing')
+        for key in ('d1_databases','r2_buckets','services','compatibility_flags','vars'):
+            if executor.get(key)!=cfg.get(key):raise ValueError('Executor resource/config mismatch: '+key)
+        if executor.get('main')!='src/sync_executor.py' or (stage/'src/sync_executor.py').read_text().strip()!='from worker_runtime.sync_executor import Default':raise ValueError('Executor entrypoint missing')
+        if (stage/'src/worker_runtime/sync_executor.py').read_bytes()!=(root/'deploy/cloudflare/runtime/sync_executor.py').read_bytes():raise ValueError('Executor source mismatch')

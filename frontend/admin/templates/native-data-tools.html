@@ -1,0 +1,37 @@
+{% extends 'admin/layout.html' %}
+{% block metadata %}{{ super() }}<script type="module" src="/assets/admin/js/native-data-tools.js"></script>{% endblock %}
+{% block content %}
+<div id="data-tools" data-csrf="{{ csrf }}">
+<div class="native-title"><h1>数据与备份</h1><span class="native-muted">业务数据 · 原生字段 · 按 UID 恢复</span></div>
+<p><a class="btn btn-outline-primary btn-sm" href="/admin/examples">⊕ 打开示例中心</a></p>
+<nav class="native-section-nav" aria-label="数据工具快速跳转"><a href="#data-selection">选择数据</a><a href="#data-export">导出与备份</a><a href="#data-import">导入与恢复</a></nav>
+{% if not principal.is_system %}<p class="alert alert-warning">跨表备份与恢复仅系统管理员可操作。</p>{% endif %}
+<noscript><p class="alert alert-warning">交互式备份与恢复需要启用 JavaScript。服务端仍会核对权限和输入内容。</p></noscript>
+<section id="data-selection" class="panel native-editor-section"><h2>选择数据</h2>
+<p class="native-muted" id="data-tables-help">所选表同时用于导出及恢复。JSON 会移除服务密钥；账号、角色、会话、运行任务、部署环境变量和独立快传数据不在业务备份范围。</p>
+<div class="native-helper-actions"><button type="button" class="btn btn-outline-secondary btn-sm" data-data-select="all" title="选择所有支持的业务表">☑ 全选</button><button type="button" class="btn btn-outline-secondary btn-sm" data-data-select="none" title="清除表选择">□ 清空</button><span class="native-muted" data-data-selected></span></div>
+<div class="data-table-choices">{% for item in backup_tables %}<label class="form-check-label"><input type="checkbox" class="form-check-input" name="backup-table" value="{{ item.key }}" aria-describedby="data-tables-help"> {{ item.label }}</label>{% endfor %}</div>
+</section>
+<section id="data-export" class="panel native-editor-section"><h2>导出与加密备份</h2>
+<div class="native-fields">
+<div class="native-field"><label for="data-format">导出格式</label><select id="data-format" class="form-select form-select-sm" aria-describedby="data-format-help"><option value="json">JSON · 安全数据交换</option><option value="csv">CSV · 单表查看</option><option value="acms">ACMS · 加密业务备份</option></select><small id="data-format-help" class="native-muted">CSV 仅导出单表。ACMS 可包含数据库中的服务密钥及受管理媒体文件。</small></div>
+<div class="native-field"><label for="data-export-password">备份口令</label><input id="data-export-password" type="password" autocomplete="new-password" class="form-control form-control-sm" minlength="15" maxlength="128" disabled aria-describedby="data-password-help"><small id="data-password-help" class="native-muted">ACMS 使用至少15位口令；AES-256-GCM / PBKDF2-SHA256 600000次。口令仅在当前浏览器使用，遗失无法找回。</small></div>
+</div>
+<label class="form-check-label"><input id="data-include-media" type="checkbox" class="form-check-input" disabled aria-describedby="data-media-help"> 加密包包含所选媒体库的文件</label><small id="data-media-help" class="native-muted d-block">最多100个本地/R2对象、原始总计24MiB、单个20MiB；外链和静态资源不复制。仅媒体登记不能代替原文件。</small>
+<div class="native-helper-actions"><button type="button" class="btn btn-primary btn-sm" data-data-export {% if not principal.is_system or not data_permissions.can_export %}disabled{% endif %} title="读取所选业务表并下载文件">⇩ 导出文件</button><small class="native-muted">导出最多20000条；字段内容4MiB，编码文件8MiB。加密包明文总大小32MiB。</small></div>
+</section>
+<section id="data-import" class="panel native-editor-section"><h2>导入与恢复</h2>
+<div class="native-fields">
+<div class="native-field"><label for="data-file">备份文件</label><input id="data-file" type="file" accept=".json,.acms" class="form-control form-control-sm" aria-describedby="data-file-help"><small id="data-file-help" class="native-muted">接收本版本 JSON/ACMS，最多48MiB；不接收CSV。记录按UID匹配，原数据库数字ID不会覆盖。</small></div>
+<div class="native-field"><label for="data-import-password">解密口令</label><input id="data-import-password" type="password" autocomplete="off" maxlength="128" class="form-control form-control-sm" aria-describedby="data-import-password-help"><small id="data-import-password-help" class="native-muted">仅ACMS需要；在浏览器解密，口令不会发送到服务器。</small></div>
+<div class="native-field"><label for="data-mode">恢复模式</label><select id="data-mode" class="form-select form-select-sm" aria-describedby="data-mode-help"><option value="merge">按 UID 合并 · 新增或更新</option><option value="replace">替换所选表 · 含删除现有记录</option></select><small id="data-mode-help" class="native-muted">只处理所选表；被其他记录引用的删除会被阻止。安全JSON保留已有服务密钥。</small></div>
+<div class="native-field" data-data-confirm-field hidden><label for="data-confirm">确认替换范围</label><input id="data-confirm" class="form-control form-control-sm" autocomplete="off" aria-describedby="data-confirm-help"><small id="data-confirm-help" class="native-muted">执行替换前，输入“替换所选表”。预检只统计，不修改业务数据。</small></div>
+</div>
+<div class="native-helper-actions"><button type="button" class="btn btn-outline-primary btn-sm" data-data-preflight {% if not principal.is_system or not data_permissions.can_edit %}disabled{% endif %} title="检查字段、关联、文件及预计新增更新删除数量">⌕ 运行预检</button><button type="button" class="btn btn-outline-secondary btn-sm" data-data-cancel disabled title="删除本次预检及暂存文件，不更改网站数据">取消预检</button><small class="native-muted">在线最多500条、记录及文件清单4MiB、每表900KiB。超过上限请缩小范围；不会截断导入。</small></div>
+<div data-data-report hidden><h3>预检结果</h3><div class="native-table-scroll"><table class="native-table"><thead><tr><th>数据表</th><th>新增</th><th>更新</th><th>删除</th></tr></thead><tbody data-data-counts></tbody></table></div><ul data-data-errors></ul></div>
+<p class="native-muted" data-data-status role="status" aria-live="polite">请选择数据表和文件，再运行预检。</p>
+</section>
+</div>
+{% endblock %}
+{% block footer_class %}native-data-footer{% endblock %}
+{% block workspace_footer %}<span class="native-muted">确认预检后提交；更新代码不会自动恢复或重新填充数据</span><button type="button" class="btn btn-primary btn-sm" data-data-execute disabled title="再次核对预检及当前数据，事务提交所选表">✓ 确认恢复</button><a href="/admin" class="btn btn-outline-secondary btn-sm">返回后台</a>{% endblock %}

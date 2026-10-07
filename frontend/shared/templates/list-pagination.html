@@ -1,0 +1,8 @@
+{# Server-counted pagination; same permissions and filters as the displayed records. #}
+<div class="admin-pagination">
+<p role="status">共 {{ pagination.total }} 条 · {% if pagination.total_pages %}第 {{ pagination.page }}/{{ pagination.total_pages }} 页{% else %}0 页{% endif %} · 本页 {{ pagination.count }} 条</p>
+<nav aria-label="列表分页"><ul class="pagination pagination-sm">
+<li class="page-item {{ 'disabled' if not pagination.previous }}">{% if pagination.previous %}<a class="page-link" href="{{ pagination.previous }}" aria-label="上一页">‹ 上一页</a>{% else %}<span class="page-link">‹ 上一页</span>{% endif %}</li>
+{% for entry in pagination.pages %}{% if entry.gap %}<li class="page-item page-gap"><details><summary class="page-link" aria-label="展开更多页码" title="选择附近页码快速跳转">…</summary><div class="page-gap-options">{% for choice in entry.choices %}<a class="page-link" href="{{ choice.url }}">第 {{ choice.number }} 页</a>{% endfor %}</div></details></li>{% else %}<li class="page-item {{ 'active' if entry.current }}"><a class="page-link" href="{{ entry.url }}" {% if entry.current %}aria-current="page"{% endif %} aria-label="第 {{ entry.number }} 页">{{ entry.number }}</a></li>{% endif %}{% endfor %}
+<li class="page-item {{ 'disabled' if not pagination.next }}">{% if pagination.next %}<a class="page-link" href="{{ pagination.next }}" aria-label="下一页">下一页 ›</a>{% else %}<span class="page-link">下一页 ›</span>{% endif %}</li>
+</ul></nav></div>

@@ -1,0 +1,6 @@
+# Preserve release-manifest bytes, regardless of developer core.autocrlf settings.
+* -text
+# Shell bootstrap must always have LF when checked out on Windows or Linux.
+*.sh text eol=lf
+# Keep packaged Windows command files byte-for-byte (CRLF); do not normalize blobs.
+*.cmd -text

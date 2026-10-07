@@ -1,0 +1,6 @@
+{% set item_title=row.get('name_en') if lang=='en' and row.get('name_en') else row[title_field[table]] %}{% set has_media=table=='news' %}{% from 'public/news-media.html' import cover %}
+<article id="record-{{ row.uid }}" class="public-list-card person-card content-card{% if has_media %} card-with-media{% endif %}" data-record-id="{{ row.uid }}" data-person-card{% include 'public/description-attributes.html' %}>
+<div class="person-select"><span class="person-number" aria-label="{{ 'Number' if lang=='en' else '序号' }}">{{ pages.total-(pages.page-1)*pages.size-row_index }}</span><input type="checkbox" data-person-select hidden aria-label="{{ ('Select ' if lang=='en' else '选择 ')~item_title }}"></div>
+{% if has_media %}{{ cover(row,media_map,lang=lang) }}{% endif %}
+<div class="person-content">{% include 'public/content-body.html' %}</div>
+</article>

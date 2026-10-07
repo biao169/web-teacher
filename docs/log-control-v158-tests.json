@@ -1,0 +1,32 @@
+{
+  "version": "0.15.158",
+  "base": "this-thread-v0.15.157",
+  "python_passed": 124,
+  "changed_files": [
+    "pyproject.toml",
+    "README.md",
+    "tests/test_log_control_v158.py",
+    "docs/log-control-v158.md",
+    "backend/maintenance/policy.py",
+    "backend/maintenance/log_retention.py",
+    "backend/maintenance/history.py",
+    "backend/app/native/web.py",
+    "backend/app/native/log_admin.py",
+    "backend/app/native/navigation_options.py",
+    "frontend/admin/templates/native-maintenance.html",
+    "frontend/admin/templates/native-log-maintenance.html",
+    "deploy/shared/service.py",
+    "deploy/cloudflare/runtime/entrypoint.py",
+    "deploy/cloudflare/runtime/maintenance.py",
+    "site_sync/tests/worker/test_sync_schedule.py"
+  ],
+  "validation": [
+    "isolated SQLite and HTTP tests",
+    "Worker scheduler mocks and startup/resource regressions",
+    "Python AST",
+    "schema and icon byte equality",
+    "maintenance admin DOM interaction regression"
+  ],
+  "production_deployment_tested": false,
+  "javascript_passed": 1
+}

@@ -1,0 +1,13 @@
+{% set en=lang=='en' %}{% set chosen=namespace(profile=none) %}
+{% for row in data.get('profiles',[]) %}{% if row.get('is_featured')==1 and chosen.profile is none %}{% set chosen.profile=row %}{% endif %}{% endfor %}
+<section class="faculty-home">
+{% if chosen.profile %}{% with row=chosen.profile,table='profiles',person_detail=false,home_contact=true %}{% include 'public/person-overview.html' %}{% endwith %}
+{% else %}<div class="academic-hero academic-home-hero"><div class="academic-hero-copy"><h1>{{ site.get("hero_title") or (site.get("site_name_en") if en and site.get("site_name_en") else site.title) }}</h1>{% if site.get("hero_subtitle") %}<p class="academic-bio">{{ site.get("hero_subtitle") }}</p>{% endif %}</div></div>{% endif %}
+{% if public_hero_nav is defined and public_hero_nav %}<div class="academic-hero-actions faculty-hero-actions">{% with links=public_hero_nav %}{% include 'public/native-navigation-links.html' %}{% endwith %}</div>{% endif %}
+</section>
+{% set groups=[('primary',[('publications','论文成果','Publications','homepage_publication_limit'),('news','新闻动态','News','homepage_news_limit')]),('secondary',[('projects','科研项目','Projects','homepage_project_limit'),('patents','专利软著','Patents','homepage_patent_limit'),('students','学生','Students','homepage_student_limit')])] %}
+{% for group,modules in groups %}{% set visible=namespace(items=[]) %}
+{% for table,cn,eng,key in modules %}{% if data.get(table,[]) and (site.get(key) is none or site.get(key)|int>0) %}{% set visible.items=visible.items+[(table,cn,eng,key)] %}{% endif %}{% endfor %}
+{% if visible.items %}<div class="home-module-grid home-module-grid-{{ group }}" data-home-group="{{ group }}" data-module-count="{{ visible.items|length }}">
+{% for table,cn,eng,key in visible.items %}{% set rows=data.get(table,[]) %}{% if site.get(key) is not none %}{% set rows=rows[:([site.get(key)|int,0]|max)] %}{% endif %}{% include 'public/home-section.html' %}{% endfor %}
+</div>{% endif %}{% endfor %}

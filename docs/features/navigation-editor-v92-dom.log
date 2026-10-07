@@ -1,0 +1,42 @@
+(node:12) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ arrow toggles asc/desc/asc, keeps independent conditions and resets page (223.405067ms)
+✔ text/boolean filters and clear affect only the selected column (104.789829ms)
+✔ fixed scope is not cleared; Escape closes and restores focus (104.666383ms)
+✔ optional column module failure does not block headers or mutations (139.770445ms)
+✔ optional media module failure is isolated from the list controller (127.459758ms)
+✔ core import failure retains independent headers, HTML search and links (112.034511ms)
+✔ storage and canvas exceptions retain working columns and headers (118.128743ms)
+✔ mount/dispose/remount attaches exactly one action listener (204.254687ms)
+✔ repeated partial refresh retains query, draft, selection, focus, and single handlers (312.514649ms)
+✔ failed follow-up read never replays a successful write; retry is read-only (153.34182ms)
+✔ account deletion confirmation single cancels without a request (58.202066ms)
+✔ account deletion confirmation batch cancels without a request (66.779363ms)
+✔ grouped sidebar collapse, mobile drawer and Escape preserve focus (57.328208ms)
+✔ sidebar remains usable when preference storage is unavailable (43.349794ms)
+✔ grouped navigation retains permission notice and keyboard focus return (33.175859ms)
+✔ media size header edits KB but preserves byte query contract (30.905905ms)
+✔ cancelled permanent deletion sends preflight only (64.554678ms)
+✔ batch permanent deletion preflights every item before confirm, stops on failure (97.851459ms)
+✔ corresponding author markers match complete names and render text safely (28.733238ms)
+✔ metadata draft fills empty correspondence, protects existing value and supports explicit replacement and undo (40.936504ms)
+✔ single translation sends selected target version and keeps current filters (68.555993ms)
+✔ media KB cells use integers and a compact default width (42.128273ms)
+(node:13) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ front target selection retains placement and supports Chinese contains with ASCII stored path (208.104674ms)
+✔ public fields exclude private project data, status is exact and condition removal restores plain link (115.608517ms)
+✔ reset preserves unrelated title and restores initial location and conditions (101.911082ms)
+✔ legacy sidebar sends the original equality payload (76.763672ms)
+✔ stale preview cannot replace newer draft or survive a kind change (93.830915ms)
+✔ switching location retains valid contains condition (91.977369ms)
+✔ preset selection keeps footer placement and reads public target (63.572636ms)
+✔ backend selector explicitly switches destination, supports contains, and frontend selector switches back (102.590077ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3572.374518

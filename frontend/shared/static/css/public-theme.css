@@ -1,0 +1,288 @@
+/* Single source of public UI typography and colors. Loaded only by public pages.
+   Edit semantic --public-ink/muted/accent/surface/page/line first.
+   Numbered tokens preserve existing responsive size and color variants.
+   Vendor CSS, administration and document/image intrinsic typography are untouched. */
+:root{
+  /* Ambient background palette and motion: all public visual parameters live here. */
+  --public-ambient-base:#f3f8f7;
+  --public-ambient-warm:#faf8f2;
+  --public-ambient-mint:rgba(117,182,164,.23);
+  --public-ambient-blue:rgba(119,165,202,.20);
+  --public-ambient-sand:rgba(215,196,153,.15);
+  --public-ambient-grid:rgba(61,104,101,.13);
+  --public-ambient-strength:.65;
+  --public-ambient-home-strength:.95;
+  --public-ambient-mobile-strength:.62;
+  --public-ambient-grid-strength:.48;
+  --public-ambient-grid-size:48px;
+  /* Sparse academic geometry. Density is controlled by the shared SVG generator. */
+  --public-pattern-color:#477f82;
+  --public-pattern-strength:.23;
+  --public-pattern-mobile-strength:.18;
+  --public-pattern-line-width:1.2;
+  --public-pattern-duration:78s;
+  --public-ambient-duration:64s;
+  --public-ambient-mobile-duration:90s;
+  --public-transfer-code-size:1.35em;
+  --public-transfer-code-spacing:.14em;
+  --public-line-height-1:1.65;
+  --public-font-size-1:clamp(1.75rem,3.4vw,2.6rem);
+  --public-line-height-2:1.3;
+  --public-letter-spacing-1:-.025em;
+  --public-font-size-2:1.2rem;
+  --public-line-height-3:1.45;
+  --public-color-1:#287951;
+  --public-font-weight-1:700;
+  --public-font-size-3:.85rem;
+  --public-font-size-4:.75rem;
+  --public-letter-spacing-2:.12em;
+  --public-color-2:transparent;
+  --public-font-weight-2:600;
+  --public-line-height-4:1.5;
+  --public-font-size-5:.9rem;
+  --public-surface:#ffffff;
+  --public-color-3:#194832;
+  --public-font-weight-3:650;
+  --public-font-size-6:.7rem;
+  --public-font-weight-4:400;
+  --public-color-4:#abbeb0;
+  --public-line-height-5:1.6;
+  --public-color-5:#f4f6f3;
+  --public-color-6:#42594c;
+  --public-font-size-7:.8rem;
+  --public-color-7:#e6b6b6;
+  --public-color-8:#e3d2a8;
+  --public-color-9:#eef0ed;
+  --public-color-10:#57655d;
+  --public-font-size-8:1.85rem;
+  --public-color-11:#285f8f;
+  --public-line-height-6:1.7;
+  --public-line-height-7:1;
+  --public-font-size-9:calc(var(--text-scale-factor)*var(--font-height));
+  --public-color-12:#ccd3dc;
+  --public-font-size-10:.85em;
+  --public-font-size-11:.9em;
+  --public-color-13:#17202c;
+  --public-color-14:rgba(15,23,42,.55);
+  --public-font-size-12:1.05rem;
+  --public-line-height-8:1.95;
+  --public-font-size-13:1rem;
+  --public-font-size-14:.86rem;
+  --public-line-height-9:1.9;
+  --public-font-size-15:1.18rem;
+  --public-line-height-10:1.85;
+  --public-font-size-16:.78rem;
+  --public-font-weight-5:500;
+  --public-font-size-17:.88rem;
+  --public-font-size-18:.84rem;
+  --public-font-size-19:1.1rem;
+  --public-font-size-20:clamp(1.7rem,3vw,2.8rem);
+  --public-line-height-11:1.35;
+  --public-font-size-21:1.3rem;
+  --public-font-size-22:1.06rem;
+  --public-font-size-23:1.04rem;
+  --public-line-height-12:1.8;
+  --public-font-size-24:.875rem;
+  --public-page:#f8fafb;
+  --public-ink:#213b4b;
+  --public-muted:#607680;
+  --public-line:#dce5e7;
+  --public-accent:#1c6e6a;
+  --public-accent-soft:#eaf3f2;
+  --public-color-15:#adc7c8;
+  --public-color-16:#f1f5f6;
+  --public-color-17:#183b491a;
+  --public-letter-spacing-3:.16em;
+  --public-font-family-1:Georgia,"Songti SC","SimSun",serif;
+  --public-font-size-25:clamp(2rem,4vw,3rem);
+  --public-font-weight-6:550;
+  --public-letter-spacing-4:.035em;
+  --public-color-18:#b4cdce;
+  --public-color-19:#213b4b06;
+  --public-line-height-13:1.55;
+  --public-color-20:#30576a;
+  --public-color-21:#287f7a;
+  --public-font-size-26:.95rem;
+  --public-line-height-14:1.4;
+  --public-color-22:#213b4b16;
+  --public-color-23:#778994;
+  --public-font-size-27:1.13rem;
+  --public-font-size-28:.92rem;
+  --public-color-24:#dfe8ea;
+  --public-color-25:#f7fafb;
+  --public-color-26:#315967;
+  --public-color-27:#eaf3f1;
+  --public-color-28:#99b9b3;
+  --public-color-29:#174e49;
+  --public-color-30:#70b7b1;
+  --public-font-size-29:.83rem;
+  --public-color-31:#795c24;
+  --public-color-32:#e3e9ec;
+  --public-font-size-30:1.8rem;
+  --public-color-33:#667b86;
+  --public-color-34:#8baeb1;
+  --public-color-35:#f2f8f7;
+  --public-color-36:#70b7b155;
+  --public-color-37:#b9cdd0;
+  --public-color-38:#213b4b26;
+  --public-color-39:#eef5f5;
+  --public-font-size-31:.82rem;
+  --public-color-40:#285c63;
+  --public-color-41:#627f88;
+  --public-color-42:#526476;
+  --public-font-size-32:clamp(1.8rem,3.3vw,2.5rem);
+  --public-letter-spacing-5:.015em;
+  --public-font-size-33:.94rem;
+  --public-font-size-34:.93rem;
+  --public-line-height-15:1.75;
+  --public-font-size-35:.77rem;
+  --public-font-size-36:.73rem;
+  --public-font-family-2:Inter,"Segoe UI","Microsoft YaHei",sans-serif;
+  --public-font-size-37:.75rem;
+  --public-letter-spacing-6:.18em;
+  --public-font-size-38:clamp(1.75rem,4vw,2.625rem);
+  --public-line-height-16:1.2;
+  --public-font-size-39:1.3125rem;
+  --public-font-size-40:.9375rem;
+  --public-color-43:#e8edf3;
+  --public-color-44:#20314812;
+  --public-color-45:#eef3f8;
+  --public-color-46:#123e5c;
+  --public-color-47:#e5eaf0;
+  --public-color-48:#24395206;
+  --public-font-size-41:.8125rem;
+  --public-color-49:#eff4f8;
+  --public-font-size-42:1.6875rem;
+  --public-color-50:#a8bacd;
+  --public-color-51:#f8fafc;
+  --public-color-52:#eaf3fa;
+  --public-font-size-43:.875rem;
+  --public-color-53:#70a7ca;
+  --public-font-body:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  --public-root-size:16px;
+  --public-root-comfortable:18px;
+  --public-root-large:20px;
+  --public-placeholder-size:2rem;
+  --public-placeholder-weight:600;
+}
+html{font-size:var(--public-root-size)}html[data-reading=comfortable]{font-size:var(--public-root-comfortable)}html[data-reading=large]{font-size:var(--public-root-large)}
+body.section-public{font-family:var(--public-font-body);color:var(--public-ink);background:var(--public-page);--bs-font-sans-serif:var(--public-font-body);--page:var(--public-page);--surface:var(--public-surface);--ink:var(--public-ink);--muted:var(--public-muted);--line:var(--public-line);--accent:var(--public-accent);--accent-soft:var(--public-accent-soft)}
+/* Public-only overrides for shared base.css; administration retains its original styles. */
+body.section-public:not(.transfer-public){background:var(--page);color:var(--ink);font-family:var(--bs-font-sans-serif);line-height:var(--public-line-height-1);}
+body.section-public:not(.transfer-public) a{color:var(--accent);}
+body.section-public:not(.transfer-public) button,body.section-public:not(.transfer-public) input,body.section-public:not(.transfer-public) select,body.section-public:not(.transfer-public) textarea{font:inherit;}
+body.section-public:not(.transfer-public) h1{font-size:var(--public-font-size-1);line-height:var(--public-line-height-2);letter-spacing:var(--public-letter-spacing-1);}
+body.section-public:not(.transfer-public) h2{font-size:var(--public-font-size-2);line-height:var(--public-line-height-3);}
+body.section-public:not(.transfer-public) :where(a,button,input,select,textarea,summary):focus-visible{outline:3px solid var(--public-color-1);outline-offset:3px;}
+body.section-public:not(.transfer-public) :where(input,textarea,select):focus{border-color:var(--accent);}
+body.section-public:not(.transfer-public) .skip:focus{background:var(--surface);border:2px solid var(--accent);}
+body.section-public:not(.transfer-public) .site-header{background:var(--surface);border-bottom:1px solid var(--line);}
+body.section-public:not(.transfer-public) .brand{font-weight:var(--public-font-weight-1);}
+body.section-public:not(.transfer-public) .brand-mark,body.section-public:not(.transfer-public) .empty-symbol{border-radius:11px;background:var(--accent-soft);color:var(--accent);}
+body.section-public:not(.transfer-public) .icon{fill:currentColor;}
+body.section-public:not(.transfer-public) a[aria-current=page]{font-weight:var(--public-font-weight-1);}
+body.section-public:not(.transfer-public) .site-footer{border-top:1px solid var(--line);font-size:var(--public-font-size-3);color:var(--muted);}
+body.section-public:not(.transfer-public) .eyebrow{font-size:var(--public-font-size-4);letter-spacing:var(--public-letter-spacing-2);font-weight:var(--public-font-weight-1);color:var(--accent);}
+body.section-public:not(.transfer-public) .page-description{color:var(--muted);}
+body.section-public:not(.transfer-public) .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+body.section-public:not(.transfer-public) .btn{border:1px solid var(--public-color-2);border-radius:8px;font-weight:var(--public-font-weight-2);line-height:var(--public-line-height-4);font-size:var(--public-font-size-5);}
+body.section-public:not(.transfer-public) .btn-primary,body.section-public:not(.transfer-public) .btn-success{background:var(--accent);border-color:var(--accent);color:var(--public-surface);}
+body.section-public:not(.transfer-public) .btn-primary:hover,body.section-public:not(.transfer-public) .btn-success:hover{background:var(--public-color-3);color:var(--public-surface);}
+body.section-public:not(.transfer-public) .btn-outline-secondary,body.section-public:not(.transfer-public) .btn-outline-primary{color:var(--accent);background:var(--surface);border-color:var(--line);}
+body.section-public:not(.transfer-public) .btn-outline-secondary:hover,body.section-public:not(.transfer-public) .btn-outline-primary:hover{background:var(--accent-soft);border-color:var(--accent);}
+body.section-public:not(.transfer-public) .button-link{color:var(--accent);background:none;border:0;}
+body.section-public:not(.transfer-public) .form-label{font-weight:var(--public-font-weight-3);}
+body.section-public:not(.transfer-public) .required-note{font-size:var(--public-font-size-6);font-weight:var(--public-font-weight-4);color:var(--muted);border:1px solid var(--line);border-radius:4px;}
+body.section-public:not(.transfer-public) .form-control,body.section-public:not(.transfer-public) select{border:1px solid var(--public-color-4);border-radius:8px;background:var(--surface);color:var(--ink);line-height:var(--public-line-height-5);}
+body.section-public:not(.transfer-public) .form-control[readonly]{background:var(--public-color-5);color:var(--public-color-6);}
+body.section-public:not(.transfer-public) .form-control[aria-invalid=true]{border:2px solid var(--danger);}
+body.section-public:not(.transfer-public) .field-hint{font-size:var(--public-font-size-7);color:var(--muted);}
+body.section-public:not(.transfer-public) .field-error{color:var(--danger);font-size:var(--public-font-size-3);}
+body.section-public:not(.transfer-public) .notice{border:1px solid var(--line);background:var(--accent-soft);border-radius:10px;}
+body.section-public:not(.transfer-public) .notice-danger{background:var(--danger-soft);border-color:var(--public-color-7);color:var(--danger);}
+body.section-public:not(.transfer-public) .notice-warning{background:var(--warning-soft);border-color:var(--public-color-8);color:var(--warning);}
+body.section-public:not(.transfer-public) .notice-success{background:var(--accent-soft);color:var(--accent);}
+body.section-public:not(.transfer-public) .error-summary a{color:inherit;}
+body.section-public:not(.transfer-public) .empty-state p{color:var(--muted);}
+body.section-public:not(.transfer-public) .pagination-bar{color:var(--muted);font-size:var(--public-font-size-3);}
+body.section-public:not(.transfer-public) .status-badge{font-size:var(--public-font-size-4);background:var(--accent-soft);color:var(--accent);border-radius:20px;}
+body.section-public:not(.transfer-public) .status-muted{background:var(--public-color-9);color:var(--public-color-10);}
+body.section-public:not(.transfer-public) .scope-label{font-size:var(--public-font-size-4);color:var(--muted);}
+body.section-public:not(.transfer-public) .reading-tools{font-size:var(--public-font-size-3);color:var(--muted);}
+body.section-public:not(.transfer-public) .reading-tools select{font-size:var(--public-font-size-3);}
+body.section-public:not(.transfer-public) fieldset{border:0;}
+@media (max-width:600px) {
+body.section-public:not(.transfer-public) .page-heading h1{font-size:var(--public-font-size-8);}
+}
+body.section-public:not(.transfer-public) .visually-hidden{border:0 !important;}
+body.section-public:not(.transfer-public) html[data-theme=blue] .site-header a,body.section-public:not(.transfer-public) html[data-theme=blue] .text-link{color:var(--public-color-11);}
+/* Public-only overrides for shared news-body.css; administration retains its original styles. */
+body.section-public:not(.transfer-public) .news-body{line-height:var(--public-line-height-6);}
+body.section-public:not(.transfer-public) .news-body pre{background:var(--page);border:1px solid var(--line);border-radius:.4em;}
+body.section-public:not(.transfer-public) .news-body blockquote{border-inline-start:3px solid var(--accent);}
+body.section-public:not(.transfer-public) .pdf-inline{border-top:1px solid var(--line);color:var(--ink);}
+body.section-public:not(.transfer-public) .pdf-inline button{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:.4em;}
+body.section-public:not(.transfer-public) .pdf-inline button:hover,body.section-public:not(.transfer-public) .pdf-inline button:focus-visible{border-color:var(--accent);background:var(--accent-soft,var(--page));}
+body.section-public:not(.transfer-public) .pdf-inline-status{color:var(--muted);}
+body.section-public:not(.transfer-public) .pdf-inline-page{background:Canvas;box-shadow:0 0 0 1px var(--line);}
+body.section-public:not(.transfer-public) .pdf-inline .textLayer{line-height:var(--public-line-height-7);letter-spacing:normal;forced-color-adjust:none;}
+body.section-public:not(.transfer-public) .pdf-inline .textLayer :is(span,br){color:var(--public-color-2);}
+body.section-public:not(.transfer-public) .pdf-inline .textLayer>:not(.markedContent),body.section-public:not(.transfer-public) .pdf-inline .textLayer .markedContent span:not(.markedContent){font-size:var(--public-font-size-9);}
+body.section-public:not(.transfer-public) .pdf-inline .textLayer ::selection{background:Highlight;color:var(--public-color-2);}
+body.section-public:not(.transfer-public) .native-richtext-image-tools p{color:var(--muted);}
+body.section-public:not(.transfer-public) .native-richtext-workspace{border:1px solid var(--line,var(--public-color-12));border-radius:.5rem;background:var(--surface,var(--public-surface));}
+body.section-public:not(.transfer-public) .native-richtext-top{background:var(--surface,var(--public-surface));border-bottom:1px solid var(--line,var(--public-color-12));}
+body.section-public:not(.transfer-public) .native-richtext-top .media-picker-feedback{font-size:var(--public-font-size-10);}
+body.section-public:not(.transfer-public) .native-richtext-top .ql-toolbar{border:0 !important;}
+body.section-public:not(.transfer-public) .native-richtext-scroll .native-richtext-host.ql-container{border:0;}
+body.section-public:not(.transfer-public) .native-richtext-dialog{border:1px solid var(--line,var(--public-color-12));border-radius:.65rem;color:var(--ink,var(--public-color-13));background:var(--surface,var(--public-surface));}
+body.section-public:not(.transfer-public) .native-richtext-dialog::backdrop{background:var(--public-color-14);}
+@media (max-width:600px) {
+body.section-public:not(.transfer-public) .native-richtext-dialog{border-radius:0;}
+body.section-public:not(.transfer-public) .native-richtext-dialog>header{font-size:var(--public-font-size-3);}
+}
+
+body.section-public ::selection{background:var(--public-accent-soft);color:var(--public-ink)}
+/* Shared controls and media fallbacks. */
+:root{--public-control-bg:transparent;--public-control-shadow:0 4px 18px #213b4b26;--public-placeholder-line:1.2}
+/* Typography not covered by component rules, and Bootstrap semantic color aliases. */
+:root{--public-heading-3:1.125rem;--public-heading-4:1rem;--public-heading-5:.9375rem;--public-heading-6:.875rem;--public-weight-emphasis:650;--public-font-mono:ui-monospace,SFMono-Regular,Consolas,monospace}
+body.section-public{--bs-body-font-family:var(--public-font-body);--bs-body-color:var(--public-ink);--bs-body-bg:var(--public-page);--bs-secondary-color:var(--public-muted);--bs-emphasis-color:var(--public-ink);--bs-link-color:var(--public-accent);--bs-link-hover-color:var(--public-accent);--bs-border-color:var(--public-line);--bs-tertiary-bg:var(--public-accent-soft)}
+body.section-public :where(h3){font-size:var(--public-heading-3)}body.section-public :where(h4){font-size:var(--public-heading-4)}body.section-public :where(h5){font-size:var(--public-heading-5)}body.section-public :where(h6){font-size:var(--public-heading-6)}
+body.section-public :where(strong,b){font-weight:var(--public-weight-emphasis)}body.section-public :where(code,kbd,pre,samp){font-family:var(--public-font-mono)}body.section-public ::placeholder{color:var(--public-muted)}
+/* Faculty identity, contact panels and section typography (v0.15.59). */
+:root{--public-faculty-name:clamp(1.6rem,3vw,2.2rem);--public-faculty-heading-line:1.25;--public-faculty-rank:1rem;--public-faculty-meta:.875rem;--public-faculty-body:.9375rem;--public-faculty-link:.8125rem;--public-faculty-section:1.125rem}
+/* Compact project/patent hierarchy (v0.15.60). */
+:root{--public-project-title:1rem;--public-project-source:.875rem;--public-project-meta:.8125rem;--public-project-line:1.65}
+
+/* News PDF controls and online watermark: centralized frontend typography/color. */
+body.section-public{--public-pdf-watermark-size:clamp(18px,5cqw,48px);--public-pdf-watermark-color:rgba(80,90,110,.22)}
+body.section-public .pdf-public .pdf-watermark{font-family:var(--public-font-body);font-size:var(--public-pdf-watermark-size);font-weight:600;line-height:1.4;color:var(--public-pdf-watermark-color)}
+body.section-public .pdf-public .pdf-inline-tools{font-size:var(--public-font-size-17)}
+body.section-public .pdf-public .pdf-inline-tools :is(button,a){color:var(--public-accent);background:var(--public-control-bg)}
+body.section-public .pdf-public .pdf-inline-tools :is(button,a):hover{background:var(--public-accent-soft)}
+body.section-public .pdf-public .pdf-inline-tools :is(button,a):focus-visible{outline:2px solid var(--public-accent);outline-offset:2px}
+
+body.section-public .contact-intro h1{font-size:var(--public-font-size-1);font-weight:var(--public-weight-emphasis);line-height:var(--public-line-height-1)}
+body.section-public :is(.contact-help,.contact-intro p){color:var(--public-muted);line-height:var(--public-line-height-1)}
+body.section-public .contact-help{font-size:var(--public-font-size-17)}
+body.section-public :is(.contact-eyebrow,.contact-feedback){color:var(--public-accent)}
+body.section-public .contact-eyebrow{font-weight:var(--public-weight-emphasis)}
+
+/* Authentication typography and interaction states share the frontend theme. */
+body.section-public{--public-auth-backdrop:rgba(15,23,42,.42)}
+body.section-public .auth-dialog::backdrop{background:var(--public-auth-backdrop)}
+body.section-public [data-auth-content] h1{font-size:var(--public-font-size-1);font-weight:var(--public-weight-emphasis);line-height:var(--public-line-height-1)}
+body.section-public :is(.auth-description,.auth-help,.auth-links){color:var(--public-muted);font-size:var(--public-font-size-17)}
+body.section-public :is(.auth-eyebrow,.auth-feedback){color:var(--public-accent)}
+body.section-public .auth-eyebrow{font-weight:var(--public-weight-emphasis)}
+
+/* Reading preference controls share public colors and scale with the root font. */
+body.section-public .public-reading-controls{display:inline-flex;align-items:center;gap:.15rem;padding:.2rem;border:1px solid var(--public-line);border-radius:2rem;background:var(--public-color-16);flex-shrink:0}
+body.section-public .public-reading-controls button{display:inline-flex;align-items:center;justify-content:center;gap:.1rem;min-width:2.15rem;min-height:2.15rem;padding:.25rem .55rem;margin:0;border:0;border-radius:2rem;background:var(--public-color-2);color:var(--public-muted);font-family:var(--public-font-body);font-size:var(--public-font-size-7);font-weight:var(--public-font-weight-2);line-height:var(--public-line-height-7);cursor:pointer}
+body.section-public .public-reading-controls button[aria-pressed=true]{background:var(--public-surface);color:var(--public-accent)}
+body.section-public .public-reading-controls button:focus-visible{outline:2px solid var(--public-accent);outline-offset:2px}
+html[data-reading=large] body.section-public .academic-account{row-gap:.5rem}
+html[data-reading=large] body.section-public .academic-brand span{overflow-wrap:anywhere}
+html[data-reading=large] body.section-public :where(.person-tools,.public-stream-controls,.actions){flex-wrap:wrap}
+html[data-reading=large] body.section-public :where(input,select,textarea){max-width:100%}

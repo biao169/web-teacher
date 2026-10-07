@@ -1,0 +1,5 @@
+{% set en=lang=='en' %}
+<main class="container contact-page" id="main">
+<div class="contact-layout"><aside class="contact-intro"><p class="contact-eyebrow">{{ 'Get in touch' if en else '欢迎交流' }}</p><h1>{{ 'Let’s start a conversation' if en else '期待你的来信' }}</h1><p>{{ 'For research collaboration, admissions, courses or website feedback, leave a message here.' if en else '科研合作、招生咨询、课程问题或网站建议，都可以在这里留言。' }}</p><p>{{ 'Your message is private. Add an email address if you would like a reply.' if en else '留言不会公开展示。如需回复，请留下邮箱。' }}</p></aside>
+<section class="contact-card" aria-label="{{ 'Message form' if en else '留言表单' }}">
+{% include 'public/contact-fields.html' %}</section></div></main><script src="/assets/public/js/contact.js?v=0.15.64" defer></script>
