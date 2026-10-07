@@ -1,7 +1,7 @@
 {
   "format": "teacher-release-v1",
-  "version": "0.16.008",
-  "based_on": "v0.16.007-step6 (this conversation branch; original v0.15.160-step6)",
+  "version": "0.16.009",
+  "based_on": "v0.16.008 (this conversation branch; original v0.15.160-step6)",
   "files": {
     ".gitattributes": {
       "bytes": 280,
@@ -12,8 +12,8 @@
       "sha256": "1bb1b2af56ecd35a42a615b8ca2051a63893dd3db513ff7361ede6316c67f10f"
     },
     "README.md": {
-      "bytes": 87816,
-      "sha256": "c7c465fe2e78f5ac089de0f58e2e2c75df005a1bb37f8963137fa76801c4c1a0"
+      "bytes": 88006,
+      "sha256": "d54c731dc5b2085e2a2e4cfc44faa271382d1c83207c5ad1b08c3c272c19a634"
     },
     "backend/__init__.py": {
       "bytes": 0,
@@ -660,8 +660,8 @@
       "sha256": "0adba319f7dd563d1baf5a028ae3413ca3a6742a994528d64779a67f72faff3a"
     },
     "deploy/cloudflare/README.md": {
-      "bytes": 33452,
-      "sha256": "55bb8fdee8c6b1597a0db96fd42dcdb9d55459e04d54d1ebb922cecbd1369fc8"
+      "bytes": 33818,
+      "sha256": "2c0d418d9c553fb661802345d9008eee15aaeae64658aac3b3be98fd10999197"
     },
     "deploy/cloudflare/STARTUP-ACCEPTANCE.md": {
       "bytes": 3060,
@@ -672,8 +672,8 @@
       "sha256": "5f5151c668c9c3e83c314b8e6991f2bbef8bd7530805dd187fdf4affdb993e87"
     },
     "deploy/cloudflare/build.py": {
-      "bytes": 7550,
-      "sha256": "4303cfc8201d57cf0e64ece79ceae744487273bec306bda281b485c221c90d5f"
+      "bytes": 8228,
+      "sha256": "99f4dc137ccdc555d71938ab1a29b58a8cde491615d5806f1d9e7a648141c8ee"
     },
     "deploy/cloudflare/d1_setup.py": {
       "bytes": 7668,
@@ -802,6 +802,10 @@
     "deploy/cloudflare/tests/test_build_without_sqlite.py": {
       "bytes": 3040,
       "sha256": "b0206033e307377892d26299287b994c2adef5d6802405242753d1b5ff2d3d44"
+    },
+    "deploy/cloudflare/tests/test_cli_source_path.py": {
+      "bytes": 2905,
+      "sha256": "893b80fe5de517249baa967c4b4bb58fc9a6446dd873c722aa8220fb1ecb23e7"
     },
     "deploy/cloudflare/tests/test_d1_setup.py": {
       "bytes": 8415,
@@ -1922,6 +1926,10 @@
     "docs/releases/v0.16.008.md": {
       "bytes": 933,
       "sha256": "b2bfb6697ad07d40bcaa70bf0c1b50b2e63d458409c463eade803830f48475a9"
+    },
+    "docs/releases/v0.16.009.md": {
+      "bytes": 1542,
+      "sha256": "7ac9729a9090ae446517d76822eceee0e2cb4e36dc64243c05c184c7b25f6706"
     },
     "docs/request-cache-v159-benchmark.json": {
       "bytes": 1881,
@@ -3709,7 +3717,7 @@
     },
     "pyproject.toml": {
       "bytes": 352,
-      "sha256": "f1aa1697da09c8da791fb174ead358a64d06bc7b6ea3a59d0f1df8179b9187cf"
+      "sha256": "85408474ef9c92e36ebb68053e8775a7552956b4cfde07930f336d021e2ee50f"
     },
     "site_sync/README.md": {
       "bytes": 7171,

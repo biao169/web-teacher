@@ -1,4 +1,8 @@
-## 当前交付 v0.16.007
+## 当前交付 v0.16.009
+
+修复部署入口源码搜索路径；Cloudflare 中 check 提前校验部署变量。构建根目录使用 `deploy/cloudflare`，构建命令 `python build.py check`，部署命令 `python build.py deploy`，保留 `SKIP_DEPENDENCY_INSTALL=1`，无需设置 PYTHONPATH。详见 [本轮修复说明](../../docs/releases/v0.16.009.md)。
+
+## v0.16.007 交付记录
 
 本分支的同步模块支持主站Cron与独立执行器，按首次部署使用唯一初始化SQL。当前部署方法及验证边界见 [第六步说明](../../docs/releases/v0.16.007.md)；下文保留原有构建教程及历史修复记录，历史版本号不代表本包版本。本轮未执行线上发布或真实Worker额度验收。
 

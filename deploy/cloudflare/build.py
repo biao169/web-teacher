@@ -20,6 +20,9 @@ import venv
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+# Resolve local source independently of the caller's cwd or PYTHONPATH.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 PATCH = 'cloudflare-cpu-step4'
 
 
@@ -49,6 +52,8 @@ def preflight(env=None, version=None):
     for name in required:
         if not (ROOT / name).is_file():
             raise BuildError('源码不完整 / Missing source: ' + name)
+    from backend.app.security.origins import parse_origins
+    parse_origins('https://startup-check.invalid')
     project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))['project']
     manifest = tomllib.loads((HERE / 'pyproject.toml').read_text(encoding='utf-8'))['project']
     minimum = re.fullmatch(r'>=(\d+)\.(\d+)', manifest['requires-python'])
@@ -115,9 +120,15 @@ def dependency_environment(dependencies):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('check', 'prepare', 'bundle', 'deploy'), help='check: preflight; prepare: application deps; bundle: dry run; deploy: publish')
+    parser.add_argument('--deployment-config', action='store_true',
+                        help='Validate deployment variables without installing or publishing')
     args = parser.parse_args(argv)
     try:
         dependencies = preflight()
+        if args.command == 'check' and (args.deployment_config or os.environ.get('WORKERS_CI') == '1'):
+            from pipeline import settings
+            settings(os.environ)
+            log('DEPLOY-CONFIG', '部署配置通过 / Deployment configuration checked')
         if args.command in ('bundle', 'deploy'):
             from pipeline import execute
             execute(args.command, run_stage, log)
