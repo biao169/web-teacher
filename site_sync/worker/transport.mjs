@@ -42,7 +42,7 @@ export class SignedPeer {
         try{const text=new TextDecoder().decode(await bounded(response,4096)),code=text.match(/\b110[12]\b/);if(code)error.platform_code=Number(code[0]);}catch{}
         throw error;
       }
-      if([401,403].includes(response.status))throw new PeerError('Peer denied access','authorization');
+      if([401,403].includes(response.status))throw Object.assign(new PeerError('Peer authentication unavailable','credential'),{http_status:response.status});
       if(response.status!==200)throw new PeerError('Peer version/route rejected','conflict');
       const text=response.headers.get('x-sync-meta')||'',size=response.headers.get('content-length')||'';
       const limit=stream?request.length:['manifest','candidates','proposal'].includes(request.kind)?8192:request.length;

@@ -1,0 +1,14 @@
+{
+  "python_passed": 241,
+  "subtests_passed": 33,
+  "seconds": 29.14,
+  "scope": "optional deploy keys, preservation, read-only credential diagnostic, website integration",
+  "wrangler_empty_secret_file_dry_run": "passed",
+  "wrangler_version": "4.143.0",
+  "upload_metadata_keep_bindings": [
+    "secret_text",
+    "secret_key"
+  ],
+  "live_cloud_publish": "not_run",
+  "real_linux_install": "not_run"
+}

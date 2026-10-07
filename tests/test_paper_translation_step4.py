@@ -27,7 +27,16 @@ def test_exact_doi_supplement_preserves_primary_fields(fixture,mode):
     assert len(r.scholarly.calls)==2
     assert not run(r.sql.query('SELECT uid FROM publications WHERE doi=?',(DOI,)))
 
-def test_supplement_respects_enabled_flag_and_cache(fixture):
+def test_supplement_respects_enabled_flag_and_cache(fixture,monkeypatch):
+    # Cache has 64 bounded slots: a random settings timestamp can put Crossref
+    # and its OpenAlex supplement in the same slot, legitimately evicting each
+    # other. Pin only the settings stamp for a deterministic cache-hit test.
+    import backend.app.native.metadata_search as search_module
+    original=search_module.load_settings
+    async def settings(r):
+        result=await original(r)
+        return dict(result,stamp='metadata-cache-regression')
+    monkeypatch.setattr(search_module,'load_settings',settings)
     c,r=fixture;configure(r);r.scholarly=Scholar()
     for _ in range(2):run(MetadataSearch(r).search(DOI,correspondence=True))
     assert len(r.scholarly.calls)==2

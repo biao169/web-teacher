@@ -1,0 +1,9 @@
+{
+  "python_passed": 450,
+  "subtests_passed": 43,
+  "javascript_passed": 29,
+  "python_seconds": 34.72,
+  "live_worker_d1": "not_run",
+  "runtime_integration": "active",
+  "scope": "sync, credential rotation, HTTP partial transfer recovery, deployment regressions"
+}

@@ -23,7 +23,7 @@ ROOT = HERE.parents[1]
 # Resolve local source independently of the caller's cwd or PYTHONPATH.
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-PATCH = 'cloudflare-deploy-recovery-step3'
+PATCH = 'sync-credentials-step6'
 
 
 class BuildError(Exception):

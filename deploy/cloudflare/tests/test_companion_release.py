@@ -15,6 +15,7 @@ class Response(io.BytesIO):
 
 class FakeAPI:
     def __init__(self):self.scripts={};self.calls=[];self.fail=None
+    def credential_status(self,database):return 'missing'
     def request(self,method,name,suffix='',body=None,content_type=None,missing=False):
         self.calls.append((method,name,suffix))
         if self.fail==(method,suffix):raise APIError(403)
@@ -22,6 +23,9 @@ class FakeAPI:
         if method=='PUT' and suffix=='':
             msg=BytesParser(policy=policy.default).parsebytes(('Content-Type: '+content_type+'\r\n\r\n').encode()+body)
             metadata=json.loads(next(p.get_payload(decode=True) for p in msg.iter_parts() if p.get_param('name',header='content-disposition')=='metadata'))
+            previous=self.scripts.get(name,{}).get('settings',{}).get('bindings',[])
+            if metadata.get('keep_bindings'):
+                metadata['bindings'].extend(b for b in previous if b.get('type') in metadata['keep_bindings'] and b['name'] not in {x['name'] for x in metadata['bindings']})
             self.scripts.setdefault(name,{})['settings']=metadata
             return {'id':'version-one'}
         obj=self.scripts[name]
@@ -103,6 +107,17 @@ class ReleaseTests(unittest.TestCase):
         release.prepare(self.stage,self.root);release.activate()
         self.assertEqual(sum(m=='PUT' and s=='' for m,_,s in self.api.calls),2)
         self.assertEqual(self.api.scripts['teacher-sync-executor']['schedules']['schedules'],[{'cron':'* * * * *'}])
+
+    def test_optional_key_new_deploy_and_preserved_existing_secret(self):
+        self.env.pop('TEACHER_SYNC_KEY')
+        release=self.release();release.prepare(self.stage,self.root)
+        self.assertFalse(any(b['name']=='TEACHER_SYNC_KEY' for b in self.api.scripts['teacher-sync-native']['settings']['bindings']))
+        self.env['TEACHER_SYNC_KEY']='ab'*32;self.release().prepare(self.stage,self.root)
+        del self.env['TEACHER_SYNC_KEY'];self.release().prepare(self.stage,self.root)
+        bindings={b['name']:b for b in self.api.scripts['teacher-sync-native']['settings']['bindings']}
+        self.assertEqual(bindings['TEACHER_SYNC_KEY']['text'],'ab'*32)
+        self.add_executor_artifact();self.release('separate').prepare(self.stage,self.root)
+        self.assertIn('teacher-sync-executor',self.api.scripts)
 
     def test_invalid_identity_or_credentials(self):
         for key,value in [('WRANGLER_CI_OVERRIDE_NAME','wrong'),('TEACHER_AUX_API_TOKEN',''),('CLOUDFLARE_ACCOUNT_ID','bad'),('TEACHER_SYNC_KEY','bad')]:

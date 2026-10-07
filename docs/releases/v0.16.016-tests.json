@@ -1,0 +1,9 @@
+{
+  "python_passed": 32,
+  "subtests_passed": 7,
+  "dom_real_http": "passed",
+  "javascript_syntax": "passed",
+  "real_browser_visual": "not_run_browser_download_network_blocked",
+  "clipboard": "simulated_success_and_denial",
+  "live_worker_d1": "not_run"
+}

@@ -1,6 +1,6 @@
 # Cloudflare 网页部署
 
-一个主站构建项目自动发布主站和辅助 Worker，无需 GitHub Actions。源码 v0.16.012；API 流程已通过模拟测试和实际上传包校验，尚未在真实 Cloudflare 账号完成发布验收。
+一个主站构建项目自动发布主站和辅助 Worker，无需 GitHub Actions。源码 v0.16.018；API 流程已通过模拟测试和实际上传包校验，尚未在真实 Cloudflare 账号完成发布验收。
 
 ## 1. 准备
 
@@ -39,9 +39,9 @@
 | 构建 Secret | 内容 |
 |---|---|
 | TEACHER_AUX_API_TOKEN | 授权本账号 Workers Scripts 编辑的 API Token，用于辅助发布 |
-| TEACHER_SYNC_KEY | 64位随机十六进制密钥；同步两端使用同一份 |
+| TEACHER_SYNC_KEY（可选） | 建议不填，部署后在网站后台生成或粘贴；如填写须为64位十六进制，两端一致 |
 
-在 My Profile → API Tokens 创建令牌，将账号资源范围限定到部署账号。辅助令牌用于读取/上传 Worker、设置私有入口及 Cron；绑定的 D1/R2 必须属于该账号。若平台拒绝绑定资源，按 API 错误核对令牌资源权限。
+在 My Profile → API Tokens 创建令牌，将账号资源范围限定到部署账号。辅助令牌用于读取/上传 Worker、设置私有入口及 Cron；如需 cloud-check 检查数据库密钥状态，另加本账号 D1 Read 权限（诊断非必需，不影响网站运行）；绑定的 D1/R2 必须属于该账号。若平台拒绝绑定资源，按 API 错误核对令牌资源权限。
 
 Build 页面选用的主站发布令牌还必须具备 Workers Scripts 编辑、D1 编辑、Workers R2 Storage 编辑；由脚本管理自定义域名时需要相关域的 Workers Routes 编辑权限。两个令牌角色独立：TEACHER_AUX_API_TOKEN 不替代主站发布凭据，不传给部署子进程或运行中的网站。
 
@@ -64,7 +64,7 @@ Build 页面选用的主站发布令牌还必须具备 Workers Scripts 编辑、
 
 主站是唯一公开网站。辅助模块共用主站 D1/R2，脚本关闭其 workers.dev 与预览 URL，不要另行为辅助模块添加公开域名或路由。
 
-点击部署后自动检查名称与已有归属、构建产物、检查 D1/R2，再发布辅助模块。同步密钥随代码一并上传；辅助检查通过后发布主站；最后 separate 模式启用执行器每分钟 Cron。inline 模式下原生模块无 Cron，主站负责推进同步。
+点击部署后自动检查名称与已有归属、构建产物、检查 D1/R2，再发布辅助模块。填写构建同步密钥时随代码上传；未填写时保留已有环境 Secret，新站可先不配置密钥；辅助检查通过后发布主站；最后 separate 模式启用执行器每分钟 Cron。inline 模式下原生模块无 Cron，主站负责推进同步。
 
 辅助 Worker 的 TEACHER_AUX_OWNER / TEACHER_AUX_ROLE 是归属标记。已存在同名对象但缺少/不匹配标记时停止，不自动覆盖旧版或其他程序。不要为了消除 10064 删除主站 TransferCoordinator 或其迁移。
 
@@ -78,7 +78,7 @@ AUX-PREFLIGHT 检查可读性及现有归属，不能提前保证全部写入权
 
 首次安装在主站 Settings → Variables and Secrets 添加**运行时 Secret** TEACHER_SETUP_TOKEN（32–256字符随机值），保存部署后访问主域名 /setup 创建管理员，再删除此临时密钥。已有管理员无需重复初始化。
 
-访问首页、后台、文件快传，随后在 /admin/site-sync 创建小范围拉取任务，观察进度、日志及后台自动推进。
+访问首页、后台、文件快传。在两端 /admin/site-sync 的同步密钥区生成或粘贴同一密钥，分别保存，再填写对端 HTTPS 根域名并保存连接。生成和复制不会自动保存。随后创建小范围拉取任务，观察进度、日志及后台自动推进。无需给辅助 Worker 手动添加密钥，后台数据库配置由本站各模块共用。
 
 ## 6. 失败与重试
 
@@ -94,10 +94,12 @@ AUX-PREFLIGHT 检查可读性及现有归属，不能提前保证全部写入权
 
 ## 7. 网页联调与恢复验收
 
-首次部署仍使用第2节命令。发布后，可将主站的 Deploy command 临时改为 `python build.py cloud-check`，点击重试构建；检查完成后恢复为 `python build.py deploy`。此诊断只读取云端配置，不更新代码、数据库或 Cron；成功日志应为 CLOUD-CHECK passed=true。它检查两种模式的资源绑定、同步密钥是否存在、辅助私有入口、Cron 和主站 Durable Object 绑定；不会读取密钥值，也不代表实际业务运行成功。
+首次部署仍使用第2节命令。发布后，可将主站的 Deploy command 临时改为 `python build.py cloud-check`，点击重试构建；检查完成后恢复为 `python build.py deploy`。此诊断只读取云端配置，不更新代码、数据库或 Cron；成功日志应为 CLOUD-CHECK passed=true。它检查资源绑定、辅助私有入口、Cron 和主站 Durable Object；额外执行固定只读 D1 查询，API仅返回密钥配置状态，不返回密钥值。CLOUD-CHECK passed 只代表平台配置结果，同步状态单列在 SYNC-CREDENTIAL：configured 为数据库密钥有效，setup_required 为待后台设置，invalid 为数据库配置损坏，not_verified 为查询未获权限或失败，environment_present_unverified 为环境 Secret 存在但未验证值。没有密钥不导致平台检查失败；也不代表两端密钥已匹配。
 
 实际业务验收：打开首页、后台和媒体；创建一个小型同步任务，关闭后台页面后再次查看进度；分别验证手动拉取、对端批准后的推送与定时拉取。在测试站点观察临时传输失败后的自动续传，确认任务最终完成、数据及媒体一致。切换 separate 后重复验证，并在 Worker Observability 检查是否发生 1101/1102。不要在生产账号人为删除资源制造故障。
 
 发布中断后，修复权限或网络问题，再点击重试构建。脚本读取 TEACHER_AUX_REVISION 指纹：相同代码、配置及密钥可跳过辅助代码上传，仍检查归属并补齐私有入口和 Cron；代码或密钥变化会重新上传。该机制依赖程序管理的标记，请勿手工修改标记、辅助代码或密钥。构建不会自行无限重启；API 单次调用的有限自动重试与网站同步任务的后台恢复是两套机制。
 
 只验证原生模块时，可临时将 Deploy command 改为 `python build.py verify-native`。此命令不发布，跳过 Python 依赖和整站静态资源整理，仅安装锁定的 Node 工具并校验 JavaScript 上传包。inline 模式的 verify-companions 同样使用此轻量路径；separate 模式仍须打包 Python 执行器。完整主站发布依然需要 Python 构建。
+
+两平台统一密钥操作、环境后备与轮换步骤见 [同步密钥设置教程](../../docs/sync-key-setup.md)。D1诊断接口依据 [Cloudflare Query D1 Database](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/)。

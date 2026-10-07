@@ -16,6 +16,6 @@ def validate(env, main, *, credentials=True):
         token=env.get('TEACHER_AUX_API_TOKEN','')
         if not token or any(c.isspace() for c in token):
             raise ValueError('请设置构建 Secret TEACHER_AUX_API_TOKEN，授权目标账号 Workers Scripts 编辑')
-        if not re.fullmatch(r'[a-fA-F0-9]{64}',env.get('TEACHER_SYNC_KEY','')):
-            raise ValueError('请设置构建 Secret TEACHER_SYNC_KEY（64位随机十六进制密钥）')
+        if env.get('TEACHER_SYNC_KEY') and not re.fullmatch(r'[a-fA-F0-9]{64}',env['TEACHER_SYNC_KEY']):
+            raise ValueError('可选构建 Secret TEACHER_SYNC_KEY 必须为64位十六进制密钥')
     return targets

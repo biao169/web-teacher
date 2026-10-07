@@ -2,7 +2,7 @@
 bridge.step(file_dict,item_dict,parts) and discard(file_dict) marshal metadata
 only; convert JsProxy results with to_py before returning from the host bridge.
 """
-from site_sync.core.authority import ConflictError,ResourceError,AuthorizationError
+from site_sync.core.authority import ConflictError,ResourceError,AuthorizationError,CredentialRetryError
 from .transfer import MediaReceipts
 
 
@@ -16,6 +16,7 @@ class WorkerMedia:
         try:r=await self.bridge.step(f,item,parts)
         except Exception as e:
             kind=getattr(e,'kind',None)
+            if kind=='credential':raise CredentialRetryError('Peer authentication unavailable') from e
             if kind=='resource':raise ResourceError('Worker peer resource pressure') from e
             if kind=='authorization':raise AuthorizationError('Worker peer denied') from e
             if kind=='conflict':raise ConflictError('Worker source changed') from e

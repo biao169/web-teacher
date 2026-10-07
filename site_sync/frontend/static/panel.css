@@ -72,3 +72,16 @@
  .sync-tabs [data-trim]{margin-left:0}
  .sync-panel [data-detail],.sync-panel [data-schedule]{padding:12px}
 }
+
+/* Credential controls reuse the admin theme and retain mobile wrapping. */
+.sync-connection-card .sync-key-form{padding:20px;margin:20px 0;border:1px solid var(--line);border-radius:8px;background:var(--page);gap:12px}
+.sync-key-heading{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sync-key-heading h3{font-size:1rem;margin:0}
+.sync-key-heading small{display:inline-block;color:var(--muted);font-size:.75rem;font-weight:400}
+.sync-key-heading [data-key-status]{font-size:.8125rem;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:6px}
+.sync-key-input{flex:1 1 100%}
+.sync-key-input input{width:100%;font-family:ui-monospace,monospace}
+.sync-key-actions{display:flex;flex-wrap:wrap;gap:8px}
+.sync-key-form>p{width:100%;margin:0;font-size:.875rem;overflow-wrap:anywhere}
+.sync-key-form [data-key-notice]{color:var(--accent);min-height:1.5em}
+@media(max-width:700px){.sync-connection-card .sync-key-form{padding:16px}.sync-key-actions{width:100%}.sync-key-actions button{flex:1 1 auto}}

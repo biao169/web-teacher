@@ -101,7 +101,24 @@ class TransferTests(unittest.TestCase):
         self.tick();self.source.version='v2';row=self.tick()
         self.assertEqual(row['status'],'paused');self.assertEqual(run(self.db.query('SELECT count(*) n FROM sync_parts'))[0]['n'],0)
     def test_bad_signature_never_stages(self):
-        self.peer.secret=b'x'*32;row=self.tick();self.assertEqual(row['status'],'paused')
+        original=self.peer.secret
+        self.peer.secret=b'x'*32;row=self.tick();self.assertEqual(row['status'],'waiting')
+        self.assertEqual(row['last_error'],'CredentialRetryError')
+        for _ in range(12):
+            row=self.tick();self.assertEqual(row['status'],'waiting')
+        self.peer.secret=original
+        self.until(lambda r:r['status']=='done')
+    def test_key_mismatch_preserves_partial_progress_then_resumes(self):
+        self.until(lambda r:bool(run(self.db.query("SELECT * FROM sync_parts WHERE field='body'"))))
+        before=run(self.db.query("SELECT offset,length(data) n FROM sync_parts ORDER BY offset"))
+        original=self.peer.secret;self.peer.secret=b'x'*32
+        for _ in range(8):
+            self.assertEqual(self.tick()['status'],'waiting')
+            self.assertEqual(run(self.db.query("SELECT offset,length(data) n FROM sync_parts ORDER BY offset")),before)
+        self.peer.secret=original
+        self.until(lambda r:r['status']=='done')
+        self.assertEqual(run(self.db.query('SELECT body FROM news'))[0]['body'],self.source.body.decode())
+
     def test_manifest_bounds_pause(self):
         self.source.body=b'x'*200001;self.assertEqual(self.tick()['status'],'paused')
     def test_abort_media_does_not_advance_and_later_finishes(self):

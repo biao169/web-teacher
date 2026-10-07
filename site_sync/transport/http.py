@@ -7,7 +7,7 @@ import json
 import time
 from urllib.parse import urlsplit
 from .protocol import *
-from site_sync.core.authority import ResourceError
+from site_sync.core.authority import ResourceError,CredentialRetryError
 
 
 class HTTPPeer:
@@ -43,7 +43,9 @@ class HTTPPeer:
                 except Exception:code=None
                 if code:error.platform_code=int(code.group())
                 raise error
-            if response.status in (401,403):raise AuthorizationError('Peer denied access')
+            if response.status in (401,403):
+                error=CredentialRetryError('Peer authentication unavailable');error.http_status=response.status
+                raise error
             if response.status!=200:raise ConflictError('Peer rejected version or route')
             size=h.get('content-length','')
             limit=request['length'] if stream else MAX_CONTROL if request['kind'] in ('manifest','candidates','proposal') else request['length']

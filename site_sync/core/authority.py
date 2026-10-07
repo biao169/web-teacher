@@ -29,3 +29,8 @@ class ConflictError(Exception):
 class ResourceError(Exception):
     """Caller classifies a confirmed resource error, e.g. HTTP error 1102."""
     pass
+
+
+class CredentialRetryError(Exception):
+    """Peer key/authentication unavailable: retry without granting any access."""
+    pass

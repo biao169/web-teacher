@@ -33,9 +33,23 @@ class Client:
     def request(self,method,worker,suffix='',body=None,content_type='application/json',missing=False):
         if not re.fullmatch('[a-z0-9][a-z0-9-]{0,62}',worker) or suffix not in ('','/settings','/subdomain','/schedules'):
             raise ValueError('Invalid auxiliary API target')
+        return self._request(self.base+worker+suffix,method,body,content_type,missing,bool(suffix))
+
+    def credential_status(self,database):
+        if not re.fullmatch(r'[a-fA-F0-9-]{36}',database):raise ValueError('Invalid D1 database ID')
+        from credential_probe import SQL
+        base=self.base.split('/workers/scripts/')[0]
+        result=self._request(base+'/d1/database/'+database+'/query','POST',{'sql':SQL},'application/json',False,False)
+        try:
+            state=result[0]['results'][0]['state']
+            if result[0].get('success') is False or state not in ('valid','invalid','missing'):raise ValueError()
+            return state
+        except (KeyError,TypeError,IndexError,ValueError):raise APIError(200,('invalid_credential_status',)) from None
+
+    def _request(self,url,method,body,content_type,missing,object_result):
         payload=body if isinstance(body,bytes) else None if body is None else json.dumps(body).encode()
         for attempt in range(3):
-            req=Request(self.base+worker+suffix,data=payload,method=method,
+            req=Request(url,data=payload,method=method,
                         headers={'Authorization':'Bearer '+self.token,'Content-Type':content_type})
             status=0;raw=b''
             try:
@@ -54,7 +68,7 @@ class Client:
             codes=[e.get('code') for e in errors if isinstance(e,dict) and isinstance(e.get('code'),int)] if isinstance(errors,list) else []
             if 200<=status<300 and data.get('success') is True:
                 result=data.get('result')
-                if suffix and not isinstance(result,dict):raise APIError(status,('invalid_result',))
+                if object_result and not isinstance(result,dict):raise APIError(status,('invalid_result',))
                 return result
             if missing and status==404 and 10007 in codes:return None
             if (status==429 or status>=500) and attempt<2:self.sleep(2**attempt);continue
@@ -88,9 +102,9 @@ def revision(info,key):
     return hashlib.sha256((info['content_sha256']+':'+key).encode()).hexdigest()
 
 
-def check_bindings(settings,cfg):
+def check_bindings(settings,cfg,require_key=False):
     remote={b.get('name'):b for b in settings.get('bindings',[])}
-    if remote.get('TEACHER_SYNC_KEY',{}).get('type')!='secret_text':raise ValueError('Companion sync secret missing')
+    if require_key and remote.get('TEACHER_SYNC_KEY',{}).get('type')!='secret_text':raise ValueError('Companion sync secret missing')
     for b in cfg.get('d1_databases',[]):
         if remote.get(b['binding'],{}).get('id')!=b['database_id']:raise ValueError('Companion D1 ID mismatch')
     for b in cfg.get('r2_buckets',[]):
@@ -118,16 +132,17 @@ def payload_with_secret(path,info,main,role,key):
     metadata.setdefault('bindings',[]).extend([
         {'name':'TEACHER_AUX_OWNER','type':'plain_text','text':main},
         {'name':'TEACHER_AUX_ROLE','type':'plain_text','text':role},
-        {'name':'TEACHER_AUX_REVISION','type':'plain_text','text':revision(info,key)},
-        {'name':'TEACHER_SYNC_KEY','type':'secret_text','text':key}])
-    # Set the secret in the initial upload; no executable version lacks its key.
+        {'name':'TEACHER_AUX_REVISION','type':'plain_text','text':revision(info,key)}])
+    if key:metadata['bindings'].append({'name':'TEACHER_SYNC_KEY','type':'secret_text','text':key})
+    else:metadata['keep_bindings']=['secret_text','secret_key']
+    # No key means preserve existing secrets; new sites configure the key in admin.
     return raw[:match.start(2)]+json.dumps(metadata,separators=(',',':')).encode()+raw[match.end(2):]
 
 
 class Release:
     def __init__(self,env,config,log,*,client=None):
         self.main=config['name'];self.mode=config['sync_executor'];self.targets=validate(env,self.main)
-        self.key=env['TEACHER_SYNC_KEY'];self.log=log
+        self.key=env.get('TEACHER_SYNC_KEY','');self.log=log
         self.client=client or Client(env['CLOUDFLARE_ACCOUNT_ID'],env['TEACHER_AUX_API_TOKEN'])
         self.existing={};self.remote={}
     def preflight(self):
@@ -158,7 +173,7 @@ class Release:
             reuse=False
             if current is not None:
                 try:
-                    remote=check_bindings(current,cfg)
+                    remote=check_bindings(current,cfg,bool(self.key))
                     reuse=remote.get('TEACHER_AUX_REVISION',{}).get('text')==revision(info,self.key)
                 except ValueError:pass
             if reuse:
@@ -169,7 +184,7 @@ class Release:
             private(self.client,worker)
             schedule(self.client,worker,[])
             settings=self.client.request('GET',worker,'/settings');owned(settings,self.main,role)
-            check_bindings(settings,cfg)
+            check_bindings(settings,cfg,bool(self.key))
             self.log('AUX-READY','辅助已发布并关闭公开访问，Cron 暂停 / Companion ready; scheduling paused',worker=worker)
     def activate(self):
         if self.mode=='separate':schedule(self.client,self.targets['executor'],['* * * * *'])

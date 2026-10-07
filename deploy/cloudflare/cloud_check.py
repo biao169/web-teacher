@@ -21,7 +21,8 @@ def check(env,config,log,report_path=None,*,client=None):
                 bindings={b.get('name'):b for b in settings.get('bindings',[])}
                 if bindings.get('DB',{}).get('id')!=config['database']:row['problems'].append('database_binding_mismatch')
                 if bindings.get('MEDIA',{}).get('bucket_name')!=config['bucket']:row['problems'].append('media_binding_mismatch')
-                if bindings.get('TEACHER_SYNC_KEY',{}).get('type')!='secret_text':row['problems'].append('sync_secret_missing')
+                if bindings.get('TEACHER_SYNC_KEY',{}).get('type')!='secret_text':row['environment_secret']='absent'
+                else:row['environment_secret']='present'
                 if role in ('main','executor') and bindings.get('SYNC_NATIVE',{}).get('service')!=targets['native']:
                     row['problems'].append('native_service_binding_mismatch')
                 if role=='main':
@@ -40,6 +41,18 @@ def check(env,config,log,report_path=None,*,client=None):
         row.setdefault('status','failed' if row['problems'] else 'passed')
         result['workers'].append(row)
         log('CLOUD-CHECK-ITEM','平台只读检查 / Read-only platform check',**row)
+    # Platform success and synchronization readiness are intentionally separate.
+    try:
+        stored=api.credential_status(config['database'])
+        if stored=='valid':result['sync_credential']={'state':'configured','source':'database','peer_match':'not_checked'}
+        elif stored=='invalid':result['sync_credential']={'state':'invalid','source':'database','action':'repair_in_admin'}
+        else:
+            needed=[r for r in result['workers'] if r['role'] in ('main','native')]
+            ready=len(needed)==2 and all(r.get('environment_secret')=='present' for r in needed)
+            result['sync_credential']={'state':'environment_present_unverified' if ready else 'setup_required','source':'environment' if ready else 'missing','peer_match':'not_checked'}
+    except APIError as exc:
+        result['sync_credential']={'state':'not_verified','action':'check_admin_or_grant_D1_read','http_status':exc.status}
+    log('SYNC-CREDENTIAL','同步密钥就绪状态 / Sync credential readiness',**result['sync_credential'])
     result['passed']=all(not x['problems'] for x in result['workers'])
     if report_path:
         path=Path(report_path);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(result,ensure_ascii=False,indent=2))

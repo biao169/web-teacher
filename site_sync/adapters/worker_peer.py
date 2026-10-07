@@ -1,6 +1,6 @@
 """Metadata/record-only Python bridge; media never crosses Python/JS FFI."""
 import json
-from site_sync.core.authority import AuthorizationError,ConflictError,ResourceError
+from site_sync.core.authority import AuthorizationError,ConflictError,ResourceError,CredentialRetryError
 from site_sync.transport.protocol import manifest
 
 
@@ -9,7 +9,7 @@ class WorkerPeer:
     async def read(self,request):
         try:return bytes(await self.bridge.read(request))
         except Exception as exc:
-            cls={'authorization':AuthorizationError,'conflict':ConflictError,'resource':ResourceError}.get(getattr(exc,'kind',None))
+            cls={'credential':CredentialRetryError,'authorization':AuthorizationError,'conflict':ConflictError,'resource':ResourceError}.get(getattr(exc,'kind',None))
             if cls:raise cls('Native peer request rejected') from exc
             raise
     async def manifest(self,item):

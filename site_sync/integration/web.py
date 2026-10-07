@@ -10,11 +10,13 @@ from site_sync.admin.asgi import AdminASGI
 from site_sync.admin.service import Admin,Actor
 from site_sync.adapters.tasks import Tasks
 from site_sync.transport.protocol import encode,verify_request,response_headers,MAX_SLICE,MAX_MEDIA
-from site_sync.core.authority import AuthorizationError,ConflictError
+from site_sync.core.authority import AuthorizationError,ConflictError,CredentialRetryError
 
 
 def install(app,resources,csrf,render):
     from backend.app.native.web import payload
+    from .credentials_api import install as install_credentials
+    install_credentials(app,resources,csrf)
     @app.get('/admin/site-sync')
     async def page(request:Request):
         r=await resources(request);authorize(r)
@@ -30,7 +32,7 @@ def install(app,resources,csrf,render):
         r=await resources(request);data=await payload(request,2048);csrf(request,r,data)
         from .proposals import send
         try:return JSONResponse(await send(r,data))
-        except (AuthorizationError,ConflictError,ValueError) as e:raise Error(str(e),409) from None
+        except (AuthorizationError,ConflictError,CredentialRetryError,ValueError) as e:raise Error(str(e),409) from None
     @app.api_route('/admin/site-sync/api/{rest:path}',methods=['GET','POST'])
     async def admin(request:Request,rest:str):
         r=await resources(request);authorize(r,'edit' if request.method=='POST' else 'view')
@@ -52,7 +54,7 @@ def install(app,resources,csrf,render):
             async for b in request.stream():
                 if len(data)+len(b)>2048:raise ValueError('Control bound')
                 data.extend(b)
-            key=secret(r);nonce=verify_request(key,request.headers,bytes(data));q=json.loads(data)
+            key=await secret(r);nonce=verify_request(key,request.headers,bytes(data));q=json.loads(data)
             if not isinstance(q,dict):raise ValueError('Invalid request')
             db=adapter(r);source=TeacherWebsite(db,r)
             if q.get('kind')=='proposal':

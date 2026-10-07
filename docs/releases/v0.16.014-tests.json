@@ -1,0 +1,7 @@
+{
+  "passed": 31,
+  "subtests_passed": 7,
+  "scope": "credential API, foundation and existing website integration",
+  "live_worker_d1": "not_run",
+  "runtime_integration": "pending"
+}

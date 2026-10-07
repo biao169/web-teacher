@@ -1,18 +1,18 @@
+import {resolveSecret} from './credentials.mjs';
 import {hmac,sha} from './transport.mjs';
 const enc=new TextEncoder();
 export async function sourceMedia(env,request){
  let object,storage=false;
  try{
   if(request.method!=='POST'||new URL(request.url).pathname!=='/sync/v1/read')return new Response('Not found',{status:404});
-  const key=env.TEACHER_SYNC_KEY;
-  if(typeof key!=='string'||!/^[a-fA-F0-9]{64}$/.test(key))return new Response('Disabled',{status:403});
-  const secret=Uint8Array.from(key.match(/../g),x=>parseInt(x,16));
   const reader=request.body?.getReader();if(!reader)throw Error('Body');
   const bytes=new Uint8Array(2048);let size=0;
   try{while(true){const {value,done}=await reader.read();if(done)break;if(size+value.length>2048)throw Error('Bound');bytes.set(value,size);size+=value.length;}}
   catch(e){await reader.cancel();throw e;}finally{reader.releaseLock();}
   const body=bytes.subarray(0,size),stamp=request.headers.get('x-sync-time')||'',nonce=request.headers.get('x-sync-nonce')||'',signature=request.headers.get('x-sync-signature')||'';
   if(!/^\d{1,12}$/.test(stamp)||Math.abs(Date.now()/1000-Number(stamp))>120||!/^[a-f0-9]{32}$/.test(nonce)||!/^[a-f0-9]{64}$/.test(signature))return new Response('Denied',{status:403});
+  let secret;
+  try{secret=await resolveSecret(env);}catch(e){return new Response('Credential unavailable',{status:e.kind==='credential'?403:503,headers:{'cache-control':'no-store'}});}
   const k=await crypto.subtle.importKey('raw',secret,{name:'HMAC',hash:'SHA-256'},false,['verify']);
   if(!await crypto.subtle.verify('HMAC',k,Uint8Array.from(signature.match(/../g),x=>parseInt(x,16)),enc.encode(['sync-v1-request',stamp,nonce,'POST','/sync/v1/read',await sha(body)].join('\n'))))return new Response('Denied',{status:403});
   const q=JSON.parse(new TextDecoder().decode(body));

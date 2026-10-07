@@ -17,7 +17,7 @@ def test_all_offline_gates_and_honest_boundaries(tmp_path,monkeypatch):
         return SimpleNamespace(returncode=0,stdout='passed',stderr='')
     monkeypatch.setattr(m.subprocess,'run',run)
     assert m.main()==0
-    data=json.loads(report.read_text());assert len(calls)==5
+    data=json.loads(report.read_text());assert len(calls)==6
     assert any('--separate-sync' in command for command in calls)
     assert any('--test' in command for command in calls)
     assert data['results']['simulated_dom']=='passed'

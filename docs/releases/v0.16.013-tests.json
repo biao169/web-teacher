@@ -1,0 +1,7 @@
+{
+  "passed": 26,
+  "subtests_passed": 7,
+  "scope": "credential foundation and existing website integration",
+  "cloud_d1": "not_run",
+  "runtime_key_switch": "not_integrated_step1"
+}

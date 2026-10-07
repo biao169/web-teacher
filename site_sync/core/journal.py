@@ -22,7 +22,9 @@ def failure(exc):
         ray=getattr(cause,'ray_id',None)
         if isinstance(ray,str) and re.fullmatch(r'[a-fA-F0-9]{8,32}-[A-Z]{3}',ray):info['ray_id']=ray
         codes.append(info);cause=cause.__cause__
-    return {'error':type(exc).__name__[:80],'frames':frames,'causes':codes}
+    result={'error':type(exc).__name__[:80],'frames':frames,'causes':codes}
+    if type(exc).__name__=='CredentialRetryError':result['reason']='对端鉴权未通过或密钥未就绪；保留进度，等待退避重试，请核对两端密钥及导出授权'
+    return result
 
 def statements(uid,now,kind,detail=None,level='info',condition='1',args=()):
     raw=json.dumps(detail or {},ensure_ascii=True,separators=(',',':'))

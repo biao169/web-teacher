@@ -16,6 +16,6 @@ t=run(repo.claim(now));run(repo.add_item(t,item_id='item-1',module='news',record
 sock=socket.socket();sock.bind(('127.0.0.1',0));sock.listen(128);port=sock.getsockname()[1]
 r.config=AuthConfig.from_origin('http://127.0.0.1:'+str(port))
 app=create_app(lambda req:r,Path(__file__).resolve().parents[2])
-print(json.dumps({'port':port,'password':password}),flush=True)
+print(json.dumps({'port':port,'password':password,'session_cookie':r.config.name('session')}),flush=True)
 try:uvicorn.Server(uvicorn.Config(app,log_level='error')).run(sockets=[sock])
 finally:fixture.tearDown()

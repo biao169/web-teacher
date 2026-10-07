@@ -13,11 +13,9 @@ from site_sync.core.authority import AuthorizationError
 
 def environment(r,key,default=''):
     return str(getattr(r.sync_env,key,default)) if hasattr(r,'sync_env') else os.environ.get(key,default)
-def secret(r):
-    raw=environment(r,'TEACHER_SYNC_KEY')
-    if len(raw)!=64:raise AuthorizationError('Set TEACHER_SYNC_KEY to 32 random bytes in hex on both sites')
-    try:return bytes.fromhex(raw)
-    except ValueError:raise AuthorizationError('Invalid TEACHER_SYNC_KEY') from None
+async def secret(r):
+    from .credentials import require_secret
+    return await require_secret(r)
 def scopes(p):
     return [t for t in SCOPES if all(p['permissions'].get(t,{}).get(k) for k in ('can_view','can_edit','can_create','can_export'))]
 def grant_id(p):return 'website:'+p['uid']
@@ -30,7 +28,7 @@ async def authorize_export(r,module=None):
     return allowed
 async def configure(r,body):
     from backend.app.native.data_tools import authorize
-    authorize(r,'edit');secret(r)
+    authorize(r,'edit');await secret(r)
     origin=str(body.get('origin','')).rstrip('/')
     from urllib.parse import urlsplit
     u=urlsplit(origin)
@@ -61,7 +59,11 @@ def runtime(r):
         if not rows:raise AuthorizationError('Peer disabled')
         if kind=='local':
             from site_sync.transport.http import HTTPPeer
-            return HTTPPeer(rows[0]['origin'],secret(r))
+            try:key=await secret(r)
+            except AuthorizationError as exc:
+                from site_sync.core.authority import CredentialRetryError
+                raise CredentialRetryError('Sync credential unavailable') from exc
+            return HTTPPeer(rows[0]['origin'],key)
         return WorkerPeer(NativeBridge(r.sync_env.SYNC_NATIVE,db,rows[0]))
     if kind=='local':
         from site_sync.adapters.local_media import LocalMedia

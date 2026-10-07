@@ -204,12 +204,14 @@ def execute(command, runner, log, *, report_path=None):
         if command == 'deploy':
             release.prepare(stage,work)
             keyfile=work/'sync-secret.json'
+            # An empty file preserves existing Wrangler secrets without writing a blank key.
             fd=os.open(keyfile,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
-            with os.fdopen(fd,'w') as output:json.dump({'TEACHER_SYNC_KEY':release.key},output)
+            with os.fdopen(fd,'w') as output:json.dump({'TEACHER_SYNC_KEY':release.key} if release.key else {},output)
+            secret_args=['--secrets-file',str(keyfile)]
             try:
                 # Only the primary Worker is published by linked Builds/Wrangler.
                 # Its CI identity and tag remain intact; secret is part of upload.
-                runner('DEPLOY', [node,str(wrangler),'deploy','--secrets-file',str(keyfile)], stage, env)
+                runner('DEPLOY', [node,str(wrangler),'deploy',*secret_args], stage, env)
                 release.activate()
             except Exception:
                 log('RELEASE-INCOMPLETE','发布未全部完成；请核对辅助调度状态并重试 / Incomplete release; inspect scheduling and retry')

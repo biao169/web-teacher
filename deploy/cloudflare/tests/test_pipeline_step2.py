@@ -111,17 +111,19 @@ class PipelineTests(unittest.TestCase):
                 release.return_value.prepare.assert_called_once()
                 self.assertEqual(env.get('WRANGLER_CI_OVERRIDE_NAME'),'teacher-site')
                 self.assertEqual(env.get('WRANGLER_CI_MATCH_TAG'),'main-tag')
-                self.assertEqual(json.loads(Path(command[command.index('--secrets-file')+1]).read_text()),{'TEACHER_SYNC_KEY':'6a'*32})
+                self.assertEqual(json.loads(Path(command[command.index('--secrets-file')+1]).read_text()),({'TEACHER_SYNC_KEY':'6a'*32} if not no_key else {}))
             stages.append((name,command))
             if name=='DEPLOY' and failure:raise RuntimeError('injected main upload failure')
-        for mode,separate in [('bundle',False),('deploy',False),('bundle',True),('deploy',True),('verify-companions',True),('deploy-failure',True)]:
+        for mode,separate in [('bundle',False),('deploy',False),('bundle',True),('deploy',True),('verify-companions',True),('deploy-failure',True),('deploy-no-key',False),('deploy-no-key',True)]:
+            no_key=mode=='deploy-no-key'
+            if no_key:mode='deploy'
             failure=mode=='deploy-failure'
             if failure:mode='deploy'
             stages=[]
-            with patch.dict(pipeline.os.environ,self.env(TEACHER_SYNC_EXECUTOR_MODE='separate' if separate else 'inline',TEACHER_SYNC_KEY='6a'*32,CLOUDFLARE_ACCOUNT_ID='a'*32,TEACHER_AUX_API_TOKEN='test-token',WRANGLER_CI_OVERRIDE_NAME='teacher-site',WRANGLER_CI_MATCH_TAG='main-tag')), patch.object(pipeline.shutil,'which',return_value='/bin/node'), \
+            with patch.dict(pipeline.os.environ,self.env(TEACHER_SYNC_EXECUTOR_MODE='separate' if separate else 'inline',TEACHER_SYNC_KEY='' if no_key else '6a'*32,CLOUDFLARE_ACCOUNT_ID='a'*32,TEACHER_AUX_API_TOKEN='test-token',WRANGLER_CI_OVERRIDE_NAME='teacher-site',WRANGLER_CI_MATCH_TAG='main-tag')), patch.object(pipeline.shutil,'which',return_value='/bin/node'), \
                  patch.object(pipeline.subprocess,'check_output',return_value='v22.0.0'), \
                  patch.object(pipeline.venv.EnvBuilder,'create'),patch.object(pipeline,'verify_stage'), patch('d1_setup.setup') as db_setup, patch('r2_check.check') as r2_check, patch('companions.inspect_artifact',return_value={'artifact_validation':'passed'}) as inspect, patch('companion_release.Release') as release:
-                release.return_value.key='6a'*32
+                release.return_value.key='' if no_key else '6a'*32
                 if failure:
                     with self.assertRaisesRegex(RuntimeError,'injected'):pipeline.execute(mode,fake_stage,lambda *a,**kw:None)
                 else:pipeline.execute(mode,fake_stage,lambda *a,**kw:None)

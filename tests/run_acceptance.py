@@ -11,14 +11,19 @@ def main():
     args=parser.parse_args();node=shutil.which('node')
     if (args.dom or args.browser) and not node:parser.error('DOM/browser checks require Node.js')
     env=dict(os.environ)
+    env['NODE_PATH']=os.pathsep.join([str(ROOT/'tests/node_modules'),env.get('NODE_PATH','')])
     env.update(TEST_PYTHON=sys.executable,PYTHON=sys.executable,PYTHONDONTWRITEBYTECODE='1')
     env['PYTHONPATH']=os.pathsep.join([str(ROOT),str(ROOT/'tests'),str(ROOT/'deploy/cloudflare'),str(ROOT/'deploy/cloudflare/tests'),env.get('PYTHONPATH','')])
     steps=[('python',[sys.executable,'-B','-m','pytest','-q','tests','site_sync/tests','site_sync/tests_website','deploy/cloudflare/tests']),
            ('offline_inline',[sys.executable,'-B','tests/stage_release_v016001.py']),
            ('offline_separate_executor',[sys.executable,'-B','tests/stage_release_v016001.py','--separate-sync'])]
     if node:steps.append(('native_stream',[node,'--test',*[str(p.relative_to(ROOT)) for p in sorted((ROOT/'site_sync/worker').glob('*.test.mjs'))],'site_sync/frontend/static/model.test.mjs']))
-    if args.dom:steps.append(('simulated_dom',[node,'tests/run_dom_tests.cjs']))
-    if args.browser:steps.append(('real_browser',[node,'site_sync/tests_website/browser_admin.cjs']))
+    if args.dom:
+        steps.append(('simulated_dom',[node,'tests/run_dom_tests.cjs']))
+        steps.append(('credential_dom_http',[node,'site_sync/tests_website/dom_credentials.cjs']))
+    if args.browser:
+        steps.append(('real_browser',[node,'site_sync/tests_website/browser_admin.cjs']))
+        steps.append(('credential_browser',[node,'site_sync/tests_website/browser_credentials.cjs']))
     results={};checks=[]
     for name,command in steps:
         try:
@@ -32,7 +37,7 @@ def main():
         checks.append({'name':name,'status':results[name],'output':output})
         print(name+': '+results[name],flush=True)
         if not passed:print(output[-5000:],flush=True)
-    for name,enabled in [('native_stream',bool(node)),('simulated_dom',args.dom),('real_browser',args.browser)]:
+    for name,enabled in [('native_stream',bool(node)),('simulated_dom',args.dom),('real_browser',args.browser),('credential_dom_http',args.dom),('credential_browser',args.browser)]:
         if not enabled:results[name]='not_run'
     report={'version':tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version'],
             'platform':platform.platform(),'python_version':platform.python_version(),'results':results,'checks':checks,

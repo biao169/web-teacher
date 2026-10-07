@@ -36,7 +36,7 @@ async def send(r,data):
     if r.kind=='local':
         import asyncio
         from site_sync.transport.http import HTTPPeer
-        raw=await asyncio.to_thread(HTTPPeer(p['origin'],secret(r)).open,q)
+        raw=await asyncio.to_thread(HTTPPeer(p['origin'],await secret(r)).open,q)
     else:
         from site_sync.runtime.bridge import NativeBridge
         raw=await NativeBridge(r.sync_env.SYNC_NATIVE,db,p).read(q)
