@@ -1,6 +1,6 @@
 """Bounded diagnostic vocabulary shared by admin and peer transports."""
 import re
-RELEASE='0.16.036'
+RELEASE='0.16.037'
 CODES={
  'SYNC_NATIVE_PROTOCOL':'原生辅助正文协议不匹配；请部署完整包并确认辅助 Worker 已同步更新',
  'SYNC_CLEANUP_FAILED':'资源清理失败；保留原始异常并检查清理阶段日志',

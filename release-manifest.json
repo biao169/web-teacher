@@ -1,7 +1,7 @@
 {
   "format": "teacher-release-v1",
-  "version": "0.16.036",
-  "based_on": "v0.16.035-isolation-step6",
+  "version": "0.16.037",
+  "based_on": "v0.16.036-isolation-step7",
   "files": {
     ".gitattributes": {
       "bytes": 280,
@@ -112,8 +112,8 @@
       "sha256": "e8d04581be0a30be50b1f2885aa466045395a156640f15b1ec23d4c66d0cb522"
     },
     "backend/app/native/catalog.py": {
-      "bytes": 8360,
-      "sha256": "c661fc170184d55ce58912f4d9dee0778d0accd1be20e5bfa5d5468647f99718"
+      "bytes": 8367,
+      "sha256": "dec1ddd71d34c3c8e4c859ff06c1dda6f609cc82c072a57c3aabcda6ea2f3244"
     },
     "backend/app/native/content.py": {
       "bytes": 24584,
@@ -708,8 +708,8 @@
       "sha256": "f415e33853cee5296c2cf8febccd201e3c0598bbaa514bf86ac74c77c07ac941"
     },
     "deploy/cloudflare/integration_package.py": {
-      "bytes": 4286,
-      "sha256": "0bb206241c398c8a25a14e5e3f6edd6f85e57863569aecf3dfcd2a874e607d06"
+      "bytes": 5011,
+      "sha256": "0beff263e2e5bdb8df6e084799e70bc827a003df13181cd4a2decfb8db130fb9"
     },
     "deploy/cloudflare/native_build.py": {
       "bytes": 2219,
@@ -724,8 +724,8 @@
       "sha256": "543992c309267858d5b11ebf66f117f47ef4af898bdf38e7215cf99d389a40b8"
     },
     "deploy/cloudflare/pipeline.py": {
-      "bytes": 13594,
-      "sha256": "1e6a892fb384e9577b608a3b2306705440c7b45e6d8765db991f1812b608998b"
+      "bytes": 13854,
+      "sha256": "18c6dd853a57cbf72cbfb6f6b590767bd40b8a621962d1325e91b6c210a5c543"
     },
     "deploy/cloudflare/prepare.py": {
       "bytes": 261,
@@ -737,7 +737,7 @@
     },
     "deploy/cloudflare/pyproject.toml": {
       "bytes": 303,
-      "sha256": "aa49017ce89272c9564fdba2632226673c0483f0d05ab851cdbebfd45eaa1fe1"
+      "sha256": "a95184d2064a08c4eedf7d8173c7aa95271ebb6220a3855ec012e63f948d3494"
     },
     "deploy/cloudflare/r2_check.py": {
       "bytes": 4166,
@@ -765,7 +765,7 @@
     },
     "deploy/cloudflare/runtime/entrypoint.py": {
       "bytes": 6550,
-      "sha256": "ba7dcd1a896176d7890d0306d07be14093096c625adccf888f5e6691fafc1291"
+      "sha256": "f4a1aee80b42ed9edd68623b2401b51c427fc988b4ed75697b86db9bd5c0aaca"
     },
     "deploy/cloudflare/runtime/maintenance.py": {
       "bytes": 1439,
@@ -796,12 +796,12 @@
       "sha256": "e9a8ed86e9807ff0e39eb709fa0b3cf1db9afe14c8443ee766df60d4f78e5087"
     },
     "deploy/cloudflare/runtime/sync_executor.py": {
-      "bytes": 1915,
-      "sha256": "d1ffc6f02e57abc89f7653ff2bf26e84b80f6528bfa75a803261a222e65d698d"
+      "bytes": 2075,
+      "sha256": "1bb81e35dc878a6aad0ff580e0b73d5b69f64fcc51fde1a50f1016f190c86d2b"
     },
     "deploy/cloudflare/runtime/sync_resources.py": {
-      "bytes": 1189,
-      "sha256": "6da17005c4e6fafd5ae0bda43ae0c3e7f260f6fd90f43bfafe0488e68144240e"
+      "bytes": 1177,
+      "sha256": "c9ef32c7bf40fcafdba19995bd934d479f42db862a40eec4356f51f7def152e8"
     },
     "deploy/cloudflare/runtime/transfer.py": {
       "bytes": 5119,
@@ -812,8 +812,8 @@
       "sha256": "835258972d004f170b45c84a236362d7ac8b7ed7db4f9203c4f57513c68b619e"
     },
     "deploy/cloudflare/startup_check.py": {
-      "bytes": 4884,
-      "sha256": "1927c28a30a2b2b80bd5dbcfbc9b4fe666ae7efe9ed5cccdffb5ed762bdca1fc"
+      "bytes": 7093,
+      "sha256": "651a80a198638cbc13b5d468fb7d67a296a1075acdf5aca0820476c0e95b8c6e"
     },
     "deploy/cloudflare/tests/ffi_probe.py": {
       "bytes": 3617,
@@ -832,8 +832,8 @@
       "sha256": "a6b7e89a24484c9d626923926f5be6a0a617f43325b36802957bacab1c1b5e1a"
     },
     "deploy/cloudflare/tests/test_acceptance_step5.py": {
-      "bytes": 5386,
-      "sha256": "785d2364b1d6e83f09297f8627d3168bd41001dca189de86de65ae098a9873a4"
+      "bytes": 5418,
+      "sha256": "d486f47e85e01ad5f79fdd90b84a89f588511b7b3a383529e4f12890c02ca7b6"
     },
     "deploy/cloudflare/tests/test_build_step1.py": {
       "bytes": 3934,
@@ -884,8 +884,8 @@
       "sha256": "28317555545338906ab88fed716164470badcf61be92ffb72a007bee3421066f"
     },
     "deploy/cloudflare/tests/test_pipeline_step2.py": {
-      "bytes": 10253,
-      "sha256": "ac88a1fa32830b1f1e8e7f10076a9fad7bc1c898bc72d6943293b95fe9c1b5dc"
+      "bytes": 10317,
+      "sha256": "1f05c294307c51312044206fcbc1396baaf1f742411da0ca75fa35d718da96f2"
     },
     "deploy/cloudflare/tests/test_r2_check.py": {
       "bytes": 3300,
@@ -907,6 +907,10 @@
       "bytes": 3368,
       "sha256": "7d219541f2390429ecfda6bbb4b3960fdb7dbf639974ee9153f3cdf290e3ad9e"
     },
+    "deploy/cloudflare/tests/test_staged_executor.py": {
+      "bytes": 2859,
+      "sha256": "9792a1355cc73922558da94e9a4954c9df2f2f68ad3bae740e12bc906ab6b1a4"
+    },
     "deploy/cloudflare/tests/test_startup_acceptance.py": {
       "bytes": 2638,
       "sha256": "1a329d70dcde3353ac81c7eac3a1a590364eabbf19ec188f79de9bceaf7acace"
@@ -924,8 +928,8 @@
       "sha256": "ca0e9071de0b6486f69cf0054961b29fdc4492faf009f19b3ff9c9caee2f8610"
     },
     "deploy/cloudflare/tests/test_sync_isolation.py": {
-      "bytes": 3885,
-      "sha256": "5fb848b6e2c91e7ae53eefbdc67c122ae5246e9f0ecb8cd71a232c6e43819226"
+      "bytes": 3882,
+      "sha256": "72a1ec95e7d5a1f26178a2123ee862b7365202458499940ba2548c9328f30747"
     },
     "deploy/cloudflare/tests/test_transfer_step4.py": {
       "bytes": 6603,
@@ -933,7 +937,7 @@
     },
     "deploy/cloudflare/uv.lock": {
       "bytes": 74032,
-      "sha256": "0f6856cbc30b555a6268a4cf4691be6238f6e8c3b679deb9071bcebddc384def"
+      "sha256": "e5692ada5a37bc3ecda5d0e4cc3d5b8457d0fe6cf07730852a105d0d35ca17d6"
     },
     "deploy/linux/README.md": {
       "bytes": 12513,
@@ -988,8 +992,8 @@
       "sha256": "58171f040ebdc6b905996164a087c4c2b13ad3a73ba8fbdef8714ad8737a4032"
     },
     "deploy/shared/worker_package.py": {
-      "bytes": 7950,
-      "sha256": "d68684c9802107ed3c67f0d9a025a37e2ac2c90b4a7809d4238eb92ec081e962"
+      "bytes": 8024,
+      "sha256": "edd67061169238ba66a2dd0a72053dee0c1707b7990b0a0396581e2b680cc151"
     },
     "deploy/vps/Caddyfile.example": {
       "bytes": 986,
@@ -2154,6 +2158,10 @@
     "docs/releases/v0.16.036.md": {
       "bytes": 6885,
       "sha256": "bf90a45f8d5e4a2a121b995fabbbac6b5c0418d77ac8f3739ce34f1740b80d13"
+    },
+    "docs/releases/v0.16.037.md": {
+      "bytes": 8976,
+      "sha256": "2e1348025850080a3a99898df962cb154dbcc91b93a08fedfd3dc91928902ae0"
     },
     "docs/request-cache-v159-benchmark.json": {
       "bytes": 1881,
@@ -3957,7 +3965,7 @@
     },
     "pyproject.toml": {
       "bytes": 352,
-      "sha256": "973d83fac98cb1cf3726fd133edf564cea7ae20e22c1ae2208c685aa44558566"
+      "sha256": "13ff7861b3a7d852205755f7b12ea217c65b86a1e59c7be3a29c358a9f4f5489"
     },
     "site_sync/README.md": {
       "bytes": 7451,
@@ -4041,7 +4049,7 @@
     },
     "site_sync/core/diagnostics.py": {
       "bytes": 3530,
-      "sha256": "ec017272a44b851fdc9d09ec7bfabef7dcb470a7cfee939cf81c41fdb235cf7d"
+      "sha256": "cb75295ff6c2367336077225cb44e9f61815d5a4b528a91e775f6810ac88c86f"
     },
     "site_sync/core/engine.py": {
       "bytes": 3554,
@@ -4333,7 +4341,7 @@
     },
     "site_sync/runtime/bridge.py": {
       "bytes": 3631,
-      "sha256": "6efd5d9e362560afc6e9d89a27acab9b643b55f478b6e5a28ff9a7c133cd161e"
+      "sha256": "eac4b9eae828c7aed9629a1679912b81d54bf226ee2aa5614258606d13c95cc5"
     },
     "site_sync/runtime/local.py": {
       "bytes": 3966,
@@ -4569,7 +4577,7 @@
     },
     "site_sync/worker/diagnostics.mjs": {
       "bytes": 2219,
-      "sha256": "0fed0ee80fd7a02bb3b3b0313dc140f751016e100ac54d2009a9089c126ed9d2"
+      "sha256": "e4bbd498023af704728608f450ef2dd8cb3e3ae4c8eb25f7af8f80cb61301707"
     },
     "site_sync/worker/diagnostics.test.mjs": {
       "bytes": 2822,
@@ -4812,8 +4820,8 @@
       "sha256": "6744c9ac7eeda426d33c41bec842eefe3a023c934a5a50a3419a22340981b0d2"
     },
     "tests/stage_release_v016001.py": {
-      "bytes": 3331,
-      "sha256": "08338d36aa16475f7467456cbc4c5d70ccfc6b3014aaee48fd112ef0012ecae2"
+      "bytes": 4586,
+      "sha256": "38c8238ff70307fa90d0f9c84ecccb6e41cbaec77ea9ae8fdbae7bff30abd0df"
     },
     "tests/stage_release_v160.py": {
       "bytes": 216,
@@ -4824,8 +4832,8 @@
       "sha256": "9c3149a11cb2a5f4ae5cfd3cf12cdb6761647d3035b7f8e08b404bff85a07f01"
     },
     "tests/sync_stage_fixture.py": {
-      "bytes": 975,
-      "sha256": "38fe6a8482dba42698c4cdb2b11da2ff05230fae90445d17c616ec1a9abef1c3"
+      "bytes": 1007,
+      "sha256": "2e6ff77a755213be0ac34f289dbeb8eeaf918ba12c716b320a95182507fd4cac"
     },
     "tests/test_acceptance_runner_v016007.py": {
       "bytes": 2230,

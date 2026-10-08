@@ -36,7 +36,8 @@ def prepare(transfer=False,argv=None,*,migration_plan=True):
     shutil.copytree(ROOT/'backend',out/'backend',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
     shutil.copytree(ROOT/'site_sync',out/'site_sync',ignore=shutil.ignore_patterns('__pycache__','*.pyc','tests','tests_website','prototypes','examples','docs','frontend','README.md'))
     native={n:json.loads((ROOT/'database/native'/(n+'.json')).read_text(encoding='utf-8')) for n in ('schema-spec','editor-contract')}
-    code='NATIVE = '+repr(native)+'\n'
+    (out/'generated_native_resources.py').write_text('NATIVE = '+repr(native)+'\n',encoding='utf-8')
+    code=''
     # Copy the canonical installer without importing SQLite-dependent schema helpers.
     if transfer:
         objects=json.loads((ROOT/'database/native/transfer.json').read_text(encoding='utf-8'))['objects']

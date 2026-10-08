@@ -149,7 +149,7 @@ def execute(command, runner, log, *, report_path=None):
         (stage/'wrangler.json').rename(stage/'wrangler.jsonc')
         # Keep package names unchanged; isolate the module root from build tools.
         (stage/'src').mkdir()
-        for name in ('main.py', 'backend', 'site_sync', 'generated_resources.py'):
+        for name in ('main.py', 'backend', 'site_sync', 'generated_native_resources.py', 'generated_resources.py'):
             shutil.move(str(stage/name), str(stage/'src'/name))
         shutil.copytree(HERE/'runtime', stage/'src/worker_runtime',
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
@@ -172,6 +172,8 @@ def execute(command, runner, log, *, report_path=None):
             '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src')], stage, env)
         runner('EXECUTOR-SNAPSHOT-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
             '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src'), '--executor-only'], stage, env)
+        runner('EXECUTOR-DEPENDENCY-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
+            '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src'), '--executor-dependencies'], stage, env)
         env['UV_PROJECT_ENVIRONMENT'] = str(host/'.venv')
         runner('WRANGLER', [npm,'ci','--no-audit','--no-fund'], stage, env)
         # Package synchronization is explicit, then Wrangler runs directly so a deploy

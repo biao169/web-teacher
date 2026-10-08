@@ -45,7 +45,7 @@ def test_peer_asgi_uses_only_minimal_resources(monkeypatch):
             async def query(self,*args):return await db.query(*args)
         sql=SQL()
         monkeypatch.setattr(sync_resources,'Environment',lambda env:SimpleNamespace(DB=object(),TEACHER_DATABASE_BINDING='DB',TEACHER_SYNC_KEY='6a'*32))
-        monkeypatch.setattr(sync_resources,'D1SQL',lambda binding:sql)
+        monkeypatch.setattr(sync_resources,'D1',lambda binding:sql)
         monkeypatch.setattr('site_sync.integration.peer_api.adapter',lambda r:db)
         monkeypatch.setattr('site_sync.integration.control.adapter',lambda r:db)
         monkeypatch.setattr('site_sync.integration.credentials.adapter',lambda r:db)

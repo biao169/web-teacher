@@ -71,7 +71,7 @@ class PipelineTests(unittest.TestCase):
             stage=work/'worker';c=pipeline.settings(self.env())
             prepare(False,pipeline.prepare_arguments(c,stage))
             (stage/'src').mkdir()
-            for n in ('main.py','backend','site_sync','generated_resources.py'):
+            for n in ('main.py','backend','site_sync','generated_native_resources.py','generated_resources.py'):
                 shutil.move(str(stage/n),str(stage/'src'/n))
             config=json.loads((stage/'wrangler.json').read_text());config['main']='src/main.py'
             from integration_package import extend
@@ -105,7 +105,7 @@ class PipelineTests(unittest.TestCase):
             if name=='PACKAGE':
                 stage=Path(command[command.index('--output')+1])
                 stage.mkdir();(stage/'backend').mkdir();(stage/'site_sync').mkdir()
-                for n in ('main.py','generated_resources.py'):(stage/n).write_text('')
+                for n in ('main.py','generated_native_resources.py','generated_resources.py'):(stage/n).write_text('')
                 (stage/'wrangler.json').write_text(json.dumps({'name':'teacher','main':'main.py','assets':{},'compatibility_date':'2026-09-14','compatibility_flags':['python_workers','global_fetch_strictly_public'],'vars':{'TEACHER_MEDIA_BINDING':'MEDIA','TEACHER_MEDIA_PREFIX':'media/'},'d1_databases':[{'binding':'DB','database_name':'teacher-db','database_id':'12345678-1234-1234-1234-123456789abc'}],'r2_buckets':[{'binding':'MEDIA','bucket_name':'teacher-media'}]}))
             if name=='WRANGLER':
                 p=Path(cwd)/'node_modules/wrangler/bin';p.mkdir(parents=True)

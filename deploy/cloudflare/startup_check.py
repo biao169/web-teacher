@@ -4,6 +4,7 @@ import ast
 import builtins
 import datetime
 import importlib.util
+import json
 import os
 from pathlib import Path
 import secrets
@@ -16,7 +17,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 
-def check(runtime, source=None, executor_only=False):
+def check(runtime, source=None, executor_only=False, executor_dependencies=False):
     if source:
         sys.path.insert(0, str(source))
     def blocked(*args, **kwargs):
@@ -66,8 +67,24 @@ def check(runtime, source=None, executor_only=False):
         executor=importlib.util.module_from_spec(executor_spec);executor_spec.loader.exec_module(executor)
         assert hasattr(executor.Default,'sync_tick')
         if executor_only:
-            for name in ('backend.app.native.web','worker_runtime.resources','generated_resources','worker_runtime.transfer'):
-                assert name not in sys.modules, 'Executor loaded website runtime: '+name
+            # Cold entrypoint must not preload peer HTTP or business catalogs.
+            cold_forbidden=('worker_runtime.sync_resources','site_sync.integration.peer_api','starlette','backend.app.native.catalog')
+            if any(n in sys.modules for n in cold_forbidden):
+                raise AssertionError('Executor cold startup loaded request dependencies: '+', '.join(n for n in cold_forbidden if n in sys.modules))
+            if executor_dependencies:
+                # Exercise the actual deferred import graph, still without DB/network work.
+                importlib.import_module('site_sync.integration.worker_schedule')
+                importlib.import_module('site_sync.integration.host')
+                cron_http=[n for n in ('worker_runtime.sync_resources','site_sync.integration.peer_api','starlette') if n in sys.modules]
+                if cron_http:raise AssertionError('Executor Cron dependency loaded HTTP runtime: '+', '.join(cron_http))
+                importlib.import_module('worker_runtime.sync_resources')
+            forbidden=('backend.app.native.web','worker_runtime.resources','generated_resources','worker_runtime.transfer','backend.entrypoints.worker')
+            loaded=[n for n in forbidden if n in sys.modules]
+            if loaded:
+                raise AssertionError('Executor isolation check failed.\nExecutor mode: separate\nLoaded forbidden modules:\n'+
+                    '\n'.join('- '+n+' | '+str(getattr(sys.modules[n],'__file__','unknown')) for n in loaded)+
+                    '\nAllowed generated modules: generated_native_resources\nThe separate executor must not import bundled website/template/transfer resources.\nCheck catalog imports and PACKAGE resource generation.')
+            print(json.dumps({'executor_import_check':'dependencies' if executor_dependencies else 'cold','module_count':len(sys.modules),'project_module_count':sum(n.startswith(('site_sync','backend','worker_runtime','transfer','generated_')) for n in sys.modules),'generated_modules':[n for n in sys.modules if n.startswith('generated_')],'forbidden_modules':loaded,'backend_modules':sorted(n for n in sys.modules if n.startswith('backend'))}))
         else:
             assert hasattr(module.Default,'fetch') and hasattr(module.TransferCoordinator,'fetch')
     print('Snapshot imports checked; request application and transfer state remain uninitialized. SDK/cloud validation still required.')
@@ -78,6 +95,7 @@ if __name__=='__main__':
     parser.add_argument('--runtime',type=Path,default=Path(__file__).resolve().parent/'runtime')
     parser.add_argument('--source', type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument('--executor-only',action='store_true',help='Check executor imports in a fresh process without warming the main site')
+    parser.add_argument('--executor-dependencies',action='store_true',help='Check deferred sync/peer dependency graph without executing requests')
     parser.add_argument('--syntax-only', action='store_true', help='Dependency-free preflight; full import check runs after packaging')
     args=parser.parse_args()
     if args.syntax_only:
@@ -85,4 +103,4 @@ if __name__=='__main__':
             ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
         print('Runtime syntax checked; snapshot import validation runs after dependencies are installed.')
     else:
-        check(args.runtime.resolve(), args.source.resolve(),args.executor_only)
+        check(args.runtime.resolve(), args.source.resolve(),args.executor_only or args.executor_dependencies,args.executor_dependencies)

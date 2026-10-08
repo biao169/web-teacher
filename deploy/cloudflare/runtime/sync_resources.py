@@ -1,6 +1,6 @@
 """Request-local sync resources: no website factory, templates or login state."""
 from types import SimpleNamespace
-from backend.app.adapters.d1.sql import D1SQL
+from site_sync.adapters.d1 import D1
 from worker_runtime.bridge import Environment
 from site_sync.integration.peer_api import peer_read
 from starlette.requests import Request
@@ -18,6 +18,6 @@ async def application(scope,receive,send):
         await Response(status_code=404)(scope,receive,send);return
     async def resources(request):
         bindings=Environment(scope['env'])
-        return SimpleNamespace(sql=D1SQL(getattr(bindings,str(getattr(bindings,'TEACHER_DATABASE_BINDING','DB')))),kind='r2',sync_env=bindings)
+        return SimpleNamespace(sql=D1(getattr(bindings,str(getattr(bindings,'TEACHER_DATABASE_BINDING','DB')))),kind='r2',sync_env=bindings)
     response=await peer_read(Request(scope,receive),resources)
     await response(scope,receive,send)

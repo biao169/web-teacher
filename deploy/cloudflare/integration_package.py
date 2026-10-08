@@ -32,6 +32,15 @@ def verify(root, stage, config):
     """Gate missing exports/bindings/assets before a real deployment can start."""
     from resource_module import verify as verify_resources
     verify_resources(root, stage)
+    # Native metadata must remain separate from template/transfer literals.
+    import ast
+    native={n:json.loads((root/'database/native'/(n+'.json')).read_text(encoding='utf-8')) for n in ('schema-spec','editor-contract')}
+    if (stage/'src/generated_native_resources.py').read_text(encoding='utf-8') != 'NATIVE = '+repr(native)+'\n':
+        raise ValueError('Generated native metadata differs from canonical resources')
+    tree=ast.parse((stage/'src/generated_resources.py').read_text(encoding='utf-8'))
+    if any(isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='NATIVE' for t in n.targets) for n in tree.body):
+        raise ValueError('Native metadata must not be merged into website resources')
+
     from site_sync.integration.package import verify as verify_sync
     verify_sync(root, stage)
     if 'global_fetch_strictly_public' not in config.get('compatibility_flags',[]):
