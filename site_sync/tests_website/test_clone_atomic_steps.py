@@ -30,7 +30,7 @@ def test_clone_verify_resumes_next_table_after_committed_reply_is_lost(hard_term
             async def peer(task):return Peer()
             fresh.peer_factory=peer;base=fresh.db.batch;query=fresh.db.query
             async def measured(sql,args=()):
-                if sql.startswith('SELECT count(*) n FROM service_meta WHERE key LIKE'):queries.append(args[0])
+                if sql.startswith('SELECT count(*) n FROM service_meta WHERE key >='):queries.append(args[0])
                 return await query(sql,args)
             async def lost(statements):
                 result=await base(statements)
@@ -51,7 +51,7 @@ def test_clone_verify_resumes_next_table_after_committed_reply_is_lost(hard_term
         for index,table in enumerate(chosen):
             before=len(queries);row=tick(lose=index==0)
             assert len(queries)-before==1
-            assert queries[-1].endswith(table+':%')
+            assert queries[-1].endswith(table+':')
             assert state()['table']==index+1
             assert row['no_progress_count']==0
             assert not checks

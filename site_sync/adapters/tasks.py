@@ -162,7 +162,7 @@ class Tasks:
         await self.db.batch([self.command_guard(task_id,grant_id,g['revision'],now),('''UPDATE sync_tasks SET status=?,phase=?,grant_revision=?,grant_enabled=1,
           write_authorized=?,confirmation_id=?,no_progress_count=0,next_run_at=?,revision=revision+1
           WHERE task_id=? AND status='paused' AND revision=? AND lease_until<=?''',
-          (status,phase,g['revision'],0 if changed else task['write_authorized'],None if changed else task['confirmation_id'],now,task_id,task['revision'],now))])
+          (status,phase,g['revision'],0 if changed else task['write_authorized'],None if changed else task['confirmation_id'],now,task_id,task['revision'],now)),('DELETE FROM service_meta WHERE key=? AND changes()=1',('sync:adaptive:'+task_id,))])
 
     async def bind_upgraded_task(self,task_id,grant_id,now):
         """Trusted migration/admin service: bind an unowned paused v1 task.
@@ -317,12 +317,16 @@ class Tasks:
             wait=max(wait,cadence['fast_retry_seconds'])
         previous=await adaptive.read(self.db,task['task_id'])
         size,load=adaptive.adjust(current,previous,now,classification,progress=current['progress_seq']>current['attempt_start_seq'],failed=bool(error) or uncertain or permanent,body_success=task.get('_body_progress',False))
+        quarantined=adaptive.quarantine(current,load,diagnostic,failed=bool(error) or uncertain,progress=current['progress_seq']>current['attempt_start_seq'],permanent=permanent)
+        if quarantined:wait=max(wait,1800)
+        # Verification/SQL work cannot become cheaper by shrinking media/body slices.
+        if current['phase']=='apply':size=current['slice_bytes'];load['action']='hold'
         from site_sync.core.journal import statements as journal
         await self.db.batch([('''UPDATE sync_tasks SET status=?,no_progress_count=?,next_run_at=?,slice_bytes=?,
           total_errors=total_errors+?,last_error=?,lease_token=NULL,lease_until=0,reconciled_attempt_id=?,revision=revision+1
           WHERE task_id=? AND status='running' AND attempt_id=? AND lease_token=? AND revision=?''',
           (status,decision.consecutive,now+wait,size,int(bool(error) or uncertain),
-           ('Authorization changed' if not valid else error),current['attempt_id'],task['task_id'],current['attempt_id'],current['lease_token'],current['revision'])),adaptive.save(task['task_id'],load)]+journal(task['task_id'],now,'recovered' if uncertain else 'error' if error else 'step',{'before_phase':task['phase'],'before_progress':current['attempt_start_seq'],'progress_delta':current['progress_seq']-current['attempt_start_seq'],'error':error,'diagnostic':diagnostic or {},'outcome':decision.outcome,'adaptation':dict(load,before_bytes=current['slice_bytes'],after_bytes=size,retry_delay=wait,checkpoint_retained=True)},'error' if error or uncertain else 'info',condition='changes()=1'))
+           ('Authorization changed' if not valid else error),current['attempt_id'],task['task_id'],current['attempt_id'],current['lease_token'],current['revision'])),adaptive.save(task['task_id'],load)]+journal(task['task_id'],now,'recovered' if uncertain else 'error' if error else 'step',{'before_phase':task['phase'],'before_progress':current['attempt_start_seq'],'progress_delta':current['progress_seq']-current['attempt_start_seq'],'error':error,'diagnostic':diagnostic or {},'outcome':'quarantined_retry' if quarantined else decision.outcome,'adaptation':dict(load,before_bytes=current['slice_bytes'],after_bytes=size,retry_delay=wait,checkpoint_retained=True)},'error' if error or uncertain else 'info',condition='changes()=1'))
         return True
 
     async def reconcile_one(self,now):

@@ -25,11 +25,17 @@ class Engine:
                 handler=self.handlers.get(task['phase'])
                 if handler is None:
                     raise ConflictError('No handler installed for '+task['phase'])
-                work=handler(Context(self.repo,task,self.clock))
-                if self.step_timeout is None:await work
-                else:
-                    try:await asyncio.wait_for(work,self.step_timeout)
-                    except asyncio.TimeoutError as exc:raise ResourceError("Sync step deadline exceeded") from exc
+                async def work():
+                    try:await handler(Context(self.repo,task,self.clock))
+                    finally:task['_diagnostic_context']=current()
+                try:
+                    if self.step_timeout is None:await work()
+                    else:
+                        try:await asyncio.wait_for(work(),self.step_timeout)
+                        except asyncio.TimeoutError as exc:raise ResourceError("Sync step deadline exceeded") from exc
+                finally:
+                    from .trace import annotate
+                    annotate(**task.pop('_diagnostic_context',{}))
             except (AuthorizationError,ConflictError) as exc:
                 await self.repo.finish(task,self.clock(),error=type(exc).__name__,permanent=True,diagnostic=failure(exc))
             except Exception as exc:

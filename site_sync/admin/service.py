@@ -80,7 +80,7 @@ class Admin:
         if cursor is not None:
             if not isinstance(cursor,list) or len(cursor)!=2 or type(cursor[0])!=int or not isinstance(cursor[1],str) or len(cursor[1])>128:raise ValueError('无效分页游标')
             where+=' AND (created_at<? OR (created_at=? AND task_id<?))';args.extend((cursor[0],cursor[0],cursor[1]))
-        rows=await self.db.query('SELECT '+TASK_FIELDS+' FROM sync_tasks WHERE '+where+' ORDER BY created_at DESC,task_id DESC LIMIT ?',(*args,limit+1))
+        rows=await self.db.query("SELECT page.*,CASE WHEN json_valid(m.value) THEN coalesce(json_extract(m.value,'$.quarantined'),0) ELSE 0 END quarantined FROM (SELECT "+TASK_FIELDS+" FROM sync_tasks WHERE "+where+" ORDER BY created_at DESC,task_id DESC LIMIT ?) page LEFT JOIN service_meta m ON m.key='sync:adaptive:'||page.task_id ORDER BY page.created_at DESC,page.task_id DESC",(*args,limit+1))
         more=len(rows)>limit;rows=rows[:limit]
         return {'items':rows,'cursor':[rows[-1]['created_at'],rows[-1]['task_id']] if more else None,'server_time':self.clock()}
     async def detail(self,actor,task_id):
@@ -100,7 +100,7 @@ class Admin:
             media_current=await self.db.query('SELECT file_id,source_file_id,status,committed_bytes,total_bytes,storage_kind,staging_key FROM sync_files WHERE task_id=? AND item_id=? ORDER BY file_id LIMIT 16',(task_id,i['item_id']))
         clone=None
         if is_restore(json.loads(t['scope_json'])):
-            from site_sync.integration.clone import ORDER,AUTH
+            from site_sync.core.selection import AUTH
             tables=[name for name in selected_tables(json.loads(t['scope_json'])) if name not in AUTH]
             saved=await self.db.query('SELECT value FROM service_meta WHERE key=?',('sync:clone-state:'+task_id,))
             state=json.loads(saved[0]['value']) if saved else {}
@@ -112,7 +112,8 @@ class Admin:
             if t['status']=='cancelled':phase='cancelled';index=0;labels['cancelled']='已取消；已应用内容不回滚'
             clone={'phase':phase,'label':labels.get(phase,phase),'table':ordered[index] if phase in ('restore','prune','verify_tables') and index<len(ordered) else None,'completed_tables':len(tables) if phase in ('cleanup','done') else index,'total_tables':len(tables),'storage':'service_meta / sync:clone-state:'+task_id+'；分片见 sync_parts / sync_file_parts'}
         from site_sync.core.adaptive import read as adaptive_state
-        return {'adaptation':await adaptive_state(self.db,task_id),'task':{k:t[k] for k in TASK_FIELDS.split(',')},'counts':counts,'clone':clone,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'retry_policy':await self.retry_policy(actor),'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','diagnostic_events':recent,'checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
+        load=await adaptive_state(self.db,task_id)
+        return {'adaptation':load,'task':dict({k:t[k] for k in TASK_FIELDS.split(',')},quarantined=load['quarantined']),'counts':counts,'clone':clone,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'retry_policy':await self.retry_policy(actor),'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','diagnostic_events':recent,'checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
 
     async def logs(self,actor,task_id,*,before=None):
         await self.own_task(actor,task_id)

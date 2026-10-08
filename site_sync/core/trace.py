@@ -30,10 +30,24 @@ def category(exc):
     elif any(getattr(x,'platform_code',None)==1102 for x in chain):kind='resource';resource='unknown'
     elif any(type(x).__name__=='CredentialRetryError' for x in chain):kind='credential'
     elif any(type(x).__name__=='JSONDecodeError' for x in chain):kind='json'
-    elif any(getattr(x,'code',None) in ('SYNC_SCHEMA_MISSING','SYNC_STORAGE_FAILED') or type(x).__name__ in ('OperationalError','DatabaseError','IntegrityError') for x in chain):kind='database'
+    elif any(getattr(x,'d1_diagnostic',None) or getattr(x,'code',None) in ('SYNC_SCHEMA_MISSING','SYNC_STORAGE_FAILED') or type(x).__name__ in ('OperationalError','DatabaseError','IntegrityError') for x in chain):kind='database'
     elif any(type(x).__name__ in ('AuthorizationError','ConflictError') for x in chain):kind='authorization' if any(type(x).__name__=='AuthorizationError' for x in chain) else 'state'
     elif any(getattr(x,'http_status',None) for x in chain):kind='http'
     elif any(isinstance(x,(TimeoutError,ConnectionError)) or getattr(x,'code',None) in ('NETWORK_REQUEST_FAILED','REQUEST_TIMEOUT','STREAM_READ_FAILED') for x in chain):kind='network'
     elif any(type(x).__name__=='ResourceError' for x in chain):kind='resource';resource='unknown'
     else:kind='exception'
     return dict(error_category=kind,resource_kind=resource,platform_outcome=outcome,evidence_source='cloudflare-telemetry' if outcome else 'captured_context',cpu_time_ms=None)
+
+@contextmanager
+def step(name):
+    """Keep the failing substep in the invocation context; no payload logging."""
+    annotate(sub_stage=name,d1_operation=None,sql_type=None)
+    started=time.monotonic();record('SYNC-SUBSTEP-START')
+    try:yield
+    except Exception as exc:
+        annotate(duration_ms=round((time.monotonic()-started)*1000,2))
+        record('SYNC-SUBSTEP-ERROR',error_type=type(exc).__name__,error_message=getattr(exc,'d1_diagnostic',{}).get('message','See typed exception and source location'))
+        raise
+    else:
+        annotate(duration_ms=round((time.monotonic()-started)*1000,2))
+        record('SYNC-SUBSTEP-END')

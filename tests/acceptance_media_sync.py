@@ -22,7 +22,7 @@ def main():
     js=sorted(str(p.relative_to(ROOT)) for folder in ('site_sync/worker','site_sync/frontend/static') for p in (ROOT/folder).glob('*.test.mjs'))
     stages=[('python-regression',python+['-m','pytest','site_sync/tests','site_sync/tests_website','deploy/cloudflare/tests','tests/test_upload_diagnostics_v038.py','tests/test_media_stream_v039.py','tests/test_media_recovery_v040.py','-q']),
             ('javascript', ['node','--test',*js]),
-            ('workerd-rpc-r2', ['node','--test','site_sync/tests/media_upload_stream.test.mjs','site_sync/tests/worker_binary_rpc.test.mjs']),
+            ('workerd-rpc-r2', ['node','--test','site_sync/tests/media_upload_stream.test.mjs','site_sync/tests/worker_binary_rpc.test.mjs','site_sync/tests/clone_verify_d1.test.mjs']),
             ('stage-inline',python+['tests/stage_release_v016001.py']),
             ('stage-separate',python+['tests/stage_release_v016001.py','--separate-sync'])]
     manifest=json.loads((ROOT/'release-manifest.json').read_text())

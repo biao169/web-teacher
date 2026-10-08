@@ -8,7 +8,7 @@ v0.16.030：separate 模式自动配置主站 `SYNC_EXECUTOR` 服务绑定；需
 
 # Cloudflare 网页部署
 
-一个主站构建项目自动发布主站和辅助 Worker，无需 GitHub Actions。当前交付 v0.16.047；部署后请按 [媒体上传与同步验收](../../docs/media-sync-acceptance.md) 检查。离线测试通过不代表真实账号、PoP 与资源额度已验收。同步能力握手需两端更新，见 [连通性与授权诊断](../../docs/releases/v0.16.045.md)。
+一个主站构建项目自动发布主站和辅助 Worker，无需 GitHub Actions。当前交付 v0.16.048；部署后请按 [媒体上传与同步验收](../../docs/media-sync-acceptance.md) 检查。离线测试通过不代表真实账号、PoP 与资源额度已验收。同步能力握手需两端更新，见 [连通性与授权诊断](../../docs/releases/v0.16.045.md)。
 
 ## 1. 准备
 

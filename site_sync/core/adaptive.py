@@ -1,5 +1,5 @@
 """Small durable load policy. No isolate state, payloads or additional task scans."""
-import json
+import json,hashlib
 from .policy import smaller
 
 PREFIX='sync:adaptive:'
@@ -24,7 +24,7 @@ def classify(diagnostic=None,*,resource=False,uncertain=False):
     return 'resource_unknown' if resource else 'none'
 
 def empty():
-    return dict(version=1,success_streak=0,last_pressure_at=0,last_adjusted_at=0,classification='none',last_pressure_kind='none',action='hold')
+    return dict(version=1,success_streak=0,last_pressure_at=0,last_adjusted_at=0,classification='none',last_pressure_kind='none',action='hold',failure_fingerprint='',same_checkpoint_errors=0,quarantined=False)
 
 async def read(db,task_id):
     rows=await db.query('SELECT substr(value,1,2049) AS value FROM service_meta WHERE key=?',(PREFIX+task_id,))
@@ -37,6 +37,9 @@ async def read(db,task_id):
         for k in ('success_streak','last_pressure_at','last_adjusted_at'):
             if type(s.get(k))!=int or not 0<=s[k]<=2**53-1:raise ValueError('state value')
         if s['success_streak']>8 or s.get('last_pressure_kind') not in KINDS or s.get('classification') not in KINDS or s.get('action') not in ACTIONS:raise ValueError('state enum')
+        defaults=empty()
+        for k in ('failure_fingerprint','same_checkpoint_errors','quarantined'):s.setdefault(k,defaults[k])
+        if not isinstance(s['failure_fingerprint'],str) or len(s['failure_fingerprint'])>64 or type(s['same_checkpoint_errors'])!=int or not 0<=s['same_checkpoint_errors']<=1000000 or type(s['quarantined'])!=bool:raise ValueError('breaker state')
         return {k:s[k] for k in empty()}
     except (ValueError,TypeError,KeyError):
         # Policy metadata is safely reconstructible; task/body checkpoints are not touched.
@@ -72,3 +75,16 @@ def save(task_id,state):
     # finisher cannot mutate adaptation or produce a success/error journal row.
     return ('''INSERT INTO service_meta(key,value) SELECT ?,? WHERE changes()=1
       ON CONFLICT(key) DO UPDATE SET value=excluded.value''',(PREFIX+task_id,raw))
+
+def quarantine(task,state,diagnostic,*,failed,progress,permanent=False):
+    # Scheduling timestamps, request IDs and stack line numbers are not identity.
+    if progress or not failed or permanent:
+        state.update(failure_fingerprint='',same_checkpoint_errors=0,quarantined=False);return False
+    d=diagnostic or {};context=d.get('context') or {}
+    checkpoint=context.get('checkpoint_before',context.get('checkpoint',{}))
+    if isinstance(checkpoint,dict):checkpoint={k:v for k,v in checkpoint.items() if k not in ('next_run_at','retry_count')}
+    signature=[task['phase'],context.get('sub_stage'),context.get('table'),checkpoint,task['progress_seq'],d.get('error'),d.get('error_category'),[(c.get('type'),c.get('code'),(c.get('d1') or {}).get('sql_type')) for c in d.get('causes',[])]]
+    fingerprint=hashlib.sha256(json.dumps(signature,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    count=min(1000000,state['same_checkpoint_errors']+1) if state['failure_fingerprint']==fingerprint else 1
+    state.update(failure_fingerprint=fingerprint,same_checkpoint_errors=count,quarantined=count>=6)
+    return state['quarantined']

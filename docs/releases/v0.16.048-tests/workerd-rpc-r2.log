@@ -1,0 +1,33 @@
+{"old_plan":[{"id":3,"parent":0,"notused":213,"detail":"SCAN service_meta USING COVERING INDEX sqlite_autoindex_service_meta_1"}],"new_plan":[{"id":3,"parent":0,"notused":153,"detail":"SEARCH service_meta USING COVERING INDEX sqlite_autoindex_service_meta_1 (key>? AND key<?)"}],"count_meta":{"served_by":"miniflare.db","duration":1,"changes":0,"last_row_id":100004,"changed_db":false,"size_after":5214208,"rows_read":4,"rows_written":0},"unrelated_rows":100000,"matched":3}
+✔ D1 clone prefix count uses PK range and atomically advances the checkpoint (4418.152434ms)
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":8,"duration_ms":21}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":921600,"duration_ms":45}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":2097152,"duration_ms":83}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":20971520,"duration_ms":927}
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"stream-read","bytes":100,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":48,"function":""}],"code":"MEDIA_TYPE","duration_ms":8}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":100,"duration_ms":13}
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"stream-read","bytes":100,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":43,"function":""}],"code":"MEDIA_SIZE","duration_ms":6}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":100,"duration_ms":4}
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"stream-read","bytes":100,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":55,"function":""}],"code":"MEDIA_LENGTH","duration_ms":5}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":100,"duration_ms":5}
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"admission","bytes":0,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":23,"function":""},{"file":"native_service.mjs","line":12,"function":""}],"code":"MEDIA_REQUEST","duration_ms":0}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":100,"duration_ms":5}
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"admission","bytes":0,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":23,"function":""},{"file":"native_service.mjs","line":12,"function":""}],"code":"MEDIA_REQUEST","duration_ms":1}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":100,"duration_ms":5}
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-read","bytes":0,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":30,"function":""}],"code":"MEDIA_EXPIRED","duration_ms":4}
+{"event":"MEDIA-NATIVE-END","release":"0.16.048","request_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","stage":"session-stored","bytes":100,"duration_ms":11}
+✔ actual workerd RPC streams uploads into R2, hashes, bounds and rejects malformed input (5685.543203ms)
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","stage":"stream-read","bytes":0,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":41,"function":""},{"file":"fault-harness.mjs","line":6,"function":""}],"code":"MEDIA_STORAGE","duration_ms":2}
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","stage":"stream-read","bytes":0,"error_type":"Error","native_frames":[{"file":"fault-harness.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":41,"function":""},{"file":"fault-harness.mjs","line":6,"function":""}],"code":"MEDIA_STREAM","duration_ms":4}
+✔ workerd storage rejection and interrupted source settle without unhandled promises (3159.94019ms)
+{"event":"MEDIA-NATIVE-ERROR","release":"0.16.048","stage":"session-stored","bytes":100,"error_type":"Error","native_frames":[{"file":"media_upload.mjs","line":4,"function":""},{"file":"media_upload.mjs","line":61,"function":""},{"file":"expiry-harness.mjs","line":6,"function":""}],"code":"MEDIA_EXPIRED","duration_ms":23}
+✔ lease expiring after R2 put prevents receipt and cleans late object (1356.016155ms)
+✔ workerd production auxiliary RPC returns typed bytes and D1 accepts its buffer (4763.196261ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11353.25287

@@ -1,3 +1,7 @@
+## v0.16.048：克隆验证与D1诊断
+
+优化暂存前缀查询，细分验证日志，增加同断点低频重试，并减轻监控读取。见 [修复说明与验收边界](docs/releases/v0.16.048.md)。
+
 ## v0.16.047：同步接收响应边界修复
 
 修复 service binding 的 Python Response 包装与原生响应之间的转换，补充 executor 导入和转发追踪。保持 separate 模式，见 [修复与部署复查](docs/releases/v0.16.047.md)。

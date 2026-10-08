@@ -10,6 +10,7 @@ export function status(t,now){
  if(t.status==='done')return '已完成';
  if(t.phase==='await_confirmation')return '等待人工批准';
  if(t.status==='running')return '正在执行';
+ if(t.status==='waiting'&&t.quarantined)return '同断点异常 · 低频重试';
  if(t.next_run_at>now)return t.no_progress_count>t.fast_retries?'慢速重试等待':'等待下次推进';
  return '待调度';
 }

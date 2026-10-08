@@ -12,8 +12,8 @@ async def status(r):
     from .host import environment
     env=environment(r,'TEACHER_SYNC_PAUSED','0')=='1'
     saved=await paused(adapter(r))
-    rows=await adapter(r).query("SELECT count(*) n,min(lease_until) earliest FROM sync_tasks WHERE lease_token IS NOT NULL AND lease_until>?",(int(time.time()),))
-    return {'paused':env or saved,'saved_paused':saved,'environment_paused':env,'active_leases':rows[0]['n'],'earliest_lease_until':rows[0]['earliest']}
+    rows=await adapter(r).query("SELECT lease_until FROM sync_tasks WHERE status IN ('running','paused','cancel_requested') AND lease_token IS NOT NULL AND lease_until>? LIMIT 51",(int(time.time()),))
+    return {'paused':env or saved,'saved_paused':saved,'environment_paused':env,'active_leases':min(50,len(rows)),'active_leases_truncated':len(rows)>50,'earliest_lease_until':min((x['lease_until'] for x in rows),default=None)}
 async def save(r,value):
     from backend.app.native.data_tools import authorize
     authorize(r,'edit')

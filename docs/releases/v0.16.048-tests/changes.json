@@ -1,0 +1,40 @@
+{
+  "base": "0.16.047",
+  "version": "0.16.048",
+  "changed": [
+    "README.md",
+    "backend/app/ports/operations.py",
+    "deploy/cloudflare/README.md",
+    "deploy/cloudflare/pyproject.toml",
+    "deploy/cloudflare/runtime/entrypoint.py",
+    "deploy/cloudflare/runtime/request_diagnostics.py",
+    "deploy/cloudflare/tests/test_request_diagnostics.py",
+    "deploy/cloudflare/uv.lock",
+    "pyproject.toml",
+    "site_sync/adapters/d1.py",
+    "site_sync/adapters/tasks.py",
+    "site_sync/admin/asgi.py",
+    "site_sync/admin/retention.py",
+    "site_sync/admin/service.py",
+    "site_sync/core/adaptive.py",
+    "site_sync/core/diagnostics.py",
+    "site_sync/core/engine.py",
+    "site_sync/core/journal.py",
+    "site_sync/core/trace.py",
+    "site_sync/frontend/static/model.mjs",
+    "site_sync/frontend/static/model.test.mjs",
+    "site_sync/frontend/static/panel.mjs",
+    "site_sync/frontend/templates/page.html",
+    "site_sync/integration/clone.py",
+    "site_sync/integration/control.py",
+    "site_sync/runtime/bridge.py",
+    "site_sync/tests_website/test_clone_atomic_steps.py",
+    "site_sync/worker/diagnostics.mjs",
+    "tests/acceptance_media_sync.py"
+  ],
+  "added": [
+    "site_sync/tests_website/test_clone_verify_v048.py",
+    "site_sync/tests/clone_verify_d1.test.mjs",
+    "docs/releases/v0.16.048.md"
+  ]
+}

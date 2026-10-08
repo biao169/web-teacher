@@ -64,7 +64,7 @@ class AdminASGI:
         if p==['retry-policy']:return await a.retry_policy(actor,b if method=='POST' else None)
         if method=='GET':
             if p==['options']:return await a.options(actor)
-            if p==['tasks']:return await a.tasks(actor,view=q.get('view',['active'])[0],cursor=json.loads(q['cursor'][0]) if 'cursor' in q else None,limit=int(q.get('limit',['50'])[0]))
+            if p in (['tasks'],['status']):return await a.tasks(actor,view=q.get('view',['active'])[0],cursor=json.loads(q['cursor'][0]) if 'cursor' in q else None,limit=int(q.get('limit',['50'])[0]))
             if len(p)==3 and p[0]=='tasks' and p[2]=='logs':return await a.logs(actor,p[1],before=int(q['before'][0]) if 'before' in q else None)
             if p==['schedules']:return await a.schedules(actor,cursor=q.get('cursor',[''])[0])
             if len(p)==2 and p[0]=='tasks':return await a.detail(actor,p[1])

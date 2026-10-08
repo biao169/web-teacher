@@ -14,7 +14,7 @@ def request_context(**values):
     finally:_context.reset(token)
 
 def emit(event,**values):
-    print(json.dumps(dict(current(),release='0.16.047',event=event,**values),ensure_ascii=True,separators=(',',':')),flush=True)
+    print(json.dumps(dict(current(),release='0.16.048',event=event,**values),ensure_ascii=True,separators=(',',':')),flush=True)
 
 def error(exc):
     frames=[]

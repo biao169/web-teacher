@@ -15,6 +15,11 @@ SCHEMA=hashlib.sha256(encode(COLS)).hexdigest()
 def pk(t):return 'id' if t=='tool_settings' else 'uid'
 def rowjson(t):return 'json_object('+','.join("'"+c+"',r.\""+c+'\"' for c in COLS[t])+')'
 def prefix(task):return 'sync:clone:'+task+':'
+def prefix_range(base):
+    # All clone table namespaces end in ASCII ':'. Binary TEXT order puts ';'
+    # immediately above every suffix; no LIKE wildcards or collation dependence.
+    if not base.endswith(':'):raise ValueError('Clone prefix must end in colon')
+    return base,base[:-1]+';'
 def key(task,record):return prefix(task)+record
 def body_sql():return "(SELECT CAST(group_concat(data,'') AS TEXT) FROM (SELECT data FROM sync_parts WHERE task_id=? AND item_id=? AND field='payload' ORDER BY offset))"
 async def inventory(db,tables=ORDER):
@@ -126,21 +131,35 @@ async def apply(site,ctx):
         await progress(ctx,[('INSERT INTO service_meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(statekey,json.dumps({'phase':'verify_tables','table':0,'after':''})))])
         return
     if state['phase']=='verify_tables':
+        from site_sync.core.trace import step
         index=state['table']
         if type(index)!=int or not 0<=index<=len(chosen):raise ConflictError('Invalid verification checkpoint')
+        before=dict(state);after=dict(state)
+        ctx.describe('clone-verify-table-load-inventory',table=chosen[index] if index<len(chosen) else None,table_index=index,checkpoint_before=before,checkpoint_after=before,expected_count=None,actual_count=None)
         if index<len(chosen):
             table=chosen[index]
-            meta=await db.query('SELECT value FROM service_meta WHERE key=?',(key(uid,meta_record(selection)),))
-            if not meta:raise ConflictError('Clone inventory missing')
-            info=json.loads(meta[0]['value'])['row']
-            expected=next((x['n'] for x in info['tables'] if x['name']==table),None)
-            if expected is None:raise ConflictError('Clone inventory incomplete')
+            with step('clone-verify-table-load-inventory'):
+                meta=await db.query('SELECT substr(value,1,16385) value FROM service_meta WHERE key=?',(key(uid,meta_record(selection)),))
+                if not meta:raise ConflictError('Clone inventory missing')
+            with step('clone-verify-table-parse-inventory'):
+                if len(meta[0]['value'])>16384:raise ConflictError('Clone inventory exceeds bound')
+                info=json.loads(meta[0]['value'])['row']
+                expected=next((x['n'] for x in info['tables'] if x['name']==table),None)
+                if type(expected)!=int or expected<0:raise ConflictError('Clone inventory count invalid')
+                ctx.describe('clone-verify-table-parse-inventory',expected_count=expected)
             if table!='operation_logs':
-                count=await db.query('SELECT count(*) n FROM service_meta WHERE key LIKE ?',(pre+table+':%',))
-                if count[0]['n']!=expected:raise ConflictError('Clone inventory incomplete')
-            state['table']=index+1
-        else:state={'phase':'verify_source','table':0,'after':''}
-        await progress(ctx,[('UPDATE service_meta SET value=? WHERE key=?',(json.dumps(state),statekey))]);return
+                with step('clone-verify-table-count'):
+                    count=await db.query('SELECT count(*) n FROM service_meta WHERE key >= ? AND key < ?',prefix_range(pre+table+':'))
+                    actual=count[0]['n']
+                    ctx.describe('clone-verify-table-count',actual_count=actual)
+                with step('clone-verify-table-compare'):
+                    if actual!=expected:raise ConflictError('Clone inventory incomplete')
+            after['table']=index+1
+        else:after={'phase':'verify_source','table':0,'after':''}
+        with step('clone-verify-table-save-checkpoint'):
+            await progress(ctx,[('UPDATE service_meta SET value=? WHERE key=?',(json.dumps(after),statekey))])
+            ctx.describe('clone-verify-table-save-checkpoint',checkpoint_after=after)
+        return
     if state['phase']=='verify_source':
         meta=await db.query('SELECT value FROM service_meta WHERE key=?',(key(uid,meta_record(selection)),))
         if not meta:raise ConflictError('Clone inventory missing')
@@ -165,7 +184,7 @@ async def apply(site,ctx):
             await progress(ctx,[('UPDATE service_meta SET value=? WHERE key=?',(json.dumps(state),statekey))]);return
         table=tables[state['table']];base=pre+table+':'
         if state['phase']=='restore':
-            rows=await db.query('SELECT key FROM service_meta WHERE key LIKE ? AND key>? ORDER BY key LIMIT 1',(base+'%',state['after']))
+            rows=await db.query('SELECT key FROM service_meta WHERE key >= ? AND key < ? AND key>? ORDER BY key LIMIT 1',(*prefix_range(base),state['after']))
             if rows:
                 entry=rows[0]['key'];columns=COLS[table];select=','.join("json_extract(value,'$.row."+c+"')" for c in columns)
                 statements=[]
@@ -185,7 +204,7 @@ async def apply(site,ctx):
                     statements.append(("UPDATE sync_files SET status='published' WHERE task_id=? AND file_id=?",(uid,file['file_id'])))
                     # Media IDs are retained; content key references are rewritten from source keys below.
                 else:
-                    mappings=await db.query("SELECT json_extract(a.value,'$.source_object_key') old,json_extract(a.value,'$.row.object_key') new,f.key field FROM service_meta a JOIN service_meta s ON s.key=? JOIN json_each(s.value,'$.row') f WHERE a.key LIKE ? AND f.type='text' AND f.key NOT IN ('uid','created_at','updated_at') AND json_extract(a.value,'$.source_object_key')!=json_extract(a.value,'$.row.object_key') AND instr(replace(f.value,json_extract(a.value,'$.row.object_key'),''),json_extract(a.value,'$.source_object_key'))>0 LIMIT 1",(entry,pre+'media_assets:%'))
+                    mappings=await db.query("SELECT json_extract(a.value,'$.source_object_key') old,json_extract(a.value,'$.row.object_key') new,f.key field FROM service_meta a JOIN service_meta s ON s.key=? JOIN json_each(s.value,'$.row') f WHERE a.key >= ? AND a.key < ? AND f.type='text' AND f.key NOT IN ('uid','created_at','updated_at') AND json_extract(a.value,'$.source_object_key')!=json_extract(a.value,'$.row.object_key') AND instr(replace(f.value,json_extract(a.value,'$.row.object_key'),''),json_extract(a.value,'$.source_object_key'))>0 LIMIT 1",(entry,*prefix_range(pre+'media_assets:')))
                     if mappings:
                         m=mappings[0]
                         await progress(ctx,[("UPDATE service_meta SET value=json_set(value,?,replace(json_extract(value,?),?,?)) WHERE key=?",('$.row.'+m['field'],'$.row.'+m['field'],m['old'],m['new'],entry))]);return
@@ -221,7 +240,7 @@ async def apply(site,ctx):
     else:
         await progress(ctx,[("UPDATE sync_tasks SET phase='done',status='done',lease_token=NULL,lease_until=0 WHERE task_id=?",(uid,)),('DELETE FROM service_meta WHERE key IN (?,?)',(statekey,'sync:clone-lock'))])
 async def clone_admin(db,pre):
-    rows=await db.query("SELECT json_extract(u.value,'$.row.uid') uid,json_extract(u.value,'$.row.password_hash') password_hash FROM service_meta u JOIN service_meta r ON r.key=?||json_extract(u.value,'$.row.role_uid') WHERE u.key LIKE ? AND json_extract(u.value,'$.row.status')='active' AND json_extract(u.value,'$.row.password_hash') LIKE 'pbkdf2_sha256$%' AND json_extract(r.value,'$.row.is_system')=1 AND json_extract(r.value,'$.row.is_active')=1 AND EXISTS(SELECT 1 FROM service_meta p WHERE p.key LIKE ? AND json_extract(p.value,'$.row.role_uid')=json_extract(u.value,'$.row.role_uid') AND json_extract(p.value,'$.row.module')='data_tools' AND json_extract(p.value,'$.row.can_edit')=1 AND json_extract(p.value,'$.row.can_view')=1 AND json_extract(p.value,'$.row.can_export')=1) ORDER BY u.key LIMIT 1",(pre+'auth_roles:',pre+'auth_users:%',pre+'auth_permissions:%'))
+    rows=await db.query("SELECT json_extract(u.value,'$.row.uid') uid,json_extract(u.value,'$.row.password_hash') password_hash FROM service_meta u JOIN service_meta r ON r.key=?||json_extract(u.value,'$.row.role_uid') WHERE u.key >= ? AND u.key < ? AND json_extract(u.value,'$.row.status')='active' AND json_extract(u.value,'$.row.password_hash') LIKE 'pbkdf2_sha256$%' AND json_extract(r.value,'$.row.is_system')=1 AND json_extract(r.value,'$.row.is_active')=1 AND EXISTS(SELECT 1 FROM service_meta p WHERE p.key >= ? AND p.key < ? AND json_extract(p.value,'$.row.role_uid')=json_extract(u.value,'$.row.role_uid') AND json_extract(p.value,'$.row.module')='data_tools' AND json_extract(p.value,'$.row.can_edit')=1 AND json_extract(p.value,'$.row.can_view')=1 AND json_extract(p.value,'$.row.can_export')=1) ORDER BY u.key LIMIT 1",(pre+'auth_roles:',*prefix_range(pre+'auth_users:'),*prefix_range(pre+'auth_permissions:')))
     if rows:
         import base64,re
         from backend.app.security.passwords import ITERATIONS
@@ -243,7 +262,7 @@ async def finish_accounts(site,ctx,pre,statekey):
         statements.append((f'DELETE FROM "{table}"',()))
     for table in AUTH:
         columns=COLS[table];vals=','.join("json_extract(value,'$.row."+col+"')" for col in columns)
-        statements.append((f'INSERT INTO "{table}"('+','.join('"'+col+'"' for col in columns)+') SELECT '+vals+' FROM service_meta WHERE key LIKE ?',(pre+table+':%',)))
+        statements.append((f'INSERT INTO "{table}"('+','.join('"'+col+'"' for col in columns)+') SELECT '+vals+' FROM service_meta WHERE key >= ? AND key < ?',prefix_range(pre+table+':')))
     statements += [("INSERT INTO auth_bootstrap_state(id,completed_at,user_uid) VALUES(1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?) ON CONFLICT(id) DO UPDATE SET user_uid=excluded.user_uid",(owner,)),('INSERT INTO sync_connections VALUES(?,?,?,?,?)',(t['peer_id'],owner,c['export_scope_json'],c['incoming_auto_scope'],c['incoming_auto_delete'])),('INSERT INTO sync_grants VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(grant_id) DO UPDATE SET principal_id=excluded.principal_id,revision=excluded.revision,enabled=excluded.enabled,scopes_json=excluded.scopes_json,can_write=excluded.can_write,can_delete=excluded.can_delete,expires_at=excluded.expires_at',(newgrant,owner,g['revision'],1,g['scopes_json'],g['can_write'],g['can_delete'],g['expires_at'])),('UPDATE sync_schedules SET grant_id=? WHERE grant_id=?',(newgrant,t['grant_id'])),("UPDATE sync_tasks SET grant_id=?,phase='done',status='done',lease_token=NULL,lease_until=0,progress_seq=progress_seq+1,last_progress_at=?,revision=revision+1 WHERE task_id=?",(newgrant,ctx.clock(),t['task_id'])),('DELETE FROM service_meta WHERE key IN (?,?)',(statekey,'sync:clone-lock'))]
     statements.append(("INSERT INTO sync_events(task_id,occurred_at,kind,level,phase,status,progress_seq,next_run_at,slice_bytes,detail) SELECT task_id,?,'clone-complete','info',phase,status,progress_seq,0,slice_bytes,'{\"accounts_restored\":true,\"sessions_revoked\":true}' FROM sync_tasks WHERE task_id=?",(ctx.clock(),t['task_id'])))
     await db.batch(statements)
