@@ -1,12 +1,19 @@
+from worker_runtime.request_diagnostics import traced
 """Private scheduled sync executor; no website HTTP application is created."""
-from workers import WorkerEntrypoint
+from workers import WorkerEntrypoint,asgi
+from worker_runtime.sync_resources import application as peer_application
+from worker_runtime.diagnostics import phase
 
 class Default(WorkerEntrypoint):
+    @traced('sync-executor',http=True)
     async def fetch(self,request):
-        from js import Response,Object
-        from pyodide.ffi import to_js
-        return Response.new('Not found',to_js({'status':404},dict_converter=Object.fromEntries))
+        from urllib.parse import urlsplit
+        if urlsplit(str(request.url)).path=='/sync/v1/read' and request.headers.get('x-sync-stream')=='1':
+            return await self.env.SYNC_NATIVE.fetch(request)
+        with phase('SYNC-EXPORT',progress=False,component='sync-executor'):
+            return await asgi.fetch(peer_application,request,self.env,self.ctx)
 
+    @traced('sync-executor')
     async def sync_tick(self):
         import json
         from worker_runtime.bridge import Environment
@@ -14,8 +21,10 @@ class Default(WorkerEntrypoint):
         from site_sync.integration.worker_schedule import run
         bindings=Environment(self.env)
         sql=D1SQL(getattr(bindings,str(bindings.TEACHER_DATABASE_BINDING)))
-        return json.dumps(await run(sql,bindings,wake=False))
+        with phase('SYNC-TICK',progress=False,component='sync-executor'):
+            return json.dumps(await run(sql,bindings,wake=False))
 
+    @traced('sync-executor')
     async def scheduled(self,controller,env=None,ctx=None):
         from worker_runtime.bridge import Environment
         from backend.app.adapters.d1.sql import D1SQL
@@ -24,4 +33,5 @@ class Default(WorkerEntrypoint):
         sql=D1SQL(getattr(bindings,str(bindings.TEACHER_DATABASE_BINDING)))
         # Each cron delivery is independent. The durable task lease reconciles
         # a previous invocation killed by CPU/memory limits before retrying.
-        await run(sql,bindings)
+        with phase('SYNC-CRON',progress=False,component='sync-executor'):
+            await run(sql,bindings)

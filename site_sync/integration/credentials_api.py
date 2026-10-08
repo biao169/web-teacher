@@ -9,15 +9,18 @@ PREFIX='/api/admin/site-sync/credentials'
 HEADERS={'Cache-Control':'no-store, private','Pragma':'no-cache','Expires':'0','X-Content-Type-Options':'nosniff'}
 
 
-def install(app,resources,csrf):
-    from backend.app.native.web import payload
-
+def install_headers(app):
     @app.middleware('http')
     async def credential_headers(request,call_next):
         response=await call_next(request)
         if request.url.path==PREFIX or request.url.path.startswith(PREFIX+'/'):
             response.headers.update(HEADERS)
         return response
+
+
+def install(app,resources,csrf,*,shared_middleware=True):
+    from backend.app.native.web import payload
+    if shared_middleware:install_headers(app)
 
     async def handle(request,action):
         try:

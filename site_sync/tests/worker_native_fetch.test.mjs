@@ -7,7 +7,8 @@ import {createHash,createHmac} from 'node:crypto';
 const sdk=await import(process.env.MINIFLARE_MODULE||'miniflare');
 test('workerd native fetch: signed candidates, body, media and platform diagnostics',async()=>{
  const source=readFileSync(new URL('../worker/transport.mjs',import.meta.url),'utf8');
- const script=source+`\nexport default {async fetch(){const peer=new SignedPeer('https://peer.invalid',new Uint8Array(32).fill(1));const out=[];
+ const diagnostics=readFileSync(new URL('../worker/diagnostics.mjs',import.meta.url),'utf8');
+ const script=diagnostics.replace(/export /g,'')+'\n'+source.replace(/import .*? from ['"]\.\/diagnostics\.mjs['"];?/, '')+`\nexport default {async fetch(){const peer=new SignedPeer('https://peer.invalid',new Uint8Array(32).fill(1));const out=[];
  for(const kind of ['candidates','slice','media','platform']){try{const result=await peer.read({kind,version:'v1',length:3,offset:0,total:3},{stream:kind==='media'});out.push({kind,body:kind==='media'?await result.text():new TextDecoder().decode(result)});if(kind==='media')releasePeerResponse(result);}catch(e){out.push({kind,stage:e.stage,code:e.platform_code,status:e.http_status});}}return Response.json(out);}}`;
  const options={modules:true,compatibilityDate:'2025-08-01',compatibilityFlags:['global_fetch_strictly_public'],script,outboundService:async r=>{
   const q=await r.json();if(q.kind==='platform')return new Response('Error 1102',{status:503});

@@ -35,6 +35,7 @@ class MappedWebsite:
     async def discover(self,ctx):
         t=ctx.task;count=(await self.db.query('SELECT count(*) n FROM sync_items WHERE task_id=?',(t['task_id'],)))[0]['n']
         if count>=500:await ctx.advance('await_confirmation');return
+        ctx.describe("candidate-page",candidate_count=count)
         peer=await self.runtime.peer_factory(t)
         q=dict(kind='candidates',version='catalog-v1',scope=json.loads(t['scope_json']),cursor=json.loads(t['discovery_cursor']) if t['discovery_cursor'] else None)
         page=await peer.candidates(q)
@@ -51,8 +52,7 @@ class MappedWebsite:
         m=self.mapping(item['module'])
         target=await self.db.query(f'SELECT CAST({identifier(m["version"])} AS TEXT) v FROM {identifier(m["table"])} WHERE {identifier(m["id"])}=?',(item['id'],))
         uid=hashlib.sha256(encode([item['module'],item['id']])).hexdigest()
-        await ctx.add_item(item_id=uid,module=item['module'],record_id=item['id'],source_version=item['version'],target_version=target[0]['v'] if target else None,action=item['action'])
-        await self.db.batch([ctx.repo.assertion(t,ctx.clock(),extra="t.phase='discover'"),('UPDATE sync_tasks SET discovery_cursor=? WHERE task_id=?',(encode(cursor).decode(),t['task_id']))])
+        await ctx.add_item(item_id=uid,module=item['module'],record_id=item['id'],source_version=item['version'],target_version=target[0]['v'] if target else None,action=item['action'],discovery_cursor=encode(cursor).decode())
     async def apply(self,ctx):
         rows=await self.db.query("SELECT * FROM sync_items WHERE task_id=? AND selected=1 AND status='staged' ORDER BY item_id LIMIT 1",(ctx.task['task_id'],))
         if not rows:await ctx.advance('cleanup');return

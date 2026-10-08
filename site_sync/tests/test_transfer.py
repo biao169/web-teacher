@@ -86,8 +86,18 @@ class TransferTests(unittest.TestCase):
     def file(self):return run(self.db.query('SELECT * FROM sync_files'))[0]
     def ctx(self):
         t=run(self.repo.claim(self.now));return Context(self.repo,t,lambda:self.now)
+    def test_body_success_is_persisted_with_timeout_child_task(self):
+        from site_sync.core.adaptive import read
+        self.engine.step_timeout=5
+        self.source.with_file=False
+        self.until(lambda r:bool(self.source.calls))
+        state=run(read(self.db,self.task['task_id']))
+        self.assertEqual(state['success_streak'],1)
+        offsets=run(self.db.query("SELECT offset,length(data) n FROM sync_parts WHERE field='body'"))
+        self.assertEqual(offsets,[{'offset':0,'n':8192}])
+
     def test_real_http_unicode_shrinking_and_media_full_lifecycle(self):
-        self.tick();self.tick();self.raw.connection.execute('UPDATE sync_tasks SET slice_bytes=4096')
+        self.until(lambda r:bool(self.source.calls));self.raw.connection.execute('UPDATE sync_tasks SET slice_bytes=4096')
         row=self.until(lambda r:r['status']=='done')
         self.assertEqual(row['no_progress_count'],0)
         result=run(self.db.query('SELECT * FROM news'))[0]
@@ -98,7 +108,7 @@ class TransferTests(unittest.TestCase):
         self.assertEqual(self.source.calls[0],(0,8192));self.assertEqual(self.source.calls[1],(8192,4096))
         self.assertEqual(f['status'],'done')
     def test_source_revision_change_pauses_before_any_body(self):
-        self.tick();self.source.version='v2';row=self.tick()
+        self.tick();self.source.version='v2';row=self.until(lambda r:r['status']=='paused')
         self.assertEqual(row['status'],'paused');self.assertEqual(run(self.db.query('SELECT count(*) n FROM sync_parts'))[0]['n'],0)
     def test_bad_signature_never_stages(self):
         original=self.peer.secret
@@ -160,7 +170,7 @@ class TransferTests(unittest.TestCase):
         row=self.until(lambda r:r['status']=='cancelled')
         self.assertFalse((Path(self.tmp.name)/f['operation_id']).exists());self.assertEqual(run(self.db.query('SELECT * FROM news')),[])
     def test_revocation_fences_part_receipt(self):
-        self.tick();ctx=self.ctx();f=self.file()
+        self.until(lambda r:bool(run(self.db.query('SELECT file_id FROM sync_files'))));ctx=self.ctx();f=self.file()
         run(self.repo.put_grant(grant_id='g',principal_id='admin',scope=['news'],can_write=False,can_delete=False))
         with self.assertRaises(Exception):run(MediaReceipts(self.repo).part(ctx,f,0,f['part_bytes'],'x'))
         self.assertEqual(self.file()['committed_bytes'],0)
@@ -223,14 +233,14 @@ class TransferTests(unittest.TestCase):
         self.until(lambda r:bool(run(self.db.query('SELECT * FROM sync_items WHERE staged_bytes=?',(len(self.source.body),)))))
         row=self.tick();self.assertEqual(row['slice_bytes'],4096);self.assertEqual(row['no_progress_count'],1)
     def test_part_replay_does_not_count_new_progress(self):
-        self.tick();ctx=self.ctx();f=self.file();receipts=MediaReceipts(self.repo)
+        self.until(lambda r:bool(run(self.db.query('SELECT file_id FROM sync_files'))));ctx=self.ctx();f=self.file();receipts=MediaReceipts(self.repo)
         run(receipts.part(ctx,f,0,f['part_bytes'],'etag'))
         seq=run(self.repo.read(ctx.task['task_id']))['progress_seq']
         run(receipts.part(ctx,f,0,f['part_bytes'],'etag'))
         self.assertEqual(run(self.repo.read(ctx.task['task_id']))['progress_seq'],seq)
         with self.assertRaises(ConflictError):run(receipts.part(ctx,f,0,f['part_bytes'],'changed'))
     def test_unknown_owner_not_deleted(self):
-        self.tick();f=self.file();d=self.media.directory(f);(d/'owner.json').write_text('{}')
+        self.until(lambda r:bool(run(self.db.query('SELECT file_id FROM sync_files'))));f=self.file();d=self.media.directory(f);(d/'owner.json').write_text('{}')
         with self.assertRaises(ConflictError):run(self.media.discard(f))
         self.assertTrue(d.exists())
 

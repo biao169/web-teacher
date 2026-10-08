@@ -15,7 +15,7 @@ test('database overrides env, rotation is immediate and corrupt DB never falls b
  assert.equal(calls,5);
 });
 test('native RPC uses DB credential and reports retry without secret',async()=>{
- const env={DB:{prepare:()=>({bind:()=>({first:async()=>({value:record('cd'.repeat(32))})})})}};
+ const env={DB:{prepare:()=>({bind:(key)=>({first:async()=>key==='site_sync.paused.v1'?null:({value:record('cd'.repeat(32))})})})}};
  const old=globalThis.fetch;let signatures=[];
  globalThis.fetch=async(u,o)=>{signatures.push(o.headers['x-sync-signature']);return new Response('',{status:403});};
  try{

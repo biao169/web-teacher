@@ -1,5 +1,5 @@
 // Real R2 binding calls, native streams, one storage operation per engine tick.
-import {PeerError,releasePeerResponse} from './transport.mjs';
+import {PeerError,releasePeerResponse,cleanupFailure} from './transport.mjs';
 const missingUpload=e=>/\(10024\)\s*$/.test(String(e?.message||''))||e?.code==='NoSuchUpload';
 const conflict=message=>new PeerError(message,'conflict');
 export const PART_BYTES=5*1024*1024;
@@ -35,7 +35,7 @@ export class R2Media {
       const response=await this.peer.read({kind:'media',task:item.task_id||'',module:item.module,record:item.record_id,file:f.source_file_id,version:f.source_version,record_version:item.source_version,snapshot_hash:item.snapshot_hash,offset,length,total:f.total_bytes},{stream:true});
       let part;
       try{part=await upload.uploadPart(offset/PART_BYTES+1,response.body);}
-      finally{releasePeerResponse(response);if(response.body&&!response.body.locked)try{await response.body.cancel();}catch{}}
+      finally{releasePeerResponse(response);if(response.body&&!response.body.locked)try{await response.body.cancel();}catch(e){cleanupFailure(e,'r2_response_cancel');}}
 
       if(part.partNumber!==offset/PART_BYTES+1||typeof part.etag!=='string')throw conflict('Invalid R2 receipt');
       return {kind:'part',offset,length,etag:part.etag};

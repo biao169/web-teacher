@@ -39,3 +39,8 @@ def test_startup_write_rejected(tmp_path):
     (tmp_path/'entrypoint.py').write_text('open('+repr(str(target))+', "w").write("bad")')
     result=run(tmp_path)
     assert result.returncode!=0 and not target.exists()
+
+
+def test_executor_starts_without_main_website_preload():
+    result=subprocess.run([sys.executable,'-B',str(HERE/'startup_check.py'),'--executor-only'],capture_output=True,text=True,timeout=20)
+    assert result.returncode==0,result.stderr

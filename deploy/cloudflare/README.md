@@ -1,3 +1,7 @@
+v0.16.030：separate 模式自动配置主站 `SYNC_EXECUTOR` 服务绑定；需部署完整源码。见 [隔离与验证说明](../../docs/releases/v0.16.030.md)。
+
+同步故障应急暂停与恢复：见 [v0.16.029 操作说明](../../docs/releases/v0.16.029.md)。无需新增必填变量；后台开关由主站和辅助共享。
+
 原生请求修复与辅助自动更新说明见 [v0.16.025](../../docs/releases/v0.16.025.md)。正常执行 `python build.py deploy` 会自动检查并更新辅助 Worker，无需逐个手动部署。
 
 本版同步重试及自动调度绑定说明见 [配置教程](../../docs/sync-retry-setup.md)。

@@ -67,3 +67,15 @@ def test_coordinator_app_is_stable_and_instance_scoped(entry, monkeypatch):
     asyncio.run(run())
     assert len(apps)==2
     assert a._application.application is not b._application.application
+
+def test_request_failure_does_not_replace_application_or_retain_task(entry):
+    calls=[]
+    async def app(scope,receive,send):
+        calls.append(scope['path'])
+        if scope['path']=='/fail':raise RuntimeError('one request failure')
+    entry.application.application=app
+    with pytest.raises(RuntimeError):asyncio.run(entry.application({'path':'/fail'},None,None))
+    asyncio.run(entry.application({'path':'/'},None,None))
+    assert entry.application.application is app
+    assert calls==['/fail','/']
+    assert set(vars(entry.application))=={'application','include_transfer'}

@@ -15,8 +15,10 @@ class Transfer:
         rows=await self.db.query("SELECT * FROM sync_items WHERE task_id=? AND selected=1 AND status='pending' ORDER BY item_id LIMIT 1",(t['task_id'],))
         if not rows:await ctx.advance('apply');return
         item=rows[0]
+        ctx.describe('record-transfer',record_id=item['record_id'])
         if item['action']=='delete':await self.repo.mark_staged(t,item['item_id'],0,now());return
         if item['manifest_json'] is None:
+            ctx.describe('fetch-manifest')
             m=manifest(await self.peer.manifest(item),item['source_version']);raw=encode(m).decode()
             # Legacy partial staging has no pinned manifest. Refuse it rather
             # than inferring that old bytes belong to this source revision.
@@ -24,27 +26,45 @@ class Transfer:
             statements=[self.repo.assertion(t,now(),write=True,extra="t.phase='transfer'"),
                 ('UPDATE sync_items SET manifest_json=? WHERE task_id=? AND item_id=? AND manifest_json IS NULL',(raw,t['task_id'],item['item_id'])),
                 ('UPDATE sync_tasks SET progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=? AND changes()=1',(now(),t['task_id']))]
-            for f in m.get('files',[]):
-                if self.media is None:raise ConflictError('Media adapter required')
-                fid=hashlib.sha256(encode([item['item_id'],f['id']])).hexdigest()
-                operation=hashlib.sha256(encode([t['task_id'],fid])).hexdigest()
-                statements.append(('''INSERT INTO sync_files(task_id,file_id,source_version,total_bytes,storage_kind,staging_key,operation_id,part_bytes,item_id,source_file_id)
-                  VALUES(?,?,?,?,?,?,?,?,?,?)''',(t['task_id'],fid,f['version'],f['size'],self.media.kind,'sync/'+operation,operation,self.media.part_bytes,item['item_id'],f['id'])))
+            if m.get('files') and self.media is None:raise ConflictError('Media adapter required')
             await self.db.batch(statements);return
         m=manifest(json.loads(item['manifest_json']),item['source_version'])
+        # The pinned manifest is the durable source of file descriptors. Register
+        # one missing descriptor, then return; no download in this invocation.
+        if m.get('files'):
+            registered=await self.db.query('SELECT source_file_id FROM sync_files WHERE task_id=? AND item_id=? LIMIT 17',(t['task_id'],item['item_id']))
+            present={x['source_file_id'] for x in registered}
+            if not present<={f['id'] for f in m['files']}:raise ConflictError('Media descriptor mismatch')
+            missing=next((f for f in m['files'] if f['id'] not in present),None)
+            if missing:
+                ctx.describe('register-media',media_id=missing['id'])
+                if self.media is None:raise ConflictError('Media adapter required')
+                fid=hashlib.sha256(encode([item['item_id'],missing['id']])).hexdigest()
+                operation=hashlib.sha256(encode([t['task_id'],fid])).hexdigest()
+                await self.db.batch([self.repo.assertion(t,now(),write=True,extra="t.phase='transfer'"),
+                    ('''INSERT INTO sync_files(task_id,file_id,source_version,total_bytes,storage_kind,staging_key,operation_id,part_bytes,item_id,source_file_id)
+                    VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(task_id,file_id) DO NOTHING''',(t['task_id'],fid,missing['version'],missing['size'],self.media.kind,'sync/'+operation,operation,self.media.part_bytes,item['item_id'],missing['id'])),
+                    ('UPDATE sync_tasks SET progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=? AND changes()=1',(now(),t['task_id']))])
+                return
         offsets=await self.db.query('SELECT field,max(offset+length(data)) AS n,sum(length(data)) AS bytes FROM sync_parts WHERE task_id=? AND item_id=? GROUP BY field',(t['task_id'],item['item_id']))
         positions={x['field']:x['n'] for x in offsets}
         if any(x['field'] not in m['fields'] or x['n']!=x['bytes'] or x['n']>m['fields'][x['field']] for x in offsets):raise ConflictError('Invalid staged field layout')
         for field,total in sorted(m['fields'].items()):
             offset=positions.get(field,0)
             if offset<total:
+                ctx.describe('download-body-slice',checkpoint={'field':field,'offset':offset},slice_bytes=t['slice_bytes'])
                 length=min(t['slice_bytes'],total-offset)
                 data=await self.peer.slice(item,field,offset,length)
                 if not isinstance(data,bytes) or len(data)!=length:raise ConflictError('Invalid slice size')
-                await StagingStore(self.db).append(task_id=t['task_id'],item_id=item['item_id'],field=field,lease=t['lease_token'],grant_revision=t['grant_revision'],source_version=item['source_version'],expected_seq=t['progress_seq'],offset=offset,data=data,now=now());return
+                await StagingStore(self.db).append(task_id=t['task_id'],item_id=item['item_id'],field=field,lease=t['lease_token'],grant_revision=t['grant_revision'],source_version=item['source_version'],expected_seq=t['progress_seq'],offset=offset,data=data,now=now())
+                # Request-local evidence only; persistent counter is committed by finish.
+                # Shared with the owner even when wait_for runs this handler in a child Task.
+                t['_body_progress']=True
+                return
         files=await self.db.query("SELECT * FROM sync_files WHERE task_id=? AND item_id=? AND status NOT IN ('uploaded','published','done') ORDER BY file_id LIMIT 1",(t['task_id'],item['item_id']))
         if files:
             if self.media is None:raise ConflictError('Media adapter required')
+            ctx.describe('media-step',media_id=files[0]['source_file_id'],checkpoint={'offset':files[0]['committed_bytes'],'status':files[0]['status']})
             await self.media.step(ctx,item,files[0],self.peer);return
         await self.repo.mark_staged(t,item['item_id'],sum(m['fields'].values()),now())
 

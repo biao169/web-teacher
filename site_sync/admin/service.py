@@ -74,6 +74,10 @@ class Admin:
         return {'items':rows,'cursor':[rows[-1]['created_at'],rows[-1]['task_id']] if more else None,'server_time':self.clock()}
     async def detail(self,actor,task_id):
         t=await self.own_task(actor,task_id)
+        fields='event_id,occurred_at,kind,phase,attempt_id,detail'
+        base='SELECT '+fields+' FROM sync_events WHERE task_id=?'
+        recent=await self.db.query('SELECT * FROM ('+base+" AND kind IN ('start','step','error','recovered','deferred') ORDER BY event_id DESC LIMIT 1) UNION ALL SELECT * FROM ("+base+" AND kind='step' AND json_extract(detail,'$.progress_delta')>0 ORDER BY event_id DESC LIMIT 1) UNION ALL SELECT * FROM ("+base+" AND kind IN ('error','recovered') ORDER BY event_id DESC LIMIT 1)",(task_id,task_id,task_id))
+        recent=[dict(x,detail=json.loads(x['detail'])) for x in sorted({x['event_id']:x for x in recent}.values(),key=lambda x:x['event_id'],reverse=True)]
         counts=await self.db.query('SELECT status,count(*) n FROM sync_items WHERE task_id=? GROUP BY status',(task_id,))
         files=await self.db.query('SELECT count(*) n,coalesce(sum(total_bytes),0) total,coalesce(sum(committed_bytes),0) committed FROM sync_files WHERE task_id=?',(task_id,))
         body=await self.db.query("SELECT coalesce(sum(staged_bytes),0) committed,coalesce(sum(CASE WHEN manifest_json IS NOT NULL THEN json_extract(manifest_json,'$.fields.payload') ELSE 0 END),0) total,count(*) records,sum(selected) selected FROM sync_items WHERE task_id=?",(task_id,))
@@ -90,12 +94,14 @@ class Admin:
             saved=await self.db.query('SELECT value FROM service_meta WHERE key=?',('sync:clone-state:'+task_id,))
             state=json.loads(saved[0]['value']) if saved else {}
             phase=state.get('phase') or ('stage' if t['phase']=='apply' else t['phase'])
-            labels={'discover':'发现完整清单','await_confirmation':'等待整任务批准','transfer':'下载正文与媒体','stage':'整理持久暂存记录','verify':'检查清单与管理员','restore':'恢复业务数据','prune':'清理目标多余记录','cleanup':'清理暂存分片；选入账号时统一切换账号','done':'已完成'}
+            labels={'discover':'发现完整清单','await_confirmation':'等待整任务批准','transfer':'下载正文与媒体','stage':'整理持久暂存记录','verify':'检查清单范围','verify_tables':'逐表检查暂存数量','verify_source':'核对对端清单版本','verify_admin':'检查管理员并取得应用锁','restore':'恢复业务数据','prune':'清理目标多余记录','cleanup':'清理暂存分片；选入账号时统一切换账号','done':'已完成'}
+            if phase=='verify_tables':tables=selected_tables(json.loads(t['scope_json']))
             index=max(0,min(int(state.get('table',0)),len(tables)))
             ordered=list(reversed(tables)) if phase=='prune' else tables
             if t['status']=='cancelled':phase='cancelled';index=0;labels['cancelled']='已取消；已应用内容不回滚'
-            clone={'phase':phase,'label':labels.get(phase,phase),'table':ordered[index] if phase in ('restore','prune') and index<len(ordered) else None,'completed_tables':len(tables) if phase in ('cleanup','done') else index,'total_tables':len(tables),'storage':'service_meta / sync:clone-state:'+task_id+'；分片见 sync_parts / sync_file_parts'}
-        return {'task':{k:t[k] for k in TASK_FIELDS.split(',')},'counts':counts,'clone':clone,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'retry_policy':await self.retry_policy(actor),'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
+            clone={'phase':phase,'label':labels.get(phase,phase),'table':ordered[index] if phase in ('restore','prune','verify_tables') and index<len(ordered) else None,'completed_tables':len(tables) if phase in ('cleanup','done') else index,'total_tables':len(tables),'storage':'service_meta / sync:clone-state:'+task_id+'；分片见 sync_parts / sync_file_parts'}
+        from site_sync.core.adaptive import read as adaptive_state
+        return {'adaptation':await adaptive_state(self.db,task_id),'task':{k:t[k] for k in TASK_FIELDS.split(',')},'counts':counts,'clone':clone,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'retry_policy':await self.retry_policy(actor),'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','diagnostic_events':recent,'checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
 
     async def logs(self,actor,task_id,*,before=None):
         await self.own_task(actor,task_id)
@@ -140,7 +146,7 @@ class Admin:
             result=await self.db.batch([('''UPDATE sync_tasks SET fast_retries=?,slice_bytes=?,min_slice_bytes=?,slow_retry_seconds=?,auto_shrink=?,initial_slice_bytes=?,revision=revision+1
               WHERE task_id=? AND grant_id=? AND revision=? AND lease_until<=? AND status IN ('ready','waiting','paused')
               AND EXISTS(SELECT 1 FROM sync_grants WHERE grant_id=? AND revision=? AND enabled=1 AND (expires_at=0 OR expires_at>?))''',
-              (*values,task_id,actor.grant_id,revision,self.clock(),actor.grant_id,g['revision'],self.clock()))])
+              (*values,task_id,actor.grant_id,revision,self.clock(),actor.grant_id,g['revision'],self.clock())),('DELETE FROM service_meta WHERE key=? AND changes()=1',('sync:adaptive:'+task_id,))])
             if result[0]['meta']['changes']!=1:raise ConflictError('请先暂停并等待当前执行结束，或刷新后重试')
         else:raise ValueError('未知任务操作')
         from site_sync.core.journal import statements as journal

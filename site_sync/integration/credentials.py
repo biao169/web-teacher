@@ -12,6 +12,7 @@ from dataclasses import dataclass,field
 from backend.app.native.catalog import now
 from backend.app.native.data_tools import authorize
 from site_sync.core.authority import AuthorizationError
+from site_sync.core.diagnostics import coded
 from .database import adapter
 
 STORAGE_KEY='site_sync.credentials.v1'
@@ -58,16 +59,16 @@ async def resolve(r):
             if any(not isinstance(data.get(k),str) for k in ('revision','updated_at','updated_by')):raise ValueError()
             return ResolvedCredential('database',value,data['revision'],data['updated_at'],data['updated_by'])
         except (ValueError,KeyError,TypeError):
-            raise AuthorizationError('Stored sync credential is invalid') from None
+            raise coded(AuthorizationError('Stored sync credential is invalid'),'SYNC_KEY_INVALID') from None
     value=getattr(r.sync_env,'TEACHER_SYNC_KEY','') if hasattr(r,'sync_env') else os.environ.get('TEACHER_SYNC_KEY','')
     if value is None or value=='':return None
     try:return ResolvedCredential('environment',normalize(value))
-    except ValueError:raise AuthorizationError('Environment sync credential is invalid') from None
+    except ValueError:raise coded(AuthorizationError('Environment sync credential is invalid'),'SYNC_KEY_INVALID') from None
 
 
 async def require_secret(r):
     credential=await resolve(r)
-    if credential is None:raise AuthorizationError('Sync credential is not configured')
+    if credential is None:raise coded(AuthorizationError('Sync credential is not configured'),'SYNC_KEY_MISSING')
     return credential.secret_bytes()
 
 
@@ -110,7 +111,7 @@ async def reveal(r):
     """
     authorize_management(r)
     credential=await resolve(r)
-    if credential is None:raise AuthorizationError('Sync credential is not configured')
+    if credential is None:raise coded(AuthorizationError('Sync credential is not configured'),'SYNC_KEY_MISSING')
     gid,guard=r.auth.guard(r.p,'data_tools','edit',
         "EXISTS(SELECT 1 FROM auth_users u JOIN auth_roles role ON role.uid=u.role_uid WHERE u.uid=? AND role.is_system=1)",(r.p['uid'],))
     await adapter(r).batch([guard,

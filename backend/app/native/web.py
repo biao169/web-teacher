@@ -41,7 +41,7 @@ async def payload(request,limit=500000):
         return {k:v[0] for k,v in parsed.items()}
     except (ValueError,UnicodeDecodeError):raise Error('请求格式不正确') from None
 
-def create_app(factory,static_root=None):
+def create_app(factory,static_root=None,*,lazy_sync=False):
     """Wire one set of services to either local SQLite/files or Worker D1/R2 resources."""
     app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None)
     if static_root:
@@ -325,7 +325,10 @@ def create_app(factory,static_root=None):
     install_examples(app,resources,csrf,render)
     from .data_admin import install as install_data_admin
     install_data_admin(app,resources,csrf,render)
-    from site_sync.integration.web import install as install_site_sync
+    if lazy_sync:
+        from site_sync.integration.lazy_routes import install as install_site_sync
+    else:
+        from site_sync.integration.web import install as install_site_sync
     install_site_sync(app,resources,csrf,render)
     from .session_admin import install as install_session_admin
     install_session_admin(app,resources,csrf,resolve,navigation_stamp,check_navigation_current)

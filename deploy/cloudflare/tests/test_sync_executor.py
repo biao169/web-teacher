@@ -16,9 +16,9 @@ class ExecutorTests(unittest.TestCase):
             self.assertEqual((job,value['action']),('sync','delegated'));tick.assert_not_awaited()
 
     def test_executor_scheduled_uses_same_db_without_http_factory(self):
-        workers=types.ModuleType('workers');workers.WorkerEntrypoint=object
+        workers=types.ModuleType('workers');workers.WorkerEntrypoint=object;workers.asgi=types.SimpleNamespace(fetch=AsyncMock())
         bridge=types.ModuleType('worker_runtime.bridge');bridge.Environment=lambda env:env
-        package=types.ModuleType('worker_runtime');package.__path__=[]
+        package=types.ModuleType('worker_runtime');package.__path__=[str(ROOT/'deploy/cloudflare/runtime')]
         with patch.dict(sys.modules,{'workers':workers,'worker_runtime':package,'worker_runtime.bridge':bridge}):
             executor=load('executor_isolated',ROOT/'deploy/cloudflare/runtime/sync_executor.py')
             env=types.SimpleNamespace(TEACHER_DATABASE_BINDING='DB',DB=object())
@@ -29,7 +29,7 @@ class ExecutorTests(unittest.TestCase):
 
     def test_due_tick_constructs_only_sync_resources(self):
         from site_sync.integration.worker_schedule import run
-        sql=types.SimpleNamespace(query=AsyncMock(return_value=[{'due':1}]))
+        sql=types.SimpleNamespace(query=AsyncMock(side_effect=[[],[{'due':1}]]))
         env=object()
         with patch('site_sync.integration.host.tick',new_callable=AsyncMock,return_value={'action':'stepped'}) as tick:
             asyncio.run(run(sql,env));r=tick.call_args.args[0]

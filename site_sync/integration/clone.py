@@ -36,14 +36,17 @@ async def candidates(site,q):
         tables=sorted(chosen)
         if after==meta_record(scope):start_table=tables[0];last=''
         elif not separator or start_table not in tables:raise ConflictError('Invalid clone cursor')
-        rows=[]
+        # Each table contributes at most one key. D1 chooses the first table in
+        # one bounded query instead of a Python loop issuing up to 20 queries.
+        clauses=[];params=[]
         for table in tables[tables.index(start_table):]:
             threshold=last if table==start_table else ''
-            if table=='tool_settings':
-                threshold=int(threshold) if threshold else 0
-            rows=await site.db.query(f'SELECT {pk(table)} id,updated_at version FROM "{table}" WHERE {pk(table)}>? ORDER BY {pk(table)} LIMIT 1',(threshold,))
-            if rows:break
+            if table=='tool_settings':threshold=int(threshold) if threshold else 0
+            clauses.append(f'SELECT * FROM (SELECT ? table_name,{pk(table)} id,updated_at version FROM "{table}" WHERE {pk(table)}>? ORDER BY {pk(table)} LIMIT 1)')
+            params.extend((table,threshold))
+        rows=await site.db.query('SELECT * FROM ('+' UNION ALL '.join(clauses)+') ORDER BY table_name LIMIT 1',params)
         if not rows:return {'item':None,'cursor':None}
+        table=rows[0]['table_name']
         record,version=table+':'+str(rows[0]['id']),rows[0]['version']
         module=SCOPE if scope==[SCOPE] else 'restore_'+table
     return {'item':{'module':module,'id':record,'version':version,'updated':0,'action':'upsert'},'cursor':[0,module,record]}
@@ -85,6 +88,7 @@ async def snapshot(site,q):
     await db.batch([('UPDATE sync_exports SET files_json=?,expires_at=? WHERE module=? AND record_id=? AND version=? AND request_id=?',(json.dumps(media),int(time.time())+604800,*identity))])
     return manifest({'version':q['version'],'snapshot_hash':digest,'fields':{'payload':saved[0]['bytes']},'files':[{k:m[k] for k in ('id','version','size')} for m in media]},q['version'])
 async def discover(site,ctx):
+    ctx.describe('clone-candidate-page')
     t=ctx.task;selection=json.loads(t['scope_json']);peer=await site.runtime.peer_factory(t)
     page=await peer.candidates({'kind':'candidates','version':'catalog-v1','scope':selection,'cursor':json.loads(t['discovery_cursor']) if t['discovery_cursor'] else None})
     item=page.get('item')
@@ -93,8 +97,7 @@ async def discover(site,ctx):
     record=item['id'];table,_,uid=record.partition(':')
     if record!=meta_record(selection) and (table not in selected_tables(selection) or not uid or item['module'] not in (SCOPE,'restore_'+table)):raise ConflictError('Unknown clone record')
     if t['discovery_cursor'] and page['cursor'][2]<=json.loads(t['discovery_cursor'])[2]:raise ConflictError('Clone cursor did not advance')
-    await ctx.add_item(item_id=hashlib.sha256(encode(record)).hexdigest(),module=item['module'],record_id=record,source_version=item['version'])
-    await site.db.batch([ctx.repo.assertion(t,ctx.clock()),('UPDATE sync_tasks SET discovery_cursor=? WHERE task_id=?',(json.dumps(page['cursor']),t['task_id']))])
+    await ctx.add_item(item_id=hashlib.sha256(encode(record)).hexdigest(),module=item['module'],record_id=record,source_version=item['version'],discovery_cursor=encode(page['cursor']).decode())
 async def progress(ctx,statements):
     await ctx.repo.db.batch([ctx.repo.assertion(ctx.task,ctx.clock(),write=True),*statements,('UPDATE sync_tasks SET progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=?',(ctx.clock(),ctx.task['task_id']))])
 async def apply(site,ctx):
@@ -102,6 +105,7 @@ async def apply(site,ctx):
     rows=await db.query("SELECT * FROM sync_items WHERE task_id=? AND status='staged' ORDER BY record_id LIMIT 1",(uid,))
     if rows:
         item=rows[0]
+        ctx.describe('clone-stage-record',record_id=item['record_id'])
         if not item['selected']:raise ConflictError('A full clone requires approval of all records')
         body=body_sql();args=(uid,item['item_id'])
         summary=(await db.query("SELECT json_extract("+body+",'$.table') t,json_extract("+body+",'$.row.uid') u",(*args,*args)))[0]
@@ -109,6 +113,7 @@ async def apply(site,ctx):
         if item['record_id']!=meta_record(selection) and (summary['t']!=table or (table!='tool_settings' and summary['u']!=record)):raise ConflictError('Clone envelope identity mismatch')
         await progress(ctx,[('INSERT INTO service_meta(key,value) SELECT ?,'+body+' ON CONFLICT(key) DO NOTHING',(key(uid,item['record_id']),*args)),("UPDATE sync_items SET status='applied' WHERE task_id=? AND item_id=?",args)]);return
     state=await db.query('SELECT value FROM service_meta WHERE key=?',(statekey,));state=json.loads(state[0]['value']) if state else {'phase':'verify','table':0,'after':''}
+    ctx.describe('clone-'+str(state.get('phase')),checkpoint=state)
     if state['phase']=='verify':
         missing=await db.query("SELECT 1 FROM sync_items WHERE task_id=? AND (selected!=1 OR status!='applied') LIMIT 1",(uid,))
         if missing:raise ConflictError('Full clone cannot apply a partial selection')
@@ -118,13 +123,33 @@ async def apply(site,ctx):
         if {x['name'] for x in info['tables']}!=set(chosen):raise ConflictError('Restore inventory selection mismatch')
         # Final authentication replacement is one bounded transaction.
         if sum(x['n'] for x in info['tables'] if x['name'] in AUTH)>1000:raise ConflictError('Authentication clone exceeds atomic restore bound (1000 rows)')
-        for x in info['tables']:
-            if x['name']=='operation_logs':continue
-            count=await db.query('SELECT count(*) n FROM service_meta WHERE key LIKE ?',(pre+x['name']+':%',))
-            if count[0]['n']!=x['n']:raise ConflictError('Clone inventory incomplete')
+        await progress(ctx,[('INSERT INTO service_meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(statekey,json.dumps({'phase':'verify_tables','table':0,'after':''})))])
+        return
+    if state['phase']=='verify_tables':
+        index=state['table']
+        if type(index)!=int or not 0<=index<=len(chosen):raise ConflictError('Invalid verification checkpoint')
+        if index<len(chosen):
+            table=chosen[index]
+            meta=await db.query('SELECT value FROM service_meta WHERE key=?',(key(uid,meta_record(selection)),))
+            if not meta:raise ConflictError('Clone inventory missing')
+            info=json.loads(meta[0]['value'])['row']
+            expected=next((x['n'] for x in info['tables'] if x['name']==table),None)
+            if expected is None:raise ConflictError('Clone inventory incomplete')
+            if table!='operation_logs':
+                count=await db.query('SELECT count(*) n FROM service_meta WHERE key LIKE ?',(pre+table+':%',))
+                if count[0]['n']!=expected:raise ConflictError('Clone inventory incomplete')
+            state['table']=index+1
+        else:state={'phase':'verify_source','table':0,'after':''}
+        await progress(ctx,[('UPDATE service_meta SET value=? WHERE key=?',(json.dumps(state),statekey))]);return
+    if state['phase']=='verify_source':
+        meta=await db.query('SELECT value FROM service_meta WHERE key=?',(key(uid,meta_record(selection)),))
+        if not meta:raise ConflictError('Clone inventory missing')
+        info=json.loads(meta[0]['value'])['row']
         peer=await site.runtime.peer_factory(t)
         result=await peer.candidates({'kind':'clone_check','version':'catalog-v1','expected':inventory_version(info),'scope':selection})
         if result!={'schema':SCHEMA,'unchanged':True}:raise ConflictError('Clone source changed')
+        await progress(ctx,[('UPDATE service_meta SET value=? WHERE key=?',(json.dumps({'phase':'verify_admin','table':0,'after':''}),statekey))]);return
+    if state['phase']=='verify_admin':
         # Require at least one usable system administrator before modifying content.
         admin=await clone_admin(db,pre)
         if set(AUTH)<=set(chosen) and not admin:raise ConflictError('Clone has no active system administrator with data-tools access')
@@ -181,6 +206,7 @@ async def apply(site,ctx):
                 await progress(ctx,[(f'DELETE FROM "{table}" WHERE CAST({pk(table)} AS TEXT)=?',(rows[0]['uid'],))]);return
         state['table']+=1;state['after']=''
         await progress(ctx,[('UPDATE service_meta SET value=? WHERE key=?',(json.dumps(state),statekey))]);return
+    if state['phase']!='cleanup':raise ConflictError('Unknown clone checkpoint phase')
     parts=await db.query('SELECT rowid FROM sync_parts WHERE task_id=? LIMIT 1',(uid,))
     if parts:
         await progress(ctx,[('DELETE FROM sync_parts WHERE rowid=?',(parts[0]['rowid'],))]);return

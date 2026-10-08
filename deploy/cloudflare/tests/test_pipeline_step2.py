@@ -23,6 +23,10 @@ class PipelineTests(unittest.TestCase):
         result.update(changes)
         return result
 
+    def test_pause_build_setting(self):
+        self.assertEqual(pipeline.settings(self.env(TEACHER_SYNC_PAUSED='1'))['sync_paused'],'1')
+        with self.assertRaises(ValueError):pipeline.settings(self.env(TEACHER_SYNC_PAUSED='true'))
+
     def test_missing_settings(self):
         with self.assertRaisesRegex(ValueError, 'TEACHER_WORKER_NAME'):
             pipeline.settings({})

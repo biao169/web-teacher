@@ -8,7 +8,14 @@ import time
 from urllib.parse import urlsplit
 from .protocol import *
 from site_sync.core.authority import ResourceError,CredentialRetryError
+from site_sync.core.diagnostics import peer_headers
 
+
+def close_connection(connection):
+    try:connection.close()
+    except Exception as exc:
+        import logging
+        logging.getLogger('teacher-site').warning('sync HTTP cleanup failed: %s',type(exc).__name__)
 
 class DeadlineReader:
     """Bounded reads and a wall deadline, in addition to the socket idle timeout."""
@@ -34,11 +41,16 @@ class HTTPPeer:
         if stream:headers['x-sync-stream']='1'
         cls=http.client.HTTPSConnection if self.url.scheme=='https' else http.client.HTTPConnection
         connection=cls(self.url.hostname,self.url.port,timeout=self.timeout)
+        closed=False;handed_off=False
+        def release():
+            nonlocal closed
+            if not closed:
+                closed=True;close_connection(connection)
         try:
             connection.request('POST',PATH,body,headers)
             response=connection.getresponse();h={k.lower():v for k,v in response.getheaders()}
             if response.status==410 and stream and request.get('record_version') and request.get('snapshot_hash'):
-                connection.close()
+                release()
                 if recovered:raise ResourceError('Snapshot not yet available')
                 restored=json.loads(self.open(dict(kind='manifest',task=request.get('task',''),module=request['module'],record=request['record'],version=request['record_version'],snapshot_hash=request['snapshot_hash'])))
                 if restored.get('snapshot_hash')!=request['snapshot_hash']:raise ConflictError('Snapshot changed')
@@ -59,7 +71,7 @@ class HTTPPeer:
                 raise error
             if response.status!=200:raise ConflictError('Peer rejected version or route')
             size=h.get('content-length','')
-            limit=request['length'] if stream else MAX_CONTROL if request['kind'] in ('manifest','candidates','proposal','clone_check') else request['length']
+            limit=request['length'] if stream else MAX_CONTROL if request['kind'] in ('manifest','candidates','proposal','clone_check','probe') else request['length']
             if not size.isdecimal() or int(size)>limit or h.get('content-encoding','identity')!='identity' or 'transfer-encoding' in h:
                 raise ConflictError('Invalid bounded response')
             size=int(size)
@@ -67,6 +79,7 @@ class HTTPPeer:
                 meta=verify_response(self.secret,headers['x-sync-nonce'],200,h,stream=True)
                 expected={'version':request['version'],'offset':request['offset'],'length':request['length'],'total':request['total']}
                 if meta!=expected or size!=request['length']:raise ConflictError('Media version/range mismatch')
+                handed_off=True
                 return connection,DeadlineReader(response,deadline)
             reader=DeadlineReader(response,deadline);chunks=[];remaining=size
             while remaining:
@@ -79,10 +92,15 @@ class HTTPPeer:
             if meta.get('version')!=request['version']:raise ConflictError('Source changed')
             if request['kind']=='slice' and (len(data)!=request['length'] or meta.get('offset')!=request['offset']):raise ConflictError('Slice range mismatch')
             return data
-        except BaseException:
-            connection.close();raise
+        except BaseException as exc:
+            exc.request_id=headers['x-sync-nonce']
+            if 'response' in locals() and response.status!=200:
+                exc.http_status=response.status;exc.stage='response_headers';exc.ray_id=h.get('cf-ray','')
+                exc.code='PEER_HTTP_FORBIDDEN' if response.status in (401,403) else 'PEER_HTTP_FAILED'
+                for key,value in peer_headers(h).items():setattr(exc,key,value)
+            raise
         finally:
-            if not stream:connection.close()
+            if not handed_off:release()
 
     async def manifest(self,item):
         data=await asyncio.to_thread(self.open,dict(kind='manifest',task=item.get('task_id',''),module=item['module'],record=item['record_id'],version=item['source_version']))

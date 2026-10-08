@@ -1,5 +1,5 @@
 // Same storage contract as integration/credentials.py. No process cache.
-function invalid(){return Object.assign(new Error('Sync credential unavailable'),{kind:'credential'});}
+function invalid(code='SYNC_KEY_INVALID'){return Object.assign(new Error('Sync credential unavailable'),{kind:'credential',code});}
 function normalize(value){
  if(typeof value!=='string'||value.length>128)throw invalid();
  value=value.trim();if(!/^[a-fA-F0-9]{64}$/.test(value))throw invalid();return value;
@@ -14,6 +14,6 @@ export async function resolveSecret(env){
    if(!d||d.version!==1||!['revision','updated_at','updated_by'].every(k=>typeof d[k]==='string'))throw invalid();
    value=normalize(d.key);
   }catch{throw invalid();}
- }else value=normalize(env.TEACHER_SYNC_KEY);
+ }else {if(env.TEACHER_SYNC_KEY==null||env.TEACHER_SYNC_KEY==='')throw invalid('SYNC_KEY_MISSING');value=normalize(env.TEACHER_SYNC_KEY);}
  return Uint8Array.from(value.match(/../g),x=>parseInt(x,16));
 }

@@ -68,7 +68,7 @@ test('empty R2 object publishes without multipart or peer request',async()=>{
 test('native snapshot hash does not return snapshot bytes through RPC',async()=>{
  const {dispatch}=await import('./native_dispatch.mjs');
  const bytes=new TextEncoder().encode('x'.repeat(240000));let args;
- const env={DB:{prepare(sql){assert.match(sql,/SELECT body FROM sync_exports/);return {bind(...values){args=values;return {first:async()=>({body:Array.from(bytes)})};}};}}};
+ const env={DB:{prepare(sql){if(sql.includes('service_meta'))return {bind(){return {first:async()=>null};}};assert.match(sql,/SELECT body FROM sync_exports/);return {bind(...values){args=values;return {first:async()=>({body:Array.from(bytes)})};}};}}};
  const result=JSON.parse(await dispatch(env,'snapshot_hash',JSON.stringify({identity:['site_clone','news:n','v1','task']})));
  assert.equal(result.ok,true);assert.equal(result.value,createHash('sha256').update(bytes).digest('hex'));assert.equal(args.length,4);
 });

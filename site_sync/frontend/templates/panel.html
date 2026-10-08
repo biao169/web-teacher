@@ -9,7 +9,7 @@
 <label>最小正文切片 <input class="form-control" name="min_slice_bytes" type="text" placeholder="最低4KiB" required><small class="sync-help">自动缩片的下限，最低 4KiB，不能超过初始切片。</small></label>
 <label>快速重试次数 <input class="form-control" name="fast_retries" type="number" min="0" max="1000" placeholder="" required><small class="sync-help">连续无进度时快速重试的次数；耗尽后仍会慢速重试，有进度则重新计数。</small></label>
 <label>慢速重试间隔（秒） <input class="form-control" name="slow_retry_seconds" type="number" min="60" max="1800" placeholder="" required><small class="sync-help">快速重试耗尽后的等待上限，60—1800 秒；不限制任务总时长。</small></label>
-<label>资源错误自动缩片 <select class="form-select" name="auto_shrink"><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">遇到资源错误时降低正文切片；R2 持久分段不随之改变。</small></label></div><button class="btn btn-primary">保存站点默认参数</button><p>仅用于后续新任务。已有任务保留自己的参数；已有计划未覆盖的字段在下次创建任务时读取新默认值。</p></form></details>
+<label>正文切片自动调整 <select class="form-select" name="auto_shrink"><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">资源压力时降低正文切片；至少 8 片成功且冷却 300 秒后缓慢恢复。R2 持久分段不随之改变。</small></label></div><button class="btn btn-primary">保存站点默认参数</button><p>仅用于后续新任务。已有任务保留自己的参数；已有计划未覆盖的字段在下次创建任务时读取新默认值。</p></form></details>
 <p class="sync-muted">切片范围 4KiB—4MiB，支持输入 4m。切片是每次传输的上限，尾片可以不足4KiB。当前单条正文封装上限为1MiB，因此本站正文实际请求不会超过该条剩余字节。媒体采用独立流式分段。分片无需人工审核，中断后从已保存偏移续传。</p>
   <details id="sync-create" open><summary>新建手动拉取任务</summary><form data-create>
     <label>对端 <select class="form-select" name="peer" required></select><small class="sync-help">使用已保存并启用的对端连接。</small></label>
@@ -19,7 +19,7 @@
 <label>最小正文切片 <input class="form-control" name="min_slice_bytes" type="text" placeholder="留空继承，最低4KiB" ><small class="sync-help">自动缩片的下限，最低 4KiB，不能超过初始切片。</small></label>
 <label>快速重试次数 <input class="form-control" name="fast_retries" type="number" min="0" max="1000" placeholder="留空继承" ><small class="sync-help">连续无进度时快速重试的次数；耗尽后仍会慢速重试，有进度则重新计数。</small></label>
 <label>慢速重试间隔（秒） <input class="form-control" name="slow_retry_seconds" type="number" min="60" max="1800" placeholder="留空继承" ><small class="sync-help">快速重试耗尽后的等待上限，60—1800 秒；不限制任务总时长。</small></label>
-<label>资源错误自动缩片 <select class="form-select" name="auto_shrink"><option value="">继承站点默认</option><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">遇到资源错误时降低正文切片；R2 持久分段不随之改变。</small></label></div></details><button class="btn btn-primary">拉取到本站</button><button class="btn btn-outline-primary" type="button" data-proposal>推送到对端</button><span>取消自动确认则等待本站批准；分项恢复只批准一次整个任务。推送由对端审核策略决定，以上复选框仅控制本站拉取。</span>
+<label>正文切片自动调整 <select class="form-select" name="auto_shrink"><option value="">继承站点默认</option><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">资源压力时降低正文切片；至少 8 片成功且冷却 300 秒后缓慢恢复。R2 持久分段不随之改变。</small></label></div></details><button class="btn btn-primary">拉取到本站</button><button class="btn btn-outline-primary" type="button" data-proposal>推送到对端</button><span>取消自动确认则等待本站批准；分项恢复只批准一次整个任务。推送由对端审核策略决定，以上复选框仅控制本站拉取。</span>
   </form></details>
   <p data-retention-note class="sync-muted"></p>
   <h2 id="sync-tasks">任务列表与进度</h2>
@@ -34,7 +34,7 @@
 <label>最小正文切片 <input class="form-control" name="min_slice_bytes" type="text" placeholder="最低4KiB" required><small class="sync-help">自动缩片的下限，最低 4KiB，不能超过初始切片。</small></label>
 <label>快速重试次数 <input class="form-control" name="fast_retries" type="number" min="0" max="1000" placeholder="" required><small class="sync-help">连续无进度时快速重试的次数；耗尽后仍会慢速重试，有进度则重新计数。</small></label>
 <label>慢速重试间隔（秒） <input class="form-control" name="slow_retry_seconds" type="number" min="60" max="1800" placeholder="" required><small class="sync-help">快速重试耗尽后的等待上限，60—1800 秒；不限制任务总时长。</small></label>
-<label>资源错误自动缩片 <select class="form-select" name="auto_shrink"><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">遇到资源错误时降低正文切片；R2 持久分段不随之改变。</small></label></div><button class="btn btn-primary">保存任务设置</button><p>只影响当前任务。先暂停并等待执行租约结束；保存不会清空已传数据或更改偏移。R2存储分段不随正文切片改变。</p></form>
+<label>正文切片自动调整 <select class="form-select" name="auto_shrink"><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">资源压力时降低正文切片；至少 8 片成功且冷却 300 秒后缓慢恢复。R2 持久分段不随之改变。</small></label></div><button class="btn btn-primary">保存任务设置</button><p>只影响当前任务。先暂停并等待执行租约结束；保存不会清空已传数据或更改偏移。R2存储分段不随正文切片改变。</p></form>
     <div class="sync-table"><table class="table"><thead><tr><th>批准</th><th>条目 ID</th><th>模块 / 来源记录</th><th>动作 / 状态</th></tr></thead><tbody data-items></tbody></table></div>
     <button class="btn btn-outline-primary" type="button" data-items-first>候选首页</button><button class="btn btn-outline-primary" type="button" data-items-more hidden>下一页候选</button><button class="btn btn-outline-primary" type="button" data-confirm hidden>批准所选条目</button><span data-selected></span>
   </section>
@@ -46,5 +46,5 @@
 <label>最小正文切片 <input class="form-control" name="min_slice_bytes" type="text" placeholder="留空继承，最低4KiB" ><small class="sync-help">自动缩片的下限，最低 4KiB，不能超过初始切片。</small></label>
 <label>快速重试次数 <input class="form-control" name="fast_retries" type="number" min="0" max="1000" placeholder="留空继承" ><small class="sync-help">连续无进度时快速重试的次数；耗尽后仍会慢速重试，有进度则重新计数。</small></label>
 <label>慢速重试间隔（秒） <input class="form-control" name="slow_retry_seconds" type="number" min="60" max="1800" placeholder="留空继承" ><small class="sync-help">快速重试耗尽后的等待上限，60—1800 秒；不限制任务总时长。</small></label>
-<label>资源错误自动缩片 <select class="form-select" name="auto_shrink"><option value="">继承站点默认</option><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">遇到资源错误时降低正文切片；R2 持久分段不随之改变。</small></label></div></details><button class="btn btn-primary">保存计划</button><button class="btn btn-outline-primary" type="button" data-schedule-reset>改为新增</button></form>
+<label>正文切片自动调整 <select class="form-select" name="auto_shrink"><option value="">继承站点默认</option><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">资源压力时降低正文切片；至少 8 片成功且冷却 300 秒后缓慢恢复。R2 持久分段不随之改变。</small></label></div></details><button class="btn btn-primary">保存计划</button><button class="btn btn-outline-primary" type="button" data-schedule-reset>改为新增</button></form>
 </section>

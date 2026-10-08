@@ -9,6 +9,7 @@ import re
 import secrets
 import time
 from site_sync.core.authority import AuthorizationError, ConflictError
+from site_sync.core.diagnostics import coded
 
 PATH='/sync/v1/read'
 MAX_CONTROL=8192
@@ -33,10 +34,10 @@ def request_headers(secret,body,*,clock=time.time,nonce=None):
 def verify_request(secret,headers,body,*,clock=time.time):
     stamp=headers.get('x-sync-time','');nonce=headers.get('x-sync-nonce','')
     if len(body)>MAX_REQUEST or not re.fullmatch(r'[0-9]{1,12}',stamp) or not re.fullmatch(r'[a-f0-9]{32}',nonce):
-        raise AuthorizationError('Invalid request envelope')
-    if abs(int(clock())-int(stamp))>120:raise AuthorizationError('Request outside clock window')
+        raise coded(AuthorizationError('Invalid request envelope'),'SYNC_ENVELOPE_INVALID')
+    if abs(int(clock())-int(stamp))>120:raise coded(AuthorizationError('Request outside clock window'),'SYNC_CLOCK_SKEW')
     expected=request_headers(secret,body,clock=lambda:int(stamp),nonce=nonce)['x-sync-signature']
-    if not hmac.compare_digest(headers.get('x-sync-signature',''),expected):raise AuthorizationError('Invalid request signature')
+    if not hmac.compare_digest(headers.get('x-sync-signature',''),expected):raise coded(AuthorizationError('Invalid request signature'),'SYNC_SIGNATURE_INVALID')
     return nonce
 
 def response_headers(secret,nonce,status,metadata,body=b'',*,stream=False):

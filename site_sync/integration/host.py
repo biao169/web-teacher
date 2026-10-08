@@ -10,6 +10,7 @@ from site_sync.adapters.worker_peer import WorkerPeer
 from site_sync.runtime.bridge import NativeBridge
 from site_sync.runtime.service import Runtime
 from site_sync.core.authority import AuthorizationError
+from site_sync.core.diagnostics import coded
 
 
 def environment(r,key,default=''):
@@ -25,9 +26,9 @@ def grant_id(p):return 'website:'+p['uid']
 async def authorize_export(r,module=None):
     db=adapter(r)
     rows=await db.query("SELECT c.export_scope_json,g.scopes_json FROM sync_connections c JOIN sync_peers p ON p.peer_id=c.peer_id JOIN sync_grants g ON g.principal_id=c.owner_uid WHERE p.enabled=1 AND g.enabled=1 AND g.can_write=1 AND (g.expires_at=0 OR g.expires_at>?) LIMIT 1",(int(time.time()),))
-    if not rows:raise AuthorizationError('Export disabled')
+    if not rows:raise coded(AuthorizationError('Export disabled'),'SYNC_EXPORT_DISABLED')
     allowed=set(json.loads(rows[0]['export_scope_json']))&set(json.loads(rows[0]['scopes_json']))
-    if module is not None and module not in allowed:raise AuthorizationError('Module export denied')
+    if module is not None and module not in allowed:raise coded(AuthorizationError('Module export denied'),'SYNC_SCOPE_DENIED')
     return allowed
 async def configure(r,body):
     from backend.app.native.data_tools import authorize
@@ -72,10 +73,13 @@ def runtime(r):
         from site_sync.adapters.local_media import LocalMedia
         factory=lambda repo:LocalMedia(repo,r.settings.media_dir/'sync')
     else:factory=lambda repo:WorkerMedia(repo,NativeBridge(r.sync_env.SYNC_NATIVE,db))
-    return Runtime(db,TeacherWebsite(db,r),peer,factory,platform=kind,history_days=int(environment(r,'SYNC_HISTORY_DAYS','90')))
+    rt=Runtime(db,TeacherWebsite(db,r),peer,factory,platform=kind,history_days=int(environment(r,'SYNC_HISTORY_DAYS','90')))
+    rt.repo.admission="NOT EXISTS(SELECT 1 FROM service_meta WHERE key='site_sync.paused.v1' AND value!='0')"
+    return rt
 
 async def tick(r):
-    if environment(r,'TEACHER_SYNC_PAUSED','0')=='1':return {'action':'disabled','skipped':'sync-paused'}
+    from .control import stopped
+    if await stopped(r):return {'action':'disabled','skipped':'sync-paused'}
     engine=runtime(r)
     result=await engine.tick()
     if result['action']=='idle':

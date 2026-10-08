@@ -42,7 +42,13 @@ class AdminASGI:
         except ConflictError as exc:status=409;result={'error':str(exc)[:200]}
         except (ValueError,TypeError,UnicodeError):status=400;result={'error':'请求参数不合法'}
         except KeyError:status=404;result={'error':'接口不存在'}
-        except Exception:status=503;result={'error':'服务暂时不可用，请稍后刷新'}
+        except Exception as exc:
+            import secrets
+            from site_sync.core.journal import failure
+            from site_sync.core.diagnostics import classify,RELEASE,CODES
+            trace=secrets.token_hex(16);code=classify(exc,'SYNC_ADMIN_FAILED');diagnostic=failure(exc)
+            print(json.dumps({'component':'local-admin','release':RELEASE,'request_id':trace,'code':code,'diagnostic':diagnostic}),flush=True)
+            status=503;result={'error':CODES[code],'code':code,'request_id':trace,'diagnostic':diagnostic}
         data=json.dumps(result,ensure_ascii=False,separators=(',',':')).encode()
         await send({'type':'http.response.start','status':status,'headers':[(b'content-type',b'application/json; charset=utf-8'),(b'cache-control',b'no-store'),(b'x-content-type-options',b'nosniff')]})
         await send({'type':'http.response.body','body':data})

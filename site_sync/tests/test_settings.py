@@ -44,5 +44,5 @@ class SettingsTests(unittest.TestCase):
     def test_native_bridge_above_old_64k_limit(self):
         data=b'x'*200000
         class Binding:
-            async def read(_,raw):return json.dumps({'ok':True,'value':base64.b64encode(data).decode()})
+            async def read(_,raw):return data
         self.assertEqual(run(NativeBridge(Binding(),None,{}).read({'kind':'slice','length':len(data)})),data)

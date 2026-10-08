@@ -31,6 +31,8 @@ def settings(env):
         raise ValueError('TEACHER_SYNC_KEY must be 64 hexadecimal characters')
     sync_executor=env.get('TEACHER_SYNC_EXECUTOR_MODE','inline').strip()
     if sync_executor not in ('inline','separate'):raise ValueError('TEACHER_SYNC_EXECUTOR_MODE must be inline or separate')
+    sync_paused=env.get('TEACHER_SYNC_PAUSED','0').strip()
+    if sync_paused not in ('0','1'):raise ValueError('TEACHER_SYNC_PAUSED must be 0 or 1')
     name = required('TEACHER_WORKER_NAME')
     if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,62}', name):
         raise ValueError('TEACHER_WORKER_NAME 格式错误 / Invalid Worker name')
@@ -47,7 +49,7 @@ def settings(env):
     for value in (bucket, cache):
         if value and not re.fullmatch(r'[a-z0-9][a-z0-9-]{1,61}[a-z0-9]', value):
             raise ValueError('R2 桶名格式错误 / Invalid R2 bucket name')
-    return dict(sync_executor=sync_executor,name=name, database=database, dbname=dbname, bucket=bucket, cache=cache, **domain)
+    return dict(sync_paused=sync_paused,sync_executor=sync_executor,name=name, database=database, dbname=dbname, bucket=bucket, cache=cache, **domain)
 
 
 def prepare_arguments(config, output):
@@ -160,6 +162,7 @@ def execute(command, runner, log, *, report_path=None):
             custom_domain=config['custom_domain'], workers_dev=config['workers_dev'])
         from integration_package import extend
         cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']=config['sync_executor']
+        cfg['vars']['TEACHER_SYNC_PAUSED']=config.get('sync_paused','0')
         extend(ROOT, stage, cfg)
         (stage/'wrangler.jsonc').write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         for name in FILES:
@@ -167,6 +170,8 @@ def execute(command, runner, log, *, report_path=None):
         verify_stage(stage)
         runner('SNAPSHOT-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
             '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src')], stage, env)
+        runner('EXECUTOR-SNAPSHOT-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
+            '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src'), '--executor-only'], stage, env)
         env['UV_PROJECT_ENVIRONMENT'] = str(host/'.venv')
         runner('WRANGLER', [npm,'ci','--no-audit','--no-fund'], stage, env)
         # Package synchronization is explicit, then Wrangler runs directly so a deploy

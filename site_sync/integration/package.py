@@ -19,6 +19,7 @@ def write_native(root,stage,config):
          'compatibility_flags':['global_fetch_strictly_public'],'workers_dev':False,'preview_urls':False,
          'vars':{'TEACHER_MEDIA_PREFIX':config['vars']['TEACHER_MEDIA_PREFIX']},
          'd1_databases':[dict(db,binding='DB')],'r2_buckets':[dict(media,binding='MEDIA')]}
+    cfg['vars']['TEACHER_SYNC_PAUSED']=str(config.get('vars',{}).get('TEACHER_SYNC_PAUSED','0'))
     cfg['durable_objects']={'bindings':[{'name':'SYNC_COORDINATOR','class_name':'SyncCoordinator'}]}
     cfg['migrations']=[{'tag':'teacher-sync-alarm-v1','new_sqlite_classes':['SyncCoordinator']}]
     (native/'wrangler.jsonc').write_text(json.dumps(cfg,indent=2))
@@ -38,6 +39,7 @@ def native_package(root,stage,config):
         executor.update(name=worker_names(config['name'])['executor'],main='src/sync_executor.py',workers_dev=False,preview_urls=False,triggers={'crons':['* * * * *']})
         (stage/'src/sync_executor.py').write_text('from worker_runtime.sync_executor import Default\n')
         (stage/'wrangler.sync-executor.jsonc').write_text(json.dumps(executor,indent=2))
+        config['services']=[*config['services'],{'binding':'SYNC_EXECUTOR','service':executor['name']}]
 
 def verify(root,stage):
     for folder in ('core','adapters','runtime','transport','integration','admin'):
@@ -53,7 +55,9 @@ def verify(root,stage):
         executor=json.loads((stage/'wrangler.sync-executor.jsonc').read_text())
         if executor.get('workers_dev') is not False or executor.get('preview_urls') is not False or any(k in executor for k in ('routes','assets','durable_objects')):raise ValueError('Executor must remain private and scheduled only')
         if executor.get('triggers')!={'crons':['* * * * *']}:raise ValueError('Executor recovery schedule missing')
-        for key in ('d1_databases','r2_buckets','services','compatibility_flags','vars'):
+        for key in ('d1_databases','r2_buckets','compatibility_flags','vars'):
             if executor.get(key)!=cfg.get(key):raise ValueError('Executor resource/config mismatch: '+key)
+        if executor.get('services')!=[b for b in cfg['services'] if b['binding']!='SYNC_EXECUTOR']:raise ValueError('Executor native binding mismatch')
+        if not any(b.get('binding')=='SYNC_EXECUTOR' and b.get('service')==executor['name'] for b in cfg['services']):raise ValueError('Main executor binding missing')
         if executor.get('main')!='src/sync_executor.py' or (stage/'src/sync_executor.py').read_text().strip()!='from worker_runtime.sync_executor import Default':raise ValueError('Executor entrypoint missing')
         if (stage/'src/worker_runtime/sync_executor.py').read_bytes()!=(root/'deploy/cloudflare/runtime/sync_executor.py').read_bytes():raise ValueError('Executor source mismatch')

@@ -5,7 +5,8 @@ to clone.py and include account/password-hash restoration.
 """
 from site_sync.core.selection import is_restore,normalize,selected_tables
 import hashlib,json,time
-from .catalog import SCOPES,COLUMNS,RELATIONS,row_json
+from .catalog import SCOPES,BASE_SCOPES,COLUMNS,RELATIONS,row_json
+from site_sync.core.diagnostics import coded
 from site_sync.runtime.mapping import MappedWebsite
 from site_sync.transport.protocol import encode,manifest
 from site_sync.core.authority import AuthorizationError,ConflictError
@@ -25,9 +26,9 @@ class TeacherWebsite(MappedWebsite):
         if is_restore(q.get('scope')):
             from .clone import candidates
             return await candidates(self,q)
-        if 'site_clone' in q.get('scope',[]):raise AuthorizationError('Clone must be selected alone')
+        if any(t not in BASE_SCOPES for t in q.get('scope',[])):raise coded(ConflictError('Invalid mixed scope'),'SYNC_SCOPE_INVALID')
         scope=q.get('scope');cursor=q.get('cursor')
-        if not isinstance(scope,list) or not scope or len(scope)>len(SCOPES) or any(t not in SCOPES for t in scope):raise AuthorizationError('Invalid scope')
+        if not isinstance(scope,list) or not scope or len(scope)>len(SCOPES) or any(t not in SCOPES for t in scope):raise coded(ConflictError('Invalid scope'),'SYNC_SCOPE_INVALID')
         if cursor is not None and (not isinstance(cursor,list) or len(cursor)!=3 or type(cursor[0])!=int or any(not isinstance(x,str) for x in cursor[1:])):raise ConflictError('Invalid cursor')
         clauses=[];args=[]
         # ISO timestamps are fixed UTC milliseconds. Integer cursor is lossless;

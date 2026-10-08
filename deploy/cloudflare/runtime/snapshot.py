@@ -20,3 +20,10 @@ from transfer.backend import folders, receivers, lan, relay, codes
 
 # Sync definitions are deterministic; no peer requests or background grants run here.
 from site_sync.integration import web,host,website
+
+# Signed export definitions only; no database or application construction.
+from worker_runtime.sync_resources import application as sync_peer_application
+
+# Keep deferred route dependencies in the deployment snapshot. Importing these
+# declarations does not install routes, read bindings, or construct a task.
+from site_sync.integration import lazy_routes,write_gate,credentials_api,control_api

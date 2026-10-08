@@ -116,9 +116,9 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(run(serve(c,once=True))['action'],'idle');self.assertEqual(run(serve(c,check=True))['action'],'checked')
     def test_native_error_kind_and_bytes_roundtrip(self):
         class Binding:
-            async def read(_,raw):return json.dumps({'ok':True,'value':'YWJj'})
+            async def read(_,raw):return b'abc'
         bridge=NativeBridge(Binding(),self.db,{'origin':'https://peer.invalid','secret_ref':'env:PAIR_KEY'})
-        self.assertEqual(run(bridge.read({'kind':'slice'})),b'abc')
+        self.assertEqual(run(bridge.read({'kind':'slice','length':3})),b'abc')
         class Fail:
             async def step(_,raw):return '{"ok":false,"kind":"resource"}'
         with self.assertRaises(NativeError) as c:run(NativeBridge(Fail(),self.db).call('step',{}))

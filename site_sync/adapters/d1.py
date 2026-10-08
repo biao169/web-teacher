@@ -19,15 +19,33 @@ def js_array(value):
     return value
 
 
+def blob(value):
+    """Copy one Python buffer to a JS ArrayBuffer, never a Python integer list."""
+    import sys
+    if sys.platform == 'emscripten':
+        from js import Uint8Array
+        view=Uint8Array.new(len(value))
+        view.assign(value)
+        return view.buffer
+    return value
+
+
 class D1:
     def __init__(self, binding, *, backup_callback=None):
         self.binding = binding
         self.backup_callback = backup_callback
 
-    def statement(self, sql, args):
-        # D1 represents a BLOB parameter as a JS byte array. In Python Workers
-        # lists are converted by the FFI; the tests exercise this public shape.
-        values = [js_array(list(v)) if isinstance(v, bytes) else v for v in args]
+    def statement(self, sql, args, blobs=None):
+        # Batch-local reuse: one staged body is bound in both INSERT and receipt
+        # verification. Keep one buffer for that object, never a global cache.
+        blobs={} if blobs is None else blobs
+        values=[]
+        for value in args:
+            if isinstance(value,bytes):
+                identity=id(value)
+                if identity not in blobs:blobs[identity]=blob(value)
+                value=blobs[identity]
+            values.append(value)
         return self.binding.prepare(sql).bind(*values) if values else self.binding.prepare(sql)
 
     async def query(self, sql, args=()):
@@ -37,7 +55,8 @@ class D1:
         return plain(result.get('results', []))
 
     async def batch(self, statements):
-        prepared = [self.statement(sql, args) for sql, args in statements]
+        blobs={}
+        prepared = [self.statement(sql, args,blobs) for sql, args in statements]
         results = plain(await self.binding.batch(js_array(prepared)))
         results = [plain(v) for v in results]
         if len(results) != len(prepared) or any(not v.get('success', False) for v in results):

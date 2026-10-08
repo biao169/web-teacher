@@ -2,11 +2,12 @@
 from contextlib import contextmanager
 import json
 import time
+from site_sync.core.diagnostics import RELEASE
 
 
 def emit(stage, status, **values):
     print(json.dumps({'component': 'teacher-worker', 'patch': 'cloudflare-cpu-step4',
-                      'stage': stage, 'status': status, **values}), flush=True)
+                      'release':RELEASE,'stage': stage, 'status': status, **values}), flush=True)
 
 
 def failure(exc):
@@ -30,16 +31,16 @@ def failure(exc):
 
 
 @contextmanager
-def phase(stage, *, progress=True):
+def phase(stage, *, progress=True, **context):
     started = time.monotonic()
     if progress:
-        emit(stage, 'START')
+        emit(stage, 'START',**context)
     try:
         yield
     except BaseException as exc:
         emit(stage, 'ERROR', elapsed_ms=round((time.monotonic()-started)*1000, 2),
-             exceptions=failure(exc))
+             exceptions=failure(exc),**context)
         raise
     else:
         if progress:
-            emit(stage, 'OK', elapsed_ms=round((time.monotonic()-started)*1000, 2))
+            emit(stage, 'OK', elapsed_ms=round((time.monotonic()-started)*1000, 2),**context)

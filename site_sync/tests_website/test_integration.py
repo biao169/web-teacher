@@ -257,3 +257,31 @@ class IntegrationTests(unittest.TestCase):
             if not run(self.target.sql.query('SELECT task_id FROM sync_tasks WHERE task_id=?',(uid,))):break
         self.assertEqual(run(self.target.sql.query('SELECT task_id FROM sync_tasks WHERE task_id=?',(uid,))),[])
         self.assertEqual(run(self.target.sql.query("SELECT name FROM profiles WHERE uid='keep'"))[0]['name'],'local website record')
+
+    def test_peer_diagnostic_codes_and_trace(self):
+        app=create_app(lambda req:self.source,Path(__file__).resolve().parents[2])
+        with TestClient(app,base_url=self.source.config.origin) as client:
+            def request(q,key='6a'*32):
+                body=encode(q);headers=request_headers(bytes.fromhex(key),body)
+                response=client.post('/sync/v1/read',content=body,headers=headers)
+                return response,headers
+            q={'kind':'probe','version':'probe-v1','scope':['profiles']}
+            response,headers=request(q)
+            self.assertEqual(response.status_code,200)
+            verify_response(bytes.fromhex('6a'*32),headers['x-sync-nonce'],200,response.headers,response.content)
+            response,headers=request(q,'ab'*32)
+            self.assertEqual(response.status_code,403)
+            self.assertEqual(response.headers['x-sync-error'],'SYNC_SIGNATURE_INVALID')
+            self.assertEqual(response.headers['x-sync-trace'],headers['x-sync-nonce'])
+            self.assertEqual(response.headers['x-sync-stage'],'request_verify')
+            self.assertEqual(response.content,b'')
+            response,_=request(dict(q,kind='candidates',version='catalog-v1',scope=['profiles','restore_translation_cache']))
+            self.assertEqual(response.status_code,409)
+            self.assertEqual(response.headers['x-sync-error'],'SYNC_SCOPE_INVALID')
+            response,_=request(dict(q,scope=['not_permitted']))
+            self.assertEqual(response.status_code,403)
+            self.assertEqual(response.headers['x-sync-error'],'SYNC_SCOPE_DENIED')
+            run(self.source.sql.batch([('UPDATE sync_peers SET enabled=0',())]))
+            response,_=request(q)
+            self.assertEqual(response.status_code,403)
+            self.assertEqual(response.headers['x-sync-error'],'SYNC_EXPORT_DISABLED')

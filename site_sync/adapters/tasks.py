@@ -8,7 +8,7 @@ import hashlib
 import json
 import uuid
 from site_sync.core.authority import LIVE,SCHEMA,guard,AuthorizationError,ConflictError
-from site_sync.core.policy import recover,smaller
+from site_sync.core.policy import recover
 
 
 def token():return uuid.uuid4().hex
@@ -24,6 +24,7 @@ class Tasks:
     def __init__(self,db,*,lease_seconds=300,platform='worker'):
         if lease_seconds<1 or platform not in ('worker','local'):raise ValueError('Invalid runtime policy')
         self.db,self.lease_seconds,self.platform=db,lease_seconds,platform
+        self.admission='1'
 
     async def put_grant(self,*,grant_id,principal_id,scope,can_write,can_delete,expires_at=0,enabled=True):
         """Trusted host authorization service only; never accept browser role claims."""
@@ -201,7 +202,7 @@ class Tasks:
           last_dispatched_at=?,revision=revision+1
           WHERE task_id=? AND status IN ('ready','waiting','cancel_requested')
           AND next_run_at<=? AND lease_until<=? AND grant_enabled=1 AND {LIVE} AND {SCHEMA}
-          AND NOT EXISTS(SELECT 1 FROM sync_tasks WHERE lease_token IS NOT NULL AND lease_until>?)
+          AND ({self.admission}) AND NOT EXISTS(SELECT 1 FROM sync_tasks WHERE lease_token IS NOT NULL AND lease_until>?)
           RETURNING *''',(lease,now+self.lease_seconds,attempt,now,uid,now,now,now,now))]+journal(uid,now,'start',condition='lease_token=? AND attempt_id=?',args=(lease,attempt)))
         return rows[0]['results'][0] if rows[0]['results'] else None
 
@@ -211,20 +212,26 @@ class Tasks:
           SELECT 1 FROM sync_tasks t WHERE {condition} AND ({extra})) THEN version ELSE -1 END
           WHERE singleton=1''',(*values,*args))
 
-    async def add_item(self,task,*,item_id,module,record_id,source_version,now,action='upsert',target_version=None):
+    async def add_item(self,task,*,item_id,module,record_id,source_version,now,action='upsert',target_version=None,discovery_cursor=None):
         if any(not isinstance(x,str) or not 0<len(x)<=256 for x in (item_id,record_id,source_version)):
             raise ValueError('Invalid bounded item identity')
         if action not in ('upsert','delete') or module not in json.loads(task['scope_json']):raise AuthorizationError('Item outside scope')
+        if discovery_cursor is not None and (not isinstance(discovery_cursor,str) or len(discovery_cursor.encode())>2048):raise ValueError('Invalid discovery cursor')
         old=await self.db.query('SELECT module,record_id,action,source_version,target_version FROM sync_items WHERE task_id=? AND item_id=?',(task['task_id'],item_id))
         if old and old[0]!={'module':module,'record_id':record_id,'action':action,'source_version':source_version,'target_version':target_version}:raise ConflictError('Candidate version changed')
         g=await self.grant(task['grant_id'],now)
         selected=task['auto_confirm'] and (action!='delete' or (g['can_delete'] and task['auto_delete']))
-        await self.db.batch([
-          self.assertion(task,now,extra="t.phase='discover' AND (EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id AND item_id=?) OR json_extract(t.scope_json,'$[0]')='site_clone' OR substr(json_extract(t.scope_json,'$[0]'),1,8)='restore_' OR NOT EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id LIMIT 1 OFFSET 1999))",args=(item_id,)),
+        cursor_guard=" AND (t.discovery_cursor IS ? OR t.discovery_cursor=?)" if discovery_cursor is not None else ""
+        cursor_args=(task.get('discovery_cursor'),discovery_cursor) if discovery_cursor is not None else ()
+        statements=[
+          self.assertion(task,now,extra="t.phase='discover' AND (EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id AND item_id=?) OR json_extract(t.scope_json,'$[0]')='site_clone' OR substr(json_extract(t.scope_json,'$[0]'),1,8)='restore_' OR NOT EXISTS(SELECT 1 FROM sync_items WHERE task_id=t.task_id LIMIT 1 OFFSET 1999))"+cursor_guard,args=(item_id,*cursor_args)),
           ('''INSERT INTO sync_items(task_id,item_id,module,record_id,action,source_version,target_version,apply_key,selected)
            VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(task_id,item_id) DO NOTHING''',
            (task['task_id'],item_id,module,record_id,action,source_version,target_version,task['task_id']+':'+item_id,int(selected))),
-          ('UPDATE sync_tasks SET progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=? AND changes()=1',(now,task['task_id']))])
+          ('UPDATE sync_tasks SET progress_seq=progress_seq+1,revision=revision+1,last_progress_at=? WHERE task_id=? AND changes()=1',(now,task['task_id']))]
+        if discovery_cursor is not None:
+            statements.append(('UPDATE sync_tasks SET discovery_cursor=? WHERE task_id=?',(discovery_cursor,task['task_id'])))
+        await self.db.batch(statements)
         return await self.read(task['task_id'])
 
     async def advance(self,task,phase,now):
@@ -276,6 +283,12 @@ class Tasks:
             raise
         return True
 
+    async def defer(self,task,now,*,diagnostic=None):
+        from site_sync.core.journal import statements as journal
+        current=await self.read(task['task_id'])
+        if current['status'] in ('paused','cancel_requested'):return await self.finish(task,now)
+        await self.db.batch([("UPDATE sync_tasks SET status='waiting',next_run_at=?,lease_token=NULL,lease_until=0,reconciled_attempt_id=attempt_id,revision=revision+1 WHERE task_id=? AND status='running' AND attempt_id=? AND lease_token=? AND lease_until>?",(now+60,task['task_id'],task['attempt_id'],task['lease_token'],now))]+journal(task['task_id'],now,'deferred',{'reason':'SYNC_PAUSED','diagnostic':diagnostic or {}},condition='changes()=1'))
+
     async def finish(self,task,now,*,error=None,permanent=False,resource=False,uncertain=False,diagnostic=None):
         current=await self.read(task['task_id'])
         if current['attempt_id']!=task['attempt_id'] or current['lease_token']!=task['lease_token']:return False
@@ -295,15 +308,20 @@ class Tasks:
         delay=decision.delay
         status='paused' if permanent else ('cancelled' if current['cancel_intent'] else 'done') if current['phase']=='done' else 'waiting'
         wait=delay if delay else (1 if current['progress_seq']>current['attempt_start_seq'] else 60)
-        if resource or uncertain:
+        from site_sync.core import adaptive
+        classification=adaptive.classify(diagnostic,resource=resource,uncertain=uncertain)
+        if classification=='credential':
+            wait=max(wait,adaptive.credential_wait(decision.consecutive,cadence['fast_retry_seconds'],current['slow_retry_seconds']))
+        if resource or uncertain or classification in ('cpu','memory','resource_unknown','rpc_unknown','timeout'):
             wait=max(wait,cadence['fast_retry_seconds'])
-        size=smaller(current['slice_bytes'],current['min_slice_bytes']) if (resource or uncertain) and current['auto_shrink'] else current['slice_bytes']
+        previous=await adaptive.read(self.db,task['task_id'])
+        size,load=adaptive.adjust(current,previous,now,classification,progress=current['progress_seq']>current['attempt_start_seq'],failed=bool(error) or uncertain or permanent,body_success=task.get('_body_progress',False))
         from site_sync.core.journal import statements as journal
         await self.db.batch([('''UPDATE sync_tasks SET status=?,no_progress_count=?,next_run_at=?,slice_bytes=?,
           total_errors=total_errors+?,last_error=?,lease_token=NULL,lease_until=0,reconciled_attempt_id=?,revision=revision+1
           WHERE task_id=? AND status='running' AND attempt_id=? AND lease_token=? AND revision=?''',
           (status,decision.consecutive,now+wait,size,int(bool(error) or uncertain),
-           ('Authorization changed' if not valid else error),current['attempt_id'],task['task_id'],current['attempt_id'],current['lease_token'],current['revision']))]+journal(task['task_id'],now,'recovered' if uncertain else 'error' if error else 'step',{'before_phase':task['phase'],'before_progress':current['attempt_start_seq'],'progress_delta':current['progress_seq']-current['attempt_start_seq'],'error':error,'diagnostic':diagnostic or {},'outcome':decision.outcome},'error' if error or uncertain else 'info',condition='changes()=1'))
+           ('Authorization changed' if not valid else error),current['attempt_id'],task['task_id'],current['attempt_id'],current['lease_token'],current['revision'])),adaptive.save(task['task_id'],load)]+journal(task['task_id'],now,'recovered' if uncertain else 'error' if error else 'step',{'before_phase':task['phase'],'before_progress':current['attempt_start_seq'],'progress_delta':current['progress_seq']-current['attempt_start_seq'],'error':error,'diagnostic':diagnostic or {},'outcome':decision.outcome,'adaptation':dict(load,before_bytes=current['slice_bytes'],after_bytes=size,retry_delay=wait,checkpoint_retained=True)},'error' if error or uncertain else 'info',condition='changes()=1'))
         return True
 
     async def reconcile_one(self,now):

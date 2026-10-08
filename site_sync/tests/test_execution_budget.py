@@ -5,10 +5,11 @@ from site_sync.core.engine import Engine
 from site_sync.adapters.local_media import LocalMedia
 class BudgetTests(unittest.TestCase):
  def test_emergency_pause_does_not_touch_database(self):
-  from site_sync.integration.worker_schedule import run
+  from site_sync.integration.worker_schedule import run,history
   db=SimpleNamespace(query=AsyncMock())
   result=asyncio.run(run(db,SimpleNamespace(TEACHER_SYNC_PAUSED='1')))
   self.assertEqual(result['action'],'disabled');db.query.assert_not_awaited()
+  self.assertEqual(asyncio.run(history(db,SimpleNamespace(TEACHER_SYNC_PAUSED='1')))['action'],'disabled');db.query.assert_not_awaited()
 
  def test_timeout_cancels_handler_and_preserves_resource_recovery(self):
   closed=[]
@@ -40,3 +41,40 @@ class ReturningOwnerTests(unittest.TestCase):
    self.assertFalse(asyncio.run(f.repo.finish(task,100)))
    self.assertEqual(f.read(task)['lease_token'],cleanup['lease_token'])
   finally:f.tearDown()
+
+class DeferredPauseTests(unittest.TestCase):
+ def test_peer_pause_releases_lease_without_error_or_slice_penalty(self):
+  from site_sync.tests.test_engine import EngineTests
+  f=EngineTests();f.setUp()
+  try:
+   task=f.create();before=f.read(task)
+   async def handler(ctx):
+    error=RuntimeError('peer paused');error.code='SYNC_PAUSED';raise error
+   result=asyncio.run(Engine(f.repo,{'discover':handler},f.clock).tick())
+   after=f.read(task)
+   self.assertEqual(result['action'],'deferred');self.assertEqual(after['total_errors'],0)
+   self.assertEqual(after['slice_bytes'],before['slice_bytes']);self.assertIsNone(after['lease_token'])
+   self.assertEqual(after['next_run_at'],160)
+  finally:f.tearDown()
+
+class LocalCloseTests(unittest.TestCase):
+ def test_secondary_close_failure_keeps_original_and_closes_connection(self):
+  from unittest.mock import Mock
+  with tempfile.TemporaryDirectory() as root:
+   media=LocalMedia(SimpleNamespace(db=None),root)
+   response=SimpleNamespace(read=Mock(side_effect=IOError('original read error')),close=Mock(side_effect=RuntimeError('PRIVATE')))
+   connection=SimpleNamespace(close=Mock())
+   f={'operation_id':'a'*64,'staging_key':'sync/'+'a'*64,'source_version':'v','total_bytes':1,'committed_bytes':0,'part_bytes':65536}
+   peer=SimpleNamespace(media=lambda *args:(connection,response))
+   with self.assertLogs('teacher-site',level='WARNING') as logs:
+    with self.assertRaisesRegex(IOError,'original read error'):media.store_part(f,{},peer,4096)
+   connection.close.assert_called_once();self.assertNotIn('PRIVATE',''.join(logs.output))
+   self.assertEqual(list(media.directory(f).glob('pending-*')),[])
+
+ def test_http_error_closes_once_without_masking_request_error(self):
+  from unittest.mock import Mock,patch
+  from site_sync.transport.http import HTTPPeer
+  connection=SimpleNamespace(request=Mock(side_effect=IOError('request failed')),close=Mock(side_effect=RuntimeError('PRIVATE')))
+  with patch('http.client.HTTPSConnection',return_value=connection),self.assertLogs('teacher-site') as logs:
+   with self.assertRaisesRegex(IOError,'request failed'):HTTPPeer('https://peer.invalid',bytes(32)).open({'kind':'candidates','version':'v'})
+  connection.close.assert_called_once();self.assertNotIn('PRIVATE',''.join(logs.output))

@@ -58,7 +58,12 @@ class LocalMedia:
                         if not chunk:raise IOError('Interrupted media stream')
                         out.write(chunk);remaining-=len(chunk)
                 durable_replace(path,copy)
-            finally:response.close();connection.close()
+            finally:
+                for handle in (response,connection):
+                    try:handle.close()
+                    except Exception as exc:
+                        import logging
+                        logging.getLogger('teacher-site').warning('sync media cleanup failed: %s',type(exc).__name__)
         if path.is_symlink() or path.stat().st_size!=length:raise ConflictError('Invalid durable media part')
         # At most 64 KiB, never hash the whole media file.
         return hashlib.sha256(path.read_bytes()).hexdigest(),length
