@@ -1,6 +1,6 @@
 """Bounded diagnostic vocabulary shared by admin and peer transports."""
 import re
-RELEASE='0.16.048'
+RELEASE='0.16.049'
 CODES={
  'SYNC_PROPOSAL_PENDING':'对端已有未完成的推送任务；请先在对端查看并处理该任务',
  'SYNC_PROPOSAL_CHANGED':'此请求 ID 已用于其他域名或同步范围；请重新选择当前连接与内容后提交新请求',

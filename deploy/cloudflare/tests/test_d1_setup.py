@@ -144,11 +144,15 @@ def test_incomplete_sync_schema_is_never_guessed_or_reinitialized(database):
     assert not any('--remote' in c and '--file' in c for c in calls)
 
 
-def test_exact_v160_upgrade_bookmark_atomic_batch_and_repeat(tmp_path):
+@pytest.mark.parametrize('predecessor',['teacher-v0.15.160.json','monitor'])
+def test_exact_v160_upgrade_bookmark_atomic_batch_and_repeat(tmp_path,predecessor):
     from site_sync.integration.migration import definitions
     import site_sync.deploy.d1_remote as remote_module
     remote=sqlite3.connect(':memory:');remote.row_factory=sqlite3.Row
-    for statement in definitions('teacher-v0.15.160.json').values():remote.execute(statement)
+    from site_sync.integration.migration import monitor_predecessor
+    before=monitor_predecessor() if predecessor=='monitor' else definitions(predecessor)
+    for statement in before.values():remote.execute(statement)
+    if predecessor=='monitor':remote.execute('INSERT INTO sync_schema(singleton,version,maintenance) VALUES(1,4,0)')
     remote.execute("INSERT INTO profiles(uid,name) VALUES('kept','Teacher')");remote.commit()
     canonical=(HERE.parents[1]/'database/schema.sql').read_text();(tmp_path/'initialize.sql').write_text(canonical)
     batches=[];bookmarks=[]

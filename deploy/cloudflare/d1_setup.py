@@ -87,13 +87,15 @@ def setup(node, wrangler, stage, env, config, log, *, publish, query=execute_jso
         query([*remote, '--file', str(stage/'initialize.sql'), '--yes'], stage, env)
         actual = query([*remote, '--command', CATALOG], stage, env)
     if actual and catalog(actual)!=catalog(expected) and mode!='check':
-        from site_sync.integration.migration import definitions,statements,clone_upgrade_statements
+        from site_sync.integration.migration import definitions,statements,clone_upgrade_statements,monitor_predecessor,monitor_upgrade_statements
         old=definitions('teacher-v0.15.160.json')
         want={name:normalized(sql) for name,sql in old.items()}
         got={r['name']:normalized(r['sql']) for r in actual if r['sql'] is not None}
         upgrade_sql=statements
         clone_before={name:normalized(sql) for name,sql in definitions('teacher-v0.16.021.json').items()}
-        if got==clone_before:want=clone_before;upgrade_sql=clone_upgrade_statements
+        monitor_before={name:normalized(sql) for name,sql in monitor_predecessor().items()}
+        if got==monitor_before:want=monitor_before;upgrade_sql=monitor_upgrade_statements
+        elif got==clone_before:want=clone_before;upgrade_sql=clone_upgrade_statements
         elif got!=want:raise ValueError('Schema mismatch: unknown predecessor; database unchanged')
         import asyncio,os,secrets
         from pathlib import Path

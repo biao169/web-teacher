@@ -23,3 +23,8 @@ export function settings(form,partial=false){
 
 export const errors={CredentialRetryError:'对端鉴权暂未通过；展开日志查看具体错误码、对端阶段和追踪ID',ResourceError:'对端或执行器资源暂时不足；按设置缩片并自动退避重试',AuthorizationError:'授权被拒绝或失效；核对两端连接、密钥和授权后恢复',ConflictError:'源版本、写入前置条件或任务状态冲突；检查记录后处理',UncertainInterruptedAttempt:'上次执行未正常结束；已按持久断点对账并安排恢复',NativeError:'原生服务调用异常；保留断点等待重试',OSError:'网络、文件或存储暂不可用；后台将自动重试',TimeoutError:'请求超时；保留断点等待下一次执行',"Authorization changed":'授权范围或授权修订已变化；任务暂停等待处理'};
 export function explanation(code){return errors[code]||'查看执行阶段、代码位置和断点；临时错误继续重试，冲突或授权错误需处理';}
+
+export function currentState(t){
+ const done=t.status==='done';
+ return '当前状态：'+(done?'已完成（completed）':t.status==='cancelled'?'已取消':status(t,0))+' · 当前阶段：'+(done?'completed':phases[t.phase]||t.phase)+' · '+(done?'最终进度：':'有效推进：')+t.progress_seq+(done?' · 最终时间：'+time(t.last_progress_at||t.last_dispatched_at):'');
+}

@@ -1,3 +1,4 @@
+from .monitor import query as summary_query,state as monitor_state,event as monitor_event
 from site_sync.core.selection import is_restore,normalize,selected_tables,visible_scopes,descriptions
 from site_sync.core.receiver import create_receiver,selection,validate as receiver_validate
 from site_sync.core.input_errors import InputError
@@ -68,6 +69,18 @@ class Admin:
             d.update(enabled=not bool(reason),disabled_reason=reason)
         return {'peers':peers,'modules':modules,'scope_details':details,'authorization':{'saved_scopes':sorted(saved),'current_scopes':sorted(current),'needs_refresh':bool((set(modules)&current)-saved),'message':'目录统一为20项；禁用项显示缺少的权限或授权。更新本站授权不会修改对端授权。'},'can_write':active,
                 'timezone':'Asia/Shanghai','retention_days':self.retention_days,'platform':self.repo.platform,'defaults':await site(self.db,self.repo.platform)}
+    async def summary(self,actor,*,view='all',cursor=None,limit=20):
+        from site_sync.core.trace import annotate,step
+        annotate(query_stage='load-summary-grant',task_count=0)
+        await self.grant(actor)
+        sql,args=summary_query(actor.grant_id,view,cursor,limit)
+        annotate(query_stage='load-task-summary',requested_limit=limit)
+        with step('load-task-summary'):
+            rows=await self.db.query(sql,args)
+        more=len(rows)>limit;rows=rows[:limit]
+        annotate(task_count=len(rows))
+        return {'items':rows,'cursor':[rows[-1]['created_at'],rows[-1]['task_id']] if more else None,'has_more':more,'server_time':self.clock()}
+
     async def tasks(self,actor,*,view='active',cursor=None,limit=50):
         await self.grant(actor)
         limit=integer(limit,1,50)
@@ -85,23 +98,35 @@ class Admin:
         return {'items':rows,'cursor':[rows[-1]['created_at'],rows[-1]['task_id']] if more else None,'server_time':self.clock()}
     async def detail(self,actor,task_id):
         t=await self.own_task(actor,task_id)
-        fields='event_id,occurred_at,kind,phase,attempt_id,detail'
-        base='SELECT '+fields+' FROM sync_events WHERE task_id=?'
-        recent=await self.db.query('SELECT * FROM ('+base+" AND kind IN ('start','step','error','recovered','deferred') ORDER BY event_id DESC LIMIT 1) UNION ALL SELECT * FROM ("+base+" AND kind='step' AND json_extract(detail,'$.progress_delta')>0 ORDER BY event_id DESC LIMIT 1) UNION ALL SELECT * FROM ("+base+" AND kind IN ('error','recovered') ORDER BY event_id DESC LIMIT 1)",(task_id,task_id,task_id))
-        recent=[dict(x,detail=json.loads(x['detail'])) for x in sorted({x['event_id']:x for x in recent}.values(),key=lambda x:x['event_id'],reverse=True)]
+        from site_sync.core.trace import annotate
+        annotate(query_stage='load-detail-events',task_id=task_id,task_count=1)
+        # Bound the metadata search even if an old database exceeds log retention.
+        recent=await self.db.query("""WITH recent AS MATERIALIZED (
+          SELECT event_id,kind,phase FROM sync_events WHERE task_id=? ORDER BY event_id DESC LIMIT 256)
+          SELECT event_id,occurred_at,kind,phase,status,progress_seq,attempt_id,detail FROM sync_events
+          WHERE event_id IN (SELECT max(event_id) FROM recent UNION SELECT max(event_id) FROM recent WHERE kind IN ('step','clone-complete') UNION SELECT max(event_id) FROM recent WHERE kind IN ('error','recovered') UNION SELECT max(event_id) FROM recent WHERE phase!='done')
+          ORDER BY event_id DESC""",(task_id,))
+        recent=[monitor_event(x) for x in recent]
+        annotate(query_stage='load-item-counts')
         counts=await self.db.query('SELECT status,count(*) n FROM sync_items WHERE task_id=? GROUP BY status',(task_id,))
+        annotate(query_stage='load-file-totals')
         files=await self.db.query('SELECT count(*) n,coalesce(sum(total_bytes),0) total,coalesce(sum(committed_bytes),0) committed FROM sync_files WHERE task_id=?',(task_id,))
+        annotate(query_stage='load-body-totals')
         body=await self.db.query("SELECT coalesce(sum(staged_bytes),0) committed,coalesce(sum(CASE WHEN manifest_json IS NOT NULL THEN json_extract(manifest_json,'$.fields.payload') ELSE 0 END),0) total,count(*) records,sum(selected) selected FROM sync_items WHERE task_id=?",(task_id,))
+        annotate(query_stage='load-current-item')
         current=await self.db.query("SELECT item_id,module,record_id,status,staged_bytes,manifest_json FROM sync_items WHERE task_id=? AND selected=1 AND status NOT IN ('applied','skipped') ORDER BY item_id LIMIT 1",(task_id,))
         offsets=[];media_current=[]
         if current:
             i=current[0];i.pop('manifest_json',None)
+            annotate(query_stage='load-body-offsets')
             offsets=await self.db.query('SELECT field,max(offset+length(data)) next_offset FROM sync_parts WHERE task_id=? AND item_id=? GROUP BY field LIMIT 32',(task_id,i['item_id']))
+            annotate(query_stage='load-current-media')
             media_current=await self.db.query('SELECT file_id,source_file_id,status,committed_bytes,total_bytes,storage_kind,staging_key FROM sync_files WHERE task_id=? AND item_id=? ORDER BY file_id LIMIT 16',(task_id,i['item_id']))
-        clone=None
+        clone=None;state={}
         if is_restore(json.loads(t['scope_json'])):
             from site_sync.core.selection import AUTH
             tables=[name for name in selected_tables(json.loads(t['scope_json'])) if name not in AUTH]
+            annotate(query_stage='load-clone-checkpoint')
             saved=await self.db.query('SELECT value FROM service_meta WHERE key=?',('sync:clone-state:'+task_id,))
             state=json.loads(saved[0]['value']) if saved else {}
             phase=state.get('phase') or ('stage' if t['phase']=='apply' else t['phase'])
@@ -112,8 +137,14 @@ class Admin:
             if t['status']=='cancelled':phase='cancelled';index=0;labels['cancelled']='已取消；已应用内容不回滚'
             clone={'phase':phase,'label':labels.get(phase,phase),'table':ordered[index] if phase in ('restore','prune','verify_tables') and index<len(ordered) else None,'completed_tables':len(tables) if phase in ('cleanup','done') else index,'total_tables':len(tables),'storage':'service_meta / sync:clone-state:'+task_id+'；分片见 sync_parts / sync_file_parts'}
         from site_sync.core.adaptive import read as adaptive_state
+        annotate(query_stage='load-adaptive-status')
         load=await adaptive_state(self.db,task_id)
-        return {'adaptation':load,'task':dict({k:t[k] for k in TASK_FIELDS.split(',')},quarantined=load['quarantined']),'counts':counts,'clone':clone,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'retry_policy':await self.retry_policy(actor),'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','diagnostic_events':recent,'checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
+        execution=monitor_state(t,recent,state)
+        if clone and execution['terminal']:
+            clone.update(phase='done' if t['status']=='done' else 'cancelled',label='已完成' if t['status']=='done' else '已取消',table=None,completed_tables=clone['total_tables'] if t['status']=='done' else clone['completed_tables'])
+        annotate(query_stage='load-retry-policy')
+        retry_policy=await self.retry_policy(actor)
+        return {'execution':execution,'adaptation':load,'task':dict({k:t[k] for k in TASK_FIELDS.split(',')},quarantined=load['quarantined']),'counts':counts,'clone':clone,'media':files[0],'body':body[0],'current':current,'offsets':offsets,'files':media_current,'server_time':self.clock(),'retry_policy':retry_policy,'log_storage':'当前站点数据库 / sync_events（每任务最近256条）','diagnostic_events':recent,'checkpoint_storage':'sync_tasks / sync_items / sync_parts / sync_file_parts'}
 
     async def logs(self,actor,task_id,*,before=None):
         await self.own_task(actor,task_id)

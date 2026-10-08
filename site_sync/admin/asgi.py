@@ -1,7 +1,7 @@
 """Mount under the website admin router. Host supplies session+CSRF callbacks.
 No standalone server, bearer secret, login page or automatic route registration.
 """
-import json,secrets
+import json,secrets,time
 from site_sync.core.input_errors import InputError
 from site_sync.core.preflight_errors import PreflightError
 from backend.app.ports.operations import current
@@ -14,7 +14,13 @@ class AdminASGI:
         self.admin,self.authenticate,self.verify_csrf,self.prefix=admin,authenticate,verify_csrf,prefix.rstrip('/')
     async def __call__(self,scope,receive,send):
         if scope.get('type')!='http':raise ValueError('HTTP only')
-        status=200;trace=current().get('request_id') or secrets.token_hex(16)
+        from site_sync.core.trace import scope as trace_scope,current as trace_current
+        values=trace_current();values.update(request_id=values.get('request_id') or current().get('request_id') or secrets.token_hex(16),route=scope.get('path','')[:180],query_stage='authenticate',task_count=0)
+        with trace_scope(**values):return await self.handle(scope,receive,send)
+
+    async def handle(self,scope,receive,send):
+        from site_sync.core.trace import current as trace_current,annotate
+        started=time.monotonic();status=200;trace=trace_current()['request_id']
         try:
             path=scope['path']
             if not path.startswith(self.prefix+'/'):raise KeyError('route')
@@ -51,7 +57,7 @@ class AdminASGI:
             from site_sync.core.journal import failure
             from site_sync.core.diagnostics import classify,RELEASE,CODES
             code=classify(exc,'SYNC_ADMIN_FAILED');diagnostic=failure(exc)
-            print(json.dumps({'component':'local-admin','release':RELEASE,'request_id':trace,'code':code,'diagnostic':diagnostic}),flush=True)
+            print(json.dumps(dict(trace_current(),component='sync-admin',release=RELEASE,code=code,http_status=503,duration_ms=round((time.monotonic()-started)*1000,2),error_type=type(exc).__name__,error_message=diagnostic.get('error_message'),diagnostic=diagnostic)),flush=True)
             status=503;result={'error':CODES[code],'code':code,'request_id':trace,'diagnostic':diagnostic}
         if status>=400:
             result['request_id']=trace
@@ -63,6 +69,8 @@ class AdminASGI:
         a=self.admin
         if p==['retry-policy']:return await a.retry_policy(actor,b if method=='POST' else None)
         if method=='GET':
+            if p==['status-summary']:return await a.summary(actor,view=q.get('view',['all'])[0],cursor=json.loads(q['cursor'][0]) if 'cursor' in q else None,limit=int(q.get('limit',['20'])[0]))
+            if len(p)==3 and p[0]=='tasks' and p[2]=='detail':return await a.detail(actor,p[1])
             if p==['options']:return await a.options(actor)
             if p in (['tasks'],['status']):return await a.tasks(actor,view=q.get('view',['active'])[0],cursor=json.loads(q['cursor'][0]) if 'cursor' in q else None,limit=int(q.get('limit',['50'])[0]))
             if len(p)==3 and p[0]=='tasks' and p[2]=='logs':return await a.logs(actor,p[1],before=int(q['before'][0]) if 'before' in q else None)

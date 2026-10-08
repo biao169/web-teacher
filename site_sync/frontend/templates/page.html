@@ -1,5 +1,5 @@
 {% extends 'admin/layout.html' %}
-{% block metadata %}{{ super() }}<meta name="csrf-token" content="{{ csrf }}"><link rel="stylesheet" href="/assets/site-sync/panel.css?v=0.16.046"><script type="module" src="/assets/site-sync/panel.mjs?v=0.16.048"></script>
+{% block metadata %}{{ super() }}<meta name="csrf-token" content="{{ csrf }}"><link rel="stylesheet" href="/assets/site-sync/panel.css?v=0.16.046"><script type="module" src="/assets/site-sync/panel.mjs?v=0.16.049"></script>
 {% if sync_section in ['connection','settings','create'] %}<script type="module" src="/assets/site-sync/connection.mjs?v=0.16.046"></script>{% endif %}
 {% if sync_section=='connection' %}<script type="module" src="/assets/site-sync/credentials.mjs?v=0.16.046"></script>{% endif %}{% endblock %}
 {% block content %}

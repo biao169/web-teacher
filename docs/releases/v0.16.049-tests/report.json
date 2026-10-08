@@ -1,0 +1,50 @@
+{
+  "version": "0.16.049",
+  "started_at": "2026-10-08T15:04:42.084265+00:00",
+  "scope": "offline-only",
+  "stages": [
+    {
+      "name": "python-regression",
+      "status": "passed",
+      "log": "python-regression.log",
+      "exit_code": 0,
+      "duration_seconds": 330.42
+    },
+    {
+      "name": "javascript",
+      "status": "passed",
+      "log": "javascript.log",
+      "exit_code": 0,
+      "duration_seconds": 2.06
+    },
+    {
+      "name": "workerd-rpc-r2",
+      "status": "passed",
+      "log": "workerd-rpc-r2.log",
+      "exit_code": 0,
+      "duration_seconds": 19.92
+    },
+    {
+      "name": "stage-inline",
+      "status": "passed",
+      "log": "stage-inline.log",
+      "exit_code": 0,
+      "duration_seconds": 1.82
+    },
+    {
+      "name": "stage-separate",
+      "status": "passed",
+      "log": "stage-separate.log",
+      "exit_code": 0,
+      "duration_seconds": 2.03
+    }
+  ],
+  "not_validated": [
+    "production Cloudflare CPU/memory quotas and PoPs",
+    "Python Worker SDK bundle and deployed Python/JS FFI",
+    "live Cloudflare/Ubuntu deployment",
+    "browser visual acceptance"
+  ],
+  "status": "passed",
+  "finished_at": "2026-10-08T15:10:38.340684+00:00"
+}

@@ -1225,3 +1225,7 @@ CREATE TABLE sync_events (
 ) STRICT;
 CREATE INDEX sync_events_task ON sync_events(task_id,event_id DESC);
 CREATE INDEX sync_tasks_delete ON sync_tasks(delete_requested,status);
+
+-- Lightweight admin summary pagination; no runtime task changes.
+CREATE INDEX sync_tasks_monitor ON sync_tasks(grant_id,created_at DESC,task_id DESC);
+CREATE INDEX sync_tasks_monitor_status ON sync_tasks(grant_id,status,created_at DESC,task_id DESC);

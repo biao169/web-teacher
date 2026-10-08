@@ -1200,6 +1200,18 @@
       "name": "sync_tasks_delete",
       "table": "sync_tasks",
       "sql": "CREATE INDEX sync_tasks_delete ON sync_tasks(delete_requested,status)"
+    },
+    {
+      "type": "index",
+      "name": "sync_tasks_monitor",
+      "table": "sync_tasks",
+      "sql": "CREATE INDEX sync_tasks_monitor ON sync_tasks(grant_id,created_at DESC,task_id DESC)"
+    },
+    {
+      "type": "index",
+      "name": "sync_tasks_monitor_status",
+      "table": "sync_tasks",
+      "sql": "CREATE INDEX sync_tasks_monitor_status ON sync_tasks(grant_id,status,created_at DESC,task_id DESC)"
     }
   ],
   "tables": {
@@ -7698,27 +7710,41 @@
       "indexes": [
         {
           "seq": 0,
-          "name": "sync_tasks_delete",
+          "name": "sync_tasks_monitor_status",
           "unique": 0,
           "origin": "c",
           "partial": 0
         },
         {
           "seq": 1,
-          "name": "sync_tasks_due",
+          "name": "sync_tasks_monitor",
           "unique": 0,
           "origin": "c",
           "partial": 0
         },
         {
           "seq": 2,
+          "name": "sync_tasks_delete",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0
+        },
+        {
+          "seq": 3,
+          "name": "sync_tasks_due",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0
+        },
+        {
+          "seq": 4,
           "name": "sqlite_autoindex_sync_tasks_2",
           "unique": 1,
           "origin": "u",
           "partial": 0
         },
         {
-          "seq": 3,
+          "seq": 5,
           "name": "sqlite_autoindex_sync_tasks_1",
           "unique": 1,
           "origin": "pk",

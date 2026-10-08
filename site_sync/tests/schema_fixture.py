@@ -1,6 +1,6 @@
 from site_sync.deploy.schema import Plan
 from dataclasses import replace
-NAMES={'sync_events','sync_events_task','sync_tasks_delete','service_meta','sync_schema','sync_peers','sync_grants','sync_tasks','sync_tasks_due','sync_items','sync_parts','sync_files','sync_file_parts','sync_schedules','sync_schedules_due'}
+NAMES={'sync_tasks_monitor','sync_tasks_monitor_status','sync_events','sync_events_task','sync_tasks_delete','service_meta','sync_schema','sync_peers','sync_grants','sync_tasks','sync_tasks_due','sync_items','sync_parts','sync_files','sync_file_parts','sync_schedules','sync_schedules_due'}
 def core_plan(path):
     full=Plan.compile(path)
     import sqlite3

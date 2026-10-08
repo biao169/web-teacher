@@ -21,4 +21,11 @@ def clone_upgrade_statements():
     result += ['INSERT INTO '+t+' SELECT * FROM _sync_expand_'+t for t in order]
     result += [current['sync_exports_expiry']]
     result += ['DROP TABLE _sync_expand_'+t for t in tables]
-    return result
+    return result+monitor_upgrade_statements()
+
+MONITOR_INDEXES=('sync_tasks_monitor','sync_tasks_monitor_status')
+def monitor_predecessor():
+    return {k:v for k,v in definitions('teacher.json').items() if k not in MONITOR_INDEXES}
+def monitor_upgrade_statements():
+    current=definitions('teacher.json')
+    return [current[n] for n in MONITOR_INDEXES]

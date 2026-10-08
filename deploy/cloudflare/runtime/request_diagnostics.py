@@ -38,7 +38,7 @@ def traced(component,http=False):
                             with operation_stage('response-wrap'):
                                 result=Response.new(result.body,result)
                                 result.headers.set('x-request-id',data['request_id'])
-                                result.headers.set('x-teacher-release','0.16.048')
+                                result.headers.set('x-teacher-release','0.16.049')
                     record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='returned')
                     return result
                 except BaseException as exc:
