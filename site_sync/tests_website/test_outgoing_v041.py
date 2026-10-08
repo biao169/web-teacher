@@ -6,6 +6,7 @@ import test_integration as fixtures
 run=fixtures.run
 from site_sync.integration.proposals import send,receive
 from site_sync.integration.outgoing import listing
+from site_sync.integration.capabilities import published
 from site_sync.core.authority import ConflictError
 
 @pytest.fixture
@@ -18,6 +19,7 @@ def test_lost_remote_reply_retry_returns_same_task_and_persistent_receipt(pair):
     count=0
     async def candidates(q):
         nonlocal count
+        if q['kind']=='probe':return await published(pair.target)
         value=await receive(pair.target,q);count+=1
         if count==1:raise TimeoutError('lost reply')
         return value
@@ -32,7 +34,8 @@ def test_lost_remote_reply_retry_returns_same_task_and_persistent_receipt(pair):
     receipt=run(listing(pair.source))['items'][0];assert receipt['status']=='confirmed' and receipt['result']['task_id']==result['task_id']
 
 def test_request_id_cannot_change_scope_and_receipts_are_actor_scoped(pair):
-    rt=SimpleNamespace(peer_factory=AsyncMock(return_value=SimpleNamespace(candidates=lambda q:receive(pair.target,q))))
+    async def candidates(q):return await published(pair.target) if q['kind']=='probe' else await receive(pair.target,q)
+    rt=SimpleNamespace(peer_factory=AsyncMock(return_value=SimpleNamespace(candidates=candidates)))
     with patch('site_sync.integration.host.runtime',return_value=rt):
         run(send(pair.source,{'request_id':'stable-proposal-042','scope':['profiles']}))
         with pytest.raises(ConflictError):run(send(pair.source,{'request_id':'stable-proposal-042','scope':['news']}))

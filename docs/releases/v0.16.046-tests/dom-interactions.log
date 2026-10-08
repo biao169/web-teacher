@@ -1,0 +1,18 @@
+✔ independent tasks initializes without hidden page requests (760.084312ms)
+✔ independent create initializes without hidden page requests (576.871941ms)
+✔ independent schedules initializes without hidden page requests (301.572295ms)
+✔ independent connection initializes without hidden page requests (263.427619ms)
+✔ independent settings initializes without hidden page requests (139.745695ms)
+✔ manual task success and authorization failure show modal with task or request ID (263.825888ms)
+✔ probe displays authorization warning independently of connection success (289.473846ms)
+✔ key generation and save never place key in operation log (524.144998ms)
+✔ shared confirmation cancel sends no mutation and renders text only (415.954088ms)
+✔ push and schedule submission use the same result dialog (1159.988915ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5774.966312

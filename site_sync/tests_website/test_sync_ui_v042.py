@@ -10,11 +10,14 @@ class SyncUI042(CredentialAPITests):
   page=self.client.get('/admin/site-sync')
   self.assertEqual(page.status_code,200)
   self.assertIn('data-auto-refresh',page.text)
-  self.assertIn('panel.css?v=0.16.042',page.text)
+  self.assertRegex(page.text,r'/assets/site-sync/panel\.css\?v=0\.16\.\d+')
   options=self.client.get('/admin/site-sync/api/options').json()
   self.assertEqual(set(options['modules']),set(RESTORE_SCOPES))
   body={'schedule_id':None,'revision':None,'peer_id':'peer','scope':['restore_media_assets'],'interval_seconds':3600,'enabled':True}
-  saved=self.client.post('/admin/site-sync/api/schedules',json=body,headers=self.headers)
+  from types import SimpleNamespace
+  from site_sync.integration.capabilities import published
+  remote=SimpleNamespace(peer_factory=AsyncMock(return_value=SimpleNamespace(candidates=AsyncMock(return_value=run(published(self.r))))))
+  with patch('site_sync.integration.host.runtime',return_value=remote):saved=self.client.post('/admin/site-sync/api/schedules',json=body,headers=self.headers)
   self.assertEqual(saved.status_code,200,saved.text)
   schedule=self.client.get('/admin/site-sync/api/schedules').json()['items'][0]
   url='/admin/site-sync/api/schedules/'+schedule['schedule_id']+'/delete'

@@ -1,0 +1,79 @@
+{
+  "version": "0.16.046",
+  "started_at": "2026-10-08T10:46:33.254051+00:00",
+  "scope": "offline-only",
+  "stages": [
+    {
+      "name": "python-regression",
+      "status": "passed",
+      "log": "python-regression.log",
+      "exit_code": 0,
+      "duration_seconds": 239.98
+    },
+    {
+      "name": "javascript",
+      "status": "passed",
+      "log": "javascript-final.log",
+      "exit_code": 0,
+      "duration_seconds": 1.78,
+      "previous_attempt": {
+        "name": "javascript",
+        "status": "failed",
+        "log": "javascript.log",
+        "exit_code": 1,
+        "duration_seconds": 0.67
+      }
+    },
+    {
+      "name": "workerd-rpc-r2",
+      "status": "passed",
+      "log": "workerd-rpc-r2.log",
+      "exit_code": 0,
+      "duration_seconds": 3.55
+    },
+    {
+      "name": "stage-inline",
+      "status": "passed",
+      "log": "stage-inline-final.log",
+      "exit_code": 0,
+      "duration_seconds": 1.46,
+      "previous_attempt": {
+        "name": "stage-inline",
+        "status": "passed",
+        "log": "stage-inline.log",
+        "exit_code": 0,
+        "duration_seconds": 1.72
+      }
+    },
+    {
+      "name": "stage-separate",
+      "status": "passed",
+      "log": "stage-separate-final.log",
+      "exit_code": 0,
+      "duration_seconds": 5.06,
+      "previous_attempt": {
+        "name": "stage-separate",
+        "status": "passed",
+        "log": "stage-separate.log",
+        "exit_code": 0,
+        "duration_seconds": 1.57
+      }
+    },
+    {
+      "name": "dom-interactions",
+      "status": "passed",
+      "log": "dom-interactions.log",
+      "tests": 10,
+      "scope": "jsdom against authenticated rendered page fixtures; not visual browser acceptance"
+    }
+  ],
+  "not_validated": [
+    "production Cloudflare CPU/memory quotas and PoPs",
+    "Python Worker SDK bundle and deployed Python/JS FFI",
+    "live Cloudflare/Ubuntu deployment",
+    "browser visual acceptance"
+  ],
+  "status": "passed",
+  "finished_at": "2026-10-08T10:52:45.903551+00:00",
+  "revision_note": "Proposal UI feedback is injected by the browser entrypoint; standalone Node tests no longer resolve a browser-only asset path. Affected JavaScript and both final packaging gates rerun; original logs retained."
+}

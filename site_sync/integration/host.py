@@ -105,3 +105,22 @@ def install_local(app,r):
             task.cancel()
             try:await task
             except asyncio.CancelledError:pass
+
+async def refresh_scopes(r):
+    """Explicit owner action; expand saved scope without changing task revisions.
+    GETs never write grants. Revocations/policy changes use normal connection save.
+    """
+    from backend.app.native.data_tools import authorize
+    authorize(r,'edit')
+    db=adapter(r);gid=grant_id(r.p);now=int(time.time())
+    rows=await db.query("SELECT g.*,p.revision peer_revision,c.owner_uid,c.export_scope_json FROM sync_connections c JOIN sync_peers p ON p.peer_id=c.peer_id JOIN sync_grants g ON g.grant_id=? AND g.principal_id=c.owner_uid WHERE c.peer_id='peer' AND c.owner_uid=? AND p.enabled=1 AND g.enabled=1 AND g.can_write=1 AND (g.expires_at=0 OR g.expires_at>?)",(gid,r.p['uid'],now))
+    if not rows:raise AuthorizationError('连接未启用、已过期或不属于当前管理员，请检查连接设置')
+    old=rows[0];allowed=set(scopes(r.p))
+    deletion=int(all(r.p['permissions'][t].get('can_delete') for t in allowed if t in BASE_SCOPES))
+    if not (set(json.loads(old['scopes_json']))|set(json.loads(old['export_scope_json'])))<=allowed or (old['can_delete'] and not deletion):
+        raise AuthorizationError('当前权限已收缩，请使用保存连接更新策略；不会自动扩大或忽略权限变更')
+    condition="EXISTS(SELECT 1 FROM sync_grants g JOIN sync_connections c ON c.owner_uid=g.principal_id JOIN sync_peers p ON p.peer_id=c.peer_id WHERE g.grant_id=? AND g.revision=? AND p.revision=? AND c.peer_id='peer' AND c.owner_uid=? AND p.enabled=1 AND g.enabled=1 AND g.can_write=1 AND (g.expires_at=0 OR g.expires_at>?))"
+    guard_id,guard=r.auth.guard(r.p,'data_tools','edit',condition,(gid,old['revision'],old['peer_revision'],r.p['uid'],now))
+    encoded=json.dumps(sorted(allowed))
+    await db.batch([guard,('UPDATE sync_grants SET scopes_json=?,can_delete=? WHERE grant_id=?',(encoded,deletion,gid)),("UPDATE sync_connections SET export_scope_json=? WHERE peer_id='peer' AND owner_uid=?",(encoded,r.p['uid'])),('DELETE FROM admin_mutation_guards WHERE uid=?',(guard_id,))])
+    return {'saved':True,'scope_count':len([s for s in RESTORE_SCOPES if s in allowed]),'task_revisions_preserved':True}

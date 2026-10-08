@@ -9,12 +9,12 @@ from site_sync.core.journal import failure
 class ConnectivityTests(unittest.TestCase):
  def test_probe_uses_saved_connection_and_never_returns_content(self):
   db=SimpleNamespace(query=AsyncMock(return_value=[{'peer_id':'peer','scopes_json':'["news"]'}]))
-  peer=SimpleNamespace(candidates=AsyncMock(side_effect=[{'ok':True,'release':RELEASE,'protocol':'probe-v1'},{'item':{'private':'do not return'},'cursor':None}]))
+  peer=SimpleNamespace(candidates=AsyncMock(return_value={'ok':True,'release':RELEASE,'protocol':'probe-v2','export_enabled':True,'allowed_scopes':['restore_media_assets']}))
   rt=SimpleNamespace(peer_factory=AsyncMock(return_value=peer))
   with patch('site_sync.admin.connectivity.adapter',return_value=db),patch('site_sync.admin.connectivity.runtime',return_value=rt),patch('site_sync.admin.connectivity.scopes',return_value=['news']):
    result=asyncio.run(probe(SimpleNamespace(p={'uid':'u'})))
   self.assertTrue(result['ok']);self.assertNotIn('do not return',json.dumps(result))
-  self.assertEqual(peer.candidates.call_args.args[0]['kind'],'candidates')
+  self.assertEqual(peer.candidates.call_args.args[0]['kind'],'probe')
   self.assertEqual(len(result['steps']),4)
  def test_disabled_connection_stops_before_network(self):
   with patch('site_sync.admin.connectivity.adapter',return_value=SimpleNamespace(query=AsyncMock(return_value=[]))),patch('site_sync.admin.connectivity.runtime') as runtime:
@@ -36,14 +36,15 @@ class ConnectivityTests(unittest.TestCase):
   self.assertIn('更新原生辅助',result['causes'][0]['reason'])
   self.assertNotIn('PRIVATE',json.dumps(result))
 
- def test_mixed_grants_probe_one_restore_scope(self):
+ def test_mixed_grants_probe_without_business_scope(self):
   scopes=['news','restore_translation_cache','restore_media_assets']
   db=SimpleNamespace(query=AsyncMock(return_value=[{'peer_id':'peer','scopes_json':json.dumps(scopes)}]))
-  peer=SimpleNamespace(candidates=AsyncMock(side_effect=[{'ok':True,'release':RELEASE,'protocol':'probe-v1'},{'item':None,'cursor':None}]))
+  peer=SimpleNamespace(candidates=AsyncMock(return_value={'ok':True,'release':RELEASE,'protocol':'probe-v2','export_enabled':True,'allowed_scopes':['restore_media_assets']}))
   with patch('site_sync.admin.connectivity.adapter',return_value=db),patch('site_sync.admin.connectivity.runtime',return_value=SimpleNamespace(peer_factory=AsyncMock(return_value=peer))),patch('site_sync.admin.connectivity.scopes',return_value=scopes):
    result=asyncio.run(probe(SimpleNamespace(p={'uid':'u'})))
   self.assertTrue(result['ok'])
-  for call in peer.candidates.call_args_list:self.assertEqual(call.args[0]['scope'],['restore_media_assets'])
+  peer.candidates.assert_awaited_once_with({'kind':'probe','version':'probe-v2'})
+  self.assertFalse(result['authorization_ok'])
  def test_remote_auth_diagnostic_survives_bridge(self):
   data={'ok':False,'kind':'credential','code':'SYNC_SIGNATURE_INVALID','stage':'response_headers','http_status':403,'peer_request_id':'a'*32,'peer_stage':'request_verify','peer_component':'peer-site','peer_release':RELEASE,'reason':'SECRET'}
   binding=SimpleNamespace(read=AsyncMock(return_value=json.dumps(data)))

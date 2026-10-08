@@ -1,4 +1,5 @@
 """One receiver-side schedule per invocation, idempotent after a lost receipt."""
+from site_sync.core.receiver import create_receiver
 import json
 import re
 import secrets
@@ -30,7 +31,7 @@ class Schedules:
         if active:
             await self.defer(s,now);return {'action':'schedule-blocked','task_id':active[0]['task_id']}
         op='auto:'+s['schedule_id']+':'+s['revision']+':'+str(s['next_run_at'])
-        try:t=await self.repo.create(peer_id=s['peer_id'],grant_id=s['grant_id'],scope=json.loads(s['scope_json']),operation_id=op,now=now,mode='scheduled',settings=json.loads(s['settings_json']),expected_schedule=s)
+        try:t=await create_receiver(self.repo,peer_id=s['peer_id'],grant_id=s['grant_id'],scope=json.loads(s['scope_json']),operation_id=op,now=now,mode='scheduled',settings=json.loads(s['settings_json']),expected_schedule=s)
         except ConflictError:
             await self.defer(s,now);return {'action':'schedule-blocked'}
         except AuthorizationError:

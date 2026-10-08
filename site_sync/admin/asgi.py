@@ -1,7 +1,10 @@
 """Mount under the website admin router. Host supplies session+CSRF callbacks.
 No standalone server, bearer secret, login page or automatic route registration.
 """
-import json
+import json,secrets
+from site_sync.core.input_errors import InputError
+from site_sync.core.preflight_errors import PreflightError
+from backend.app.ports.operations import current
 from urllib.parse import parse_qs
 from site_sync.core.authority import AuthorizationError,ConflictError
 from .retention import Retention
@@ -11,7 +14,7 @@ class AdminASGI:
         self.admin,self.authenticate,self.verify_csrf,self.prefix=admin,authenticate,verify_csrf,prefix.rstrip('/')
     async def __call__(self,scope,receive,send):
         if scope.get('type')!='http':raise ValueError('HTTP only')
-        status=200
+        status=200;trace=current().get('request_id') or secrets.token_hex(16)
         try:
             path=scope['path']
             if not path.startswith(self.prefix+'/'):raise KeyError('route')
@@ -38,19 +41,23 @@ class AdminASGI:
                 if len(query)>4096:raise ValueError('查询参数过大')
                 q=parse_qs(query.decode('ascii'));parts=path[len(self.prefix)+1:].split('/')
                 result=await self.dispatch(actor,method,parts,q,body)
+        except PreflightError as exc:status=exc.status;result=exc.payload()
         except AuthorizationError:status=403;result={'error':'无权限、授权已过期或请求校验失败'}
         except ConflictError as exc:status=409;result={'error':str(exc)[:200]}
-        except (ValueError,TypeError,UnicodeError):status=400;result={'error':'请求参数不合法'}
+        except InputError as exc:status=400;result=exc.payload()
+        except (ValueError,TypeError,UnicodeError) as exc:status=400;result={'error':'请求参数不合法，请检查字段类型或刷新后重试','code':'SYNC_INPUT_INVALID','field':'body','stage':'admin-parse','error_type':type(exc).__name__,'retryable':False}
         except KeyError:status=404;result={'error':'接口不存在'}
         except Exception as exc:
-            import secrets
             from site_sync.core.journal import failure
             from site_sync.core.diagnostics import classify,RELEASE,CODES
-            trace=secrets.token_hex(16);code=classify(exc,'SYNC_ADMIN_FAILED');diagnostic=failure(exc)
+            code=classify(exc,'SYNC_ADMIN_FAILED');diagnostic=failure(exc)
             print(json.dumps({'component':'local-admin','release':RELEASE,'request_id':trace,'code':code,'diagnostic':diagnostic}),flush=True)
             status=503;result={'error':CODES[code],'code':code,'request_id':trace,'diagnostic':diagnostic}
+        if status>=400:
+            result['request_id']=trace
+            print(json.dumps({'component':'sync-admin','request_id':trace,'http_status':status,'code':result.get('code'),'field':result.get('field'),'stage':result.get('stage'),'error':result.get('error')},ensure_ascii=False),flush=True)
         data=json.dumps(result,ensure_ascii=False,separators=(',',':')).encode()
-        await send({'type':'http.response.start','status':status,'headers':[(b'content-type',b'application/json; charset=utf-8'),(b'cache-control',b'no-store'),(b'x-content-type-options',b'nosniff')]})
+        await send({'type':'http.response.start','status':status,'headers':[(b'content-type',b'application/json; charset=utf-8'),(b'cache-control',b'no-store'),(b'x-request-id',trace.encode()),(b'x-content-type-options',b'nosniff')]})
         await send({'type':'http.response.body','body':data})
     async def dispatch(self,actor,method,p,q,b):
         a=self.admin

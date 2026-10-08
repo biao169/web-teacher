@@ -14,7 +14,7 @@ class ConnectivityAPITests(CredentialAPITests):
    self.client.cookies.clear()
    self.assertEqual(self.client.post(url,json={},headers=self.headers).status_code,401)
  def test_page_has_probe(self):
-  page=self.client.get('/admin/site-sync')
+  page=self.client.get('/admin/site-sync?section=connection')
   self.assertEqual(page.status_code,200);self.assertIn('data-sync-probe',page.text)
  def test_retry_policy_save_and_validation(self):
   url='/admin/site-sync/api/retry-policy'

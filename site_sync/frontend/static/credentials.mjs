@@ -1,3 +1,4 @@
+import {begin,finish} from './feedback.mjs?v=0.16.046';
 import {time} from './model.mjs';
 const form=document.querySelector('#sync-credentials');
 if(form){
@@ -21,11 +22,11 @@ if(form){
   status.textContent=result.source==='database'?'已生效 · 后台密钥':result.source==='environment'?'已生效 · 部署环境密钥':'未配置';
   meta.textContent=result.updated_at?'最近修改：'+time(Date.parse(result.updated_at)/1000)+'（北京时间） · 管理员：'+result.updated_by:'两端需要保存相同密钥。';
  }
- async function perform(work){if(busy)return;lock(true);try{await work();}catch(e){message(e.message||'操作未完成');}finally{lock(false);}}
+ async function perform(work,feedback=true){if(busy)return;lock(true);if(feedback)begin('同步密钥操作');try{await work();if(feedback)finish(notice.textContent);}catch(e){message(e.message||'操作未完成');if(feedback)finish(notice.textContent,'error');}finally{lock(false);}}
  input.addEventListener('input',()=>{dirty=true;message('尚未保存：输入框中的修改尚未生效。');});
  form.querySelector('[data-key-generate]').onclick=()=>{
   if(busy)return;
-  try{const bytes=crypto.getRandomValues(new Uint8Array(32));input.value=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');dirty=true;hidden();message('已生成，尚未保存。可先复制到对端，再分别保存。');}catch{message('浏览器无法安全生成密钥，请使用HTTPS访问或粘贴已有密钥。');}
+  try{const bytes=crypto.getRandomValues(new Uint8Array(32));input.value=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');dirty=true;hidden();message('已生成，尚未保存。可先复制到对端，再分别保存。');finish(notice.textContent);}catch{message('浏览器无法安全生成密钥，请使用HTTPS访问或粘贴已有密钥。');finish(notice.textContent,'error');}
  };
  async function loadCurrent(){const r=await api('reveal');input.value=r.key;dirty=false;describe(r);}
  show.onclick=()=>perform(async()=>{
@@ -47,5 +48,5 @@ if(form){
  });};
  window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
  window.addEventListener('pagehide',()=>{input.value='';hidden();});
- perform(async()=>{describe(await api('status'));message('输入框默认留空，不会自动读取已保存的密钥。');});
+ perform(async()=>{describe(await api('status'));message('输入框默认留空，不会自动读取已保存的密钥。');},false);
 }

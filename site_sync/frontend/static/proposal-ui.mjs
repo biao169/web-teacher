@@ -1,6 +1,6 @@
 import {requestJSON,retryKey} from './proposal-client.mjs?v=0.16.041';
 import {time} from './model.mjs?v=0.16.036';
-export function installProposal(){
+export function installProposal({begin=()=>{},finish=()=>{}}={}){
  const button=document.querySelector('[data-proposal]');if(!button)return;
  const form=button.closest('form'),message=form.querySelector('[data-proposal-feedback]'),history=document.querySelector('[data-outgoing-proposals]');let busy=false;
  const origin=()=>document.querySelector('#site-sync-panel')?.dataset.peerOrigin||'peer';
@@ -18,15 +18,15 @@ export function installProposal(){
   }catch(e){history.textContent='发送记录读取失败：'+e.message;}
  }
  async function submit(scope,existing){
-  if(busy)return;busy=true;button.disabled=true;message.textContent='正在向对端提交推送请求…';
+  if(busy)return;busy=true;button.disabled=true;begin('推送到对端');message.textContent='正在向对端提交推送请求…';
   const key=retryKey(origin(),scope);let id;
   try{
    if(!scope.length)throw Error('请至少选择一项同步内容');
    id=existing||storage.get(key)||crypto.randomUUID();storage.set(key,id);
    const data=await requestJSON('/api/admin/site-sync/proposal',{body:{request_id:id,scope}});
    if(!/^[a-f0-9]{32}$/.test(data.task_id)||typeof data.approval_required!=='boolean')throw Error('推送回执格式无效；请使用同一请求重试。');
-   storage.remove(key);message.textContent='对端任务 '+data.task_id+(data.approval_required?'：等待对端审核':'：对端按预设策略自动确认')+'。该任务在对端执行；本站下方显示发送记录。';
-  }catch(e){message.textContent=e.message+(id?'\n推送请求 ID：'+id+'；结果未确认时使用同一请求重试。':'');}
+   storage.remove(key);message.textContent='对端任务 '+data.task_id+(data.approval_required?'：等待对端审核':'：对端按预设策略自动确认')+'。该任务在对端执行；本站下方显示发送记录。';finish(message.textContent);
+  }catch(e){message.textContent=e.message+(id?'\n推送请求 ID：'+id+'；结果未确认时使用同一请求重试。':'');finish(message.textContent,'error');}
   finally{busy=false;button.disabled=false;await load();}
  }
  button.onclick=()=>submit([...form.querySelectorAll('[name=scope]:checked')].map(x=>x.value));

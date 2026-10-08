@@ -134,3 +134,15 @@
 .sync-page .panel.sync-settings-block{padding:24px;margin:0 0 20px}
 .sync-refresh-actions{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
 @media(max-width:700px){.sync-page .panel.sync-settings-block{padding:16px}.sync-heading{flex-wrap:wrap}}
+
+.sync-scope-card:has(input:disabled){opacity:.7;cursor:not-allowed}
+
+/* Internal pages reuse the admin workspace palette and dialog surface. */
+.sync-section-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px;padding:8px 0;position:static}
+.sync-section-nav a{padding:8px 14px;border-radius:8px;text-decoration:none;color:var(--ink)}
+.sync-section-nav a[aria-current=page]{background:var(--accent);color:var(--surface)}
+.sync-operation-dialog{width:min(760px,calc(100vw - 32px))}
+.sync-operation-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto;background:var(--page);border:1px solid var(--line);padding:16px;border-radius:8px;font-size:.875rem}
+.sync-operation-dialog [hidden]{display:none!important}
+.sync-panel #sync-credentials{width:100%}
+@media(max-width:640px){.sync-page{padding:8px;margin:12px auto 20px}.sync-page .panel{padding:16px}.sync-section-nav a{padding:8px 10px}.sync-heading{flex-wrap:wrap}}

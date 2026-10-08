@@ -1,4 +1,6 @@
 from site_sync.core.selection import is_restore,normalize,selected_tables,visible_scopes,descriptions
+from site_sync.core.receiver import create_receiver,selection,validate as receiver_validate
+from site_sync.core.input_errors import InputError
 import hashlib
 import json
 import secrets
@@ -28,9 +30,11 @@ def policy(values):
 
 
 class Admin:
-    def __init__(self,repo,clock,*,retention_days=90):
+    def __init__(self,repo,clock,*,retention_days=90,catalog=None,principal_scopes=None,preflight=None):
         self.repo,self.db,self.clock=repo,repo.db,clock
         self.retention_days=integer(retention_days,7,3650)
+        self.catalog,self.principal_scopes=catalog,principal_scopes
+        self.preflight=preflight
     async def grant(self,actor,write=False):
         if not isinstance(actor,Actor) or not actor.can_manage:raise AuthorizationError('无同步管理权限')
         rows=await self.db.query('SELECT * FROM sync_grants WHERE grant_id=? AND principal_id=?',(actor.grant_id,actor.principal_id))
@@ -55,7 +59,14 @@ class Admin:
     async def options(self,actor):
         g=await self.grant(actor)
         peers=await self.db.query('SELECT peer_id FROM sync_peers WHERE enabled=1 ORDER BY peer_id LIMIT 100')
-        return {'peers':peers,'modules':visible_scopes(json.loads(g['scopes_json'])),'scope_details':descriptions(json.loads(g['scopes_json'])),'can_write':bool(g['can_write'] and g['enabled'] and (not g['expires_at'] or g['expires_at']>self.clock())),
+        saved=set(json.loads(g['scopes_json']));current=set(self.principal_scopes) if self.principal_scopes is not None else saved
+        modules=list(self.catalog) if self.catalog is not None else visible_scopes(list(json.loads(g['scopes_json'])))
+        details=descriptions(modules);active=bool(g['can_write'] and g['enabled'] and (not g['expires_at'] or g['expires_at']>self.clock()))
+        for name,d in details.items():
+            needed=set(normalize([name]))
+            reason=('当前管理员权限不包含该项或其依赖' if not needed<=current else '本站尚未保存该项授权，请更新同步授权' if not needed<=saved else '当前同步授权已停用或过期' if not active else '恢复内容需要删除/替换权限，请检查授权' if is_restore([name]) and not g['can_delete'] else '')
+            d.update(enabled=not bool(reason),disabled_reason=reason)
+        return {'peers':peers,'modules':modules,'scope_details':details,'authorization':{'saved_scopes':sorted(saved),'current_scopes':sorted(current),'needs_refresh':bool((set(modules)&current)-saved),'message':'目录统一为20项；禁用项显示缺少的权限或授权。更新本站授权不会修改对端授权。'},'can_write':active,
                 'timezone':'Asia/Shanghai','retention_days':self.retention_days,'platform':self.repo.platform,'defaults':await site(self.db,self.repo.platform)}
     async def tasks(self,actor,*,view='active',cursor=None,limit=50):
         await self.grant(actor)
@@ -119,10 +130,20 @@ class Admin:
         more=len(rows)>50;rows=rows[:50]
         return {'items':rows,'cursor':rows[-1]['item_id'] if more else None}
     async def create(self,actor,body):
-        await self.grant(actor,True)
-        if set(body)-{'peer_id','scope','request_id','auto_confirm','auto_delete','settings'} or not {'peer_id','scope','request_id'}<=set(body) or not isinstance(body['request_id'],str) or not 8<=len(body['request_id'])<=128:raise ValueError('无效创建参数')
+        g=await self.grant(actor,True)
+        if set(body)-{'peer_id','scope','request_id','auto_confirm','auto_delete','settings'} or not {'peer_id','scope','request_id'}<=set(body) or not isinstance(body['request_id'],str) or not 8<=len(body['request_id'])<=128:raise InputError('body','创建参数不完整或请求 ID 不合法','peer_id、scope、8—128字符 request_id；可选确认策略和 settings')
         op='manual:'+hashlib.sha256((actor.grant_id+'\0'+body['request_id']).encode()).hexdigest()
-        t=await self.repo.create(peer_id=body['peer_id'],grant_id=actor.grant_id,scope=normalize(body['scope']),operation_id=op,now=self.clock(),mode='manual',auto_confirm=body.get('auto_confirm',True),auto_delete=body.get('auto_delete',True),settings=body.get('settings'))
+        if not isinstance(body['peer_id'],str) or not 1<=len(body['peer_id'])<=64:raise InputError('peer_id','对端标识不合法','已保存的对端标识')
+        if self.principal_scopes is not None and not set(selection(body['scope']))<=set(self.principal_scopes):raise AuthorizationError('当前账号无权创建此范围任务')
+        receiver_validate(dict(scope=body['scope'],settings=body.get('settings'),auto_confirm=body.get('auto_confirm',True),auto_delete=body.get('auto_delete',True),mode='manual'))
+        selected=selection(body['scope'])
+        if not g['can_write'] or not set(selected)<=set(json.loads(g['scopes_json'])):raise AuthorizationError('本站授权范围不足')
+        if is_restore(selected) and not g['can_delete']:raise AuthorizationError('本站缺少替换权限')
+        if self.preflight:
+            execution_settings({**await site(self.db,self.repo.platform),**(body.get('settings') or {})})
+            previous=await self.db.query('SELECT task_id FROM sync_tasks WHERE operation_id=? AND grant_id=?',(op,actor.grant_id))
+            if not previous:await self.preflight(body['peer_id'],selection(body['scope']))
+        t=await create_receiver(self.repo,peer_id=body['peer_id'],grant_id=actor.grant_id,scope=body['scope'],operation_id=op,now=self.clock(),mode='manual',auto_confirm=body.get('auto_confirm',True),auto_delete=body.get('auto_delete',True),settings=body.get('settings'))
         return {'task_id':t['task_id']}
     async def command(self,actor,task_id,command,body):
         t=await self.own_task(actor,task_id,True)
@@ -185,7 +206,8 @@ class Admin:
         required={'schedule_id','revision','peer_id','scope','interval_seconds','enabled'}
         if not required<=set(body) or set(body)-required-{'request_id','settings'}:raise ValueError('无效计划设置')
         if not g['can_write']:raise AuthorizationError('无定时写入权限')
-        scope=normalize(body['scope'])
+        scope=selection(body['scope'])
+        if self.principal_scopes is not None and not set(scope)<=set(self.principal_scopes):raise AuthorizationError('当前账号无权创建此范围计划')
         if not isinstance(scope,list) or not 0<len(scope)<=64 or any(not isinstance(x,str) for x in scope) or not set(scope).issubset(json.loads(g['scopes_json'])):raise AuthorizationError('计划超出授权范围')
         if is_restore(scope) and not g['can_delete']:raise AuthorizationError('整站克隆需单独选择并具备删除权限')
         interval=integer(body['interval_seconds'],60,2592000)
@@ -196,6 +218,7 @@ class Admin:
         if not isinstance(uid,str) or len(uid)>32:raise ValueError('无效计划 ID')
         overrides=execution_settings(body.get('settings',{}),partial=True)
         execution_settings({**await site(self.db,self.repo.platform),**overrides})
+        if self.preflight and body['enabled']:await self.preflight(body['peer_id'],scope)
         settings_json=json.dumps(overrides,sort_keys=True,separators=(',',':'))
         revision=secrets.token_hex(8);now=self.clock();scope=json.dumps(sorted(set(scope)))
         gate='EXISTS(SELECT 1 FROM sync_grants WHERE grant_id=? AND revision=? AND enabled=1 AND can_write=1 AND (expires_at=0 OR expires_at>?)) AND EXISTS(SELECT 1 FROM sync_peers WHERE peer_id=? AND enabled=1)'

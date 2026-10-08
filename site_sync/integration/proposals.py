@@ -2,6 +2,7 @@
 from site_sync.core.selection import is_restore,normalize,selected_tables
 import hashlib,json,time
 from .host import adapter,secret,grant_id,authorize_export
+from site_sync.core.receiver import create_receiver,selection
 from site_sync.adapters.tasks import Tasks
 from site_sync.core.authority import AuthorizationError,ConflictError
 from site_sync.core.diagnostics import coded
@@ -9,7 +10,7 @@ from site_sync.core.diagnostics import coded
 async def receive(r,q):
     if set(q)!={'kind','version','request_id','scope'}:raise ValueError('Proposal cannot set receiver policy')
     if q.get('version')!='proposal-v1' or not isinstance(q.get('request_id'),str) or not 8<=len(q['request_id'])<=128:raise ValueError('Invalid proposal')
-    allowed=await authorize_export(r);scope=normalize(q.get('scope'))
+    allowed=await authorize_export(r);scope=selection(q.get('scope'))
     if not isinstance(scope,list) or not scope or not set(scope)<=allowed:raise AuthorizationError('Proposal scope denied')
     db=adapter(r)
     connections=await db.query("SELECT c.owner_uid,c.incoming_auto_scope,c.incoming_auto_delete,g.revision FROM sync_connections c JOIN sync_grants g ON g.grant_id='website:'||c.owner_uid WHERE c.peer_id='peer'")
@@ -27,7 +28,7 @@ async def receive(r,q):
         return {'task_id':row['task_id'],'approval_required':not bool(row['auto_confirm'])}
     existing=await db.query("SELECT task_id,operation_id FROM sync_tasks WHERE peer_id='peer' AND mode='proposal' AND status NOT IN ('done','cancelled') LIMIT 1")
     if existing and existing[0]['operation_id']!=op:raise coded(ConflictError('An incoming proposal is already pending'),'SYNC_PROPOSAL_PENDING')
-    row=await repo.create(peer_id='peer',grant_id=gid,scope=scope,operation_id=op,now=int(time.time()),mode='proposal',auto_confirm=auto,auto_delete=bool(connection['incoming_auto_delete']),expected_grant_revision=connection['revision'])
+    row=await create_receiver(repo,peer_id='peer',grant_id=gid,scope=scope,operation_id=op,now=int(time.time()),mode='proposal',auto_confirm=auto,auto_delete=bool(connection['incoming_auto_delete']),expected_grant_revision=connection['revision'])
     return {'task_id':row['task_id'],'approval_required':not bool(row['auto_confirm'])}
 
 async def send(r,data):
@@ -45,6 +46,13 @@ async def send(r,data):
     if not data['scope'] or not set(data['scope'])<=allowed or not set(data['scope'])<=set(scopes(r.p)):raise AuthorizationError('Proposal scope denied')
     rows=await adapter(r).query("SELECT p.origin,c.owner_uid FROM sync_peers p JOIN sync_connections c ON c.peer_id=p.peer_id WHERE p.peer_id='peer' AND p.enabled=1")
     if not rows or rows[0]['owner_uid']!=r.p['uid']:raise coded(AuthorizationError('Connection unavailable'),'SYNC_LOCAL_CONNECTION')
+    prior=await adapter(r).query('SELECT value FROM service_meta WHERE key=?',(outgoing.identity(r.p['uid'],data['request_id']),))
+    if prior:
+        saved=json.loads(prior[0]['value'])
+        if saved['scope']!=sorted(data['scope']) or saved['origin']!=rows[0]['origin']:raise coded(ConflictError('Proposal request ID reused'),'SYNC_PROPOSAL_CHANGED')
+        if saved['status']=='confirmed':return saved['result']
+    from .capabilities import preflight
+    await preflight(r,'peer',data['scope'])
     key,saved=await outgoing.begin(r,data,rows[0]['origin'])
     if saved['status']=='confirmed':return saved['result']
     try:

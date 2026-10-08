@@ -27,7 +27,11 @@ async def peer_read(request,resources):
         stage='request_verify';nonce=verify_request(key,request.headers,bytes(data));q=json.loads(data)
         if not isinstance(q,dict):raise ValueError('Invalid request')
         db=adapter(r);source=TeacherWebsite(db,r);stage='export_authorization'
-        if q.get('kind')=='probe':
+        if q.get('kind')=='probe' and q.get('version')=='probe-v2':
+            if set(q)!={'kind','version'}:raise coded(ValueError(),'SYNC_REQUEST_INVALID')
+            from .capabilities import published
+            body=encode(await published(r));meta={'version':'probe-v2'}
+        elif q.get('kind')=='probe':
             allowed=await authorize_export(r);selection=q.get('scope')
             if not isinstance(selection,list) or not selection or any(not isinstance(x,str) for x in selection):raise coded(ValueError(),'SYNC_SCOPE_INVALID')
             if not set(selection)<=allowed:raise coded(AuthorizationError(),'SYNC_SCOPE_DENIED')
