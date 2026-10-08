@@ -129,3 +129,8 @@
 .sync-page #sync-connection>label>.sync-help{flex-basis:100%}
 .sync-page #sync-connection>label:has(input[name=origin]){flex:1 1 360px}
 @media(max-width:700px){.sync-page .sync-section-nav{margin-bottom:16px}.sync-page .sync-settings-block{padding:16px 0}.sync-connection-card .sync-scope-grid{grid-template-columns:1fr}}
+
+/* Outer cards keep the same padding as the teacher admin panels. */
+.sync-page .panel.sync-settings-block{padding:24px;margin:0 0 20px}
+.sync-refresh-actions{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+@media(max-width:700px){.sync-page .panel.sync-settings-block{padding:16px}.sync-heading{flex-wrap:wrap}}

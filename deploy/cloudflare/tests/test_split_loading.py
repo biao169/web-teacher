@@ -59,8 +59,8 @@ def test_cron_does_not_build_http_app(entry, monkeypatch, capsys):
     sync_run.assert_not_awaited()
     import json
     events=[json.loads(line) for line in capsys.readouterr().out.splitlines()]
-    assert [e['stage'] for e in events]==['INVOCATION-START','INVOCATION-END']
-    assert events[0]['request_id']==events[1]['request_id']
+    assert [e['stage'] for e in events]==['INVOCATION-START','executor-handler','executor-handler','INVOCATION-END']
+    assert all(e['request_id']==events[0]['request_id'] for e in events)
     assert events[0]['colo'] is None # Cron does not supply HTTP ingress metadata.
     make_store.assert_called_once_with(worker.env.MEDIA, 'transfer/media/')
     assert entry.application.application is None

@@ -1,6 +1,7 @@
 """Small request envelopes; cf metadata is observed, never inferred from origin."""
 import re,time
 from functools import wraps
+from backend.app.ports.operations import request_context,stage as operation_stage
 from site_sync.core.trace import current,scope,invocation,record,category
 from site_sync.core.journal import failure
 
@@ -22,16 +23,19 @@ def traced(component,http=False):
                 data['peer_request_id']=field({'nonce':request.headers.get('x-sync-nonce')},'nonce','[a-f0-9]{32}')
                 data['peer_request_id_verified']=False # Correlation only; signature validation is downstream.
             start=time.monotonic();status=None
-            with scope(**data):
+            with scope(**data),request_context(**data):
                 if not http or data.get('route')=='sync-peer':record('INVOCATION-START')
                 try:
-                    result=await fn(self,*args,**kwargs)
+                    with operation_stage('http-handler' if http else 'executor-handler'):
+                        result=await fn(self,*args,**kwargs)
                     if http:
                         status=int(result.status)
                         if status!=101 and hasattr(result,'headers'):
                             from js import Response
-                            result=Response.new(result.body,result)
-                            result.headers.set('x-request-id',data['request_id'])
+                            with operation_stage('response-wrap'):
+                                result=Response.new(result.body,result)
+                                result.headers.set('x-request-id',data['request_id'])
+                                result.headers.set('x-teacher-release','0.16.043')
                     record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='returned')
                     return result
                 except BaseException as exc:

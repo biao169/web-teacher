@@ -36,6 +36,16 @@ def main(separate=False):
         for filename in ('generated_native_resources.py','generated_resources.py'):
             tree=ast.parse((stage/'src'/filename).read_text())
             print(json.dumps({'generated_file':filename,'bytes':(stage/'src'/filename).stat().st_size,'values':{n.targets[0].id:len(repr(ast.literal_eval(n.value)).encode()) for n in tree.body if isinstance(n,ast.Assign)}}))
+        # Both deploy targets must use the canonical sync page and assets.
+        resources_tree=ast.parse((stage/'src/generated_resources.py').read_text())
+        templates=next(ast.literal_eval(n.value) for n in resources_tree.body if isinstance(n,ast.Assign) and n.targets[0].id=='TEMPLATES')
+        from backend.app.web.rendering import Renderer
+        local=Renderer.local(ROOT)
+        for source in (ROOT/'site_sync/frontend/templates').glob('*.html'):
+            name='sync/'+source.name
+            assert templates[name]==local.env.loader.get_source(local.env,name)[0]==source.read_text(),name
+        for source in (ROOT/'site_sync/frontend/static').iterdir():
+            if source.is_file():assert (stage/'assets/assets/site-sync'/source.name).read_bytes()==source.read_bytes(),source.name
         for file in ('backend/app/native/request_cache.py','backend/maintenance/log_retention.py','site_sync/integration/web.py'):
             assert (stage/'src'/file).is_file(),file
         for file in ('favicon.svg','site-logo.png','apple-touch-icon.png'):

@@ -52,7 +52,7 @@ def verify_response(secret,nonce,status,headers,body=b'',*,stream=False):
     meta=headers.get('x-sync-meta','')
     if len(meta)>2048:raise AuthorizationError('Invalid response metadata')
     expected=mac(secret,'\n'.join(('sync-v1-response',nonce,str(status),meta,'stream' if stream else digest(body))))
-    if not hmac.compare_digest(headers.get('x-sync-signature',''),expected):raise AuthorizationError('Invalid response signature')
+    if not hmac.compare_digest(headers.get('x-sync-signature',''),expected):raise coded(AuthorizationError('Invalid response signature'),'SYNC_RESPONSE_SIGNATURE')
     try:result=json.loads(meta)
     except (ValueError,TypeError) as exc:raise AuthorizationError('Invalid response metadata') from exc
     if not isinstance(result,dict):raise AuthorizationError('Invalid response metadata')

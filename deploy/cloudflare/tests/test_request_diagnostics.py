@@ -25,7 +25,11 @@ def test_request_stream_is_not_read_and_context_is_reset(monkeypatch,capsys):
     response=asyncio.run(Worker().fetch(request))
     assert response.body is body and not original.headers
     assert len(response.headers['x-request-id'])==32
-    log=json.loads(capsys.readouterr().out)
+    logs=[json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    log=logs[-1]
+    assert response.headers['x-teacher-release']=='0.16.043'
+    assert all(e['request_id']==log['request_id'] for e in logs)
+    assert [(e['event'],e['stage']) for e in logs if e.get('event','').startswith('OPERATION-')]==[('OPERATION-START','http-handler'),('OPERATION-END','http-handler'),('OPERATION-START','response-wrap'),('OPERATION-END','response-wrap')]
     assert log['request_id']==response.headers['x-request-id']
     assert log['country']=='CN' and log['route']=='sync-admin'
     assert 'secret' not in json.dumps(log)

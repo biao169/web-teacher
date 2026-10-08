@@ -42,12 +42,28 @@ def install(app,resources,csrf,render,*,shared_middleware=True):
         if data:raise Error('测试使用已保存连接，请勿提交额外参数',400)
         from site_sync.admin.connectivity import probe
         return JSONResponse(await probe(r),headers={'Cache-Control':'no-store'})
+    @app.get('/api/admin/site-sync/proposals')
+    async def outgoing_proposals(request:Request):
+        r=await resources(request);authorize(r)
+        from .outgoing import listing
+        return JSONResponse(await listing(r),headers={'Cache-Control':'no-store'})
     @app.post('/api/admin/site-sync/proposal')
     async def propose(request:Request):
         r=await resources(request);data=await payload(request,2048);csrf(request,r,data)
+        authorize(r,'edit')
         from .proposals import send
-        try:return JSONResponse(await send(r,data))
-        except (AuthorizationError,ConflictError,CredentialRetryError,ValueError) as e:raise Error(str(e),409) from None
+        from backend.app.ports.operations import operation,current,emit
+        @operation('sync-proposal-send')
+        async def submit():
+            try:
+                result=await send(r,data)
+                return JSONResponse(dict(result,request_id=current().get('request_id'),proposal_request_id=data['request_id']),headers={'Cache-Control':'no-store'})
+            except Exception as exc:
+                diagnostic=failure(exc);code=next((c['code'] for c in diagnostic.get('causes',[]) if c.get('code') in CODES),classify(exc,'SYNC_SCOPE_DENIED' if isinstance(exc,AuthorizationError) else 'SYNC_REQUEST_INVALID' if isinstance(exc,ValueError) else 'SYNC_PROPOSAL_FAILED'))
+                emit('SYNC-PROPOSAL-ERROR',stage='proposal-send',diagnostic=diagnostic)
+                status=403 if isinstance(exc,AuthorizationError) else 409 if isinstance(exc,(ConflictError,ValueError)) else 503
+                return JSONResponse({'error':CODES[code],'code':code,'request_id':current().get('request_id'),'diagnostic':diagnostic,'retry_same_request':True},status_code=status,headers={'Cache-Control':'no-store'})
+        return await submit()
     @app.api_route('/admin/site-sync/api/{rest:path}',methods=['GET','POST'])
     async def admin(request:Request,rest:str):
         r=await resources(request);authorize(r,'edit' if request.method=='POST' else 'view')

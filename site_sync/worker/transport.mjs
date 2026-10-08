@@ -86,6 +86,8 @@ export class SignedPeer {
         try{const text=await errorPrefix(response),code=text.match(/\b110[12]\b/);if(code)error.platform_code=Number(code[0]);}catch{}
         throw error;
       }
+      if(response.headers?.get?.('cf-mitigated')==='challenge')throw Object.assign(new PeerError('Peer access challenge','authorization'),{code:'PEER_ACCESS_CHALLENGE',http_status:response.status},peerDiagnostics(response));
+      if(response.status>=300&&response.status<400)throw Object.assign(new PeerError('Peer redirect','conflict'),{code:'PEER_REDIRECT',http_status:response.status},peerDiagnostics(response));
       if([401,403].includes(response.status))throw Object.assign(new PeerError('Peer authentication unavailable','credential'),{code:'PEER_HTTP_FORBIDDEN',http_status:response.status},peerDiagnostics(response));
       if(response.status!==200)throw Object.assign(new PeerError('Peer version/route rejected','conflict'),{code:'PEER_HTTP_FAILED',http_status:response.status},peerDiagnostics(response));
       const text=response.headers.get('x-sync-meta')||'',size=response.headers.get('content-length')||'';
@@ -98,7 +100,7 @@ export class SignedPeer {
       // Verify using WebCrypto rather than early-exit string comparison.
       const k=await crypto.subtle.importKey('raw',this.secret,{name:'HMAC',hash:'SHA-256'},false,['verify']);
       const supplied=response.headers.get('x-sync-signature')||'';
-      if(!/^[a-f0-9]{64}$/.test(supplied)||!await crypto.subtle.verify('HMAC',k,Uint8Array.from(supplied.match(/../g),x=>parseInt(x,16)),enc.encode(['sync-v1-response',nonce,'200',text,value].join('\n'))))throw new PeerError('Invalid signature','authorization');
+      if(!/^[a-f0-9]{64}$/.test(supplied)||!await crypto.subtle.verify('HMAC',k,Uint8Array.from(supplied.match(/../g),x=>parseInt(x,16)),enc.encode(['sync-v1-response',nonce,'200',text,value].join('\n'))))throw Object.assign(new PeerError('Invalid signature','authorization'),{code:'SYNC_RESPONSE_SIGNATURE'});
       mark('response_metadata');
       let meta;try{meta=JSON.parse(text);}catch{throw new PeerError('Invalid metadata','conflict');}
       if(!meta||typeof meta!=='object')throw new PeerError('Invalid metadata','conflict');

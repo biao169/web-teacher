@@ -1,6 +1,7 @@
 """Media uses native media_assets records, bounded uploads, private reads and reference checks."""
 import hashlib,secrets,re
 from pathlib import PurePosixPath
+from backend.app.ports.operations import operation,stage,emit,error
 from .catalog import TABLES,CONTENT,Error,now
 from .media_references import MediaReferences,REFERENCE_LOCK
 from .navigation import in_scope,navigation_guard
@@ -9,6 +10,7 @@ class Media:
         """保存构造参数和适配器，供此对象后续操作复用。"""
         self.sql=sql;self.auth=auth;self.content=content;self.store=store;self.kind=kind
         self.references=MediaReferences(content)
+    @operation('media-upload')
     async def upload(self,p,filename,request,allowed_mimes=None,metadata=None,validate_bytes=None,new_uid=None,creation_guard=None):
         """One globally reserved upload, maximum 20 MiB; release reservation on every exit."""
         self.auth.require(p,'media_assets','create');at=now();lock='media:upload'
@@ -28,32 +30,86 @@ class Media:
         extension=PurePosixPath(filename).suffix.lower().lstrip('.')
         if extension not in allowed:raise Error('不支持此文件扩展名')
         if allowed_mimes and extension not in {ext for mime in allowed_mimes for ext in EXTENSIONS[mime]}:raise Error('此文件类型不适用于当前字段')
+        uid=new_uid or secrets.token_hex(16);key=(secrets.token_hex(16) if new_uid else uid)+'.'+extension
         gid,guard=self.auth.guard(p,'media_assets','create');owner=gid
-        await self.sql.batch([guard,('DELETE FROM admin_mutation_guards WHERE uid=? AND created_at<?',(lock,now(seconds=-300))),('INSERT INTO admin_mutation_guards(uid,module,target_uid,expected_updated_at,created_at) VALUES (?,?,?,?,?)',(lock,'media_assets',gid,at,at)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
-        key=None;committed=False
+        session=None;session_statements=[]
+        if self.kind=='r2':
+            from backend.maintenance.media_uploads import create
+            session,statement=create(uid,key,owner);session_statements=[statement]
+        with stage('media-reserve'):
+            await self.sql.batch([guard,('DELETE FROM admin_mutation_guards WHERE uid=? AND created_at<?',(lock,now(seconds=-300))),('INSERT INTO admin_mutation_guards(uid,module,target_uid,expected_updated_at,created_at) VALUES (?,?,?,?,?)',(lock,'media_assets',gid,at,at)),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,)),*session_statements])
+        if session:emit('MEDIA-UPLOAD-SESSION',stage='media-reserved',upload_id=uid,checkpoint={'table':'service_meta','key':session})
+        committed=False;primary=None
         try:
-            data=bytearray()
-            async for chunk in request.stream():
-                if len(data)+len(chunk)>limit:raise Error('文件超过上传大小限制',413)
-                data.extend(chunk)
-            from backend.app.native.media import signature
-            mime=signature(data,extension)
-            if not mime:raise Error('文件内容与扩展名不符')
-            if allowed_mimes and mime not in allowed_mimes:raise Error('此文件类型不适用于当前字段')
-            # Optional purpose-specific checks run before object storage and registry mutation.
-            if validate_bytes:validate_bytes(data,mime)
-            usage=(await self.sql.query("SELECT coalesce(sum(size),0) n FROM media_assets"))[0]['n']
-            if usage+len(data)>500*1024*1024:raise Error('媒体空间配额500MiB已用尽',413)
-            uid=new_uid or secrets.token_hex(16);key=(secrets.token_hex(16) if new_uid else uid)+'.'+extension
-            await self.store.put(key,bytes(data))
+            if self.kind=='r2':
+                from backend.app.ports.upload_stream import put as stream_put
+                with stage('media-quota'):
+                    usage=(await self.sql.query("SELECT coalesce(sum(size),0) n FROM media_assets"))[0]['n']
+                    budget=min(limit,500*1024*1024-usage)
+                    if budget<=0:raise Error('媒体空间配额500MiB已用尽',413)
+                size,mime,checksum=await stream_put(key,extension,budget,allowed_mimes,validate_bytes,session=session)
+            else:
+                with stage('media-read-body'):
+                    data=bytearray()
+                    async for chunk in request.stream():
+                        if len(data)+len(chunk)>limit:raise Error('文件超过上传大小限制',413)
+                        data.extend(chunk)
+                emit('MEDIA-BODY',stage='media-read-body',bytes=len(data),limit_bytes=limit)
+                from backend.app.native.media import signature
+                with stage('media-validate'):
+                    mime=signature(data,extension)
+                    if not mime:raise Error('文件内容与扩展名不符')
+                    if allowed_mimes and mime not in allowed_mimes:raise Error('此文件类型不适用于当前字段')
+                    # Optional purpose-specific checks run before object storage and registry mutation.
+                    if validate_bytes:validate_bytes(data,mime)
+                with stage('media-quota'):
+                    usage=(await self.sql.query("SELECT coalesce(sum(size),0) n FROM media_assets"))[0]['n']
+                    if usage+len(data)>500*1024*1024:raise Error('媒体空间配额500MiB已用尽',413)
+                with stage('media-storage-put',bytes=len(data),storage=self.kind):
+                    await self.store.put(key,bytes(data))
+                with stage('media-checksum',bytes=len(data)):
+                    checksum=hashlib.sha256(data).hexdigest()
+                size=len(data)
             condition="EXISTS(SELECT 1 FROM admin_mutation_guards WHERE uid=? AND target_uid=?)";args=(lock,owner)
+            if session:
+                from backend.maintenance.media_uploads import fence
+                extra,params=fence(session);condition+=' AND '+extra;args+=params
             if creation_guard:condition+=' AND ('+creation_guard[0]+')';args+=creation_guard[1]
             gid,guard=self.auth.guard(p,'media_assets','create',condition,args)
-            await self.sql.batch([guard,('INSERT INTO media_assets(uid,object_key,title,category,mime_type,size,storage_kind,status,checksum,original_filename) VALUES (?,?,?,?,?,?,?,?,?,?)',(uid,key,metadata.get('title') or filename[:200],metadata.get('category'),mime,len(data),self.kind,'active',hashlib.sha256(data).hexdigest(),filename)),self.content.audit(p,'media_assets','upload',uid),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))]);committed=True
+            terminal=[]
+            if session:
+                from backend.maintenance.media_uploads import finish
+                terminal=[finish(session)]
+            try:
+                with stage('media-register',bytes=size):
+                    await self.sql.batch([guard,('INSERT INTO media_assets(uid,object_key,title,category,mime_type,size,storage_kind,status,checksum,original_filename) VALUES (?,?,?,?,?,?,?,?,?,?)',(uid,key,metadata.get('title') or filename[:200],metadata.get('category'),mime,size,self.kind,'active',checksum,filename)),self.content.audit(p,'media_assets','upload',uid),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,)),*terminal]);committed=True
+            except Exception as exc:
+                if session and not isinstance(exc,Error):
+                    raise Error('上传登记结果未确认，请先刷新媒体库检查，再决定是否重新上传',503) from exc
+                raise
             return uid
+        except BaseException as exc:
+            primary=exc
+            raise
         finally:
-            if key and not committed:await self.store.delete(key)
-            await self.sql.batch([('DELETE FROM admin_mutation_guards WHERE uid=? AND target_uid=?',(lock,owner))])
+            cleanup=None
+            try:
+                if key and not committed:
+                    # A commit can succeed even when its acknowledgement is lost. Never delete an indexed object.
+                    if session:
+                        registered=await self.sql.query('SELECT 1 FROM media_assets WHERE object_key=? LIMIT 1',(key,))
+                        if registered:committed=True
+                    if not committed:
+                        with stage('media-cleanup-object'):await self.store.delete(key)
+            except Exception as exc:cleanup=exc
+            try:
+                with stage('media-release-reservation'):
+                    await self.sql.batch([('DELETE FROM admin_mutation_guards WHERE uid=? AND target_uid=?',(lock,owner))])
+            except Exception as exc:
+                if cleanup is None:cleanup=exc
+            if cleanup is not None:
+                emit('MEDIA-CLEANUP-FAILED',stage='media-cleanup',primary_error=type(primary).__name__ if primary else None,committed=committed,**error(cleanup))
+                if primary is None:raise cleanup
     async def readable(self,uid,p=None):
         """A public file needs an actual visible reference and public attachment policy."""
         rows=await self.sql.query("SELECT * FROM media_assets WHERE uid=? AND status='active'",(uid,))

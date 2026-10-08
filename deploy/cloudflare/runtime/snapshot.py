@@ -27,3 +27,11 @@ from worker_runtime.sync_resources import application as sync_peer_application
 # Keep deferred route dependencies in the deployment snapshot. Importing these
 # declarations does not install routes, read bindings, or construct a task.
 from site_sync.integration import lazy_routes,write_gate,credentials_api,control_api
+
+from worker_runtime import media_upload
+
+# Deterministic recovery definitions only; no scan or storage work during startup.
+from backend.maintenance import media_uploads
+
+# Small outgoing receipt definitions, no network or task advancement.
+from site_sync.integration import outgoing

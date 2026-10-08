@@ -6,7 +6,7 @@ globalThis.crypto ||= webcrypto;
 test('request deadline aborts fetch and classifies resource recovery',async()=>{
  let aborted=false;
  const keepAlive=setTimeout(()=>{},1000);
- try{const p=new SignedPeer('https://example.com',new Uint8Array(32),{timeoutMs:10,fetcher:async(url,{signal})=>new Promise((resolve,reject)=>{signal.addEventListener('abort',()=>{aborted=true;reject(signal.reason);});})});
+ try{const p=new SignedPeer('https://example.com',new Uint8Array(32),{timeoutMs:10,fetcher:async(url,{signal})=>new Promise((resolve,reject)=>{if(signal.aborted){aborted=true;reject(signal.reason);return;}signal.addEventListener('abort',()=>{aborted=true;reject(signal.reason);});})});
  await assert.rejects(p.read({kind:'candidates',version:'catalog-v1'}),e=>e.kind==='resource');assert.equal(aborted,true);
  }finally{clearTimeout(keepAlive);}
 });

@@ -12,7 +12,7 @@ class ExecutorTests(unittest.TestCase):
         maintenance=load('maintenance_isolated',ROOT/'deploy/cloudflare/runtime/maintenance.py')
         bindings=types.SimpleNamespace(TEACHER_SYNC_EXECUTOR_MODE='separate')
         with patch('site_sync.integration.worker_schedule.run',new_callable=AsyncMock) as tick:
-            job,value=asyncio.run(maintenance.run(None,bindings,types.SimpleNamespace(scheduledTime=3*60000)))
+            job,value=asyncio.run(maintenance.run(None,bindings,types.SimpleNamespace(scheduledTime=4*60000)))
             self.assertEqual((job,value['action']),('sync','delegated'));tick.assert_not_awaited()
 
     def test_executor_scheduled_uses_same_db_without_http_factory(self):

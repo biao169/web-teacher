@@ -2,6 +2,7 @@
 import os,re,json,secrets
 from pathlib import Path
 from .catalog import Error
+from backend.app.ports.operations import stage
 
 def key_path(key):
     """Object keys are relative ASCII paths, never user-supplied filesystem addresses."""
@@ -36,11 +37,13 @@ class R2Store:
         """Bounded whole-object upload; authoritative metadata is committed after R2 succeeds."""
         import js
         from pyodide.ffi import to_js
-        view=to_js(data)
-        try:value=js.Uint8Array.new(view)
-        finally:
-            if hasattr(view,'destroy'):view.destroy()
-        await self.bucket.put(self.prefix+key_path(key),value)
+        with stage('r2-buffer-conversion',bytes=len(data)):
+            view=to_js(data)
+            try:value=js.Uint8Array.new(view)
+            finally:
+                if hasattr(view,'destroy'):view.destroy()
+        with stage('r2-put',bytes=len(data)):
+            await self.bucket.put(self.prefix+key_path(key),value)
     async def get(self,key,max_bytes=None):
         """先核对R2返回的实际字节大小，可选上限在读取对象正文前生效。"""
         import js

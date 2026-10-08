@@ -1,9 +1,9 @@
 <!-- Include this fragment inside the existing authenticated admin base template.
      Substitute data-api if the mount differs. The host's CSRF meta tag is reused. -->
-<section id="site-sync-panel" class="sync-panel panel" data-api="/admin/site-sync/api" aria-labelledby="sync-title">
-  <header class="sync-heading"><div><h2 id="sync-title">任务监控</h2><p>接收本站所选内容；有进度的重试会继续，允许任务缓慢完成。</p></div><button class="btn btn-outline-primary" type="button" data-refresh>刷新状态</button></header>
+<section id="site-sync-panel" class="sync-panel panel" data-api="/admin/site-sync/api" data-peer-origin="{{ sync_peer.origin if sync_peer else '' }}" aria-labelledby="sync-title">
+  <header class="sync-heading"><div><h2 id="sync-title">任务监控</h2><p>接收本站所选内容；有进度的重试会继续，允许任务缓慢完成。</p></div><div class="sync-refresh-actions"><button class="btn btn-outline-primary" type="button" data-refresh>刷新状态</button><button class="btn btn-outline-secondary" type="button" data-auto-refresh aria-pressed="true">暂停自动刷新</button></div></header>
   <p data-message role="status" aria-live="polite"></p>
-  <p class="sync-muted">可见页面约10秒刷新；后台任务不依赖页面打开。统一时区：Asia/Shanghai（UTC+08:00） · <span data-updated>尚未刷新</span></p>
+  <p class="sync-muted"><span data-auto-refresh-status>自动刷新已开启，每 60 秒一次</span>；暂停刷新仅停止页面轮询，不会暂停后台同步任务。统一时区：Asia/Shanghai（UTC+08:00） · <span data-updated>尚未刷新</span></p>
   <details id="sync-defaults"><summary>站点默认同步参数</summary><form data-defaults><div class="sync-parameter-grid">
 <label>初始正文切片 <input class="form-control" name="slice_bytes" type="text" placeholder="填写 4KiB、256KiB、4m 或字节数" required><small class="sync-help">每次正文读取上限，支持 4KiB、256KiB、4m；大切片会增加单次资源消耗。</small></label>
 <label>最小正文切片 <input class="form-control" name="min_slice_bytes" type="text" placeholder="最低4KiB" required><small class="sync-help">自动缩片的下限，最低 4KiB，不能超过初始切片。</small></label>
@@ -20,7 +20,7 @@
 <label>快速重试次数 <input class="form-control" name="fast_retries" type="number" min="0" max="1000" placeholder="留空继承" ><small class="sync-help">连续无进度时快速重试的次数；耗尽后仍会慢速重试，有进度则重新计数。</small></label>
 <label>慢速重试间隔（秒） <input class="form-control" name="slow_retry_seconds" type="number" min="60" max="1800" placeholder="留空继承" ><small class="sync-help">快速重试耗尽后的等待上限，60—1800 秒；不限制任务总时长。</small></label>
 <label>正文切片自动调整 <select class="form-select" name="auto_shrink"><option value="">继承站点默认</option><option value="true">启用</option><option value="false">关闭</option></select><small class="sync-help">资源压力时降低正文切片；至少 8 片成功且冷却 300 秒后缓慢恢复。R2 持久分段不随之改变。</small></label></div></details><button class="btn btn-primary">拉取到本站</button><button class="btn btn-outline-primary" type="button" data-proposal>推送到对端</button><span>取消自动确认则等待本站批准；分项恢复只批准一次整个任务。推送由对端审核策略决定，以上复选框仅控制本站拉取。</span>
-  </form></details>
+  <pre data-proposal-feedback role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></form><details><summary>最近发出的推送请求</summary><p class="sync-help">任务在对端运行，此处显示最近20条发送结果；保留最近50条发送记录。</p><button type="button" class="btn btn-outline-primary btn-sm" data-outgoing-refresh>刷新发送记录</button><div data-outgoing-proposals></div></details></details>
   <p data-retention-note class="sync-muted"></p>
   <h2 id="sync-tasks">任务列表与进度</h2>
   <nav class="sync-tabs" aria-label="任务范围"><button class="btn btn-outline-primary" type="button" data-view="all" aria-pressed="true">全部任务</button><button class="btn btn-outline-primary" type="button" data-view="running" aria-pressed="false">运行中</button><button class="btn btn-outline-primary" type="button" data-view="waiting" aria-pressed="false">待运行</button><button class="btn btn-outline-primary" type="button" data-view="paused" aria-pressed="false">已暂停</button><button class="btn btn-outline-primary" type="button" data-view="history" aria-pressed="false">已结束</button><button class="btn btn-outline-primary" type="button" data-trim>按保留期清理一条记录</button></nav>
@@ -38,7 +38,7 @@
     <div class="sync-table"><table class="table"><thead><tr><th>批准</th><th>条目 ID</th><th>模块 / 来源记录</th><th>动作 / 状态</th></tr></thead><tbody data-items></tbody></table></div>
     <button class="btn btn-outline-primary" type="button" data-items-first>候选首页</button><button class="btn btn-outline-primary" type="button" data-items-more hidden>下一页候选</button><button class="btn btn-outline-primary" type="button" data-confirm hidden>批准所选条目</button><span data-selected></span>
   </section>
-  <h2 id="sync-schedules">定时拉取计划</h2><p>只在接收站启用。暂停计划不会取消已经创建的任务。</p>
+  <h2 id="sync-schedules">定时拉取计划</h2><p>只在接收站启用。暂停或删除计划不会取消已经创建的任务；删除后不再产生新的定时任务。</p>
   <div class="sync-table"><table class="table"><thead><tr><th>计划 ID / 对端</th><th>范围 / 周期</th><th>状态</th><th>下次运行 / 最近任务</th><th>操作</th></tr></thead><tbody data-schedules></tbody></table></div>
   <button class="btn btn-outline-primary" type="button" data-schedules-more hidden>加载更多计划</button>
   <form data-schedule><h3 data-schedule-title>新增计划</h3><label>对端 <select class="form-select" name="peer" required></select><small class="sync-help">使用已保存并启用的对端连接。</small></label><fieldset class="sync-scope" data-scope><legend>同步内容</legend><p class="sync-muted">点击卡片多选或全选；依赖项自动选入，取消依赖会同时取消依赖它的项目。部分选择合并记录、保留目标额外内容；全选替换网站内容。账号、角色、权限始终一起替换，完成后使用对端账号登录。</p><div class="sync-scope-tools"><button type="button" class="btn btn-outline-primary btn-sm" data-scope-all>全选内容</button><button type="button" class="btn btn-outline-primary btn-sm" data-scope-clear>清空选择</button><span data-scope-count aria-live="polite">未选择</span></div><div class="sync-scope-grid" data-scope-grid></div></fieldset><label>周期（秒） <input class="form-control" name="interval_seconds" type="number" min="60" max="2592000" value="3600" required><small class="sync-help">两次计划触发的间隔；上一接收任务未结束时不会重叠创建。</small></label><label><input name="enabled" type="checkbox">启用自动拉取<small class="sync-help">开启后由服务端定时拉取，关闭页面也会继续。</small></label><details><summary>计划参数覆盖（留空继承）</summary><div class="sync-parameter-grid">

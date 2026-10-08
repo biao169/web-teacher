@@ -17,6 +17,7 @@ export async function dispatch(env,method,raw){
     if(typeof raw!=='string'||raw.length>16384||new TextEncoder().encode(raw).length>16384)throw new Error('Control bound');
     const q=JSON.parse(raw);let value;
     for(const k of ['request_id','task_id','stage','attempt_id'])if(typeof q.trace?.[k]==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(q.trace[k]))trace[k]=q.trace[k];
+    if(method==='status'){mark('credential_read');const key=await resolveSecret(env);const fingerprint=await (await import('./transport.mjs')).sha(key);return JSON.stringify({ok:true,value:{release:RELEASE,credential_fingerprint:fingerprint.slice(0,16)}});}
     stage='admission';if(method!=='discard'&&await paused(env))return JSON.stringify({ok:false,kind:'temporary',stage:'admission',code:'SYNC_PAUSED',component:'local-native',release:RELEASE});
     if(method==='read'){
       if(!['manifest','slice','candidates','proposal','clone_check','probe'].includes(q.request?.kind))throw new Error('Read kind');

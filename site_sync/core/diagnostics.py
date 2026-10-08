@@ -1,7 +1,16 @@
 """Bounded diagnostic vocabulary shared by admin and peer transports."""
 import re
-RELEASE='0.16.037'
+RELEASE='0.16.043'
 CODES={
+ 'SYNC_PROPOSAL_PENDING':'对端已有未完成的推送任务；请先在对端查看并处理该任务',
+ 'SYNC_PROPOSAL_CHANGED':'此请求 ID 已用于其他域名或同步范围；请重新选择当前连接与内容后提交新请求',
+ 'SYNC_NATIVE_KEY_MISMATCH':'主站与原生辅助 Worker 的生效密钥不一致；核对数据库绑定并部署完整包',
+ 'SYNC_NATIVE_VERSION':'主站与原生辅助 Worker 版本不一致；请部署完整包',
+ 'SYNC_RESPONSE_SIGNATURE':'对端响应签名不匹配；检查密钥及中间代理',
+ 'PEER_REDIRECT':'对端返回重定向；检查最终域名、登录保护及路由，不会自动转发密钥签名',
+ 'PEER_ACCESS_CHALLENGE':'对端返回 Cloudflare 验证挑战；检查同步接口的访问规则',
+ 'SYNC_PROPOSAL_FAILED':'推送发送结果未确认；可使用同一请求 ID 重试，避免重复创建',
+
  'SYNC_NATIVE_PROTOCOL':'原生辅助正文协议不匹配；请部署完整包并确认辅助 Worker 已同步更新',
  'SYNC_CLEANUP_FAILED':'资源清理失败；保留原始异常并检查清理阶段日志',
  'SYNC_EXECUTOR_UNAVAILABLE':'独立同步执行器不可用；不会回退到主站执行',

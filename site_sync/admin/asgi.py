@@ -67,6 +67,7 @@ class AdminASGI:
             if p==['tasks']:return await a.create(actor,b)
             if len(p)==3 and p[0]=='tasks' and p[2]=='logs':return await a.logs(actor,p[1],before=int(q['before'][0]) if 'before' in q else None)
             if p==['schedules']:return await a.save_schedule(actor,b)
+            if len(p)==3 and p[0]=='schedules' and p[2]=='delete':return await a.delete_schedule(actor,p[1],b)
             if len(p)==3 and p[0]=='tasks':return await a.command(actor,p[1],p[2],b)
             if p==['retention']:
                 await a.grant(actor,True)

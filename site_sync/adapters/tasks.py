@@ -58,7 +58,7 @@ class Tasks:
             raise AuthorizationError('Scope no longer allowed')
         return task,current
 
-    async def create(self,*,peer_id,grant_id,scope,operation_id,now,mode='manual',auto_confirm=False,auto_delete=True,expected_grant_revision=None,settings=None):
+    async def create(self,*,peer_id,grant_id,scope,operation_id,now,mode='manual',auto_confirm=False,auto_delete=True,expected_grant_revision=None,settings=None,expected_schedule=None):
         if mode not in ('manual','scheduled','proposal') or not operation_id or len(operation_id)>128:raise ValueError('Invalid task request')
         if type(auto_confirm)!=bool or type(auto_delete)!=bool:raise ValueError('Invalid confirmation policy')
         auto_confirm=auto_confirm or mode=='scheduled'
@@ -81,10 +81,11 @@ class Tasks:
           FROM sync_peers p JOIN sync_grants g ON g.grant_id=?
           WHERE p.peer_id=? AND p.enabled=1 AND g.enabled=1 AND g.revision=?
           AND (g.expires_at=0 OR g.expires_at>?) AND '''+SCHEMA+'''
+          AND (? IS NULL OR EXISTS(SELECT 1 FROM sync_schedules s WHERE s.schedule_id=? AND s.revision=? AND s.next_run_at=? AND s.enabled=1 AND s.grant_id=g.grant_id))
           AND (? NOT IN ('scheduled','proposal') OR NOT EXISTS(SELECT 1 FROM sync_tasks busy WHERE busy.peer_id=p.peer_id AND busy.status NOT IN ('done','cancelled') AND busy.operation_id!=?))
           ON CONFLICT(operation_id) DO NOTHING''',
           (uid,'proposal' if mode=='proposal' else 'pull',encoded,now,operation_id,grant_id,mode,int(auto_confirm),
-           config['fast_retries'],config['slow_retry_seconds'],config['slice_bytes'],int(auto_confirm),int(auto_delete),config['min_slice_bytes'],config['slice_bytes'],int(config['auto_shrink']),grant_id,peer_id,g['revision'],now,mode,operation_id))]+journal(uid,now,'created',{'mode':mode,'auto_confirm':auto_confirm},condition='changes()=1'))
+           config['fast_retries'],config['slow_retry_seconds'],config['slice_bytes'],int(auto_confirm),int(auto_delete),config['min_slice_bytes'],config['slice_bytes'],int(config['auto_shrink']),grant_id,peer_id,g['revision'],now,(expected_schedule or {}).get('schedule_id'),(expected_schedule or {}).get('schedule_id'),(expected_schedule or {}).get('revision'),(expected_schedule or {}).get('next_run_at'),mode,operation_id))]+journal(uid,now,'created',{'mode':mode,'auto_confirm':auto_confirm},condition='changes()=1'))
         rows=await self.db.query('SELECT * FROM sync_tasks WHERE operation_id=?',(operation_id,))
         if not rows:
             busy=await self.db.query("SELECT task_id FROM sync_tasks WHERE peer_id=? AND status NOT IN ('done','cancelled') LIMIT 1",(peer_id,))

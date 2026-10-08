@@ -34,7 +34,8 @@ class LazyApplication:
         if self.application is None:
             # No await during construction: requests cannot interleave installation.
             # Publish the cached reference only after construction fully succeeds.
-            with phase('INIT-COORDINATOR' if self.include_transfer else 'INIT-SITE'):
+            from backend.app.ports.operations import stage
+            with stage('application-build'),phase('INIT-COORDINATOR' if self.include_transfer else 'INIT-SITE'):
                 self.application = build_application(include_transfer=True) if self.include_transfer else build_application()
         await self.application(scope, receive, send)
 
@@ -61,7 +62,7 @@ class Default(WorkerEntrypoint):
         if path=='/sync/v1/read' and str(getattr(self.env,'TEACHER_SYNC_PAUSED','0'))=='1':
             from js import Response,Object
             from pyodide.ffi import to_js
-            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.037'}},dict_converter=Object.fromEntries))
+            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.043'}},dict_converter=Object.fromEntries))
         ray=str(request.headers.get('cf-ray') or '')
         ray=ray if re.fullmatch('[a-fA-F0-9]{8,32}-[A-Z]{3}',ray) else ''
         route='sync-peer' if path=='/sync/v1/read' else 'sync-admin' if path.startswith(('/admin/site-sync','/api/admin/site-sync')) else 'admin' if path.startswith('/admin') else 'public'
@@ -73,13 +74,15 @@ class Default(WorkerEntrypoint):
                     emit('SYNC-FORWARD','ERROR',component='main-site',request_id=trace,code='SYNC_EXECUTOR_UNAVAILABLE',exceptions=failure(exc))
                     from js import Response,Object
                     from pyodide.ffi import to_js
-                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.037'}},dict_converter=Object.fromEntries))
+                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.043'}},dict_converter=Object.fromEntries))
             elif request.headers.get('x-sync-stream')=='1' and path=='/sync/v1/read':
                 response=await self.env.SYNC_NATIVE.fetch(request)
             elif path=='/sync/v1/read':
                 from worker_runtime.sync_resources import application as peer_application
                 response=await asgi.fetch(peer_application,request,self.env,self.ctx)
-            else:response=await dispatch(application,request,self.env,self.ctx,asgi.fetch)
+            else:
+                from worker_runtime.media_upload import dispatch_upload
+                response=await dispatch_upload(application,request,self.env,self.ctx,asgi.fetch,dispatch)
             if int(response.status)>=500:emit('HTTP-RESPONSE','ERROR',component='main-site',request_id=trace,ray_id=ray,route=route,http_status=int(response.status))
             return response
 

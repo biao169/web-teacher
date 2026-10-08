@@ -6,7 +6,7 @@ def job_for(controller=None):
     # retain their slot; fallback supports local/manual scheduler tests.
     stamp = getattr(controller, 'scheduledTime', None)
     minute = int((float(stamp) / 1000 if stamp is not None else time.time()) // 60)
-    return ('transfer', 'history', 'logs')[minute % 10] if minute % 10 < 3 else 'sync'
+    return ('transfer', 'history', 'logs', 'uploads')[minute % 10] if minute % 10 < 4 else 'sync'
 
 async def run(sql, bindings, controller=None):
     job = job_for(controller)
@@ -15,6 +15,9 @@ async def run(sql, bindings, controller=None):
             return job, {'action':'delegated','skipped':'separate-executor'}
         from site_sync.integration.worker_schedule import run as sync
         result = await sync(sql, bindings)
+    elif job == 'uploads':
+        from backend.maintenance.media_uploads import scheduled
+        result = await scheduled(sql, bindings)
     elif job == 'logs':
         from backend.maintenance.log_retention import scheduled
         result = await scheduled(sql)

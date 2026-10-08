@@ -66,6 +66,8 @@ class HTTPPeer:
                 except Exception:code=None
                 if code:error.platform_code=int(code.group())
                 raise error
+            if h.get('cf-mitigated')=='challenge':raise coded(AuthorizationError('Peer access challenge'),'PEER_ACCESS_CHALLENGE')
+            if 300<=response.status<400:raise coded(ConflictError('Peer redirect'),'PEER_REDIRECT')
             if response.status in (401,403):
                 error=CredentialRetryError('Peer authentication unavailable');error.http_status=response.status
                 raise error
@@ -96,7 +98,7 @@ class HTTPPeer:
             exc.request_id=headers['x-sync-nonce']
             if 'response' in locals() and response.status!=200:
                 exc.http_status=response.status;exc.stage='response_headers';exc.ray_id=h.get('cf-ray','')
-                exc.code='PEER_HTTP_FORBIDDEN' if response.status in (401,403) else 'PEER_HTTP_FAILED'
+                exc.code=getattr(exc,'code',None) or ('PEER_HTTP_FORBIDDEN' if response.status in (401,403) else 'PEER_HTTP_FAILED')
                 for key,value in peer_headers(h).items():setattr(exc,key,value)
             raise
         finally:

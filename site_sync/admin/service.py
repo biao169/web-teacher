@@ -170,6 +170,16 @@ class Admin:
         for r in rows:
             r['scope']=json.loads(r.pop('scope_json'));r['settings']=json.loads(r.pop('settings_json'))
         return {'items':rows,'cursor':rows[-1]['schedule_id'] if more else None}
+    async def delete_schedule(self,actor,uid,body):
+        g=await self.grant(actor,True)
+        if not g['can_write']:raise AuthorizationError('无定时写入权限')
+        if set(body)!={'revision'} or not isinstance(body['revision'],str) or not 1<=len(body['revision'])<=64:raise ValueError('无效计划修订号')
+        if not isinstance(uid,str) or not 1<=len(uid)<=32:raise ValueError('无效计划 ID')
+        result=await self.db.batch([('DELETE FROM sync_schedules WHERE schedule_id=? AND grant_id=? AND revision=? AND EXISTS(SELECT 1 FROM sync_grants WHERE grant_id=? AND revision=? AND enabled=1 AND can_write=1 AND (expires_at=0 OR expires_at>?))',
+            (uid,actor.grant_id,body['revision'],actor.grant_id,g['revision'],self.clock()))])
+        if result[0]['meta']['changes']!=1:raise ConflictError('计划已变更、已删除或无权限，请刷新')
+        return {'deleted':True,'schedule_id':uid,'existing_tasks_preserved':True}
+
     async def save_schedule(self,actor,body):
         g=await self.grant(actor,True)
         required={'schedule_id','revision','peer_id','scope','interval_seconds','enabled'}
