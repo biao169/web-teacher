@@ -4,7 +4,7 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 try:
-    from generated_resources import NATIVE
+    from generated_native_resources import NATIVE
 except ImportError:
     root=Path(__file__).resolve().parents[3]/'database/native'
     NATIVE={n:json.loads((root/(n+'.json')).read_text(encoding='utf-8')) for n in ('schema-spec','editor-contract')}
