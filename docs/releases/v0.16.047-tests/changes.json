@@ -1,0 +1,25 @@
+{
+  "baseline": "0.16.046",
+  "version": "0.16.047",
+  "changed_files": [
+    "README.md",
+    "backend/app/ports/operations.py",
+    "deploy/cloudflare/README.md",
+    "deploy/cloudflare/pyproject.toml",
+    "deploy/cloudflare/runtime/entrypoint.py",
+    "deploy/cloudflare/runtime/request_diagnostics.py",
+    "deploy/cloudflare/runtime/sync_executor.py",
+    "deploy/cloudflare/tests/test_request_diagnostics.py",
+    "deploy/cloudflare/tests/test_sync_executor.py",
+    "deploy/cloudflare/tests/test_sync_isolation.py",
+    "deploy/cloudflare/uv.lock",
+    "pyproject.toml",
+    "site_sync/core/diagnostics.py",
+    "site_sync/runtime/bridge.py",
+    "site_sync/worker/diagnostics.mjs"
+  ],
+  "new_source_files": [
+    "docs/releases/v0.16.047.md"
+  ],
+  "runtime_dependencies_added": []
+}

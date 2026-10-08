@@ -62,19 +62,22 @@ class Default(WorkerEntrypoint):
         if path=='/sync/v1/read' and str(getattr(self.env,'TEACHER_SYNC_PAUSED','0'))=='1':
             from js import Response,Object
             from pyodide.ffi import to_js
-            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.046'}},dict_converter=Object.fromEntries))
+            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.047'}},dict_converter=Object.fromEntries))
         ray=str(request.headers.get('cf-ray') or '')
         ray=ray if re.fullmatch('[a-fA-F0-9]{8,32}-[A-Z]{3}',ray) else ''
         route='sync-peer' if path=='/sync/v1/read' else 'sync-admin' if path.startswith(('/admin/site-sync','/api/admin/site-sync')) else 'admin' if path.startswith('/admin') else 'public'
         with phase('FETCH',progress=False,component='main-site',request_id=trace,ray_id=ray,route=route):
             if path=='/sync/v1/read' and str(getattr(self.env,'TEACHER_SYNC_EXECUTOR_MODE','inline'))=='separate':
-                try:response=await self.env.SYNC_EXECUTOR.fetch(request)
+                try:
+                    response=await self.env.SYNC_EXECUTOR.fetch(request)
+                    upstream=str(response.headers.get('x-request-id') or '')
+                    emit('SYNC-FORWARD','RETURNED',component='main-site',request_id=trace,peer_request_id=str(request.headers.get('x-sync-nonce') or '')[:32] if re.fullmatch('[a-f0-9]{32}',str(request.headers.get('x-sync-nonce') or '')) else None,upstream_request_id=upstream if re.fullmatch('[a-f0-9]{32}',upstream) else None,http_status=int(response.status))
                 except Exception as exc:
                     from worker_runtime.diagnostics import failure
                     emit('SYNC-FORWARD','ERROR',component='main-site',request_id=trace,code='SYNC_EXECUTOR_UNAVAILABLE',exceptions=failure(exc))
                     from js import Response,Object
                     from pyodide.ffi import to_js
-                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.046'}},dict_converter=Object.fromEntries))
+                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.047'}},dict_converter=Object.fromEntries))
             elif request.headers.get('x-sync-stream')=='1' and path=='/sync/v1/read':
                 response=await self.env.SYNC_NATIVE.fetch(request)
             elif path=='/sync/v1/read':

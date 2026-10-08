@@ -11,7 +11,10 @@ def test_separate_main_tick_never_enters_runner(entry,monkeypatch):
     tick.assert_not_awaited()
 
 def test_separate_peer_forwards_without_website(entry,monkeypatch):
-    remote=AsyncMock(return_value=SimpleNamespace(status=200))
+    from test_request_diagnostics import Response,Headers
+    monkeypatch.setitem(sys.modules,'js',SimpleNamespace(Response=Response))
+    native=SimpleNamespace(status=200,headers=Headers(),body=object())
+    remote=AsyncMock(return_value=SimpleNamespace(status=200,headers={},js_object=native))
     website=AsyncMock(side_effect=AssertionError('website application initialized'))
     monkeypatch.setattr(entry,'dispatch',website)
     obj=entry.Default();obj.env=SimpleNamespace(TEACHER_SYNC_EXECUTOR_MODE='separate',SYNC_EXECUTOR=SimpleNamespace(fetch=remote));obj.ctx=None
@@ -56,5 +59,15 @@ def test_peer_asgi_uses_only_minimal_resources(monkeypatch):
             body=encode({'kind':'probe','version':'probe-v1','scope':['news']})
             result=client.post('/sync/v1/read',content=body,headers=request_headers(bytes.fromhex('6a'*32),body))
             assert result.status_code==200,result.text
+            from site_sync.transport.protocol import verify_response
+            body=encode({'kind':'probe','version':'probe-v2'})
+            headers=request_headers(bytes.fromhex('6a'*32),body)
+            result=client.post('/sync/v1/read',content=body,headers=headers)
+            assert result.status_code==200,result.text
+            assert verify_response(bytes.fromhex('6a'*32),headers['x-sync-nonce'],200,result.headers,result.content)['version']=='probe-v2'
+            assert result.json()['protocol']=='probe-v2'
+            bad=client.post('/sync/v1/read',content=body,headers=request_headers(bytes.fromhex('7b'*32),body))
+            assert bad.status_code==403
+            assert bad.headers['x-sync-error']=='SYNC_SIGNATURE_INVALID'
             assert client.get('/').status_code==404
     finally:f.tearDown()

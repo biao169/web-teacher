@@ -13,8 +13,9 @@ class Default(WorkerEntrypoint):
         from urllib.parse import urlsplit
         if urlsplit(str(request.url)).path=='/sync/v1/read' and request.headers.get('x-sync-stream')=='1':
             return await self.env.SYNC_NATIVE.fetch(request)
-        from workers import asgi
-        from worker_runtime.sync_resources import application as peer_application
+        with phase('SYNC-HTTP-IMPORT',progress=False,component='sync-executor'):
+            from workers import asgi
+            from worker_runtime.sync_resources import application as peer_application
         with phase('SYNC-EXPORT',progress=False,component='sync-executor'):
             return await asgi.fetch(peer_application,request,self.env,self.ctx)
 

@@ -35,3 +35,31 @@ class ExecutorTests(unittest.TestCase):
             asyncio.run(run(sql,env));r=tick.call_args.args[0]
             self.assertEqual(set(vars(r)),{'sql','kind','sync_env'})
             self.assertIs(r.sync_env,env)
+
+    def test_fetch_uses_peer_asgi_and_reports_import_failure(self):
+        from test_request_diagnostics import Response,Headers
+        import builtins,contextlib,io,json
+        workers=types.ModuleType('workers');workers.WorkerEntrypoint=object
+        native=types.SimpleNamespace(status=200,body=object(),headers=Headers())
+        workers.asgi=types.SimpleNamespace(fetch=AsyncMock(return_value=native))
+        package=types.ModuleType('worker_runtime');package.__path__=[str(ROOT/'deploy/cloudflare/runtime')]
+        resources=types.ModuleType('worker_runtime.sync_resources');resources.application=object()
+        modules={'workers':workers,'worker_runtime':package,'worker_runtime.sync_resources':resources,'js':types.SimpleNamespace(Response=Response)}
+        with patch.dict(sys.modules,modules):
+            executor=load('executor_http_test',ROOT/'deploy/cloudflare/runtime/sync_executor.py')
+            obj=executor.Default();obj.env=types.SimpleNamespace(TEACHER_SYNC_EXECUTOR_MODE='separate');obj.ctx=object()
+            req=types.SimpleNamespace(url='https://site.test/sync/v1/read',headers=Headers())
+            result=asyncio.run(obj.fetch(req))
+            self.assertIs(result.body,native.body)
+            workers.asgi.fetch.assert_awaited_once_with(resources.application,req,obj.env,obj.ctx)
+            original=builtins.__import__
+            def broken(name,*args,**kwargs):
+                if name=='worker_runtime.sync_resources':raise ImportError('sensitive detail')
+                return original(name,*args,**kwargs)
+            output=io.StringIO()
+            with patch('builtins.__import__',broken),contextlib.redirect_stdout(output):
+                with self.assertRaises(ImportError):asyncio.run(obj.fetch(req))
+            logs=[json.loads(line) for line in output.getvalue().splitlines()]
+            self.assertTrue(any(x.get('stage')=='SYNC-HTTP-IMPORT' and x.get('status')=='ERROR' for x in logs))
+            self.assertEqual(logs[-1]['stage'],'INVOCATION-ERROR')
+            self.assertNotIn('sensitive detail',output.getvalue())

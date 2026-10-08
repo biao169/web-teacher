@@ -29,13 +29,16 @@ def traced(component,http=False):
                     with operation_stage('http-handler' if http else 'executor-handler'):
                         result=await fn(self,*args,**kwargs)
                     if http:
+                        # SDK service bindings return workers.Response, ASGI returns js.Response.
+                        # ResponseInit must receive the native object (not HTTPMessage/PyProxy headers).
+                        result=getattr(result,'js_object',result)
                         status=int(result.status)
                         if status!=101 and hasattr(result,'headers'):
                             from js import Response
                             with operation_stage('response-wrap'):
                                 result=Response.new(result.body,result)
                                 result.headers.set('x-request-id',data['request_id'])
-                                result.headers.set('x-teacher-release','0.16.046')
+                                result.headers.set('x-teacher-release','0.16.047')
                     record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='returned')
                     return result
                 except BaseException as exc:
