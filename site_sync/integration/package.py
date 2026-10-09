@@ -19,6 +19,7 @@ def write_native(root,stage,config):
          'compatibility_flags':['global_fetch_strictly_public'],'workers_dev':False,'preview_urls':False,
          'vars':{'TEACHER_MEDIA_PREFIX':config['vars']['TEACHER_MEDIA_PREFIX']},
          'd1_databases':[dict(db,binding='DB')],'r2_buckets':[dict(media,binding='MEDIA')]}
+    if config.get('vars',{}).get('TEACHER_RELEASE'):cfg['vars']['TEACHER_RELEASE']=config['vars']['TEACHER_RELEASE']
     cfg['vars']['TEACHER_SYNC_PAUSED']=str(config.get('vars',{}).get('TEACHER_SYNC_PAUSED','0'))
     cfg['durable_objects']={'bindings':[{'name':'SYNC_COORDINATOR','class_name':'SyncCoordinator'}]}
     cfg['migrations']=[{'tag':'teacher-sync-alarm-v1','new_sqlite_classes':['SyncCoordinator']}]
@@ -57,7 +58,7 @@ def verify(root,stage):
         if executor.get('triggers')!={'crons':['* * * * *']}:raise ValueError('Executor recovery schedule missing')
         for key in ('d1_databases','r2_buckets','compatibility_flags','vars'):
             if executor.get(key)!=cfg.get(key):raise ValueError('Executor resource/config mismatch: '+key)
-        if executor.get('services')!=[b for b in cfg['services'] if b['binding']!='SYNC_EXECUTOR']:raise ValueError('Executor native binding mismatch')
+        if executor.get('services')!=[b for b in cfg['services'] if b['binding'] not in ('SYNC_EXECUTOR','SITE_ADMIN')]:raise ValueError('Executor native binding mismatch')
         if not any(b.get('binding')=='SYNC_EXECUTOR' and b.get('service')==executor['name'] for b in cfg['services']):raise ValueError('Main executor binding missing')
         if executor.get('main')!='src/sync_executor.py' or (stage/'src/sync_executor.py').read_text().strip()!='from worker_runtime.sync_executor import Default':raise ValueError('Executor entrypoint missing')
         if (stage/'src/worker_runtime/sync_executor.py').read_bytes()!=(root/'deploy/cloudflare/runtime/sync_executor.py').read_bytes():raise ValueError('Executor source mismatch')

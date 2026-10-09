@@ -1,0 +1,2658 @@
+{
+  "source_version": "0.16.050",
+  "step": "0",
+  "scope": "disposable SQLite + ASGI test client",
+  "timings": "local wall milliseconds; not Cloudflare CPU or network TTFB",
+  "seed": "list_fixture: three records per seeded business module; one synthetic PNG",
+  "not_measured": [
+    "live Worker CPU/outcome/PoPs",
+    "live Ubuntu RSS/systemd/Caddy",
+    "browser network concurrency"
+  ],
+  "requests": [
+    {
+      "actor": "anonymous",
+      "path": "/en",
+      "sample": "first",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.857
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "profiles"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.699
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "profiles"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.765
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "publications"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.716
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "publications"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.618
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "projects"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.601
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "projects"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.558
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.611
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.608
+        },
+        {
+          "operation": "WITH",
+          "tables": [
+            "local",
+            "translation_cache"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.894
+        },
+        {
+          "operation": "WITH",
+          "tables": [
+            "courses",
+            "navigation_items",
+            "news",
+            "patents",
+            "profiles",
+            "projects",
+            "publications",
+            "ranked",
+            "research_interests",
+            "site_settings",
+            "student_category_displays",
+            "students",
+            "translation_cache"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 3.739
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.669
+        }
+      ],
+      "listing_calls": [
+        "profiles",
+        "publications",
+        "projects",
+        "news"
+      ],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 88.355,
+      "response_bytes": 4685,
+      "query_count": 12
+    },
+    {
+      "actor": "anonymous",
+      "path": "/en",
+      "sample": "repeat",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 3.113
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.948
+        }
+      ],
+      "listing_calls": [
+        "profiles",
+        "publications",
+        "projects",
+        "news"
+      ],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 11.121,
+      "response_bytes": 4685,
+      "query_count": 2
+    },
+    {
+      "actor": "administrator",
+      "path": "/admin",
+      "sample": "first",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.677
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 1.559
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.639
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.833
+        }
+      ],
+      "listing_calls": [],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 23.764,
+      "response_bytes": 24892,
+      "query_count": 4
+    },
+    {
+      "actor": "administrator",
+      "path": "/admin",
+      "sample": "repeat",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.845
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 1.743
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.719
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.629
+        }
+      ],
+      "listing_calls": [],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 11.383,
+      "response_bytes": 24892,
+      "query_count": 4
+    },
+    {
+      "actor": "administrator",
+      "path": "/api/admin/dashboard-counts",
+      "sample": "first",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.788
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 1.549
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.932
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.598
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.669
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "profiles"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.728
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.808
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "global_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.626
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.593
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "research_interests"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.55
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "publications"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.074
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "projects"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.739
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "patents"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.558
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "students"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.826
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "student_category_displays"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.592
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.611
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "courses"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.579
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "messages"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.606
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "translation_cache"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.584
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "operation_logs"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.607
+        }
+      ],
+      "listing_calls": [],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 38.597,
+      "response_bytes": 315,
+      "query_count": 20
+    },
+    {
+      "actor": "administrator",
+      "path": "/api/admin/dashboard-counts",
+      "sample": "repeat",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.474
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 2.067
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.131
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.755
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.754
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "profiles"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.724
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.303
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "global_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.904
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.693
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "research_interests"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.033
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "publications"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.752
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "projects"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 3.214
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "patents"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.61
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "students"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.703
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "student_category_displays"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.569
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.941
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "courses"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.786
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "messages"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.848
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "translation_cache"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.672
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "operation_logs"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 3.994
+        }
+      ],
+      "listing_calls": [],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 47.369,
+      "response_bytes": 315,
+      "query_count": 20
+    },
+    {
+      "actor": "administrator",
+      "path": "/admin/media_assets",
+      "sample": "first",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.872
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 1.658
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.798
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.572
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "profiles"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.58
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.641
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.807
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.598
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "publications"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.638
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "patents"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.981
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "students"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.588
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.877
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "courses"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.929
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "courses"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.671
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "messages"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.594
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.706
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news",
+            "translation_cache"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.673
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.625
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.676
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.616
+        }
+      ],
+      "listing_calls": [
+        "media_assets"
+      ],
+      "media_usage_calls": 1,
+      "status": 200,
+      "duration_ms": 108.488,
+      "response_bytes": 33506,
+      "query_count": 20
+    },
+    {
+      "actor": "administrator",
+      "path": "/admin/media_assets",
+      "sample": "repeat",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.499
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 2.294
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.312
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 2.434
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "profiles"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 2.442
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 2.493
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 2.35
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.871
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "publications"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.703
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "patents"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.565
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "students"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.757
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 2.117
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "courses"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.609
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "courses"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.775
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "messages"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.713
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.984
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "news",
+            "translation_cache"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 2.001
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "media_assets"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.727
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.829
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.817
+        }
+      ],
+      "listing_calls": [
+        "media_assets"
+      ],
+      "media_usage_calls": 1,
+      "status": 200,
+      "duration_ms": 47.299,
+      "response_bytes": 33506,
+      "query_count": 20
+    },
+    {
+      "actor": "administrator",
+      "path": "/admin/site-sync",
+      "sample": "first",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.816
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 1.694
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "sync_connections",
+            "sync_peers"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.819
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.6
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.61
+        }
+      ],
+      "listing_calls": [],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 18.293,
+      "response_bytes": 27298,
+      "query_count": 5
+    },
+    {
+      "actor": "administrator",
+      "path": "/admin/site-sync",
+      "sample": "repeat",
+      "sql": [
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_roles",
+            "auth_sessions",
+            "auth_users"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.722
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "auth_permissions"
+          ],
+          "rows_returned": 20,
+          "duration_ms": 1.558
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "sync_connections",
+            "sync_peers"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.619
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "site_settings"
+          ],
+          "rows_returned": 1,
+          "duration_ms": 1.592
+        },
+        {
+          "operation": "SELECT",
+          "tables": [
+            "navigation_items"
+          ],
+          "rows_returned": 0,
+          "duration_ms": 1.589
+        }
+      ],
+      "listing_calls": [],
+      "media_usage_calls": 0,
+      "status": 200,
+      "duration_ms": 13.261,
+      "response_bytes": 27298,
+      "query_count": 5
+    }
+  ],
+  "full_app_routes": [
+    {
+      "path": "/assets/shared",
+      "methods": [],
+      "type": "Mount",
+      "handler": "."
+    },
+    {
+      "path": "/assets/public",
+      "methods": [],
+      "type": "Mount",
+      "handler": "."
+    },
+    {
+      "path": "/assets/admin",
+      "methods": [],
+      "type": "Mount",
+      "handler": "."
+    },
+    {
+      "path": "/assets/site-sync",
+      "methods": [],
+      "type": "Mount",
+      "handler": "."
+    },
+    {
+      "path": "/api/admin/media-picker/links/resolve",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.resolve_link"
+    },
+    {
+      "path": "/api/admin/media-picker/links/register",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.register_link"
+    },
+    {
+      "path": "/api/admin/media-picker/items/list",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.picker_list"
+    },
+    {
+      "path": "/api/admin/media-picker/items/select",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.picker_select"
+    },
+    {
+      "path": "/api/admin/media-picker/upload/file",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.picker_upload"
+    },
+    {
+      "path": "/api/admin/media-picker/crop/file",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.crop_upload"
+    },
+    {
+      "path": "/api/admin/media/lookup/by-key",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.lookup"
+    },
+    {
+      "path": "/api/admin/media/lookup/by-key",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.lookup"
+    },
+    {
+      "path": "/admin/media/audit",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.audit_page"
+    },
+    {
+      "path": "/api/admin/media-audit/{report}/{page}/{index}/content",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.audit_content"
+    },
+    {
+      "path": "/api/admin/media-audit/actions/run",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.media_admin.install.<locals>.audit_action"
+    },
+    {
+      "path": "/health",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.health"
+    },
+    {
+      "path": "/health/ready",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.health"
+    },
+    {
+      "path": "/{lang}/contact",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public_form"
+    },
+    {
+      "path": "/{lang}/contact",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public_submit"
+    },
+    {
+      "path": "/auth/register",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.public_auth.install.<locals>.auth_get"
+    },
+    {
+      "path": "/auth/login",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.public_auth.install.<locals>.auth_get"
+    },
+    {
+      "path": "/auth/register",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.public_auth.install.<locals>.auth_post"
+    },
+    {
+      "path": "/auth/login",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.public_auth.install.<locals>.auth_post"
+    },
+    {
+      "path": "/auth/logout",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.logout"
+    },
+    {
+      "path": "/auth/password",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.password_get"
+    },
+    {
+      "path": "/auth/password",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.password_post"
+    },
+    {
+      "path": "/admin",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.dashboard"
+    },
+    {
+      "path": "/api/admin/dashboard-counts",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.dashboard_counts"
+    },
+    {
+      "path": "/admin/n/{nav}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.custom_list"
+    },
+    {
+      "path": "/admin/operation_logs/{uid}/view",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.message_log_admin.install.<locals>.detail"
+    },
+    {
+      "path": "/admin/messages/{uid}/view",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.message_log_admin.install.<locals>.detail"
+    },
+    {
+      "path": "/admin/examples",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.example_admin.install.<locals>.page"
+    },
+    {
+      "path": "/api/admin/examples/status",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.example_admin.install.<locals>.status"
+    },
+    {
+      "path": "/api/admin/examples/step",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.example_admin.install.<locals>.step"
+    },
+    {
+      "path": "/admin/import-export",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.page"
+    },
+    {
+      "path": "/admin/data_tools",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.page"
+    },
+    {
+      "path": "/api/admin/data/export",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.download"
+    },
+    {
+      "path": "/api/backup/business",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.download"
+    },
+    {
+      "path": "/api/admin/data/media/{uid}",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.media_bytes"
+    },
+    {
+      "path": "/api/admin/data/preflight",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.preflight"
+    },
+    {
+      "path": "/api/admin/data/stage/{token}/{index}",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.stage"
+    },
+    {
+      "path": "/api/admin/data/execute",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.execute"
+    },
+    {
+      "path": "/api/admin/data/cancel",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.data_admin.install.<locals>.cancel"
+    },
+    {
+      "path": "/api/admin/site-sync/credentials",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.credentials_api.install.<locals>.status"
+    },
+    {
+      "path": "/api/admin/site-sync/credentials",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.credentials_api.install.<locals>.save"
+    },
+    {
+      "path": "/api/admin/site-sync/credentials/reveal",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.credentials_api.install.<locals>.reveal"
+    },
+    {
+      "path": "/api/admin/site-sync/control",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.control_api.install.<locals>.handle"
+    },
+    {
+      "path": "/admin/site-sync",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.page"
+    },
+    {
+      "path": "/api/admin/site-sync/connection",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.connection"
+    },
+    {
+      "path": "/api/admin/site-sync/authorization/refresh",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.refresh_authorization"
+    },
+    {
+      "path": "/api/admin/site-sync/connectivity",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.connectivity"
+    },
+    {
+      "path": "/api/admin/site-sync/proposals",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.outgoing_proposals"
+    },
+    {
+      "path": "/api/admin/site-sync/proposal",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.propose"
+    },
+    {
+      "path": "/admin/site-sync/api/{rest:path}",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.admin"
+    },
+    {
+      "path": "/sync/v1/read",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "site_sync.integration.web.install.<locals>.peer_read"
+    },
+    {
+      "path": "/api/admin/accounts/{uid}/sessions",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.session_admin.install.<locals>.listing"
+    },
+    {
+      "path": "/api/admin/accounts/{uid}/sessions/revoke",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.session_admin.install.<locals>.revoke"
+    },
+    {
+      "path": "/admin/translation-groups/{uid}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.translation_group_admin.install.<locals>.detail"
+    },
+    {
+      "path": "/api/assistance/translation-groups/{uid}/choose",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.translation_group_admin.install.<locals>.choose"
+    },
+    {
+      "path": "/api/assistance/translation-groups/{uid}/translate",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.translation_group_admin.install.<locals>.translate_one"
+    },
+    {
+      "path": "/admin/runtime-maintenance",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.maintenance_admin.install.<locals>.page"
+    },
+    {
+      "path": "/api/admin/runtime-maintenance/status",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.maintenance_admin.install.<locals>.status"
+    },
+    {
+      "path": "/api/admin/runtime-maintenance",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.maintenance_admin.install.<locals>.action"
+    },
+    {
+      "path": "/admin/transfer",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.transfer_admin"
+    },
+    {
+      "path": "/admin/{table}/export",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.export"
+    },
+    {
+      "path": "/admin/{table}/{uid}/edit",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.editor"
+    },
+    {
+      "path": "/admin/{table}/new",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.editor"
+    },
+    {
+      "path": "/admin/{table}/save",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.save"
+    },
+    {
+      "path": "/api/assistance/news-body",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.news_body_preview"
+    },
+    {
+      "path": "/api/assistance/navigation",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.navigation_assistance"
+    },
+    {
+      "path": "/api/assistance/student-matches",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.student_matches"
+    },
+    {
+      "path": "/api/admin/{table}/{uid}",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.row_action"
+    },
+    {
+      "path": "/admin/translation/suggestions",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.history_page"
+    },
+    {
+      "path": "/api/assistance/suggestions",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.history_suggestions"
+    },
+    {
+      "path": "/admin/publications/metadata",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.metadata_page"
+    },
+    {
+      "path": "/api/assistance/publication-profile",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.publication_profile"
+    },
+    {
+      "path": "/api/assistance/metadata",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.metadata"
+    },
+    {
+      "path": "/api/assistance/translation",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.translation"
+    },
+    {
+      "path": "/api/assistance/translate",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.translate"
+    },
+    {
+      "path": "/api/assistance/services/test",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.service_test"
+    },
+    {
+      "path": "/admin/translation_cache/batch",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.translation_batch_page"
+    },
+    {
+      "path": "/api/assistance/translation-batch/status",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.translation_batch_status"
+    },
+    {
+      "path": "/api/assistance/translation-batch/{operation}",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.translation_batch_action"
+    },
+    {
+      "path": "/api/assistance/translation-invalidate",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.translation_invalidate"
+    },
+    {
+      "path": "/api/admin/media/upload/file",
+      "methods": [
+        "POST"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.upload"
+    },
+    {
+      "path": "/admin/{table}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.listing"
+    },
+    {
+      "path": "/admin/media/trash",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.media_trash"
+    },
+    {
+      "path": "/admin/media/{uid}/inspect",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.media_inspect"
+    },
+    {
+      "path": "/api/admin/media/{uid}/locations",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.media_locations"
+    },
+    {
+      "path": "/api/admin/media/{uid}/content",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.media_preview"
+    },
+    {
+      "path": "/media/{uid}",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.media"
+    },
+    {
+      "path": "/transfer/login",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.transfer_login"
+    },
+    {
+      "path": "/transfer",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.transfer_entry"
+    },
+    {
+      "path": "/robots.txt",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.crawler_rules"
+    },
+    {
+      "path": "/sitemap.xml",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.sitemap_index"
+    },
+    {
+      "path": "/sitemap-home.xml",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.sitemap_home"
+    },
+    {
+      "path": "/sitemap-{table}-{part}.xml",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.sitemap_chunk"
+    },
+    {
+      "path": "/",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.home"
+    },
+    {
+      "path": "/api/public/{lang}/{table}/{uid}/description",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public_description_text"
+    },
+    {
+      "path": "/api/public/publications/citations",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public_saved_citations"
+    },
+    {
+      "path": "/api/public/people/{table}/facets/{field}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public_people_facet"
+    },
+    {
+      "path": "/transfer-static",
+      "methods": [],
+      "type": "Mount",
+      "handler": "."
+    },
+    {
+      "path": "/transfer/api/storage-status",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "transfer.backend.integration.install.<locals>.storage_status"
+    },
+    {
+      "path": "/transfer",
+      "methods": [],
+      "type": "Mount",
+      "handler": "."
+    },
+    {
+      "path": "/{lang}/n/{nav}/{uid}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public_navigation_entry"
+    },
+    {
+      "path": "/{lang}/n/{nav}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public_navigation_entry"
+    },
+    {
+      "path": "/{lang}/{table}/{uid}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public"
+    },
+    {
+      "path": "/{lang}/{table}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public"
+    },
+    {
+      "path": "/{lang}",
+      "methods": [
+        "GET"
+      ],
+      "type": "APIRoute",
+      "handler": "backend.app.native.web.create_app.<locals>.public"
+    }
+  ],
+  "worker_lazy_routes": [
+    {
+      "path": "/api/admin/media-picker/links/resolve",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/media-picker/links/register",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/media-picker/items/list",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/media-picker/items/select",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/media-picker/upload/file",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/media-picker/crop/file",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/media/lookup/by-key",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/media/lookup/by-key",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/media/audit",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/media-audit/{report}/{page}/{index}/content",
+      "type": "APIRoute",
+      "methods": [
+        "GET",
+        "HEAD"
+      ]
+    },
+    {
+      "path": "/api/admin/media-audit/actions/run",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/health",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/health/ready",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/{lang}/contact",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/{lang}/contact",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/auth/register",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/auth/login",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/auth/register",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/auth/login",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/auth/logout",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/auth/password",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/auth/password",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/dashboard-counts",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/n/{nav}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/operation_logs/{uid}/view",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/messages/{uid}/view",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/examples",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/examples/status",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/examples/step",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/import-export",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/data_tools",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/data/export",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/backup/business",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/data/media/{uid}",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/data/preflight",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/data/stage/{token}/{index}",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/data/execute",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/data/cancel",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": null,
+      "type": "LazySyncRoutes",
+      "methods": []
+    },
+    {
+      "path": "/api/admin/accounts/{uid}/sessions",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/accounts/{uid}/sessions/revoke",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/translation-groups/{uid}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/assistance/translation-groups/{uid}/choose",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/translation-groups/{uid}/translate",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/runtime-maintenance",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/runtime-maintenance/status",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/runtime-maintenance",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/transfer",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/{table}/export",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/{table}/{uid}/edit",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/{table}/new",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/{table}/save",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/news-body",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/navigation",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/student-matches",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/{table}/{uid}",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/translation/suggestions",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/assistance/suggestions",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/publications/metadata",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/assistance/publication-profile",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/metadata",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/translation",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/translate",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/services/test",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/translation_cache/batch",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/assistance/translation-batch/status",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/assistance/translation-batch/{operation}",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/assistance/translation-invalidate",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/admin/media/upload/file",
+      "type": "APIRoute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/admin/{table}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/media/trash",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/admin/media/{uid}/inspect",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/media/{uid}/locations",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/admin/media/{uid}/content",
+      "type": "APIRoute",
+      "methods": [
+        "GET",
+        "HEAD"
+      ]
+    },
+    {
+      "path": "/media/{uid}",
+      "type": "APIRoute",
+      "methods": [
+        "GET",
+        "HEAD"
+      ]
+    },
+    {
+      "path": "/transfer/login",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/transfer",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/robots.txt",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/sitemap.xml",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/sitemap-home.xml",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/sitemap-{table}-{part}.xml",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/public/{lang}/{table}/{uid}/description",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/public/publications/citations",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/public/people/{table}/facets/{field}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/{lang}/n/{nav}/{uid}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/{lang}/n/{nav}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/{lang}/{table}/{uid}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/{lang}/{table}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/{lang}",
+      "type": "APIRoute",
+      "methods": [
+        "GET"
+      ]
+    }
+  ],
+  "fresh_lazy_app_imports": [
+    "backend.app",
+    "backend.app.domain",
+    "backend.app.domain.admin_presentation",
+    "backend.app.domain.richtext",
+    "backend.app.native",
+    "backend.app.native.accounts",
+    "backend.app.native.auth",
+    "backend.app.native.catalog",
+    "backend.app.native.content",
+    "backend.app.native.data_admin",
+    "backend.app.native.data_restore",
+    "backend.app.native.data_tools",
+    "backend.app.native.editor",
+    "backend.app.native.example_admin",
+    "backend.app.native.example_catalog",
+    "backend.app.native.examples",
+    "backend.app.native.filtering",
+    "backend.app.native.list_columns",
+    "backend.app.native.maintenance_admin",
+    "backend.app.native.media",
+    "backend.app.native.media_admin",
+    "backend.app.native.media_audit",
+    "backend.app.native.media_inventory_store",
+    "backend.app.native.media_locks",
+    "backend.app.native.media_picker",
+    "backend.app.native.media_policy",
+    "backend.app.native.media_references",
+    "backend.app.native.message_log_admin",
+    "backend.app.native.navigation",
+    "backend.app.native.public_actions",
+    "backend.app.native.public_auth",
+    "backend.app.native.service_jobs",
+    "backend.app.native.session_admin",
+    "backend.app.native.sessions",
+    "backend.app.native.source_links",
+    "backend.app.native.storage",
+    "backend.app.native.student_categories",
+    "backend.app.native.suggestions",
+    "backend.app.native.translation_group_admin",
+    "backend.app.native.translation_groups",
+    "backend.app.native.translation_index",
+    "backend.app.native.translation_sources",
+    "backend.app.native.web",
+    "backend.app.ports",
+    "backend.app.ports.operations",
+    "backend.app.security",
+    "backend.app.security.passwords",
+    "backend.maintenance",
+    "backend.maintenance.log_retention",
+    "backend.maintenance.policy",
+    "site_sync.adapters",
+    "site_sync.adapters.d1",
+    "site_sync.core",
+    "site_sync.core.authority",
+    "site_sync.core.diagnostics",
+    "site_sync.core.trace",
+    "site_sync.integration",
+    "site_sync.integration.credentials",
+    "site_sync.integration.credentials_api",
+    "site_sync.integration.database",
+    "site_sync.integration.lazy_routes",
+    "site_sync.integration.write_gate"
+  ]
+}

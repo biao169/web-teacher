@@ -1,0 +1,22 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm');
+const {JSDOM}=require('jsdom');
+test('locations are click-only, single-flight, and ignore late dismissed responses',async()=>{
+ const dom=new JSDOM('<main><a href="#" data-media-locations="one">查看</a><a href="#" data-media-locations="two">查看</a></main>',{url:'https://example.test/admin/media_assets',runScripts:'outside-only'});
+ const w=dom.window;w.HTMLDialogElement.prototype.showModal=function(){};
+ w.HTMLDialogElement.prototype.close=function(){this.dispatchEvent(new w.Event('close'))};
+ const context=dom.getInternalVMContext();let calls=0,resolve;
+ const http=new vm.SyntheticModule(['requestJSON'],function(){this.setExport('requestJSON',()=>{calls++;return new Promise(r=>resolve=r)})},{context});
+ const module=new vm.SourceTextModule(fs.readFileSync('frontend/admin/static/js/native-media-locations.js','utf8'),{context});
+ await module.link(()=>http);await module.evaluate();
+ const dispose=module.namespace.setupMediaLocations(w.document.querySelector('main'));
+ assert.equal(calls,0);
+ const links=w.document.querySelectorAll('main a');links[0].click();links[0].click();links[1].click();
+ assert.equal(calls,1);
+ w.document.querySelector('[data-close]').click();resolve({html:'old result'});
+ await new Promise(r=>setImmediate(r));assert.equal(w.document.querySelector('dialog'),null);
+ links[1].click();assert.equal(calls,2);resolve({html:'fresh result'});
+ await new Promise(r=>setImmediate(r));assert.match(w.document.querySelector('dialog').textContent,/fresh result/);
+ dispose();dom.window.close();
+});

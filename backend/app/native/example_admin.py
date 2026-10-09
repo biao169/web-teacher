@@ -5,7 +5,7 @@ from .catalog import Error
 
 def install(app,resources,csrf,render):
     """Use shared layout and permission/CSRF handling on local and Worker deployments."""
-    from .web import payload
+    from .web_common import payload
     @app.get('/admin/examples')
     async def page(request:Request):
         r=await resources(request);view=await Examples(r).status()

@@ -1,6 +1,6 @@
 <div class="public-stream-controls" data-stream-controls>
 {% if pages.page>1 and not home_mode %}<a class="public-page-previous" href="{{ page_url(pages.page-1) }}">{{ 'Previous page' if lang=='en' else '上一页' }}</a>{% endif %}
-<a data-load-more class="btn btn-outline-secondary" href="{{ pages.next_url }}"{% if not pages.next_url %} hidden{% endif %}>{{ 'Load more' if lang=='en' else '加载更多' }}</a>
+<a data-load-more class="btn btn-outline-secondary" href="{{ pages.next_url }}"{% if not pages.next_url %} hidden{% endif %}>{% if pages.page==0 %}{{ 'Load content' if lang=='en' else '加载内容' }}{% else %}{{ 'Load more' if lang=='en' else '加载更多' }}{% endif %}</a>
 <a data-page-fallback href="{{ pages.next_url }}"{% if not pages.next_url %} hidden{% endif %}>{{ 'Open next page' if lang=='en' else '分页查看' }}</a>
 <span data-stream-status role="status" aria-live="polite" tabindex="-1">{% if not pages.next_url %}{{ 'All results loaded' if lang=='en' else '已显示全部结果' }}{% else %}{{ 'More results load as you scroll' if lang=='en' else '向下滚动可自动加载更多' }}{% endif %}</span>
 </div>

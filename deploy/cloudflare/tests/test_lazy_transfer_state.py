@@ -17,12 +17,12 @@ from runtime import transfer, setup, bridge
 def builder(entry, fixture, monkeypatch):
     _, r = fixture
     worker=ModuleType('worker_runtime.resources');worker.resource_factory=lambda request:r
-    monkeypatch.setitem(sys.modules,'worker_runtime.resources',worker)
+    for role in ('public','admin','transfer'):monkeypatch.setitem(sys.modules,'worker_runtime.'+role+'_resources',worker)
     source=ROOT/'transfer/frontend/native'
     resources=ModuleType('generated_resources')
     resources.TRANSFER_TEMPLATES={p.name:p.read_text() for p in source.glob('*.html')}
     resources.TRANSFER_CATALOG=(source/'transfer-i18n-catalog.js').read_text()
-    monkeypatch.setitem(sys.modules,'generated_resources',resources)
+    monkeypatch.setitem(sys.modules,'generated_transfer_templates',resources)
     monkeypatch.setitem(sys.modules,'worker_runtime.bridge',bridge)
     monkeypatch.setitem(sys.modules,'worker_runtime.setup',setup)
     monkeypatch.setitem(sys.modules,'worker_runtime.transfer',transfer)

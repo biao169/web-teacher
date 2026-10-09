@@ -1,0 +1,142 @@
+[
+  {
+    "actor": "anonymous",
+    "path": "/en",
+    "sample": "first",
+    "listing_calls": [
+      "profiles",
+      "publications",
+      "projects",
+      "news"
+    ],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 91.006,
+    "response_bytes": 4685,
+    "query_count": 12
+  },
+  {
+    "actor": "anonymous",
+    "path": "/en",
+    "sample": "repeat",
+    "listing_calls": [
+      "profiles",
+      "publications",
+      "projects",
+      "news"
+    ],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 9.221,
+    "response_bytes": 4685,
+    "query_count": 2
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin",
+    "sample": "first",
+    "listing_calls": [
+      "media_assets",
+      "auth_roles",
+      "auth_users",
+      "profiles",
+      "site_settings",
+      "global_settings",
+      "navigation_items",
+      "research_interests",
+      "publications",
+      "projects",
+      "patents",
+      "students",
+      "student_category_displays",
+      "news",
+      "courses",
+      "messages",
+      "translation_cache",
+      "operation_logs"
+    ],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 86.961,
+    "response_bytes": 23293,
+    "query_count": 40
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin",
+    "sample": "repeat",
+    "listing_calls": [
+      "media_assets",
+      "auth_roles",
+      "auth_users",
+      "profiles",
+      "site_settings",
+      "global_settings",
+      "navigation_items",
+      "research_interests",
+      "publications",
+      "projects",
+      "patents",
+      "students",
+      "student_category_displays",
+      "news",
+      "courses",
+      "messages",
+      "translation_cache",
+      "operation_logs"
+    ],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 73.028,
+    "response_bytes": 23293,
+    "query_count": 40
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/media_assets",
+    "sample": "first",
+    "listing_calls": [
+      "media_assets"
+    ],
+    "media_usage_calls": 1,
+    "status": 200,
+    "duration_ms": 142.457,
+    "response_bytes": 33506,
+    "query_count": 20
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/media_assets",
+    "sample": "repeat",
+    "listing_calls": [
+      "media_assets"
+    ],
+    "media_usage_calls": 1,
+    "status": 200,
+    "duration_ms": 51.849,
+    "response_bytes": 33506,
+    "query_count": 20
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/site-sync",
+    "sample": "first",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 18.968,
+    "response_bytes": 27298,
+    "query_count": 5
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/site-sync",
+    "sample": "repeat",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 18.492,
+    "response_bytes": 27298,
+    "query_count": 5
+  }
+]

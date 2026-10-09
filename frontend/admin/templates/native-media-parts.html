@@ -9,12 +9,11 @@
 {% endmacro %}
 
 {# Derived columns never claim to be stored fields or send unsupported sort/filter parameters. #}
-{% macro media_cell(col,row,usage) %}
+{% macro media_cell(col,row) %}
 {% if col=='__preview' %}
 {{ thumbnail(row) }}
 {% elif col=='__usage' %}
-{% set description %}{% for group in usage.groups %}{{ group.label }} {{ group.count }}处{% if not loop.last %}；{% endif %}{% endfor %}{% if usage.protected %}；另有受权限保护的引用{% endif %}{% if usage.uncertain %}；有超长正文待核对{% endif %}{% endset %}
-{% if usage.used %}<a class="native-cell native-media-usage" {% if usage.get('direct') %}href="{{ usage.direct.url }}" target="_blank" rel="noopener noreferrer"{% else %}href="/admin/media/{{ row.uid }}/inspect#media-usage" data-media-locations="{{ row.uid }}"{% endif %} title="{{ description|trim }}；{{ '新标签定位来源' if usage.get('direct') else '展开使用位置' }}">{{ description|trim('； ') }}</a>{% else %}<span class="native-muted">○ 暂未使用</span>{% endif %}
+<a class="native-cell native-media-usage" href="/admin/media/{{ row.uid }}/inspect#media-usage" data-media-locations="{{ row.uid }}" title="点击后读取此文件的引用统计和使用位置；未查询不代表未使用">点击查看</a>
 {% endif %}
 {% endmacro %}
 

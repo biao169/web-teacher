@@ -17,6 +17,8 @@ def stage(tmp_path):
     shutil.copytree(HERE/'runtime',out/'src/worker_runtime',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
     cfg=json.loads((out/'wrangler.json').read_text());cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']='separate'
     extend(ROOT,out,cfg)
+    from site_workers import extend as split_site
+    split_site(ROOT,out,cfg)
     return out
 
 def check(stage,*flags):
@@ -29,7 +31,8 @@ def report(result):
 def test_real_staged_main_cold_and_deferred_executor(stage):
     native=ast.parse((stage/'src/generated_native_resources.py').read_text())
     assert [n.targets[0].id for n in native.body]==['NATIVE']
-    web=ast.parse((stage/'src/generated_resources.py').read_text())
+    assert not (stage/'src/generated_resources.py').exists()
+    web=ast.parse((stage/'src/generated_transfer_templates.py').read_text())
     assert {n.targets[0].id for n in web.body}=={'TEMPLATES','TRANSFER_TEMPLATES','TRANSFER_DEFAULTS','TRANSFER_CATALOG'}
     main=check(stage);assert main.returncode==0,main.stderr
     cold=report(check(stage,'--executor-only'));assert cold['generated_modules']==[]
@@ -37,6 +40,7 @@ def test_real_staged_main_cold_and_deferred_executor(stage):
     assert deferred['generated_modules']==['generated_native_resources'] and deferred['forbidden_modules']==[]
 
 def test_accidental_website_resource_import_is_still_rejected(stage):
+    (stage/'src/generated_resources.py').write_text('TEMPLATES = {}\n')
     path=stage/'src/generated_native_resources.py'
     with path.open('a') as f:f.write('\nimport generated_resources\n')
     result=check(stage,'--executor-dependencies')

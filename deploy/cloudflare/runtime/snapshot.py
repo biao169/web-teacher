@@ -1,37 +1,22 @@
-"""Preload definitions during deployment; do not construct transfer session state.
-
-Keep the original worker entrypoint out: importing it also constructs an app.
-Request-scoped randomness, bindings and I/O still belong to event handlers.
-"""
-from backend.app.native.web import create_app
+"""Public/DO and maintenance declarations only; no full-site or admin routes."""
+from backend.app.native import web_public
 from backend.app.web.rendering import Renderer
-from backend.app.config import Settings
-from backend.app.security.http import AuthConfig
-from backend.app.security.passwords import Passwords
-from backend.app.adapters.worker_crypto.passwords import derive
-from backend.app.adapters.worker_crypto.scholarly import CrossrefTransport
-from backend.app.adapters.worker_crypto.translation import TranslationTransport
+from worker_runtime import site_resources
 from worker_runtime.bridge import BoundApplication
-from worker_runtime.setup import install as install_setup
+# Existing DO ownership and room services stay on the main script.
 from worker_runtime.transfer import install as install_transfer
 from worker_runtime.cleanup import run as cleanup
-# These modules are otherwise first imported inside app_factory's installation.
-from transfer.backend import folders, receivers, lan, relay, codes
-
-# Sync definitions are deterministic; no peer requests or background grants run here.
-from site_sync.integration import web,host,website
-
-# Signed export definitions only; no database or application construction.
-from worker_runtime.sync_resources import application as sync_peer_application
-
-# Keep deferred route dependencies in the deployment snapshot. Importing these
-# declarations does not install routes, read bindings, or construct a task.
-from site_sync.integration import lazy_routes,write_gate,credentials_api,control_api
-
-from worker_runtime import media_upload
-
-# Deterministic recovery definitions only; no scan or storage work during startup.
+from transfer.backend import folders,receivers,lan,relay,codes
 from backend.maintenance import media_uploads
 
-# Small outgoing receipt definitions, no network or task advancement.
-from site_sync.integration import outgoing
+# Generated role resources enter the deployment snapshot; source-only tests omit them.
+from importlib.util import find_spec
+if find_spec("worker_runtime.public_resources") is not None:
+    from worker_runtime import public_resources
+
+# Inline is retained explicitly; only that deployment preloads peer execution definitions.
+if find_spec('worker_runtime.site_mode') is not None:
+    from worker_runtime.site_mode import SYNC_EXECUTOR_MODE
+    if SYNC_EXECUTOR_MODE=='inline':
+        from worker_runtime import sync_resources
+        from site_sync.integration import host,website

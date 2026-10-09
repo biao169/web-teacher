@@ -49,7 +49,7 @@ def test_portrait_precedes_text_contacts_omit_empty_boxes_and_no_hidden_info(fix
 def test_home_news_cover_is_left_and_links_are_same_tab_policy_as_before(fixture):
     c,r=fixture;key=image_asset(r,'home-news-cover')
     uid=add(r,'news','HOME_NEWS',is_featured=1,cover_key=key)
-    html=c.get('/zh').text;article=html.split('data-record-id="'+uid+'"')[1].split('</article>')[0]
+    html=c.get('/zh/news?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()['html'];article=html.split('data-record-id="'+uid+'"')[1].split('</article>')[0]
     assert article.index('class="academic-card-media public-media"')<article.index('class="academic-card-copy"')
     links=DOM(article).find_path('/zh/news/'+uid)
     assert len(links)==2 and all(x.get('target')=='_blank' and x.get('rel')=='noopener noreferrer' for x in links)
@@ -66,7 +66,9 @@ def test_continuation_keeps_home_card_structure_and_configured_limit(fixture):
     for i in range(12):add(r,'students',f'HomeStudent{i:02}',is_featured=1,sort_order=i)
     configure(r,homepage_student_limit=11)
     page=c.get('/zh').text;stream=next(a for t,a in DOM(page).tags if a.get('data-table')=='students')
-    payload=c.get(stream['data-next'],headers={'X-Public-Fragment':'1'}).json()
+    first=c.get(stream['data-next'],headers={'X-Public-Fragment':'1'}).json()
+    assert first['next_url']
+    payload=c.get(first['next_url'],headers={'X-Public-Fragment':'1'}).json()
     assert payload['home'] and payload['total']==11 and not payload['next_url']
     articles=DOM(payload['html']).find('article')
     assert len(articles)==1 and 'home-card-students' in articles[0]['class']

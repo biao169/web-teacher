@@ -3,7 +3,7 @@ import asyncio,hashlib,re,secrets,time,os
 from fastapi import Request
 from fastapi.responses import Response
 from backend.app.native.catalog import Error
-from backend.app.native.web import payload
+from backend.app.native.web_common import payload
 from .lan import identity,valid_key
 from .identity import permission
 from .settings import select_rule

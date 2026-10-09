@@ -11,7 +11,7 @@ def install(app,resources,csrf,render):
     @app.post('/api/admin/media-picker/links/resolve')
     async def resolve_link(request:Request):
         """Read-only URL validation; registration requires an explicit confirmation or content save."""
-        from .web import payload
+        from .web_common import payload
         from .media_links import MediaLinks
         r=await resources(request);data=await payload(request,8192);csrf(request,r,data)
         picker=MediaPicker(r);rule=await picker.context(data);links=MediaLinks(r)
@@ -22,7 +22,7 @@ def install(app,resources,csrf,render):
     @app.post('/api/admin/media-picker/links/register')
     async def register_link(request:Request):
         """Explicit chooser registration shares context, native guards and existing-media selection."""
-        from .web import payload
+        from .web_common import payload
         from .media_links import MediaLinks
         r=await resources(request);data=await payload(request,8192);csrf(request,r,data)
         picker=MediaPicker(r);rule=await picker.context(data);links=MediaLinks(r)
@@ -38,7 +38,7 @@ def install(app,resources,csrf,render):
     @app.post('/api/admin/media-picker/items/select')
     async def picker_select(request:Request):
         """确认选择只返回合适且存在的媒体，内容引用由统一保存建立。"""
-        from .web import payload
+        from .web_common import payload
         r=await resources(request);data=await payload(request,4096);csrf(request,r,data)
         try:return await MediaPicker(r).select(data)
         except OSError:raise Error('媒体暂不可读取，请检查存储后重试',503) from None
@@ -62,7 +62,7 @@ def install(app,resources,csrf,render):
         """将原生媒体键转换为受权限保护的预览信息，预览不创建引用。"""
         r=await resources(request);r.auth.require(r.p,'media_assets')
         if request.method=='POST':
-            from .web import payload
+            from .web_common import payload
             data=await payload(request,8192);csrf(request,r,data);key=data.get('key','')
         else:key=request.query_params.get('key','')
         if not isinstance(key,str) or not key or len(key)>4096:raise Error('媒体标识无效')
@@ -104,7 +104,7 @@ def install(app,resources,csrf,render):
     @app.post('/api/admin/media-audit/actions/run')
     async def audit_action(request:Request):
         """扫描及报告也是私有操作；所有状态变化仅由显式POST调用。"""
-        from .web import payload
+        from .web_common import payload
         r=await resources(request);data=await payload(request,8192);csrf(request,r,data);a=MediaAudit(r)
         action=data.get('action');report=data.get('report','')
         try:

@@ -1,3 +1,19 @@
+## v0.16.054
+
+媒体库引用统计按需加载，见 [Step 5 说明](docs/releases/v0.16.054.md)。
+
+## v0.16.053 · Cloudflare 前后台 Worker 拆分
+
+原站点自动创建并更新私有 Admin Worker；separate 模式共 4 个 Worker，inline 共 3 个。Ubuntu/Debian 保持单服务。部署前阅读 [网页配置教程](deploy/cloudflare/README.md)，特别注意初始化及后台外部服务密钥现在由 Admin 使用。详见 [交付记录与验证边界](docs/releases/v0.16.053.md)。
+
+## v0.16.052 · Public／Admin 代码边界
+
+基于 v0.16.051 拆分前后台路由与共享请求能力；`create_app()` 仍组合为一个完整应用，部署方式不变。修改、验证边界与下一步见 [交付记录](docs/releases/v0.16.052.md)。
+
+> v0.16.051：首页首批模块改为串行延迟加载，教师与导航仍首屏返回；说明见 [Step 2](docs/releases/v0.16.051.md)。
+
+> v0.16.050：后台首页先显示卡片，再通过单个权限受控统计接口读取数量。无数据库或部署结构变化；说明见 [Step 1](docs/releases/v0.16.050.md)。
+
 ## v0.16.049：轻量同步监控
 
 任务页每60秒只读取20条摘要；详情和历史日志按需加载，区分已完成状态与历史异常。部署自动补齐分页索引。见 [修复与部署说明](docs/releases/v0.16.049.md)。

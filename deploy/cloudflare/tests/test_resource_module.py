@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_generated_import_and_build_create_exactly_one_app(tmp_path, monkeypatch, entry):
-    import backend.app.native.web as web
+    import backend.app.native.web_public as web
     import worker_runtime.setup as setup
     import worker_runtime.transfer as transfer
     resources = ModuleType('generated_resources')
@@ -23,8 +23,8 @@ def test_generated_import_and_build_create_exactly_one_app(tmp_path, monkeypatch
     (tmp_path/'src/worker_runtime').mkdir(parents=True)
     generate(ROOT, tmp_path)
     verify(ROOT, tmp_path)
-    counter = Mock(wraps=web.create_app)
-    monkeypatch.setattr(web, 'create_app', counter)
+    counter = Mock(wraps=web.create_public_app)
+    monkeypatch.setattr(web, 'create_public_app', counter)
     spec = importlib.util.spec_from_file_location('worker_runtime.resources', tmp_path/'src/worker_runtime/resources.py')
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
@@ -34,6 +34,7 @@ def test_generated_import_and_build_create_exactly_one_app(tmp_path, monkeypatch
     # Installation details have independent real-route coverage.
     monkeypatch.setattr(setup, 'install', Mock())
     monkeypatch.setattr(transfer, 'install', Mock())
+    monkeypatch.setitem(sys.modules,'worker_runtime.public_resources',module)
     entry.build_application()
     assert counter.call_count == 1
     assert counter.call_args.args == (module.resource_factory,)

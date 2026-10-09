@@ -1,0 +1,26 @@
+{
+  "version": "0.16.052",
+  "status": "passed",
+  "scope": "offline-only",
+  "tests": {
+    "platform_python": 170,
+    "public_python": 296,
+    "admin_python": 190,
+    "sync_deploy_python": 817,
+    "sync_subtests": 47,
+    "sync_skipped": 1,
+    "javascript": 64,
+    "dom": 38,
+    "workerd": 6
+  },
+  "staged_modes": [
+    "inline",
+    "separate"
+  ],
+  "factory_boundaries": [
+    "public",
+    "admin",
+    "full"
+  ],
+  "production_deployment": "not_run"
+}

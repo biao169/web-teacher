@@ -5,7 +5,7 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse
 from backend.app.native.auth import Auth
 from backend.app.native.catalog import Error
-from backend.app.native.web import payload, IntegrityError
+from backend.app.native.web_common import payload, IntegrityError
 from .diagnostics import emit, failure, phase
 
 PATH = '/setup'

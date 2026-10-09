@@ -1,0 +1,46 @@
+✔ independent tasks initializes without hidden page requests (211.581262ms)
+✔ independent create initializes without hidden page requests (104.47437ms)
+✔ independent schedules initializes without hidden page requests (80.504343ms)
+✔ independent connection initializes without hidden page requests (61.446148ms)
+✔ independent settings initializes without hidden page requests (43.715784ms)
+✔ manual task success and authorization failure show modal with task or request ID (90.17626ms)
+✔ probe displays authorization warning independently of connection success (60.059514ms)
+✔ key generation and save never place key in operation log (65.910292ms)
+✔ shared confirmation cancel sends no mutation and renders text only (55.835037ms)
+✔ push and schedule submission use the same result dialog (137.660454ms)
+✔ completed detail separates history; polling only requests summary even when expanded (78.043105ms)
+✔ detail 503 is local to details and does not stop summary refresh (91.577406ms)
+✔ one request fills all cards including zero; repeated triggers never fan out (96.311696ms)
+✔ 503 preserves card links and only explicit retry issues another request (26.058884ms)
+✔ incomplete or invalid counts cannot partially paint cards (8.95013ms)
+✔ pagehide aborts; restored page resumes one pending read (14.312417ms)
+✔ other admin pages do not fetch statistics (14.356955ms)
+✔ empty permissions dashboard does not request counts (11.043644ms)
+✔ intersection starts one request and carries query filters without changing current URL (82.755574ms)
+✔ appends once per UID, including duplicate rows in the same response (22.602133ms)
+✔ last page removes continuation and disconnects automatic requests (15.445434ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (13.554725ms)
+✔ homepage streams share a one-request queue and keep independent record sets (19.977068ms)
+✔ wrong language/table/page response cannot contaminate current list (10.259592ms)
+✔ cross-origin or backwards continuation is rejected before append (13.486393ms)
+✔ HTML error pages do not replace cards (11.107619ms)
+✔ pagehide aborts active request and clears queued requests (20.015557ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (40.366349ms)
+✔ data-saving preference disables auto preload, keeps explicit click (15.705615ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (14.506839ms)
+✔ five nested homepage modules share one request queue and retain independent rows (27.988495ms)
+✔ fixed-entry stream retains slug and revision on every continuation (23.661397ms)
+✔ fixed-entry stream rejects unscoped continuation and changed revision before append (24.306299ms)
+✔ query identity and next-query mismatch cannot contaminate current stream (28.348067ms)
+✔ home page-zero slices start automatically in one serial queue without IO (21.320943ms)
+✔ empty first page hides module and empty group; group count reflects remaining cards (24.555445ms)
+✔ failed first page does not block next module and explicit retry remains available (13.034933ms)
+✔ save-data keeps first-page links manual and pagehide cancels queued initial modules (17.221688ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1543.226807

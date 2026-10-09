@@ -6,7 +6,7 @@ from fastapi import FastAPI,Request
 from fastapi.responses import HTMLResponse,JSONResponse,RedirectResponse,Response,StreamingResponse
 from backend.app.native.catalog import Error,now
 from backend.app.native.bridge import sign,verify
-from backend.app.native.web import payload
+from backend.app.native.web_common import payload
 from backend.app.native.auth import sha
 from .accounting import Accounting,assertion,limit,period_starts
 from .management import Management,STATES
@@ -19,7 +19,7 @@ class Transfers:
     async def initialize(self,admin_uid=None):
         """Seed original settings only if absent; explicit CMS UID grants manager access."""
         try:
-            from generated_resources import TRANSFER_DEFAULTS
+            from generated_transfer_templates import TRANSFER_DEFAULTS
             defaults=TRANSFER_DEFAULTS
         except ImportError:defaults=json.loads((Path(__file__).resolve().parents[2]/'database/native/transfer-defaults.json').read_text())
         statements=[("INSERT OR IGNORE INTO service_meta(key,value) VALUES ('owner','academic-file-transfer')",()),('INSERT OR IGNORE INTO tool_settings(id,revision,document,updated_at,updated_by) VALUES (1,0,?,?,?)',(json.dumps(defaults),now(),'initial-defaults')),("INSERT OR IGNORE INTO vpn_state(id,document) VALUES (1,'{}')",())]

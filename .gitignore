@@ -8,7 +8,13 @@ __pycache__/
 .pytest_cache/
 node_modules/
 
-/data/
+# /data/
+/data/cache/
+/data/database/
+/data/logs/
+/data/maintenance/
+/data/transfer-data/
+/data/.teacher-development
 
 # Local credentials, database sidecars and build outputs must not be committed.
 .env

@@ -37,7 +37,11 @@ def verify(root, stage, config):
     native={n:json.loads((root/'database/native'/(n+'.json')).read_text(encoding='utf-8')) for n in ('schema-spec','editor-contract')}
     if (stage/'src/generated_native_resources.py').read_text(encoding='utf-8') != 'NATIVE = '+repr(native)+'\n':
         raise ValueError('Generated native metadata differs from canonical resources')
-    tree=ast.parse((stage/'src/generated_resources.py').read_text(encoding='utf-8'))
+    resource_file=stage/'src/generated_resources.py'
+    if not resource_file.exists():
+        from site_workers import verify as verify_roles
+        verify_roles(stage)
+    tree=ast.parse(resource_file.read_text(encoding='utf-8') if resource_file.exists() else '')
     if any(isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='NATIVE' for t in n.targets) for n in tree.body):
         raise ValueError('Native metadata must not be merged into website resources')
 

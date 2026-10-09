@@ -23,7 +23,7 @@ def test_selected_citation_exactly_shared_by_home_list_and_fragments(fixture,sty
     first=c.get('/zh/publications').text
     more=c.get('/zh/publications?page=2',headers={'X-Public-Fragment':'1'}).json()['html']
     home=c.get('/zh/publications?home=1&page=2',headers={'X-Public-Fragment':'1'}).json()['html']
-    for html in [first,more,home,c.get('/zh').text]:
+    for html in [first,more,home,c.get('/zh/publications?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()['html']]:
         assert citation(html)==value and '<script>literal</script>' not in html
         assert ('data-copy-format' in html)==(html==first)
     card=article(more,uid)

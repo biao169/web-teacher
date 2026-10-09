@@ -39,3 +39,5 @@ body.section-public .home-card .academic-card-media{width:68px;height:76px;}
 }
 body.section-public .home-card .publication-citation{font-size:var(--public-font-size-14);line-height:var(--public-line-height-6);margin:0;}
 body.section-public .home-card .content-facts,body.section-public .home-card .person-facts{font-size:var(--public-font-size-31);gap:3px 10px;}
+/* Empty lazy modules must override the grid's author display rule. */
+body.section-public [data-home-group][hidden],body.section-public [data-home-group] > [data-public-stream][hidden]{display:none}

@@ -1,0 +1,36 @@
+✔ independent tasks initializes without hidden page requests (181.825688ms)
+✔ independent create initializes without hidden page requests (75.247062ms)
+✔ independent schedules initializes without hidden page requests (57.250316ms)
+✔ independent connection initializes without hidden page requests (68.167538ms)
+✔ independent settings initializes without hidden page requests (46.837188ms)
+✔ manual task success and authorization failure show modal with task or request ID (89.450814ms)
+✔ probe displays authorization warning independently of connection success (52.515406ms)
+✔ key generation and save never place key in operation log (67.466965ms)
+✔ shared confirmation cancel sends no mutation and renders text only (49.106866ms)
+✔ push and schedule submission use the same result dialog (118.785733ms)
+✔ completed detail separates history; polling only requests summary even when expanded (78.609397ms)
+✔ detail 503 is local to details and does not stop summary refresh (79.742601ms)
+✔ intersection starts one request and carries query filters without changing current URL (96.106976ms)
+✔ appends once per UID, including duplicate rows in the same response (27.424503ms)
+✔ last page removes continuation and disconnects automatic requests (13.975994ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (11.839853ms)
+✔ homepage streams share a one-request queue and keep independent record sets (23.58356ms)
+✔ wrong language/table/page response cannot contaminate current list (11.457196ms)
+✔ cross-origin or backwards continuation is rejected before append (12.239616ms)
+✔ HTML error pages do not replace cards (10.634845ms)
+✔ pagehide aborts active request and clears queued requests (14.379172ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (17.422661ms)
+✔ data-saving preference disables auto preload, keeps explicit click (10.951964ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (9.419985ms)
+✔ five nested homepage modules share one request queue and retain independent rows (22.752477ms)
+✔ fixed-entry stream retains slug and revision on every continuation (10.658812ms)
+✔ fixed-entry stream rejects unscoped continuation and changed revision before append (21.191995ms)
+✔ query identity and next-query mismatch cannot contaminate current stream (19.262325ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1304.826507

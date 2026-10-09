@@ -14,7 +14,7 @@ def panel(r,model,nav='',nav_stamp=''):
 
 def install(app,resources,csrf,resolve,navigation_stamp,check_navigation_current):
     """注册独立会话端点；身份在每次读取/写入时重新取得。"""
-    from .web import payload
+    from .web_common import payload
 
     @app.get('/api/admin/accounts/{uid}/sessions')
     async def listing(request:Request,uid:str):

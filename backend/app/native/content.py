@@ -29,6 +29,13 @@ class Content:
     def parse_navigation(self,path):
         """Allowlisted fixed equality/contains predicates; repeated or unknown fields are errors."""
         return parse_path(path)
+    async def count(self,table,p):
+        """Dashboard scalar only; identical unfiltered listing authorization/scope."""
+        if table not in TABLES:raise Error('功能不存在',404)
+        self.auth.require(p,table)
+        where,args=self.scope(table,p)
+        return int((await self.sql.query(f'SELECT count(*) n FROM "{table}" WHERE '+where,args))[0]['n'])
+
     async def listing(self,table,p=None,query=None,base=None,public=False,projection=None,ceiling_id=None,projection_limits=None,homepage_contacts=False,fixed_conditions=None):
         """Compose authorization AND fixed filters AND user filters, then page using 10/20/50/100."""
         if table not in TABLES:raise Error('功能不存在',404)

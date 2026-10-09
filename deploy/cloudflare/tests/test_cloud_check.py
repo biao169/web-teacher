@@ -6,19 +6,23 @@ from test_companion_release import FakeAPI
 class CloudCheckTests(unittest.TestCase):
     def run_check(self,mode='inline',break_main=False,key_state='missing',env_key=True):
         api=FakeAPI()
-        for role,name in [('main','teacher'),('native','teacher-sync-native'),('executor','teacher-sync-executor')]:
+        for role,name in [('main','teacher'),('native','teacher-sync-native'),('executor','teacher-sync-executor'),('admin','teacher-admin')]:
             if role=='executor' and mode=='inline':continue
             bindings=[{'name':'DB','id':'database'},{'name':'MEDIA','bucket_name':'media'},
                       {'name':'TEACHER_SYNC_KEY','type':'secret_text'},
                       {'name':'SYNC_NATIVE','service':'teacher-sync-native'}]
+            import tomllib
+            from pathlib import Path
+            version=tomllib.loads((Path(__file__).resolve().parents[3]/'pyproject.toml').read_text())['project']['version']
+            bindings.append({'name':'TEACHER_RELEASE','text':version})
             if role=='main':
-                bindings.extend([{'name':'TEACHER_SYNC_EXECUTOR_MODE','text':mode},
+                bindings.extend([{'name':'SITE_ADMIN','service':'teacher-admin'},{'name':'TEACHER_SYNC_EXECUTOR_MODE','text':mode},
                                  {'name':'TRANSFER_COORDINATOR','class_name':'TransferCoordinator'}])
                 if break_main:bindings.pop()
             else:bindings.extend([{'name':'TEACHER_AUX_OWNER','type':'plain_text','text':'teacher'},
                                   {'name':'TEACHER_AUX_ROLE','type':'plain_text','text':role}])
             api.scripts[name]={'settings':{'bindings':bindings},'subdomain':{'enabled':False,'previews_enabled':False},
-                              'schedules':{'schedules':[] if role=='native' else [{'cron':'* * * * *'}]}}
+                              'schedules':{'schedules':[] if role in ('native','admin') else [{'cron':'* * * * *'}]}}
         def probe(database):
             if key_state=='denied':
                 from companion_release import APIError

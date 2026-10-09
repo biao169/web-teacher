@@ -25,7 +25,7 @@ def assert_rollback(tmp_path,monkeypatch):
     monkeypatch.setattr(db,'verify',lambda *a:(_ for _ in ()).throw(ValueError('synthetic post-upgrade failure')))
     with pytest.raises(ValueError,match='synthetic post-upgrade failure'):migrate(db)
     assert db.path.read_bytes()==before
-    assert len(list(tmp_path.glob('*.before-v0.16.001-*')))==1
+    assert len(list(tmp_path.glob('*.before-v0.16.022-*')))==1
 
 def assert_unsupported(tmp_path,version):
     path=tmp_path/'unsupported.sqlite3'

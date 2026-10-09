@@ -125,7 +125,7 @@ def check_bindings(settings,cfg,require_key=False):
     return remote
 
 
-def payload_with_secret(path,info,main,role,key,migration_tag=None,runner=None):
+def payload_with_secret(path,info,main,role,key,migration_tag=None,runner=None,extra_secrets=None):
     """Change metadata only, preserving the original binary module parts."""
     raw=Path(path).read_bytes()
     import hashlib
@@ -139,16 +139,19 @@ def payload_with_secret(path,info,main,role,key,migration_tag=None,runner=None):
     if role=='native' and migration_tag:
         if migration_tag!='teacher-sync-alarm-v1':raise ValueError('Unknown native migration tag')
         metadata.pop('migrations',None)
+    extra_secrets=extra_secrets or {}
+    identity=key+(':'+json.dumps(extra_secrets,sort_keys=True) if extra_secrets else '')
     binding_names={b['name'] for b in metadata.get('bindings',[])}
     if binding_names & {'TEACHER_AUX_OWNER','TEACHER_AUX_ROLE','TEACHER_AUX_REVISION','TEACHER_SYNC_KEY'}:
         raise ValueError('Reserved companion binding in artifact')
     metadata.setdefault('bindings',[]).extend([
         {'name':'TEACHER_AUX_OWNER','type':'plain_text','text':main},
         {'name':'TEACHER_AUX_ROLE','type':'plain_text','text':role},
-        {'name':'TEACHER_AUX_REVISION','type':'plain_text','text':revision(info,key)}])
+        {'name':'TEACHER_AUX_REVISION','type':'plain_text','text':revision(info,identity)}])
     if runner:metadata['bindings'].append({'name':'SYNC_RUNNER','type':'service','service':runner})
     if key:metadata['bindings'].append({'name':'TEACHER_SYNC_KEY','type':'secret_text','text':key})
-    else:metadata['keep_bindings']=['secret_text','secret_key']
+    metadata['bindings'].extend({'name':k,'type':'secret_text','text':v} for k,v in extra_secrets.items())
+    metadata['keep_bindings']=['secret_text','secret_key']
     # No key means preserve existing secrets; new sites configure the key in admin.
     return raw[:match.start(2)]+json.dumps(metadata,separators=(',',':')).encode()+raw[match.end(2):]
 

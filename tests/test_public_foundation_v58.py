@@ -18,8 +18,9 @@ def test_project_private_fields_require_system_admin_and_permission_across_home_
         c.cookies.set('ts_session',token)
     elif identity=='revoked':run(r.auth.logout(r.p))
     allowed=identity=='admin'
-    for route in ['/zh','/en/projects','/zh/projects?page=2&admin=1','/zh/projects?home=1&page=2']:
-        headers=H if 'page=2' in route else {}
+    assert 'PRIVATE_PRINCIPAL' not in c.get('/zh').text
+    for route in ['/zh/projects?home=1&page=1','/en/projects','/zh/projects?page=2&admin=1','/zh/projects?home=1&page=2']:
+        headers=H if 'page=' in route else {}
         response=c.get(route,headers=headers);assert response.status_code==200,response.text
         html=response.json()['html'] if headers else response.text
         for value in ['PRIVATE_PRINCIPAL',('CNY 24,681,234' if route.startswith('/en') else '2468.1234 万元'),'PRIVATE_MEMBERS']:assert (value in html)==allowed

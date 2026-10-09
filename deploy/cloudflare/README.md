@@ -1,113 +1,85 @@
-v0.16.030：separate 模式自动配置主站 `SYNC_EXECUTOR` 服务绑定；需部署完整源码。见 [隔离与验证说明](../../docs/releases/v0.16.030.md)。
+# Cloudflare 网页部署 · v0.16.054
 
-同步故障应急暂停与恢复：见 [v0.16.029 操作说明](../../docs/releases/v0.16.029.md)。无需新增必填变量；后台开关由主站和辅助共享。
+只为原站点关联 Git 构建；程序自动发布 Public、Admin 和同步辅助 Worker，无需 GitHub Actions。Ubuntu/Debian 不受此部署拆分影响。
 
-原生请求修复与辅助自动更新说明见 [v0.16.025](../../docs/releases/v0.16.025.md)。正常执行 `python build.py deploy` 会自动检查并更新辅助 Worker，无需逐个手动部署。
+## 1. 网页构建配置
 
-本版同步重试及自动调度绑定说明见 [配置教程](../../docs/sync-retry-setup.md)。
+Workers & Pages → 选择原站点 Worker → Settings → Builds。仓库完整源码放在 web-py 分支，保留原 Worker 名称、D1 和 R2。
 
-# Cloudflare 网页部署
-
-一个主站构建项目自动发布主站和辅助 Worker，无需 GitHub Actions。当前交付 v0.16.049；部署后请按 [媒体上传与同步验收](../../docs/media-sync-acceptance.md) 检查。离线测试通过不代表真实账号、PoP 与资源额度已验收。同步能力握手需两端更新，见 [连通性与授权诊断](../../docs/releases/v0.16.045.md)。
-
-## 1. 准备
-
-把完整源码上传至 GitHub 的 web-py 分支，仓库根目录应直接包含 backend、frontend、site_sync、database、deploy。创建或使用已有 D1 数据库和 R2 桶，记录账号 ID、数据库 UUID 和资源名称。不要重复手工导入 SQL；脚本检查并初始化空库。
-
-只为主站关联 Git 构建。辅助 Worker 由脚本创建，无需手动创建或关联仓库。
-
-## 2. 主站 Settings → Build
-
-| 项目 | 内容 |
-|---|---|
+| 设置 | 填写内容 |
+| --- | --- |
 | Production branch | web-py |
 | Root directory | deploy/cloudflare |
 | Build command | python build.py check |
 | Deploy command | python build.py deploy |
 
-主站控制台名称必须与 TEACHER_WORKER_NAME 一致。不要添加辅助发布命令，不要修改平台注入的 WRANGLER_CI_OVERRIDE_NAME / WRANGLER_CI_MATCH_TAG。
+## 2. Builds → Variables and Secrets
 
-## 3. Build Variables and Secrets
+下面是**构建变量**，不是只填在运行时 Variables and Secrets。
 
-以下全部配置在**构建设置**，不是 Worker 运行时设置。
-
-| Variable | 示例或说明 |
-|---|---|
+| 变量 | 内容 |
+| --- | --- |
 | SKIP_DEPENDENCY_INSTALL | 1 |
 | PYTHON_VERSION | 3.13.15 |
 | NODE_VERSION | 22.23.3 |
-| TEACHER_WORKER_NAME | web-teacher-biao |
-| CLOUDFLARE_ACCOUNT_ID | 当前账号的32位十六进制 Account ID |
-| TEACHER_ORIGIN | 主站完整 HTTPS 根地址，如控制台显示的 workers.dev 地址 |
-| TEACHER_D1_ID | 数据库 UUID，不是账号 ID |
-| TEACHER_D1_NAME | web-teacher-sql-biao |
-| TEACHER_MEDIA_BUCKET | web-teacher-media-biao |
-| TEACHER_SYNC_EXECUTOR_MODE | inline 或 separate；默认 inline |
+| TEACHER_WORKER_NAME | 原站点 Worker 名，例如 web-teacher-biao；必须与关联项目相同 |
+| CLOUDFLARE_ACCOUNT_ID | 当前账号的 32 位 Account ID |
+| TEACHER_ORIGIN | 网站 HTTPS 根地址，例如 https://biao.nebastars.com |
+| TEACHER_D1_ID | 现有 D1 的 UUID |
+| TEACHER_D1_NAME | 现有 D1 名称 |
+| TEACHER_MEDIA_BUCKET | 现有 R2 媒体桶名称 |
+| TEACHER_SYNC_EXECUTOR_MODE | 推荐 separate；仍支持 inline |
+| TEACHER_ALLOWED_ORIGINS（可选） | 多个允许访问的完整 HTTPS 根地址，逗号分隔 |
+| TEACHER_CUSTOM_DOMAINS（可选） | 由程序绑定的域名，逗号分隔，不带 https:// |
+| TEACHER_CACHE_BUCKET（可选） | 独立缓存桶；不填共用媒体桶 |
+| TEACHER_D1_INIT（可选） | auto（默认）；check 仅检查、空库停止 |
+| TEACHER_METADATA_EMAIL（可选） | 后台论文查询联系邮箱 |
+| TEACHER_TRANSLATION_HOSTS（可选） | 自定义翻译服务主机名白名单，逗号分隔 |
 
 | 构建 Secret | 内容 |
-|---|---|
-| TEACHER_AUX_API_TOKEN | 授权本账号 Workers Scripts 编辑的 API Token，用于辅助发布 |
-| TEACHER_SYNC_KEY（可选） | 建议不填，部署后在网站后台生成或粘贴；如填写须为64位十六进制，两端一致 |
+| --- | --- |
+| TEACHER_AUX_API_TOKEN | 本账号 Workers Scripts 编辑令牌，用于自动创建/更新 Admin、Native、Executor |
+| TEACHER_SYNC_KEY（可选） | 64 位十六进制；建议部署后在网站同步后台设置，共用数据库保存 |
+| TEACHER_SETUP_TOKEN（仅新站可选） | 32–256 字符随机值，自动写入 Admin；创建管理员后删除构建值及 Admin 运行时 Secret |
 
-在 My Profile → API Tokens 创建令牌，将账号资源范围限定到部署账号。辅助令牌用于读取/上传 Worker、设置私有入口及 Cron；如需 cloud-check 检查数据库密钥状态，另加本账号 D1 Read 权限（诊断非必需，不影响网站运行）；绑定的 D1/R2 必须属于该账号。若平台拒绝绑定资源，按 API 错误核对令牌资源权限。
+后台外部服务密钥如需使用环境配置，也放在构建 Secrets：TEACHER_OPENALEX_API_KEY、TEACHER_SEMANTIC_SCHOLAR_API_KEY、TEACHER_PUBMED_API_KEY、TEACHER_GOOGLE_TRANSLATE_KEY、TEACHER_DEEPL_API_KEY、TEACHER_MICROSOFT_TRANSLATOR_KEY、TEACHER_LIBRETRANSLATE_API_KEY。它们只写入 Admin。密钥未在本轮构建提供时，保留 Admin 已有 Secret；仅删除构建值不会删除已经部署的 Secret。
 
-Build 页面选用的主站发布令牌还必须具备 Workers Scripts 编辑、D1 编辑、Workers R2 Storage 编辑；由脚本管理自定义域名时需要相关域的 Workers Routes 编辑权限。两个令牌角色独立：TEACHER_AUX_API_TOKEN 不替代主站发布凭据，不传给部署子进程或运行中的网站。
+主站 Builds 使用的发布令牌需要 Workers Scripts 编辑、D1 编辑、R2 Storage 编辑；自动绑定自定义域名还需要相应域的 Workers Routes 权限。辅助令牌限定当前账号；cloud-check 如需检查数据库密钥状态，再授予 D1 Read。不要把 TEACHER_AUX_API_TOKEN 填入运行时或网页表单。
 
-可选构建变量：
+## 3. 自动生成的 Worker
 
-| Variable | 内容 |
-|---|---|
-| TEACHER_ALLOWED_ORIGINS | 多个完整 HTTPS 根地址，逗号分隔 |
-| TEACHER_CUSTOM_DOMAINS | 需自动绑定的自定义域名，逗号分隔，不带协议 |
-| TEACHER_CACHE_BUCKET | 独立缓存桶；不填共用媒体桶 |
-| TEACHER_D1_INIT | auto（默认）；check 仅检查，空库停止 |
-| TEACHER_BUILD_BRANCH | 非 web-py 时填写，并同步修改 Production branch |
+以 web-teacher-biao 为例：
 
-## 4. 选择模式并部署
+| Worker | 用途 | Cron |
+| --- | --- | --- |
+| web-teacher-biao | Public、路径分发、原快传 DO、站点维护 | 保留原维护 Cron；inline 时还推进同步 |
+| web-teacher-biao-admin | 私有后台、登录、初始化、媒体上传与同步控制界面 | 无 |
+| web-teacher-biao-sync-native | 原生流式传输 | 无；保留原 DO alarm |
+| web-teacher-biao-sync-executor | separate 模式的同步执行 | 每分钟一次 |
 
-| 模式 | 自动管理的 Worker |
-|---|---|
-| inline | web-teacher-biao、web-teacher-biao-sync-native |
-| separate | 上述两个，加 web-teacher-biao-sync-executor |
+inline 共 3 个 Worker；separate 共 4 个。只给 Public 保留网站域名。Admin 通过 SITE_ADMIN Service Binding 接收同域后台请求；无需手动添加 /admin/* Zone 路由。原 workers.dev 入口也使用同样的分发。不要给辅助 Worker 关联仓库或开放公开 URL。
 
-主站是唯一公开网站。辅助模块共用主站 D1/R2，脚本关闭其 workers.dev 与预览 URL，不要另行为辅助模块添加公开域名或路由。
+部署顺序：归属检查 → 全部产物检查 → D1/R2 检查 → Native/Executor → ADMIN-READY → Public DEPLOY → 激活同步调度。后台/辅助发布失败时，停止更新 Public；修复后在原构建项目重试。多 Worker 发布不是原子事务，中断可能留下不同版本或暂停的 Cron；重试会检查并补齐，不删除任务、媒体或数据库。
 
-点击部署后自动检查名称与已有归属、构建产物、检查 D1/R2，再发布辅助模块。填写构建同步密钥时随代码上传；未填写时保留已有环境 Secret，新站可先不配置密钥；辅助检查通过后发布主站；最后 separate 模式启用执行器每分钟 Cron。inline 模式下原生模块无 Cron，主站负责推进同步。
+## 4. 初始化与升级
 
-辅助 Worker 的 TEACHER_AUX_OWNER / TEACHER_AUX_ROLE 是归属标记。已存在同名对象但缺少/不匹配标记时停止，不自动覆盖旧版或其他程序。不要为了消除 10064 删除主站 TransferCoordinator 或其迁移。
+新站访问主域名 /setup，使用上述临时密钥创建管理员，然后访问 /auth/login。也可以部署后到 **Admin Worker** → Settings → Variables and Secrets 添加运行时 Secret TEACHER_SETUP_TOKEN；不再填在 Public Worker。
 
-切换模式：修改构建变量 TEACHER_SYNC_EXECUTOR_MODE 后重新部署。切回 inline 会关闭已有且归属匹配的独立执行器 Cron，保留该 Worker，不删除数据库或文件。
+从 v0.16.052 升级无需清库、重新初始化账号或手动创建 Admin。后台曾依赖仅存于 Public 运行时的外部服务密钥时，需要将其重新填到构建 Secrets 或 Admin 运行时；Cloudflare API 不能读出旧 Secret 明文。账号、会话和数据库中的同步密钥由两端共享，不需要复制。
 
-## 5. 发布结果与首次管理员
+不要删除原 Public 的 TransferCoordinator，也不要添加删除/改名迁移。它的类名、归属和持久状态保留。
 
-日志顺序：AUX-PREFLIGHT → 打包及 D1/R2 检查 → AUX-UPLOAD 或 AUX-REUSE → AUX-READY → DEPLOY → AUX-ACTIVE → PUBLISHED。
+## 5. 发布后验收
 
-AUX-PREFLIGHT 检查可读性及现有归属，不能提前保证全部写入权限。辅助打包 dry-run 仍可能显示 CI 名称覆盖提示，但辅助上传使用明确的 API URL；实际目标以 AUX-UPLOAD 的 worker 字段为准。
+- 首页 /en、/zh 和 /media/... 正常。
+- /auth/login 登录后，前台显示同一账号；/admin 和 /admin/site-sync 可用。
+- 上传小图片、预览并检查失败日志；测试 /transfer/ 和 /admin/transfer。
+- Public Settings → Bindings 出现 SITE_ADMIN、SYNC_NATIVE，以及 separate 时的 SYNC_EXECUTOR。
+- Admin 使用相同 D1/R2、TEACHER_ORIGIN、TEACHER_ALLOWED_ORIGINS，且无 Cron、无公开 URL。
+- 同步 executor 保持独立；小范围同步任务能继续推进。
 
-首次安装在主站 Settings → Variables and Secrets 添加**运行时 Secret** TEACHER_SETUP_TOKEN（32–256字符随机值），保存部署后访问主域名 /setup 创建管理员，再删除此临时密钥。已有管理员无需重复初始化。
+可将构建部署命令临时改为 `python build.py cloud-check` 做只读配置检查（需构建令牌），检查各 Worker 版本、绑定、私有入口和 Cron；检查后改回 `python build.py deploy`。它不代替实际业务验收。`verify-native` 仍仅构建 JS 原生辅助；`verify-companions` 现在也检查 Python Admin。
 
-访问首页、后台、文件快传。在两端 /admin/site-sync 的同步密钥区生成或粘贴同一密钥，分别保存，再填写对端 HTTPS 根域名并保存连接。生成和复制不会自动保存。随后创建小范围拉取任务，观察进度、日志及后台自动推进。无需给辅助 Worker 手动添加密钥，后台数据库配置由本站各模块共用。
+后台转发失败会记录 ADMIN-FORWARD / ADMIN_UNAVAILABLE、请求 ID；成功转发可通过响应头 x-upstream-request-id 关联 Admin 日志。Service Binding 分离代码和应用状态，但不承诺额外 CPU 配额，也不能消除共享 D1 压力。详细实现及验证边界见 [交付记录](../../docs/releases/v0.16.054.md)。
 
-## 6. 失败与重试
-
-- HTTP 401/403：检查辅助令牌权限和账号范围；接口不会把权限失败当作对象不存在。
-- 同名归属冲突：在控制台核对对象用途，程序不会自动接管。
-- HTTP 429/5xx/网络中断：API 最多尝试3次，随后停止；修复后重新运行构建。
-- 多 Worker 发布不是原子事务；失败时可能已有辅助组件更新，或独立 Cron 已暂停。主站 DEPLOY 成功后仍可能在 Cron 激活阶段失败。重新部署将重新检查并完成设置；不自动回滚代码或删除组件。
-- PUBLISHED 只表示平台发布及配置检查完成；不表示已验证线上业务和 CPU 限额。
-
-非发布验证仍可使用 python build.py verify-companions；本地追加 --report /tmp/companions.json 保存产物检查报告。完整上传包不会包含辅助 API Token。
-
-域名详情见 [DOMAINS.md](DOMAINS.md)，运行资源诊断见 [CPU-DIAGNOSTICS.md](CPU-DIAGNOSTICS.md)。
-
-## 7. 网页联调与恢复验收
-
-首次部署仍使用第2节命令。发布后，可将主站的 Deploy command 临时改为 `python build.py cloud-check`，点击重试构建；检查完成后恢复为 `python build.py deploy`。此诊断只读取云端配置，不更新代码、数据库或 Cron；成功日志应为 CLOUD-CHECK passed=true。它检查资源绑定、辅助私有入口、Cron 和主站 Durable Object；额外执行固定只读 D1 查询，API仅返回密钥配置状态，不返回密钥值。CLOUD-CHECK passed 只代表平台配置结果，同步状态单列在 SYNC-CREDENTIAL：configured 为数据库密钥有效，setup_required 为待后台设置，invalid 为数据库配置损坏，not_verified 为查询未获权限或失败，environment_present_unverified 为环境 Secret 存在但未验证值。没有密钥不导致平台检查失败；也不代表两端密钥已匹配。
-
-实际业务验收：打开首页、后台和媒体；创建一个小型同步任务，关闭后台页面后再次查看进度；分别验证手动拉取、对端批准后的推送与定时拉取。在测试站点观察临时传输失败后的自动续传，确认任务最终完成、数据及媒体一致。切换 separate 后重复验证，并在 Worker Observability 检查是否发生 1101/1102。不要在生产账号人为删除资源制造故障。
-
-发布中断后，修复权限或网络问题，再点击重试构建。脚本读取 TEACHER_AUX_REVISION 指纹：相同代码、配置及密钥可跳过辅助代码上传，仍检查归属并补齐私有入口和 Cron；代码或密钥变化会重新上传。该机制依赖程序管理的标记，请勿手工修改标记、辅助代码或密钥。构建不会自行无限重启；API 单次调用的有限自动重试与网站同步任务的后台恢复是两套机制。
-
-只验证原生模块时，可临时将 Deploy command 改为 `python build.py verify-native`。此命令不发布，跳过 Python 依赖和整站静态资源整理，仅安装锁定的 Node 工具并校验 JavaScript 上传包。inline 模式的 verify-companions 同样使用此轻量路径；separate 模式仍须打包 Python 执行器。完整主站发布依然需要 Python 构建。
-
-两平台统一密钥操作、环境后备与轮换步骤见 [同步密钥设置教程](../../docs/sync-key-setup.md)。D1诊断接口依据 [Cloudflare Query D1 Database](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/)。
+官方参考：[Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)、[Service Bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/http/)、[运行时 Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)。

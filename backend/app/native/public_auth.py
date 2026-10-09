@@ -30,7 +30,7 @@ def safe_next(value):
     return value if any(parts.path==base or parts.path.startswith(base+'/') for base in ('/zh','/en','/admin','/transfer')) else ''
 
 def install(app,resources,render):
-    from .web import payload,IntegrityError
+    from .web_common import payload,IntegrityError
     async def presentation(request,r,mode,data=None,message='',status=200):
         data=data or {};lang=data.get('lang',request.query_params.get('lang','en'));lang=lang if lang in ('zh','en') else 'en'
         target=safe_next(data.get('next',request.query_params.get('next','')))

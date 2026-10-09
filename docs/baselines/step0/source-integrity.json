@@ -1,0 +1,9 @@
+{
+  "baseline": "teacher-site-windows-v0.16.049-status-summary.zip",
+  "checked_existing_files": 1478,
+  "modified_existing_files": [],
+  "production_code_changed": false,
+  "database_changed": false,
+  "runtime_version": "0.16.049",
+  "delivery": "v0.16.049-step0-baseline"
+}

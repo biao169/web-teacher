@@ -8,20 +8,24 @@ from worker_runtime import snapshot  # deterministic imports enter the Python sn
 
 def build_application(include_transfer=False):
     """Build a fresh app synchronously; a failed attempt cannot leave cached routes."""
-    with phase('INIT-RESOURCES'):
-        from worker_runtime.resources import resource_factory
-        from backend.app.native.web import create_app
-        from worker_runtime.bridge import BoundApplication
-        from worker_runtime.setup import install as setup
-    with phase('INIT-MAIN'):
-        app = create_app(resource_factory,lazy_sync=True)
-    with phase('INIT-SETUP'):
-        setup(app, resource_factory)
+    from worker_runtime.bridge import BoundApplication
     if include_transfer:
-        with phase('INIT-TRANSFER'):
-            from generated_resources import TRANSFER_TEMPLATES, TRANSFER_CATALOG
-            from worker_runtime.transfer import install as transfer
-            transfer(app, resource_factory, TRANSFER_TEMPLATES, TRANSFER_CATALOG)
+        from worker_runtime.transfer_resources import resource_factory
+        from backend.app.native.web_common import create_base
+        from generated_transfer_templates import TRANSFER_TEMPLATES,TRANSFER_CATALOG
+        from worker_runtime.transfer import install
+        from fastapi import Request
+        app,resources,csrf,render=create_base(resource_factory)
+        @app.get('/admin/transfer')
+        async def transfer_admin(request:Request):
+            r=await resources(request);r.auth.require(r.p,'transfer')
+            values=await app.state.transfer_admin_workspace(request)
+            return await render(r,'admin/native-transfer.html','transfer',title='文件快传管理',transfer_url=r.transfer_url,**values)
+        install(app,resource_factory,TRANSFER_TEMPLATES,TRANSFER_CATALOG)
+    else:
+        from worker_runtime.public_resources import resource_factory
+        from backend.app.native.web_public import create_public_app
+        app=create_public_app(resource_factory)
     return BoundApplication(app)
 
 
@@ -55,6 +59,23 @@ class TransferCoordinator(DurableObject):
 class Default(WorkerEntrypoint):
     @traced('main-site',http=True)
     async def fetch(self, request):
+        from worker_runtime.site_routes import owner
+        if owner(request.url)=='admin':
+            # Forward the native stream unchanged: no ASGI, form or JSON parse here.
+            try:
+                return await self.env.SITE_ADMIN.fetch(request)
+            except Exception as exc:
+                from worker_runtime.diagnostics import failure
+                from site_sync.core.trace import current
+                from workers import Response
+                import json
+                trace=current().get('request_id')
+                emit('ADMIN-FORWARD','ERROR',request_id=trace,code='ADMIN_UNAVAILABLE',exceptions=failure(exc))
+                body=getattr(request,'body',None)
+                if body is not None and not body.locked:
+                    try:await body.cancel()
+                    except Exception as cancel_error:emit('ADMIN-BODY-CANCEL','ERROR',request_id=trace,exceptions=failure(cancel_error))
+                return Response(json.dumps({'error':'后台服务暂时不可用','code':'ADMIN_UNAVAILABLE','request_id':trace}),status=503,headers={'content-type':'application/json; charset=utf-8','cache-control':'no-store'})
         import secrets,re
         from urllib.parse import urlsplit
         from site_sync.core.trace import current
@@ -62,7 +83,7 @@ class Default(WorkerEntrypoint):
         if path=='/sync/v1/read' and str(getattr(self.env,'TEACHER_SYNC_PAUSED','0'))=='1':
             from js import Response,Object
             from pyodide.ffi import to_js
-            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.049'}},dict_converter=Object.fromEntries))
+            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.054'}},dict_converter=Object.fromEntries))
         ray=str(request.headers.get('cf-ray') or '')
         ray=ray if re.fullmatch('[a-fA-F0-9]{8,32}-[A-Z]{3}',ray) else ''
         route='sync-peer' if path=='/sync/v1/read' else 'sync-admin' if path.startswith(('/admin/site-sync','/api/admin/site-sync')) else 'admin' if path.startswith('/admin') else 'public'
@@ -77,15 +98,14 @@ class Default(WorkerEntrypoint):
                     emit('SYNC-FORWARD','ERROR',component='main-site',request_id=trace,code='SYNC_EXECUTOR_UNAVAILABLE',exceptions=failure(exc))
                     from js import Response,Object
                     from pyodide.ffi import to_js
-                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.049'}},dict_converter=Object.fromEntries))
+                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.054'}},dict_converter=Object.fromEntries))
             elif request.headers.get('x-sync-stream')=='1' and path=='/sync/v1/read':
                 response=await self.env.SYNC_NATIVE.fetch(request)
             elif path=='/sync/v1/read':
                 from worker_runtime.sync_resources import application as peer_application
                 response=await asgi.fetch(peer_application,request,self.env,self.ctx)
             else:
-                from worker_runtime.media_upload import dispatch_upload
-                response=await dispatch_upload(application,request,self.env,self.ctx,asgi.fetch,dispatch)
+                response=await dispatch(application,request,self.env,self.ctx,asgi.fetch)
             if int(response.status)>=500:emit('HTTP-RESPONSE','ERROR',component='main-site',request_id=trace,ray_id=ray,route=route,http_status=int(response.status))
             return response
 

@@ -17,7 +17,7 @@ from site_sync.core.authority import AuthorizationError,ConflictError,Credential
 
 
 def install(app,resources,csrf,render,*,shared_middleware=True):
-    from backend.app.native.web import payload
+    from backend.app.native.web_common import payload
     from .credentials_api import install as install_credentials
     install_credentials(app,resources,csrf,shared_middleware=shared_middleware)
     from .control_api import install as install_control

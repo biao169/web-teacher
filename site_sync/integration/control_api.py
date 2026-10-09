@@ -6,7 +6,7 @@ from backend.app.native.catalog import Error
 from . import control
 
 def install(app,resources,csrf):
-    from backend.app.native.web import payload
+    from backend.app.native.web_common import payload
     @app.api_route('/api/admin/site-sync/control',methods=['GET','POST'])
     async def handle(request:Request):
         r=await resources(request);authorize(r,'edit')

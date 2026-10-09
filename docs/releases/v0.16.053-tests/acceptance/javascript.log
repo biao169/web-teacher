@@ -1,0 +1,88 @@
+✔ all times explicitly use Shanghai rather than browser zone (1.088762ms)
+✔ expired execution is visible as recovery pending (0.17207ms)
+✔ slow retry is not labelled failed (0.097937ms)
+✔ manual approval and cancellation are distinct (0.103466ms)
+✔ quarantined retry remains resumable and distinct (0.191349ms)
+✔ failed non-JSON push is visible and refresh retries same ID with receipt feedback (8.172573ms)
+✔ 60 second cadence; paused/hidden pages never schedule status requests (1.357557ms)
+✔ pause while request is in flight prevents rescheduling; resume does not overlap (0.320073ms)
+✔ error is reported and retry stays at 60 seconds (0.355075ms)
+✔ small metadata owns a small exact backing buffer (16.521237ms)
+✔ declared body lengths are enforced in both directions (5.414735ms)
+✔ native dispatch returns configured 4 MiB slice as binary without Base64 (25.988499ms)
+✔ media receipts are queried only for multipart completion (3.59481ms)
+✔ database overrides env, rotation is immediate and corrupt DB never falls back (2.216342ms)
+{"component":"local-native","release":"0.16.053","sub_stage":"response_headers","error_type":"Error","code":"PEER_HTTP_FORBIDDEN","peer_request_id":"f2ea25fc08afa29304c22bfbe3b01069","http_status":403,"native_frames":[{"file":"transport.mjs","line":91,"function":""},{"file":"transport.mjs","line":59,"function":""},{"file":"transport.mjs","line":47,"function":""},{"file":"native_dispatch.mjs","line":25,"function":""}]}
+✔ native RPC uses DB credential and reports retry without secret (13.204902ms)
+✔ request deadline aborts fetch and classifies resource recovery (12.079965ms)
+✔ stream release aborts underlying fetch without replacing native body (6.394593ms)
+✔ failed fetch aborts its own controller and clears timer (2.654272ms)
+✔ response cleanup is isolated and deletes its owned callback (3.910056ms)
+{"component":"local-native","release":"0.16.053","sub_stage":"admission","error_type":"TypeError","native_frames":[{"file":"diagnostics.test.mjs","line":8,"function":""},{"file":"control.mjs","line":3,"function":""},{"file":"native_dispatch.mjs","line":21,"function":""},{"file":"diagnostics.test.mjs","line":9,"function":""}]}
+✔ database failure retains safe stage without leaking SQL or credentials (2.474201ms)
+✔ large Cloudflare error page keeps 1102 and ray ID (13.94585ms)
+{"component":"local-native","release":"0.16.053","sub_stage":"fetch_request","error_type":"TypeError","code":"INVOCATION_CONTEXT","native_frames":[{"file":"diagnostics.test.mjs","line":17,"function":""},{"file":"transport.mjs","line":34,"function":""},{"file":"transport.mjs","line":72,"function":""},{"file":"transport.mjs","line":59,"function":""}]}
+✔ invocation diagnosis is classified without exposing raw message (3.393748ms)
+{"component":"sync-native","stage":"response_cancel","code":"SYNC_CLEANUP_FAILED","error_type":"TypeError"}
+✔ cleanup error cannot replace authentication failure (1.964572ms)
+✔ 403 carries bounded remote location and trace without response text (2.116722ms)
+{"component":"local-native","release":"0.16.053","sub_stage":"control","error_type":"Error","native_frames":[{"file":"native_dispatch.mjs","line":17,"function":""},{"file":"host.test.mjs","line":4,"function":""}]}
+{"component":"local-native","release":"0.16.053","sub_stage":"admission","error_type":"Error","native_frames":[{"file":"native_dispatch.mjs","line":43,"function":""},{"file":"host.test.mjs","line":5,"function":""}]}
+{"component":"local-native","release":"0.16.053","sub_stage":"admission","error_type":"TypeError","native_frames":[{"file":"control.mjs","line":3,"function":""},{"file":"native_dispatch.mjs","line":21,"function":""},{"file":"host.test.mjs","line":6,"function":""}]}
+{"component":"local-native","release":"0.16.053","sub_stage":"admission","error_type":"TypeError","native_frames":[{"file":"control.mjs","line":3,"function":""},{"file":"native_dispatch.mjs","line":21,"function":""},{"file":"host.test.mjs","line":7,"function":""}]}
+✔ native RPC rejects huge controls (3.087465ms)
+✔ native cleanup cannot delete published objects (0.667296ms)
+✔ native service rejects arbitrary RPC method (0.883563ms)
+✔ native read rejects media into Python bridge (0.579244ms)
+✔ native status uses saved credential, does not fetch peer or expose secret (4.811936ms)
+✔ distinguish PEER_REDIRECT (6.055311ms)
+✔ distinguish PEER_ACCESS_CHALLENGE (2.652059ms)
+✔ probe-v2 capability response verifies signature without fetching candidates (6.729043ms)
+✔ signed native source streams bounded range under configured prefix (20.561616ms)
+{"component":"peer-native","release":"0.16.053","code":"SYNC_SCOPE_DENIED","stage":"export_authorization","request_id":"ba520fee2ef4d6097a3509179a750c5c","native_frames":[]}
+{"component":"peer-native","release":"0.16.053","code":"SYNC_ENVELOPE_INVALID","stage":"request_verify","request_id":"d98ddbc0f483412ab6dc901eb79d9784","native_frames":[]}
+✔ revoked source grant rejects before touching storage (4.517954ms)
+✔ unsigned native request cannot query database (1.342685ms)
+✔ native bucket wrapper prefixes multipart upload and resume (0.776992ms)
+{"component":"peer-native","release":"0.16.053","code":"SYNC_STORAGE_FAILED","stage":"media_read","request_id":"86e290d3b23d41ff03ee969c3e218526","native_frames":[{"file":"source_media.test.mjs","line":25,"function":""},{"file":"source_media.mjs","line":41,"function":""},{"file":"transport.mjs","line":72,"function":""},{"file":"transport.mjs","line":59,"function":""}]}
+✔ D1/R2 temporary failures remain retriable and renew export TTL (4.180734ms)
+✔ missing media snapshot is rebuilt once with fresh signed requests (9.112722ms)
+{"component":"peer-native","release":"0.16.053","code":"SYNC_SOURCE_CONFLICT","stage":"media_lookup","request_id":"2a4aa3c482a3b5dfdc498cb78ebd05b8","native_frames":[]}
+{"component":"peer-native","release":"0.16.053","code":"SYNC_SOURCE_CONFLICT","stage":"media_lookup","request_id":"091e5b83803639da537ff6a523409be0","native_frames":[]}
+✔ missing snapshot requests recovery but removed media is a conflict (4.295688ms)
+{"component":"peer-native","release":"0.16.053","code":"SYNC_PAUSED","stage":"admission","request_id":"d45bf60a33d311bfe7b63f6173ea5572","native_frames":[]}
+✔ paused source skips credential and media reads with explicit pause response (1.382785ms)
+{"component":"sync-coordinator","release":"0.16.053","stage":"runner_callback","code":"SYNC_RPC_FAILED","failures":12,"native_frames":[{"file":"sync_coordinator.test.mjs","line":11,"function":""}]}
+✔ successful alarm prearms recovery and schedules next task (1.590318ms)
+✔ failed RPC keeps durable retries bounded and Cron does not shorten backoff (1.748007ms)
+✔ no pending work and emergency pause remove alarms (0.473864ms)
+✔ persistent pause deletes alarms before contacting runner; resume clears failure backoff (0.499303ms)
+✔ pause during runner execution prevents rearming on success and failure (0.394014ms)
+✔ WebCrypto signatures interoperate with standard HMAC (6.216364ms)
+✔ signed bounded body verifies (9.505494ms)
+✔ tamper (2.333659ms)
+✔ oversize (1.522246ms)
+✔ wrong range (1.551399ms)
+✔ 1102 platform page (1.481264ms)
+✔ redirect (0.938615ms)
+{"component":"sync-native","stage":"r2_response_cancel","code":"SYNC_CLEANUP_FAILED","error_type":"Error"}
+✔ authenticated media retains native readable stream (2.483055ms)
+✔ native R2 5MiB plus tail and completion (5.747167ms)
+✔ lost complete reply recovered by owned HEAD (5.254764ms)
+✔ foreign object never published or deleted (0.299922ms)
+✔ owned incomplete upload aborts (0.106661ms)
+✔ storage part cannot shrink below R2 floor (0.156916ms)
+✔ stream failure produces no completed part (0.755369ms)
+✔ expired multipart session resets only after checking completion (0.544602ms)
+✔ resource diagnostics retain HTTP status platform code and Ray ID only (5.391801ms)
+✔ media over former 20 MiB bound streams one part per step (20.210586ms)
+✔ empty R2 object publishes without multipart or peer request (0.282596ms)
+✔ native snapshot hash does not return snapshot bytes through RPC (23.154044ms)
+ℹ tests 64
+ℹ suites 0
+ℹ pass 64
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 300.964532

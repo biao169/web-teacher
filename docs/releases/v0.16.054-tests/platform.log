@@ -1,0 +1,48 @@
+........................................................................ [ 42%]
+........................................................................ [ 84%]
+..........................                                               [100%]
+=============================== warnings summary ===============================
+../integration001-deps/starlette/testclient.py:37
+  /workspace/scratch/0d1a9c0024a0/integration001-deps/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/0d1a9c0024a0/integration054-media-usage-work/site_sync/integration/host.py:99: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event('startup')
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/0d1a9c0024a0/integration001-deps/fastapi/applications.py:4495: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/0d1a9c0024a0/integration054-media-usage-work/site_sync/integration/host.py:101: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event('shutdown')
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/0d1a9c0024a0/integration054-media-usage-work/backend/entrypoints/vps.py:11: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event('shutdown')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+170 passed, 7 warnings in 29.04s

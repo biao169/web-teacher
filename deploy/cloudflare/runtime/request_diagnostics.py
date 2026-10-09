@@ -37,8 +37,13 @@ def traced(component,http=False):
                             from js import Response
                             with operation_stage('response-wrap'):
                                 result=Response.new(result.body,result)
+                                upstream=result.headers.get('x-request-id')
+                                if upstream and upstream!=data['request_id']:result.headers.set('x-upstream-request-id',upstream)
                                 result.headers.set('x-request-id',data['request_id'])
-                                result.headers.set('x-teacher-release','0.16.049')
+                                upstream_component=result.headers.get('x-teacher-component')
+                                if upstream_component:result.headers.set('x-upstream-component',upstream_component)
+                                result.headers.set('x-teacher-component',component)
+                                result.headers.set('x-teacher-release','0.16.054')
                     record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='returned')
                     return result
                 except BaseException as exc:

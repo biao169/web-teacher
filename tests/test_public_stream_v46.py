@@ -17,10 +17,12 @@ def ids(html):return [a['data-record-id'] for a in records(html) if 'data-record
 
 def test_home_chunks_respect_setting_above_ten_and_partial_last_page(fixture):
     c,r=fixture;many(r,'publications',26);configure(r,homepage_publication_limit=23)
-    html=c.get('/zh').text;assert len(ids(html))==10
-    streams=[a for t,a in DOM(html).tags if 'data-public-stream' in a]
-    first=next(a for a in streams if a['data-table']=='publications');assert first['data-total']=='23'
-    p2=c.get(first['data-next'],headers=H);assert p2.status_code==200
+    shell=c.get('/zh').text;assert len(ids(shell))==0
+    html=c.get('/zh/publications?home=1&page=1',headers=H).json()['html'];assert len(ids(html))==10
+    streams=[a for t,a in DOM(shell).tags if 'data-public-stream' in a]
+    first=next(a for a in streams if a['data-table']=='publications');assert first['data-page']=='0'
+    page1=c.get(first['data-next'],headers=H).json();assert page1['total']==23
+    p2=c.get(page1['next_url'],headers=H);assert p2.status_code==200
     data=p2.json();assert len(ids(data['html']))==10 and data['home'] and data['total']==23
     last=c.get(data['next_url'],headers=H).json();assert len(ids(last['html']))==3 and not last['next_url']
     assert len(set(ids(html)+ids(data['html'])+ids(last['html'])))==23

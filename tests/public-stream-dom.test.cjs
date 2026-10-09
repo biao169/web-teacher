@@ -60,3 +60,28 @@ test('query identity and next-query mismatch cannot contaminate current stream',
   f.requests[0].resolve({ok:true,headers:{get:()=> 'application/json'},json:async()=>({table:'publications',lang:'zh',home:false,page:2,total:25,query_id:id,html:article('wrong'),next_url:next})});await f.tick();assert.equal(f.$('[data-record-id=wrong]'),null);
  }
 });
+function lazy(table){return html(table,true).replace('data-page="1"','data-page="0"').replace('data-total="25"','data-total="0"').replace(/page=2/g,'page=1').replace(article('first'),'');}
+test('home page-zero slices start automatically in one serial queue without IO',async t=>{
+ const f=fixture(t,{observer:false,markup:lazy('publications')+lazy('projects')});
+ assert.equal(f.requests.length,1);assert.match(f.requests[0].url,/publications/);
+ f.resolve(0,{ids:['p1'],page:1,home:true,total:1,next:''});await f.tick();
+ assert.equal(f.requests.length,2);assert.match(f.requests[1].url,/projects/);
+ f.resolve(1,{ids:['p2'],page:1,table:'projects',home:true,total:1,next:''});await f.tick();assert(f.$('[data-record-id=p2]'));
+});
+test('empty first page hides module and empty group; group count reflects remaining cards',async t=>{
+ const f=fixture(t,{observer:false,markup:'<div data-home-group="primary" data-module-count="2">'+lazy('publications')+lazy('projects')+'</div>'});
+ f.resolve(0,{ids:[],page:1,home:true,total:0,next:''});await f.tick();
+ assert.equal(f.$('[data-table=publications]').hidden,true);assert.equal(f.$('[data-home-group]').dataset.moduleCount,'1');
+ f.resolve(1,{ids:[],page:1,table:'projects',home:true,total:0,next:''});await f.tick();assert.equal(f.$('[data-home-group]').hidden,true);
+});
+test('failed first page does not block next module and explicit retry remains available',async t=>{
+ const f=fixture(t,{observer:false,markup:lazy('publications')+lazy('projects')});
+ f.resolve(0,{ok:false});await f.tick();assert.equal(f.requests.length,2);
+ f.resolve(1,{ids:['p'],page:1,home:true,table:'projects',total:1,next:''});await f.tick();
+ f.$('[data-table=publications] [data-load-more]').click();assert.equal(f.requests.length,3);
+ f.resolve(2,{ids:['ok'],page:1,home:true,total:1,next:''});await f.tick();assert(f.$('[data-record-id=ok]'));
+});
+test('save-data keeps first-page links manual and pagehide cancels queued initial modules',async t=>{
+ const manual=fixture(t,{saveData:true,markup:lazy('publications')});assert.equal(manual.requests.length,0);manual.$('[data-load-more]').click();assert.equal(manual.requests.length,1);
+ const f=fixture(t,{markup:lazy('publications')+lazy('projects')});f.w.dispatchEvent(new f.w.Event('pagehide'));await f.tick();assert.equal(f.requests.length,1);assert.equal(f.requests[0].opts.signal.aborted,true);
+});

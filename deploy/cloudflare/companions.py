@@ -22,7 +22,9 @@ def names(main):
 
 def inspect_artifact(path, config, main_name, role):
     """Reject wrong targets, incomplete modules, secrets, or website bindings."""
-    if role not in ('native','executor') or config.get('name')!=names(main_name)[role]:
+    from site_workers import admin_name
+    targets={**names(main_name),'admin':admin_name(main_name)}
+    if role not in targets or config.get('name')!=targets[role]:
         raise ValueError('Companion target mismatch')
     if config.get('workers_dev') is not False or config.get('preview_urls') is not False:
         raise ValueError('Companions must be private')
@@ -33,6 +35,7 @@ def inspect_artifact(path, config, main_name, role):
     if role=='native':
         if config.get('durable_objects')!=expected_do or config.get('migrations')!=expected_migrations:raise ValueError('Sync coordinator configuration mismatch')
     elif any(k in config for k in ('durable_objects','migrations')):raise ValueError('Executor cannot own DOs')
+    if role=='admin' and config.get('triggers')!={'crons':[]}:raise ValueError('Admin must not schedule tasks')
     path=Path(path)
     if not 0<path.stat().st_size<=MAX_ARTIFACT:
         raise ValueError('Invalid multipart artifact size')
@@ -94,7 +97,7 @@ def inspect_artifact(path, config, main_name, role):
     else:
         if parts[main][0]!='text/x-python' or 'python_workers' not in metadata.get('compatibility_flags',[]):
             raise ValueError('Python entrypoint/compatibility flag missing')
-        required=('worker_runtime/sync_executor.py','site_sync/integration/worker_schedule.py')
+        required=('worker_runtime/admin_entrypoint.py','backend/app/native/web_admin.py','generated_admin_templates.py') if role=='admin' else ('worker_runtime/sync_executor.py','site_sync/integration/worker_schedule.py')
         if any(not any(n==suffix or n.endswith('/'+suffix) for n in parts) for suffix in required):
             raise ValueError('Python executor source incomplete')
         if not any(n.startswith('python_modules/') for n in parts):

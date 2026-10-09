@@ -9,6 +9,11 @@ def check(env,config,log,report_path=None,*,client=None):
     targets=validate(env,config['name'],credentials=False)
     api=client or Client(env.get('CLOUDFLARE_ACCOUNT_ID',''),env.get('TEACHER_AUX_API_TOKEN',''))
     result={'mode':config['sync_executor'],'read_only':True,'runtime_execution':'not_checked','workers':[]}
+    from site_workers import admin_name
+    import tomllib
+    release=tomllib.loads((Path(__file__).resolve().parents[2]/'pyproject.toml').read_text())['project']['version']
+    targets={**targets,'admin':admin_name(config['name'])}
+    result['expected_release']=release
     for role,worker in [('main',config['name']),*targets.items()]:
         row={'role':role,'worker':worker,'problems':[]}
         try:
@@ -17,20 +22,27 @@ def check(env,config,log,report_path=None,*,client=None):
                 if role=='executor' and config['sync_executor']=='inline':row['status']='not_required'
                 else:row['problems'].append('worker_missing')
             else:
-                if role!='main':owned(settings,config['name'],role)
+                if role=='admin':
+                    values={b.get('name'):b.get('text') for b in settings.get('bindings',[])}
+                    if values.get('TEACHER_AUX_OWNER')!=config['name'] or values.get('TEACHER_AUX_ROLE')!='admin':raise ValueError('Admin ownership mismatch')
+                elif role!='main':owned(settings,config['name'],role)
                 bindings={b.get('name'):b for b in settings.get('bindings',[])}
+                row['release']=bindings.get('TEACHER_RELEASE',{}).get('text')
+                if row['release']!=release:row['problems'].append('release_mismatch')
                 if bindings.get('DB',{}).get('id')!=config['database']:row['problems'].append('database_binding_mismatch')
                 if bindings.get('MEDIA',{}).get('bucket_name')!=config['bucket']:row['problems'].append('media_binding_mismatch')
                 if bindings.get('TEACHER_SYNC_KEY',{}).get('type')!='secret_text':row['environment_secret']='absent'
                 else:row['environment_secret']='present'
-                if role in ('main','executor') and bindings.get('SYNC_NATIVE',{}).get('service')!=targets['native']:
+                if role in ('main','executor','admin') and bindings.get('SYNC_NATIVE',{}).get('service')!=targets['native']:
                     row['problems'].append('native_service_binding_mismatch')
                 if role=='main':
+                    if bindings.get('SITE_ADMIN',{}).get('service')!=targets['admin']:row['problems'].append('admin_service_binding_mismatch')
                     if bindings.get('TEACHER_SYNC_EXECUTOR_MODE',{}).get('text')!=config['sync_executor']:row['problems'].append('main_mode_mismatch')
                     if bindings.get('TRANSFER_COORDINATOR',{}).get('class_name')!='TransferCoordinator':row['problems'].append('transfer_coordinator_missing')
                 else:
                     visibility=api.request('GET',worker,'/subdomain')
                     if visibility.get('enabled') is not False or visibility.get('previews_enabled') is not False:row['problems'].append('public_entry_enabled')
+                if role=='admin' and 'SYNC_EXECUTOR' in bindings:row['problems'].append('admin_executor_binding_forbidden')
                 schedules=api.request('GET',worker,'/schedules')
                 actual=sorted(x.get('cron') for x in schedules.get('schedules',[]))
                 expected=['* * * * *'] if role=='main' or (role=='executor' and config['sync_executor']=='separate') else []

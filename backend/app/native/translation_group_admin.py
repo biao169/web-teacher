@@ -22,7 +22,7 @@ def install(app,resources,render,csrf,resolve,navigation_stamp):
     @app.post('/api/assistance/translation-groups/{uid}/choose')
     async def choose(request:Request,uid:str):
         """Adopt an explicitly reviewed donor for one pending row; no implicit group-wide overwrite."""
-        from .web import payload
+        from .web_common import payload
         r=await resources(request);data=await payload(request,16384);csrf(request,r,data)
         _,base,_,_=await resolve(request,r,'translation_cache');navigation_stamp(r,data.get('nav_stamp',''))
         values=[data.get(key) for key in ('donor_uid','donor_stamp','target_uid','target_stamp')]
@@ -32,7 +32,7 @@ def install(app,resources,render,csrf,resolve,navigation_stamp):
     @app.post('/api/assistance/translation-groups/{uid}/translate')
     async def translate_one(request:Request,uid:str):
         """One explicit source, constrained by the same group/filter ACL; reuse the guarded service."""
-        from .web import payload
+        from .web_common import payload
         from .assistance import Assistance
         from .translation_index import identity
         r=await resources(request);data=await payload(request,4096);csrf(request,r,data)

@@ -105,8 +105,13 @@ class PipelineTests(unittest.TestCase):
             if name=='PACKAGE':
                 stage=Path(command[command.index('--output')+1])
                 stage.mkdir();(stage/'backend').mkdir();(stage/'site_sync').mkdir()
-                for n in ('main.py','generated_native_resources.py','generated_resources.py'):(stage/n).write_text('')
+                for n in ('main.py','generated_native_resources.py','generated_resources.py'):(stage/n).write_text('TEMPLATES = {}\n' if n=='generated_resources.py' else '')
                 (stage/'wrangler.json').write_text(json.dumps({'name':'teacher','main':'main.py','assets':{},'compatibility_date':'2026-09-14','compatibility_flags':['python_workers','global_fetch_strictly_public'],'vars':{'TEACHER_MEDIA_BINDING':'MEDIA','TEACHER_MEDIA_PREFIX':'media/'},'d1_databases':[{'binding':'DB','database_name':'teacher-db','database_id':'12345678-1234-1234-1234-123456789abc'}],'r2_buckets':[{'binding':'MEDIA','bucket_name':'teacher-media'}]}))
+            if name=='SITE-PACKAGE':
+                self.assertIn('tools/.venv',command[0].replace('\\','/'))
+                self.assertEqual(Path(command[2]).name,'site_workers.py')
+            if name=='ADMIN-BUNDLE':
+                (Path(cwd)/'wrangler.admin.jsonc').write_text('{}')
             if name=='WRANGLER':
                 p=Path(cwd)/'node_modules/wrangler/bin';p.mkdir(parents=True)
                 (p/'wrangler.js').write_text('')
@@ -126,7 +131,7 @@ class PipelineTests(unittest.TestCase):
             stages=[]
             with patch.dict(pipeline.os.environ,self.env(TEACHER_SYNC_EXECUTOR_MODE='separate' if separate else 'inline',TEACHER_SYNC_KEY='' if no_key else '6a'*32,CLOUDFLARE_ACCOUNT_ID='a'*32,TEACHER_AUX_API_TOKEN='test-token',WRANGLER_CI_OVERRIDE_NAME='teacher-site',WRANGLER_CI_MATCH_TAG='main-tag')), patch.object(pipeline.shutil,'which',return_value='/bin/node'), \
                  patch.object(pipeline.subprocess,'check_output',return_value='v22.0.0'), \
-                 patch.object(pipeline.venv.EnvBuilder,'create'),patch.object(pipeline,'verify_stage'), patch('d1_setup.setup') as db_setup, patch('r2_check.check') as r2_check, patch('companions.inspect_artifact',return_value={'artifact_validation':'passed'}) as inspect, patch('companion_release.Release') as release:
+                 patch.object(pipeline.venv.EnvBuilder,'create'),patch.object(pipeline,'verify_stage'), patch('d1_setup.setup') as db_setup, patch('r2_check.check') as r2_check, patch('companions.inspect_artifact',return_value={'artifact_validation':'passed'}) as inspect, patch('companion_release.Release') as release, patch('admin_release.AdminRelease') as admin, patch('site_workers.extend'):
                 release.return_value.key='' if no_key else '6a'*32
                 if failure:
                     with self.assertRaisesRegex(RuntimeError,'injected'):pipeline.execute(mode,fake_stage,lambda *a,**kw:None)
@@ -138,7 +143,7 @@ class PipelineTests(unittest.TestCase):
                 continue
             if mode=='verify-companions':
                 db_setup.assert_not_called();r2_check.assert_not_called()
-                self.assertEqual(inspect.call_count,2 if separate else 1)
+                self.assertEqual(inspect.call_count,3 if separate else 2)
                 self.assertFalse(any(n in ('DEPLOY','SYNC-NATIVE-DEPLOY','SYNC-EXECUTOR-DEPLOY','SYNC-SECRET','BUNDLE') for n,c in stages))
                 continue
             self.assertEqual(db_setup.call_args.kwargs['publish'], mode == 'deploy')
@@ -160,7 +165,7 @@ if __name__=='__main__':unittest.main()
 
 class NativeShortcutTests(unittest.TestCase):
     def test_native_verification_never_enters_python_build(self):
-        for command in ('verify-native','verify-companions'):
+        for command in ('verify-native',):
             with patch.dict(pipeline.os.environ,PipelineTests().env()), patch('native_build.execute',return_value={'native_only':True}) as native, patch.object(pipeline.venv.EnvBuilder,'create') as venv:
                 result=pipeline.execute(command,lambda *a:None,lambda *a,**kw:None)
                 self.assertTrue(result['native_only']);native.assert_called_once();venv.assert_not_called()

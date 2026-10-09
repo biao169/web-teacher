@@ -57,6 +57,11 @@
       for(const el of articles){if(s.ids.has(el.dataset.recordId))continue;s.ids.add(el.dataset.recordId);s.items.append(el);additions.push(el);}
       s.page=result.page;s.next=next;s.root.dataset.page=String(s.page);s.root.dataset.total=String(result.total);
       updateLinks(s);
+      if(s.home){
+        s.root.hidden=result.total===0;
+        const group=s.root.closest('[data-home-group]');
+        if(group){const visible=[...group.querySelectorAll('[data-public-stream]')].filter(el=>!el.hidden).length;group.dataset.moduleCount=String(visible);group.hidden=visible===0;}
+      }
       s.more.textContent=say(s,'加载更多','Load more');
       s.status.textContent=next?say(s,`本页已加载 ${s.ids.size} 条，共 ${result.total} 条`,`Loaded ${s.ids.size} here, ${result.total} total`):say(s,'已显示全部后续结果','All remaining results loaded');
       s.root.dispatchEvent(new CustomEvent('public:appended',{bubbles:true,detail:{count:additions.length,page:s.page,total:result.total}}));
@@ -76,8 +81,12 @@
     if('IntersectionObserver' in window && !navigator.connection?.saveData){s.observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))schedule(s);},{rootMargin:'0px 0px 240px 0px'});}
     states.push(s);updateLinks(s);watch(s);
   }
+  // Initial homepage slices share the existing queue, including browsers without IO.
+  // Save-data users keep explicit Load content/View all links.
+  function initial(){if(!navigator.connection?.saveData)for(const s of states)if(s.home&&s.page===0)schedule(s);}
+  initial();
   function pause(){paused=true;queue.length=0;for(const s of states){s.queued=false;s.observer?.disconnect();s.controller?.abort();}}
   document.addEventListener('public:querychange',pause);
   window.addEventListener('pagehide',pause);
-  window.addEventListener('pageshow',()=>{paused=false;for(const s of states)watch(s);pump();});
+  window.addEventListener('pageshow',()=>{paused=false;for(const s of states)watch(s);initial();pump();});
 })();

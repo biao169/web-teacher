@@ -87,7 +87,9 @@ def test_new_home_caps_and_no_unbounded_fetch(fixture):
     configure(r,homepage_student_limit=11,homepage_patent_limit=0)
     site=run(r.sql.query('SELECT * FROM site_settings WHERE is_active=1'))[0]
     data,pages=run(homepage_rows(r,site))
-    assert len(data['students'])==10 and pages['students']['total']==11 and data['patents']==[]
+    assert set(data)=={'profiles'} and pages['students']['page']==0 and 'patents' not in pages
+    first=c.get('/zh/students?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()
+    assert first['total']==11 and len(DOM(first['html']).find('article'))==10
     fragment=c.get('/zh/students?home=1&page=2',headers={'X-Public-Fragment':'1'}).json()
     assert len(DOM(fragment['html']).find('article'))==1 and not fragment['next_url']
     assert 'id="home-students"' in c.get('/zh').text and 'id="home-patents"' not in c.get('/zh').text

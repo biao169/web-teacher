@@ -19,7 +19,7 @@ def install_headers(app):
 
 
 def install(app,resources,csrf,*,shared_middleware=True):
-    from backend.app.native.web import payload
+    from backend.app.native.web_common import payload
     if shared_middleware:install_headers(app)
 
     async def handle(request,action):

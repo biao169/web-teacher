@@ -32,6 +32,10 @@ def page_number(value):
     try:return max(1,int(value))
     except (TypeError,ValueError):raise Error('页码无效') from None
 
+def home_limit(table,site):
+    field,default=HOME_FIELDS[table];value=(site or {}).get(field)
+    return max(0,int(default if value is None else value))
+
 async def public_listing(r,table,query,site=None,home=False,profile_overview=False,*,fixed_conditions=None):
     """One SQL page per request; home totals cap all subsequent pages as well as the first."""
     if table not in PUBLIC_FIELDS:raise Error('页面不存在',404)
@@ -42,8 +46,7 @@ async def public_listing(r,table,query,site=None,home=False,profile_overview=Fal
     limit=None
     if home:
         if table not in HOME_FIELDS:raise Error('此模块没有首页分页',400)
-        field,default=HOME_FIELDS[table];value=(site or {}).get(field)
-        limit=max(0,int(default if value is None else value))
+        limit=home_limit(table,site)
         if not limit:return {'rows':[],'total':0,'page':1,'pages':1,'size':BATCH_SIZE,'query':{'home':'1','size':BATCH_SIZE,'page':1}}
         q={'size':BATCH_SIZE,'page':min(page_number(q.get('page',1)),max(1,(limit+BATCH_SIZE-1)//BATCH_SIZE)),'f.is_featured':1}
     else:

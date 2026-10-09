@@ -9,7 +9,7 @@ from . import data_restore
 
 def install(app,resources,csrf,render):
     """Mount the shared admin tools without exposing generic SQL or arbitrary filesystem paths."""
-    from .web import payload
+    from .web_common import payload
     @app.get('/admin/data_tools')
     @app.get('/admin/import-export')
     async def page(request:Request):

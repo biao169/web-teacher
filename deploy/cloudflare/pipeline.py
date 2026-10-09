@@ -103,7 +103,7 @@ def execute(command, runner, log, *, report_path=None):
     config = settings(os.environ)
     from deploy_config import validate
     validate(os.environ,config['name'],credentials=command=='deploy')
-    if command=='verify-native' or (command=='verify-companions' and config['sync_executor']=='inline'):
+    if command=='verify-native':
         from native_build import execute as native_execute
         return native_execute(config,runner,log,report_path)
     release=None
@@ -111,6 +111,9 @@ def execute(command, runner, log, *, report_path=None):
         from companion_release import Release
         release=Release(os.environ,config,log)
         release.preflight()
+        from admin_release import AdminRelease
+        admin_release=AdminRelease(release,os.environ)
+        admin_release.preflight()
     for name in FILES:
         if not (HERE/name).is_file():
             raise ValueError('缺少锁文件 / Missing deployment file: '+name)
@@ -161,6 +164,7 @@ def execute(command, runner, log, *, report_path=None):
         log('DOMAIN', '站点地址配置 / Site origin configuration', origin=config['origin'],
             custom_domain=config['custom_domain'], workers_dev=config['workers_dev'])
         from integration_package import extend
+        cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
         cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']=config['sync_executor']
         cfg['vars']['TEACHER_SYNC_PAUSED']=config.get('sync_paused','0')
         extend(ROOT, stage, cfg)
@@ -168,8 +172,11 @@ def execute(command, runner, log, *, report_path=None):
         for name in FILES:
             shutil.copyfile(HERE/name, stage/name)
         verify_stage(stage)
+        runner('SITE-PACKAGE',[str(host_python),'-B',str(HERE/'site_workers.py'),'--stage',str(stage)],stage,env)
+        cfg=json.loads((stage/'wrangler.jsonc').read_text())
         runner('SNAPSHOT-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
             '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src')], stage, env)
+        runner('ADMIN-SNAPSHOT-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'), '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src'), '--admin-only'], stage, env)
         runner('EXECUTOR-SNAPSHOT-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
             '--runtime', str(stage/'src/worker_runtime'), '--source', str(stage/'src'), '--executor-only'], stage, env)
         runner('EXECUTOR-DEPENDENCY-CHECK', [str(host_python), '-B', str(HERE/'startup_check.py'),
@@ -184,16 +191,20 @@ def execute(command, runner, log, *, report_path=None):
         wrangler = stage/'node_modules/wrangler/bin/wrangler.js'
         if not wrangler.is_file():
             raise ValueError('缺少锁定的 Wrangler / Missing locked Wrangler')
+        aux_env={k:v for k,v in env.items() if k not in ('WRANGLER_CI_OVERRIDE_NAME','WRANGLER_CI_MATCH_TAG','WORKERS_CI')}
         artifact_args=['--outfile',str(work/'native.multipart')] if command in ('verify-companions','deploy') else []
-        runner('SYNC-NATIVE-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'sync-native/wrangler.jsonc'),'--dry-run','--outdir',str(work/'sync-native-bundle'),*artifact_args], stage, env)
+        runner('SYNC-NATIVE-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'sync-native/wrangler.jsonc'),'--dry-run','--outdir',str(work/'sync-native-bundle'),*artifact_args], stage, aux_env)
         if config['sync_executor']=='separate':
             artifact_args=['--outfile',str(work/'executor.multipart')] if command in ('verify-companions','deploy') else []
-            runner('SYNC-EXECUTOR-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'wrangler.sync-executor.jsonc'),'--dry-run','--outdir',str(work/'sync-executor-bundle'),*artifact_args],stage,env)
+            runner('SYNC-EXECUTOR-BUNDLE', [node,str(wrangler),'deploy','--config',str(stage/'wrangler.sync-executor.jsonc'),'--dry-run','--outdir',str(work/'sync-executor-bundle'),*artifact_args],stage,aux_env)
+        artifact_args=['--outfile',str(work/'admin.multipart')] if command in ('verify-companions','deploy') else []
+        runner('ADMIN-BUNDLE',[node,str(wrangler),'deploy','--config',str(stage/'wrangler.admin.jsonc'),'--dry-run','--outdir',str(work/'admin-bundle'),*artifact_args],stage,aux_env)
         if command=='verify-companions':
             from companions import inspect_artifact
             reports=[inspect_artifact(work/'native.multipart',json.loads((stage/'sync-native/wrangler.jsonc').read_text()),config['name'],'native')]
             if config['sync_executor']=='separate':
                 reports.append(inspect_artifact(work/'executor.multipart',json.loads((stage/'wrangler.sync-executor.jsonc').read_text()),config['name'],'executor'))
+            reports.append(inspect_artifact(work/'admin.multipart',json.loads((stage/'wrangler.admin.jsonc').read_text()),config['name'],'admin'))
             result={'mode':config['sync_executor'],'wrangler':'4.143.0','artifacts':reports,
                     'publication':'not_run','database_changes':'not_run','cloud_runtime':'not_run'}
             if report_path:
@@ -210,6 +221,7 @@ def execute(command, runner, log, *, report_path=None):
         setup(node, wrangler, stage, env, config, log, publish=command == 'deploy')
         if command == 'deploy':
             release.prepare(stage,work)
+            admin_release.prepare(stage,work)
             keyfile=work/'sync-secret.json'
             # An empty file preserves existing Wrangler secrets without writing a blank key.
             fd=os.open(keyfile,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)

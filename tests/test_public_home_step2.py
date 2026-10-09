@@ -58,20 +58,22 @@ def test_real_home_modules_zero_limits_featured_visibility_and_order(fixture):
     assert page.index('id="home-publications"')<page.index('id="home-news"')<page.index('id="home-projects"')
     assert 'PRIVATE_PAPER' not in page and 'UNFEATURED_PAPER' not in page
 
-def test_no_content_does_not_render_empty_home_modules(fixture):
+def test_empty_home_keeps_configured_shell_until_fragment_arrives(fixture):
     c,r=fixture;page=c.get('/zh').text
-    assert 'class="academic-home-section"' not in page and '<h1>' in page
+    assert 'data-page="0"' in page and '<h1>' in page
+    result=c.get('/zh/publications?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()
+    assert result['total']==0 and not result['next_url']
 
 def test_projects_show_fund_source_and_never_summary(fixture):
     c,r=fixture
     add(r,'projects','Project title',is_featured=1,source='Funding source',fund_name='Research program',summary='DO_NOT_SHOW_SUMMARY',amount='100.00')
-    page=c.get('/zh').text
+    page=c.get('/zh/projects?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()['html']
     assert 'Funding source' in page and 'Research program' in page
     assert 'DO_NOT_SHOW_SUMMARY' not in page and '100 万元' in page
 
 def test_news_links_open_new_tab(fixture):
     c,r=fixture;uid=add(r,'news','news-demo',is_featured=1)
-    matches=DOM(c.get('/zh').text).find_path('/zh/news/'+uid)
+    matches=DOM(c.get('/zh/news?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()['html']).find_path('/zh/news/'+uid)
     assert len(matches)==2 and all(a.get('target')=='_blank' and a.get('rel')=='noopener noreferrer' for a in matches)
 
 def test_manual_english_faculty_and_english_ui(fixture):

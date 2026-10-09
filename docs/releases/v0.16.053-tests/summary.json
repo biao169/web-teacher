@@ -1,0 +1,18 @@
+{
+  "version": "0.16.053",
+  "status": "passed",
+  "scope": "offline only",
+  "python_sync_deploy": 850,
+  "subtests": 47,
+  "skipped": 1,
+  "platform_python": 170,
+  "javascript": 64,
+  "workerd": 6,
+  "dom": 38,
+  "final_targeted_python": 53,
+  "final_build_python": 12,
+  "role_runtime_python": 22,
+  "publication": "not_run",
+  "worker_sdk_bundle": "not_run",
+  "production_cpu_memory": "not_measured"
+}

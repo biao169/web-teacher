@@ -21,9 +21,23 @@ def main(separate=False):
         (stage/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n')
         cfg=json.loads((stage/'wrangler.jsonc').read_text());cfg['main']='src/main.py'
         if separate:cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']='separate'
+        import tomllib
+        cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
         apply(cfg,domains);extend(ROOT,stage,cfg)
         (stage/'wrangler.jsonc').write_text(json.dumps(cfg))
         verify_stage(stage)
+        site_package=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/site_workers.py'),'--stage',str(stage)],cwd=stage,text=True,capture_output=True)
+        if site_package.returncode:raise RuntimeError(site_package.stdout+site_package.stderr)
+        cfg=json.loads((stage/'wrangler.jsonc').read_text())
+        print(site_package.stdout)
+        admin_check=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/startup_check.py'),'--runtime',str(stage/'src/worker_runtime'),'--source',str(stage/'src'),'--admin-only'],cwd=stage,text=True,capture_output=True)
+        if admin_check.returncode:raise RuntimeError(admin_check.stdout+admin_check.stderr)
+        print(admin_check.stdout)
+        for role in ('public','admin','full'):
+            boundary=subprocess.run([sys.executable,'-B',str(ROOT/'tests/check_app_boundaries_step3.py'),'--source',str(stage/'src'),'--role',role],cwd=stage,text=True,capture_output=True)
+            if boundary.returncode:raise RuntimeError(boundary.stdout+boundary.stderr)
+            result=json.loads(boundary.stdout)
+            print(json.dumps({'staged_app_boundary':role,'route_count':len(result['routes']),'project_module_count':len(result['project_modules'])}))
         check=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/startup_check.py'),'--runtime',str(stage/'src/worker_runtime'),'--source',str(stage/'src')],cwd=stage,text=True,capture_output=True)
         if check.returncode:raise RuntimeError(check.stdout+check.stderr)
         isolated=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/startup_check.py'),'--runtime',str(stage/'src/worker_runtime'),'--source',str(stage/'src'),'--executor-only'],cwd=stage,text=True,capture_output=True)
@@ -33,11 +47,11 @@ def main(separate=False):
         assert 'generated_native_resources' in deferred.stdout
         print(isolated.stdout+deferred.stdout)
         import ast
-        for filename in ('generated_native_resources.py','generated_resources.py'):
+        for filename in ('generated_native_resources.py','generated_public_templates.py','generated_admin_templates.py','generated_transfer_templates.py'):
             tree=ast.parse((stage/'src'/filename).read_text())
             print(json.dumps({'generated_file':filename,'bytes':(stage/'src'/filename).stat().st_size,'values':{n.targets[0].id:len(repr(ast.literal_eval(n.value)).encode()) for n in tree.body if isinstance(n,ast.Assign)}}))
         # Both deploy targets must use the canonical sync page and assets.
-        resources_tree=ast.parse((stage/'src/generated_resources.py').read_text())
+        resources_tree=ast.parse((stage/'src/generated_admin_templates.py').read_text())
         templates=next(ast.literal_eval(n.value) for n in resources_tree.body if isinstance(n,ast.Assign) and n.targets[0].id=='TEMPLATES')
         from backend.app.web.rendering import Renderer
         local=Renderer.local(ROOT)
@@ -48,6 +62,13 @@ def main(separate=False):
             if source.is_file():assert (stage/'assets/assets/site-sync'/source.name).read_bytes()==source.read_bytes(),source.name
         for file in ('backend/app/native/request_cache.py','backend/maintenance/log_retention.py','site_sync/integration/web.py'):
             assert (stage/'src'/file).is_file(),file
+        assert (stage/'assets/assets/public/js/public-stream.js').read_bytes()==(ROOT/'frontend/public/static/js/public-stream.js').read_bytes()
+        public_tree=ast.parse((stage/'src/generated_public_templates.py').read_text())
+        public_templates=next(ast.literal_eval(n.value) for n in public_tree.body if isinstance(n,ast.Assign) and n.targets[0].id=='TEMPLATES')
+        assert public_templates['public/home-section.html']==(ROOT/'frontend/public/templates/home-section.html').read_text()
+        dashboard=ROOT/'frontend/admin/static/js/native-dashboard.js'
+        assert (stage/'assets/assets/admin/js/native-dashboard.js').read_bytes()==dashboard.read_bytes()
+        assert 'data-dashboard-count=' in templates['admin/native-dashboard.html']
         for file in ('favicon.svg','site-logo.png','apple-touch-icon.png'):
             assert (stage/'assets/assets/shared'/file).read_bytes()==(ROOT/'frontend/shared/static'/file).read_bytes()
         render(work/'vps','/opt/teacher-offline-test','primary.university.edu',None,'/opt/teacher-offline-test/venv/bin/python',allowed_origins='https://alias.university.edu')

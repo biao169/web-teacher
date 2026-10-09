@@ -12,10 +12,13 @@ def test_first_http_then_real_login_and_subsequent_requests(builder, monkeypatch
     factory=Mock(wraps=entry.build_application)
     monkeypatch.setattr(entry,'build_application',factory)
     # No TestClient context: don't let a lifespan event initialize the application first.
-    client=TestClient(entry.application,base_url=r.config.origin)
+    import worker_runtime.admin_entrypoint as admin
+    admin.application=admin.LazyAdmin()
+    public=TestClient(entry.application,base_url=r.config.origin)
+    client=TestClient(admin.application,base_url=r.config.origin)
     try:
         assert entry.application.application is None
-        assert client.get('/en').status_code==200
+        assert public.get('/en').status_code==200
         page=client.get('/auth/login')
         match=re.search(r'name="challenge"[^>]*value="([^"]+)"',page.text)
         assert match,page.text
@@ -23,12 +26,14 @@ def test_first_http_then_real_login_and_subsequent_requests(builder, monkeypatch
                             'password':'Password-only-for-test'},headers={'Origin':r.config.origin},follow_redirects=False)
         assert response.status_code==303,response.text
         assert client.get('/admin/profiles').status_code==200
-        for path in ('/en','/zh','/auth/login'):
-            assert client.get(path).status_code==200,path
+        public.cookies.update(client.cookies)
+        for path in ('/en','/zh'):
+            assert public.get(path).status_code==200,path
+        assert client.get('/auth/login').status_code==200
         assert factory.call_count==1
         assert not hasattr(entry.application.application.app.state, "worker_transfer")
     finally:
-        client.close()
+        client.close();public.close()
 
 
 def test_repeated_probe_uses_existing_public_routes(public_fixture):

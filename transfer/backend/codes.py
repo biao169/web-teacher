@@ -9,7 +9,7 @@ import time
 from fastapi import Request
 from backend.app.native.catalog import Error
 from backend.app.native.auth import sha
-from backend.app.native.web import payload
+from backend.app.native.web_common import payload
 from .lan import identity, valid_key
 
 DAY = 86400000

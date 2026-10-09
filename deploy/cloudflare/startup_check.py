@@ -17,7 +17,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 
-def check(runtime, source=None, executor_only=False, executor_dependencies=False):
+def check(runtime, source=None, executor_only=False, executor_dependencies=False, admin_only=False):
     if source:
         sys.path.insert(0, str(source))
     def blocked(*args, **kwargs):
@@ -54,6 +54,18 @@ def check(runtime, source=None, executor_only=False, executor_dependencies=False
          patch.object(time,'time',blocked), patch.object(time,'monotonic',blocked), \
          patch.object(time,'perf_counter',blocked), patch.object(time,'sleep',blocked), \
          patch.object(datetime,'datetime',NoClock), patch.object(datetime,'date',NoDate):
+        if admin_only:
+            importlib.import_module('worker_runtime.admin_entrypoint')
+            assert 'worker_runtime.entrypoint' not in sys.modules
+            assert 'backend.app.native.web_public' not in sys.modules
+            assert 'generated_public_templates' not in sys.modules
+            assert 'generated_resources' not in sys.modules
+            admin=sys.modules['worker_runtime.admin_entrypoint']
+            assert admin.application.application is None
+            assert not hasattr(admin.Default,'scheduled') and not hasattr(admin.Default,'sync_tick')
+            assert 'worker_runtime.admin_resources' in sys.modules
+            print('Admin snapshot checked; HTTP only, no public routes, no Cron.')
+            return
         if not executor_only:
             spec=importlib.util.spec_from_file_location('worker_runtime.entrypoint',runtime/'entrypoint.py')
             module=importlib.util.module_from_spec(spec)
@@ -61,8 +73,12 @@ def check(runtime, source=None, executor_only=False, executor_dependencies=False
             assert module.application.application is None, 'Application built during startup'
             assert 'backend.entrypoints.worker' not in sys.modules, 'Legacy entrypoint constructed an unused app'
             if (runtime/'snapshot.py').exists():
-                for name in ('backend.app.native.web', 'worker_runtime.transfer', 'transfer.backend.codes'):
+                for name in ('backend.app.native.web_public', 'worker_runtime.transfer', 'transfer.backend.codes'):
                     assert name in sys.modules, 'Snapshot preload missing: '+name
+        if not executor_only:
+            if (runtime/'public_resources.py').exists():assert 'worker_runtime.public_resources' in sys.modules
+            forbidden=('backend.app.native.web','backend.app.native.web_admin','worker_runtime.admin_resources','generated_resources','generated_admin_templates','worker_runtime.setup','worker_runtime.media_upload')
+            assert not any(n in sys.modules for n in forbidden),[n for n in forbidden if n in sys.modules]
         executor_spec=importlib.util.spec_from_file_location('worker_runtime.sync_executor',runtime/'sync_executor.py')
         executor=importlib.util.module_from_spec(executor_spec);executor_spec.loader.exec_module(executor)
         assert hasattr(executor.Default,'sync_tick')
@@ -94,6 +110,7 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime',type=Path,default=Path(__file__).resolve().parent/'runtime')
     parser.add_argument('--source', type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument('--admin-only',action='store_true')
     parser.add_argument('--executor-only',action='store_true',help='Check executor imports in a fresh process without warming the main site')
     parser.add_argument('--executor-dependencies',action='store_true',help='Check deferred sync/peer dependency graph without executing requests')
     parser.add_argument('--syntax-only', action='store_true', help='Dependency-free preflight; full import check runs after packaging')
@@ -103,4 +120,4 @@ if __name__=='__main__':
             ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
         print('Runtime syntax checked; snapshot import validation runs after dependencies are installed.')
     else:
-        check(args.runtime.resolve(), args.source.resolve(),args.executor_only or args.executor_dependencies,args.executor_dependencies)
+        check(args.runtime.resolve(), args.source.resolve(),args.executor_only or args.executor_dependencies,args.executor_dependencies,args.admin_only)

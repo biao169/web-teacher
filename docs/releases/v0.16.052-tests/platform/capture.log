@@ -1,0 +1,120 @@
+[
+  {
+    "actor": "anonymous",
+    "path": "/en",
+    "sample": "first",
+    "listing_calls": [
+      "profiles"
+    ],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 85.393,
+    "response_bytes": 8290,
+    "query_count": 6
+  },
+  {
+    "actor": "anonymous",
+    "path": "/en",
+    "sample": "repeat",
+    "listing_calls": [
+      "profiles"
+    ],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 4.974,
+    "response_bytes": 8290,
+    "query_count": 0
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin",
+    "sample": "first",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 29.633,
+    "response_bytes": 24892,
+    "query_count": 4
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin",
+    "sample": "repeat",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 13.153,
+    "response_bytes": 24892,
+    "query_count": 4
+  },
+  {
+    "actor": "administrator",
+    "path": "/api/admin/dashboard-counts",
+    "sample": "first",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 44.175,
+    "response_bytes": 315,
+    "query_count": 20
+  },
+  {
+    "actor": "administrator",
+    "path": "/api/admin/dashboard-counts",
+    "sample": "repeat",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 46.242,
+    "response_bytes": 315,
+    "query_count": 20
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/media_assets",
+    "sample": "first",
+    "listing_calls": [
+      "media_assets"
+    ],
+    "media_usage_calls": 1,
+    "status": 200,
+    "duration_ms": 121.327,
+    "response_bytes": 33506,
+    "query_count": 20
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/media_assets",
+    "sample": "repeat",
+    "listing_calls": [
+      "media_assets"
+    ],
+    "media_usage_calls": 1,
+    "status": 200,
+    "duration_ms": 42.2,
+    "response_bytes": 33506,
+    "query_count": 20
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/site-sync",
+    "sample": "first",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 26.731,
+    "response_bytes": 27298,
+    "query_count": 5
+  },
+  {
+    "actor": "administrator",
+    "path": "/admin/site-sync",
+    "sample": "repeat",
+    "listing_calls": [],
+    "media_usage_calls": 0,
+    "status": 200,
+    "duration_ms": 13.063,
+    "response_bytes": 27298,
+    "query_count": 5
+  }
+]

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from .catalog import Error,now
-from .web import payload
+from .web_common import payload
 from backend.maintenance.policy import load,validate,KEY
 from backend.maintenance.log_retention import prune
 
@@ -12,8 +12,8 @@ LOG_FIELDS=("operation_days","operation_max")
 LAST_KEY="maintenance:last-log-cleanup"
 
 
-def allowed(p):
-    return bool(p and p.get('is_system')==1 and not p.get('must_change_password') and p.get('permissions',{}).get('global_settings',{}).get('can_view'))
+from .maintenance_access import allowed
+
 
 def install(app,resources,csrf,render):
     monitor=None;operation=asyncio.Lock()
