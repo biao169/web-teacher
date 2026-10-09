@@ -4,8 +4,8 @@ const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
 const script=fs.readFileSync(path.join(__dirname,'../frontend/public/static/js/public-stream.js'),'utf8');
 const article=id=>`<article data-record-id="${id}"><h3>Row ${id}</h3></article>`;
 function html(table='publications',home=false){return `<section data-public-stream data-table="${table}" data-lang="zh" data-home="${home?'1':'0'}" data-page="1" data-total="25" data-next="/zh/${table}?${home?'home=1&':''}q=term&f.year=2025&sort=year&direction=desc&page=2"><div data-stream-items>${article('first')}</div><div data-stream-controls><a data-load-more href="/zh/${table}?page=2">More</a><a data-page-fallback href="/zh/${table}?page=2">Page</a><span data-stream-status tabindex="-1"></span></div></section>`;}
-function fixture(t,{multi=false,observer=true,saveData=false,markup=null}={}){
- const dom=new JSDOM(markup??(html()+ (multi?html('projects',true):'')),{url:'https://site.example/zh/publications?q=term',runScripts:'outside-only',pretendToBeVisual:true});
+function fixture(t,{multi=false,observer=true,saveData=false,markup=null,concurrency=1}={}){
+ const dom=new JSDOM(`<main data-public-stream-concurrency="${concurrency}"></main>`+(markup??(html()+ (multi?html('projects',true):''))),{url:'https://site.example/zh/publications?q=term',runScripts:'outside-only',pretendToBeVisual:true});
  t.after(()=>dom.window.close());const w=dom.window,requests=[],observers=[];
  class IO{constructor(cb,options){this.cb=cb;this.options=options;this.target=null;observers.push(this);}observe(el){this.target=el;}unobserve(){this.target=null;}disconnect(){this.target=null;}fire(){if(this.target)this.cb([{isIntersecting:true,target:this.target}]);}}
  if(observer)w.IntersectionObserver=IO;
@@ -81,7 +81,19 @@ test('failed first page does not block next module and explicit retry remains av
  f.$('[data-table=publications] [data-load-more]').click();assert.equal(f.requests.length,3);
  f.resolve(2,{ids:['ok'],page:1,home:true,total:1,next:''});await f.tick();assert(f.$('[data-record-id=ok]'));
 });
-test('save-data keeps first-page links manual and pagehide cancels queued initial modules',async t=>{
- const manual=fixture(t,{saveData:true,markup:lazy('publications')});assert.equal(manual.requests.length,0);manual.$('[data-load-more]').click();assert.equal(manual.requests.length,1);
+test('save-data still loads hidden first pages and pagehide cancels queued initial modules',async t=>{
+ const manual=fixture(t,{saveData:true,markup:lazy('publications')});assert.equal(manual.requests.length,1);manual.$('[data-load-more]').click();assert.equal(manual.requests.length,1);
  const f=fixture(t,{markup:lazy('publications')+lazy('projects')});f.w.dispatchEvent(new f.w.Event('pagehide'));await f.tick();assert.equal(f.requests.length,1);assert.equal(f.requests[0].opts.signal.aborted,true);
+});
+
+for(const concurrency of [1,2,4])test(`configured concurrency ${concurrency} is bounded and drains`,async t=>{
+ const names=['publications','projects','news','students','patents'];
+ const f=fixture(t,{observer:false,concurrency,markup:names.map(lazy).join('')});
+ assert.equal(f.requests.length,concurrency);
+ for(let i=0;i<names.length;i++){
+  assert(f.requests.length-i<=concurrency);
+  assert.equal(f.requests[i].opts.cache,undefined);
+  f.resolve(i,{table:names[i],ids:[names[i]],home:true,page:1,total:1,next:''});await f.tick();
+ }
+ assert.equal(f.requests.length,5);
 });

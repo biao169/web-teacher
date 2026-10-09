@@ -18,6 +18,7 @@ def test_full_route_inventory_matches_parent():
         app=create_app(lambda request:None,lazy_sync=lazy)
         actual=sorted((getattr(r,'path',type(r).__name__),sorted(getattr(r,'methods',[]) or [])) for r in app.routes)
         expected=json.loads((ROOT/'tests/fixtures/app-routes-v051.json').read_text())[str(lazy)]
+        expected=sorted(expected+[['/api/public/cache-revision',['GET']]])
         assert json.loads(json.dumps(actual))==expected
 
 

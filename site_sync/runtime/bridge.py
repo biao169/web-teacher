@@ -18,7 +18,7 @@ class NativeBridge:
         except Exception as exc:
             # Platform termination/1101/1102 may escape RPC without a JSON reply.
             # Reconcile from durable receipts and apply resource backoff/shrinking.
-            error=NativeError('resource');error.code='SYNC_RPC_FAILED';error.component='local-native';error.release='0.16.054'
+            error=NativeError('resource');error.code='SYNC_RPC_FAILED';error.component='local-native';error.release='0.16.055'
             raise error from exc
         if name=='read' and not isinstance(result,str):
             request=value.get('request') or {}

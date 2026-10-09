@@ -1,6 +1,7 @@
 """D1 SQL adapter with atomic batches and native domain errors; no schema translation."""
 from backend.app.native.catalog import Error
 from backend.app.ports.diagnostics import database
+from backend.app.native.public_revision import revision_write
 
 def plain(value):
     """Normalize Pyodide JS values into plain Python records."""
@@ -28,7 +29,9 @@ class D1SQL:
         try:
             with database(statements):
                 if not 1<=len(statements)<=limit:raise ValueError('Too many statements per transaction')
-                return [rows(result) for result in plain(await self.binding.batch([self.statement(sql,args) for sql,args in statements]))]
+                bump=revision_write(statements)
+                work=list(statements)+([bump] if bump else [])
+                return [rows(result) for result in plain(await self.binding.batch([self.statement(sql,args) for sql,args in work]))][:len(statements)]
         except Exception as exc:
             if 'constraint' in str(exc).lower():raise Error('数据、权限或引用已变化，请刷新检查',409) from None
             raise

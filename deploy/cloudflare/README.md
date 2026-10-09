@@ -1,4 +1,4 @@
-# Cloudflare 网页部署 · v0.16.054
+# Cloudflare 网页部署 · v0.16.055
 
 只为原站点关联 Git 构建；程序自动发布 Public、Admin 和同步辅助 Worker，无需 GitHub Actions。Ubuntu/Debian 不受此部署拆分影响。
 
@@ -80,6 +80,36 @@ inline 共 3 个 Worker；separate 共 4 个。只给 Public 保留网站域名�
 
 可将构建部署命令临时改为 `python build.py cloud-check` 做只读配置检查（需构建令牌），检查各 Worker 版本、绑定、私有入口和 Cron；检查后改回 `python build.py deploy`。它不代替实际业务验收。`verify-native` 仍仅构建 JS 原生辅助；`verify-companions` 现在也检查 Python Admin。
 
-后台转发失败会记录 ADMIN-FORWARD / ADMIN_UNAVAILABLE、请求 ID；成功转发可通过响应头 x-upstream-request-id 关联 Admin 日志。Service Binding 分离代码和应用状态，但不承诺额外 CPU 配额，也不能消除共享 D1 压力。详细实现及验证边界见 [交付记录](../../docs/releases/v0.16.054.md)。
+后台转发失败会记录 ADMIN-FORWARD / ADMIN_UNAVAILABLE、请求 ID；成功转发可通过响应头 x-upstream-request-id 关联 Admin 日志。Service Binding 分离代码和应用状态，但不承诺额外 CPU 配额，也不能消除共享 D1 压力。详细实现及验证边界见 [交付记录](../../docs/releases/v0.16.055.md)。
 
 官方参考：[Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)、[Service Bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/http/)、[运行时 Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)。
+
+## 公共页面缓存与前台加载并发
+
+两端使用相同的部署参数，不写入数据库，也不参与两站同步：
+
+| 变量 | 默认 | 范围 | 含义 |
+| --- | --- | --- | --- |
+| TEACHER_PUBLIC_CACHE_TTL_SECONDS | 1800 | 0～86400 | 匿名公共数据缓存 TTL；0 关闭持久公共缓存 |
+| TEACHER_PUBLIC_STREAM_CONCURRENCY | 2 | 1～4 | Public 异步分片最大并发 |
+
+变量缺失使用默认值；显式空值、非整数或越界会报配置错误，不会悄悄替换。分片并发不是 TEACHER_HTTP_CONCURRENCY（Ubuntu 网站整体 HTTP 并发上限），也不会增加 Uvicorn worker。
+
+Linux 使用有界 LRU/TTL 和资源预算；Worker 使用 Cache API 存公共查询结果，单条最多 64 KiB，驱逐或不可用时回源。Worker Cache API 按数据中心工作，不保证常驻或跨 PoP 命中。
+
+匿名带当前 revision 的列表分片使用 public,max-age=TTL，并设置 Vary: Cookie, Authorization, X-Public-Fragment。匿名完整 HTML 和无版本分片使用 private,no-cache，每次导航验证当前版本；身份相关页面、表单、后台、同步、写入和错误响应继续 no-store。此处不把完整 HTML 设为30分钟新鲜缓存，以免旧外壳在内容修改后继续请求旧 revision。
+
+公开业务事务成功写入后，service_meta 中唯一 public_cache_revision 更新为随机唯一版本标识（不是时间戳或任务进度）。旧缓存自然到期；失败事务不变更版本。BFCache 返回时检查版本和身份；已经打开的页面不会被服务器强制推送更新，需要刷新/返回页面后取得新版本。不要让反向代理覆盖这些缓存头或忽略 Vary。
+
+### Cloudflare 网页设置
+
+在主/Public Worker 的 Settings → Variables and Secrets 添加普通文本变量（非 Secret）：
+
+```text
+TEACHER_PUBLIC_CACHE_TTL_SECONDS=1800
+TEACHER_PUBLIC_STREAM_CONCURRENCY=2
+```
+
+保存并部署。使用 Workers Builds 自动部署时，也在构建变量中设置相同值，构建脚本会校验并写入 Public 配置，避免下一次构建恢复默认值。不设置构建变量即生成默认1800/2；不要只改运行变量却期望它覆盖后续生成配置。Admin 不需要设置这两个变量。不得把它们当作同步密钥或对端业务设置。
+
+缓存不可用按 MISS 处理，不增加 Worker/数据库/存储绑定。需要实测 CPU/outcome 验收，不以本地测试代替线上配额测试。

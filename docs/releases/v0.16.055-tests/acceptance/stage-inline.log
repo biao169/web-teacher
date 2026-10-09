@@ -1,0 +1,31 @@
+{"site_roles": ["public", "admin"], "admin": "teacher-site-admin", "publication": "not_run"}
+
+Admin snapshot checked; HTTP only, no public routes, no Cron.
+
+{"staged_app_boundary": "public", "route_count": 20, "project_module_count": 22}
+{"staged_app_boundary": "admin", "route_count": 74, "project_module_count": 67}
+{"staged_app_boundary": "full", "route_count": 92, "project_module_count": 69}
+{"executor_import_check": "cold", "module_count": 200, "project_module_count": 12, "generated_modules": [], "forbidden_modules": [], "backend_modules": ["backend", "backend.app", "backend.app.ports", "backend.app.ports.operations"]}
+Snapshot imports checked; request application and transfer state remain uninitialized. SDK/cloud validation still required.
+{"executor_import_check": "dependencies", "module_count": 269, "project_module_count": 46, "generated_modules": ["generated_native_resources"], "forbidden_modules": [], "backend_modules": ["backend", "backend.app", "backend.app.native", "backend.app.native.catalog", "backend.app.ports", "backend.app.ports.operations"]}
+Snapshot imports checked; request application and transfer state remain uninitialized. SDK/cloud validation still required.
+
+{"generated_file": "generated_native_resources.py", "bytes": 162776, "values": {"NATIVE": 162766}}
+{"generated_file": "generated_public_templates.py", "bytes": 73766, "values": {"TEMPLATES": 73753}}
+{"generated_file": "generated_admin_templates.py", "bytes": 193236, "values": {"TEMPLATES": 193223}}
+{"generated_file": "generated_transfer_templates.py", "bytes": 197181, "values": {"TEMPLATES": 92149, "TRANSFER_TEMPLATES": 48126, "TRANSFER_DEFAULTS": 1726, "TRANSFER_CATALOG": 55104}}
+{
+  "worker_source_staging": "passed",
+  "worker_snapshot_imports": "passed",
+  "executor_staged_cold_imports": "passed",
+  "executor_staged_deferred_imports": "passed",
+  "vps_config_generation": "passed",
+  "assets_and_feature_modules": "passed",
+  "worker_custom_domain_count": 2,
+  "cron": [
+    "* * * * *"
+  ],
+  "wrangler_sdk_bundle": "not_run",
+  "production_d1_r2": "not_run",
+  "real_server_deployment": "not_run"
+}

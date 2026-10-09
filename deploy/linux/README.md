@@ -129,3 +129,47 @@ python -B -m deploy.vps.release verify --strict
 默认源为清华 HTTPS 镜像；tweb pip-source tuna / pypi 保存选择，tweb pip-source 查看选择。安装、整站更新、依赖单独更新和恢复源码使用同一个下载方法，明确指定唯一源并保留 TLS 验证。忽略 pip 配置文件及冲突的 PIP_* 参数，保留网络代理与显式 PIP_CERT。不写全局 pip.conf，不使用 trusted-host，不自动回退到 HTTP。使用原锁定版本，网络超时 20 秒、最多重试 2 次。
 
 首次安装在依赖下载阶段失败且尚未激活时，可以 tweb resume-install 复用唯一暂存源码和原虚拟环境继续安装。必须先更新 /opt/teacher-site/tweb.py，具体命令见根目录 README。已有 current、同名服务、多个暂存目录或不匹配的安装状态都会拒绝续装，不自动删除数据。此命令不适用于已完成安装的网站日常更新。
+
+## 公共页面缓存与前台加载并发
+
+两端使用相同的部署参数，不写入数据库，也不参与两站同步：
+
+| 变量 | 默认 | 范围 | 含义 |
+| --- | --- | --- | --- |
+| TEACHER_PUBLIC_CACHE_TTL_SECONDS | 1800 | 0～86400 | 匿名公共数据缓存 TTL；0 关闭持久公共缓存 |
+| TEACHER_PUBLIC_STREAM_CONCURRENCY | 2 | 1～4 | Public 异步分片最大并发 |
+
+变量缺失使用默认值；显式空值、非整数或越界会报配置错误，不会悄悄替换。分片并发不是 TEACHER_HTTP_CONCURRENCY（Ubuntu 网站整体 HTTP 并发上限），也不会增加 Uvicorn worker。
+
+Linux 使用有界 LRU/TTL 和资源预算；Worker 使用 Cache API 存公共查询结果，单条最多 64 KiB，驱逐或不可用时回源。Worker Cache API 按数据中心工作，不保证常驻或跨 PoP 命中。
+
+匿名带当前 revision 的列表分片使用 public,max-age=TTL，并设置 Vary: Cookie, Authorization, X-Public-Fragment。匿名完整 HTML 和无版本分片使用 private,no-cache，每次导航验证当前版本；身份相关页面、表单、后台、同步、写入和错误响应继续 no-store。此处不把完整 HTML 设为30分钟新鲜缓存，以免旧外壳在内容修改后继续请求旧 revision。
+
+公开业务事务成功写入后，service_meta 中唯一 public_cache_revision 更新为随机唯一版本标识（不是时间戳或任务进度）。旧缓存自然到期；失败事务不变更版本。BFCache 返回时检查版本和身份；已经打开的页面不会被服务器强制推送更新，需要刷新/返回页面后取得新版本。不要让反向代理覆盖这些缓存头或忽略 Vary。
+
+### Ubuntu / Debian 设置方法
+
+编辑默认实例：
+
+```bash
+sudo nano /etc/teacher-site/teacher-site.env
+```
+
+加入或修改（同一变量只保留一行）：
+
+```text
+TEACHER_PUBLIC_CACHE_TTL_SECONDS=1800
+TEACHER_PUBLIC_STREAM_CONCURRENCY=2
+```
+
+然后执行 `sudo tweb restart`，或 `sudo systemctl restart teacher-site.service`。低配置 VPS 可以将分片并发设为1。
+
+命名实例 lab 使用 `/etc/teacher-site-lab/teacher-site.env`，重启 `sudo systemctl restart teacher-site-lab.service`；每个实例独立设置。tweb 重新生成配置保留上述变量及 TEACHER_PUBLIC_CACHE_MB、同步密钥和历史天数；修改端口/域名保持原环境文件。
+
+直接启动也可以：
+
+```bash
+TEACHER_PUBLIC_CACHE_TTL_SECONDS=3600 TEACHER_PUBLIC_STREAM_CONCURRENCY=1 bash start.sh
+```
+
+不配置即可使用1800/2。单服务、单端口、单 Uvicorn worker 的结构不变。

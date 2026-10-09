@@ -1,0 +1,32 @@
+{
+  "source_version": "0.16.055",
+  "step": 0,
+  "scope": "offline-only",
+  "stages": [
+    {
+      "name": "platform",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 27.94
+    },
+    {
+      "name": "capture",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 1.57
+    },
+    {
+      "name": "render-sync",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.67
+    },
+    {
+      "name": "dom",
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 1.73
+    }
+  ],
+  "status": "passed"
+}

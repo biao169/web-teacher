@@ -1,3 +1,24 @@
+## v0.16.055
+
+首页模块隐藏后按需显示、可配置并发与公共缓存。详见 [交付说明](docs/releases/v0.16.055.md)。
+
+## 公共页面缓存与前台加载并发
+
+两端使用相同的部署参数，不写入数据库，也不参与两站同步：
+
+| 变量 | 默认 | 范围 | 含义 |
+| --- | --- | --- | --- |
+| TEACHER_PUBLIC_CACHE_TTL_SECONDS | 1800 | 0～86400 | 匿名公共数据缓存 TTL；0 关闭持久公共缓存 |
+| TEACHER_PUBLIC_STREAM_CONCURRENCY | 2 | 1～4 | Public 异步分片最大并发 |
+
+变量缺失使用默认值；显式空值、非整数或越界会报配置错误，不会悄悄替换。分片并发不是 TEACHER_HTTP_CONCURRENCY（Ubuntu 网站整体 HTTP 并发上限），也不会增加 Uvicorn worker。
+
+Linux 使用有界 LRU/TTL 和资源预算；Worker 使用 Cache API 存公共查询结果，单条最多 64 KiB，驱逐或不可用时回源。Worker Cache API 按数据中心工作，不保证常驻或跨 PoP 命中。
+
+匿名带当前 revision 的列表分片使用 public,max-age=TTL，并设置 Vary: Cookie, Authorization, X-Public-Fragment。匿名完整 HTML 和无版本分片使用 private,no-cache，每次导航验证当前版本；身份相关页面、表单、后台、同步、写入和错误响应继续 no-store。此处不把完整 HTML 设为30分钟新鲜缓存，以免旧外壳在内容修改后继续请求旧 revision。
+
+公开业务事务成功写入后，service_meta 中唯一 public_cache_revision 更新为随机唯一版本标识（不是时间戳或任务进度）。旧缓存自然到期；失败事务不变更版本。BFCache 返回时检查版本和身份；已经打开的页面不会被服务器强制推送更新，需要刷新/返回页面后取得新版本。不要让反向代理覆盖这些缓存头或忽略 Vary。
+
 ## v0.16.054
 
 媒体库引用统计按需加载，见 [Step 5 说明](docs/releases/v0.16.054.md)。

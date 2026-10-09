@@ -41,3 +41,8 @@ body.section-public .home-card .publication-citation{font-size:var(--public-font
 body.section-public .home-card .content-facts,body.section-public .home-card .person-facts{font-size:var(--public-font-size-31);gap:3px 10px;}
 /* Empty lazy modules must override the grid's author display rule. */
 body.section-public [data-home-group][hidden],body.section-public [data-home-group] > [data-public-stream][hidden]{display:none}
+
+/* No layout placeholder; reveal only confirmed modules. */
+.academic-home-section[data-stream-state="ready"]{opacity:1;transition:opacity .18s ease}
+@starting-style{.academic-home-section[data-stream-state="ready"]{opacity:0}}
+@media(prefers-reduced-motion:reduce){.academic-home-section[data-stream-state="ready"]{transition:none}}

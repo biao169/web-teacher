@@ -6,6 +6,18 @@ from fastapi.responses import JSONResponse,RedirectResponse
 from .catalog import CONTENT,TITLE,MODULES,Error
 from .web_common import payload
 
+def public_headers(request,r,revision,fragment=False,form=False):
+    headers={'Vary':'Cookie, Authorization, X-Public-Fragment','X-Public-Revision':revision}
+    ttl=r.public_performance.public_cache_ttl_seconds
+    if r.p or request.headers.get('authorization') or form or not ttl:
+        headers['Cache-Control']='no-store'
+    elif fragment and request.query_params.get('_rev')==revision:
+        headers['Cache-Control']=f'public, max-age={ttl}'
+    else:
+        # Unversioned HTML must see current revision and login state on navigation.
+        headers['Cache-Control']='private, no-cache'
+    return headers
+
 def install(app,factory,resources,csrf,render):
     async def contact_response(r,lang,values=None,message='',success=False,status=200):
         from .public_contact import form_context
@@ -16,6 +28,12 @@ def install(app,factory,resources,csrf,render):
         r.config.set_cookie(response,'public-form',ctx['challenge'],600)
         return response
 
+    @app.get('/api/public/cache-revision')
+    async def cache_revision(request:Request):
+        from .public_revision import revision
+        from .auth import Auth,sha
+        r=factory(request);principal=await Auth(r.sql,r.passwords).principal(request.cookies.get(r.config.name('session')))
+        return JSONResponse({'revision':await revision(r.sql),'identity':sha(principal['csrf']) if principal else ''},headers={'Cache-Control':'no-store'})
     @app.get('/{lang}/contact')
     async def public_form(request:Request,lang:str='en'):
         """Render public registration/contact with a short-lived form token."""
@@ -116,6 +134,9 @@ def install(app,factory,resources,csrf,render):
         fragment=request.headers.get('x-public-fragment')=='1'
         home_mode=request.query_params.get('home')=='1'
         r=await resources(request);data={};detail=None;pages=None;home_pages={}
+        from .public_revision import revision
+        public_revision=getattr(r,'public_revision',None) or await revision(r.sql)
+        request.state.public_revision=public_revision
         from .public_navigation import resolve,visitor_query,query_url,list_return,query_identity
         scope=None
         if nav:
@@ -166,8 +187,10 @@ def install(app,factory,resources,csrf,render):
         def next_url(t,page):
             return query_url(list_path if scope else '/'+lang+'/'+t,page['query']|{'page':page['page']+1}|({'nv':scope['stamp']} if scope else {})) if page['page']<page['pages'] else ''
         for t,page in home_pages.items():page['next_url']=next_url(t,page)
+        def versioned(url):return url+('&' if '?' in url else '?')+urlencode({'_rev':public_revision}) if url else ''
+        for page in home_pages.values():page['next_url']=versioned(page['next_url'])
         if pages:
-            pages['next_url']=next_url(table,pages);pages['query_id']=query_identity(pages['query'])
+            pages['next_url']=versioned(next_url(table,pages));pages['query_id']=query_identity(pages['query'])
         back_url=list_return(request.query_params.get('from'),list_path,table,scope) if uid else list_path
         def detail_url(t,key):
             base=list_path if scope else '/'+lang+'/'+t
@@ -181,7 +204,8 @@ def install(app,factory,resources,csrf,render):
             params={'from':list_return(request.query_params.get('from'),switched,table,scope)}|({'nv':scope['stamp']} if scope else {})
             return target+'?'+urlencode(params)
 
-        values={'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
+        from .auth import sha
+        values={'public_identity':sha(r.p['csrf']) if r.p else '', 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
                 'media_map':media_map,'pages':pages,'home_pages':home_pages,'home_mode':home_mode,'public_options':site_options,
                 'page_url':lambda p:query_url(list_path,(pages['query'] if pages else {})|{'page':p}|({'nv':scope['stamp']} if scope else {})),
                 'public_list_path':list_path,'public_scope':scope,
@@ -193,7 +217,7 @@ def install(app,factory,resources,csrf,render):
             markup=r.renderer.render('public/list-rows.html',**values,table=table,rows=data[table],title_field=TITLE,modules=MODULES)
             return JSONResponse({'html':markup,'table':table,'lang':lang,'home':home_mode,'page':pages['page'],
                                  'size':pages['size'],'total':pages['total'],'next_url':pages['next_url'],
-                                 'query_id':pages['query_id'],'nav':scope['slug'] if scope else '', 'nav_stamp':scope['stamp'] if scope else ''},headers={'Cache-Control':'no-store'})
+                                 'query_id':pages['query_id'],'nav':scope['slug'] if scope else '', 'nav_stamp':scope['stamp'] if scope else ''},headers=public_headers(request,r,public_revision,fragment=True))
         from .public_data import people_facets
         values['people_facets']=await people_facets(r.content,table,fixed_conditions=fixed,lang=lang,query=query) if table and not uid else []
         # Canonicalize default list controls; retain meaningful paging/filter state.
@@ -209,7 +233,7 @@ def install(app,factory,resources,csrf,render):
             values.update(await form_context(r,lang,news=detail))
         response=await render(r,'public/native.html',**values)
         if 'challenge' in values:r.config.set_cookie(response,'public-form',values['challenge'],600)
-        response.headers['Cache-Control']='no-store'
+        response.headers.update(public_headers(request,r,public_revision,form='challenge' in values))
         return response
 
 def create_public_app(factory,static_root=None):

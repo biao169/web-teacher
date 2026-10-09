@@ -1,0 +1,31 @@
+✔ intersection starts one request and carries query filters without changing current URL (90.402056ms)
+✔ appends once per UID, including duplicate rows in the same response (22.610389ms)
+✔ last page removes continuation and disconnects automatic requests (20.996907ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (17.952627ms)
+✔ homepage streams share a one-request queue and keep independent record sets (24.139514ms)
+✔ wrong language/table/page response cannot contaminate current list (11.940984ms)
+✔ cross-origin or backwards continuation is rejected before append (16.910465ms)
+✔ HTML error pages do not replace cards (13.69012ms)
+✔ pagehide aborts active request and clears queued requests (18.560112ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (21.14511ms)
+✔ data-saving preference disables auto preload, keeps explicit click (10.613952ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (10.38683ms)
+✔ five nested homepage modules share one request queue and retain independent rows (21.872306ms)
+✔ fixed-entry stream retains slug and revision on every continuation (11.110922ms)
+✔ fixed-entry stream rejects unscoped continuation and changed revision before append (21.46666ms)
+✔ query identity and next-query mismatch cannot contaminate current stream (18.588085ms)
+✔ home page-zero slices start automatically in one serial queue without IO (11.095859ms)
+✔ empty first page hides module and empty group; group count reflects remaining cards (20.925559ms)
+✔ failed first page does not block next module and explicit retry remains available (14.885732ms)
+✔ save-data still loads hidden first pages and pagehide cancels queued initial modules (13.72968ms)
+✔ configured concurrency 1 is bounded and drains (15.664457ms)
+✔ configured concurrency 2 is bounded and drains (18.495455ms)
+✔ configured concurrency 4 is bounded and drains (25.787268ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 848.624428

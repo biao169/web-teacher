@@ -45,16 +45,25 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         if sync_assets:app.mount("/assets/site-sync",StaticFiles(directory=static_root/"site_sync/frontend/static"),name="assets-site-sync")
     async def resources(request):
         """按请求复制资源上下文并获取当前身份，防止请求之间串用权限。"""
-        r=copy.copy(factory(request));r.auth=Auth(r.sql,r.passwords)
+        r=copy.copy(factory(request))
+        from backend.app.public_performance import PublicPerformance
+        r.public_performance=getattr(r,'public_performance',None) or PublicPerformance.from_env()
+        r.auth=Auth(r.sql,r.passwords)
         r.p=await r.auth.principal(request.cookies.get(r.config.name('session')))
         parts=request.url.path.split('/')
+        cache_namespace=[request.url.path,sorted((k,v) for k,v in request.query_params.multi_items() if k!='_rev'),request.headers.get('x-public-fragment')=='1','anonymous']
         if not r.p and request.method=='GET' and (len(parts)>1 and parts[1] in ('en','zh') or request.url.path.startswith('/api/public/')):
             if r.kind!='local' and getattr(r,'public_request_cache',True):
                 from .request_cache import RequestSQL
-                r.sql=RequestSQL(r.sql)
+                from .public_cache import WorkerPublicSQL
+                from .public_revision import revision
+                r.public_revision=await revision(r.sql)
+                r.sql=RequestSQL(WorkerPublicSQL(r.sql,r.config.origin,r.public_revision,r.public_performance.public_cache_ttl_seconds,cache_namespace))
             elif r.kind=='local' and hasattr(r.sql,'public_cache'):
                 from .public_cache import PublicSQL
-                r.sql=PublicSQL(r.sql)
+                from .public_revision import revision
+                r.public_revision=await revision(r.sql)
+                r.sql=PublicSQL(r.sql,r.public_performance.public_cache_ttl_seconds,r.public_revision,cache_namespace)
         r.content=Content(r.sql,r.auth);r.media=Media(r.sql,r.auth,r.content,r.media_store,r.kind)
         return r
     def csrf(request,r,data):
@@ -78,7 +87,10 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         connect_policy="'self' https: http:" if request.url.path.startswith('/admin') else "'self'"
         frame_policy="'self' https: http:" if request.url.path.startswith('/admin') else "'self'"
         response.headers.setdefault('Content-Security-Policy',f"default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net; img-src {image_policy}; media-src 'self' https: http:; connect-src {connect_policy}; worker-src 'self'; font-src 'self' data: blob:; object-src 'none'; frame-src {frame_policy}; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
-        if not request.url.path.startswith('/assets/'):response.headers['Cache-Control']='no-store'
+        if not request.url.path.startswith('/assets/'):
+            response.headers.setdefault('Cache-Control','no-store')
+            if request.method not in ('GET','HEAD') or request.url.path.startswith(('/admin','/api/admin','/auth','/setup','/sync','/transfer')) or response.status_code>=400:
+                response.headers['Cache-Control']='no-store'
         elif response.status_code in (200,206,304):
             # Windows registry MIME mappings must not turn ES modules into text/plain.
             suffix=request.url.path.rsplit('.',1)[-1].lower()

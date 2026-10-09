@@ -1,6 +1,6 @@
 {% extends 'public/layout.html' %}
 {% block metadata %}{{ super() }}{% if seo_canonical %}<link rel="canonical" href="{{ seo_canonical }}">{% for code,url in seo_alternates.items() %}<link rel="alternate" hreflang="{{ code }}" href="{{ url }}">{% endfor %}{% endif %}{% if public_table=='news' and detail %}<link rel="stylesheet" href="/assets/shared/css/news-body.css?v=0.15.43"><script type="module" src="/assets/shared/js/news-reader.js?v=0.15.63"></script>{% endif %}{% endblock %}
-{% block public_content %}<main class="container pb-5" id="main">
+{% block public_content %}<main class="container pb-5" id="main" data-public-stream-concurrency="{{ public_stream_concurrency }}" data-public-revision="{{ public_revision }}" data-public-identity="{{ public_identity }}">
 {% if not public_table %}{% include 'public/home.html' %}
 {% elif detail %}{% set table=public_table %}{% set row=detail %}{% if table=='profiles' %}{% include 'public/person-detail.html' %}{% else %}{% include 'public/content-detail.html' %}{% endif %}
 {% else %}{% set table=public_table %}{% set rows=data[table] %}<h1 class="visually-hidden">{{ modules[table] }}</h1>

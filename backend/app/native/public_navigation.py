@@ -61,6 +61,7 @@ def visitor_query(params,table,*,scoped=False):
     if len(pairs)>40 or sum(len(k)+len(v) for k,v in pairs)>32768:raise Error('查询参数过长')
     try:raw=_pairs(pairs)
     except ValueError:raise Error('查询参数重复') from None
+    raw.pop('_rev',None) # Transport cache revision is not a business filter.
     token=raw.pop('s',None);text={}
     if token is not None:
         try:

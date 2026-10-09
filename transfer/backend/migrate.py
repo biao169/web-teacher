@@ -106,7 +106,7 @@ def import_legacy(settings,source_db,source_files,source_cache,receipt):
         schema=objects(main);old=False;v66=False
         if schema!=expected('teacher.json'):raise ValueError('Upgrade the selected v0.15.160 website with backend.cli migrate before importing standalone transfer data')
         if objects(source)!=expected('transfer.json'):raise ValueError('Unknown legacy transfer schema')
-        if not old and any(main.execute('SELECT 1 FROM "'+t+'" LIMIT 1').fetchone() for t in TABLES):raise ValueError('Target transfer tables are not empty; no data overwritten')
+        if not old and any(main.execute('SELECT 1 FROM "'+t+'"'+(" WHERE key != 'public_cache_revision'" if t=='service_meta' else '')+' LIMIT 1').fetchone() for t in TABLES):raise ValueError('Target transfer tables are not empty; no data overwritten')
         record['main_backup']=str(receipt.with_name(receipt.name+'.main.sqlite3'));record['source_backup']=str(receipt.with_name(receipt.name+'.transfer.sqlite3'))
         snapshot(main,record['main_backup']);snapshot(source,record['source_backup'])
         record['backup_sha256']=digest(record['main_backup']);record['source_backup_sha256']=digest(record['source_backup'])
@@ -146,7 +146,7 @@ def import_legacy(settings,source_db,source_files,source_cache,receipt):
                 while rows:=cursor.fetchmany(128):
                     main.executemany('INSERT INTO "'+table+'" VALUES ('+','.join('?' for _ in rows[0])+')',rows);count+=len(rows)
                 record['counts'][table]=count
-                if main.execute('SELECT count(*) FROM "'+table+'"').fetchone()[0]!=count:raise ValueError('Row count mismatch')
+                if main.execute('SELECT count(*) FROM "'+table+'"'+(" WHERE key != 'public_cache_revision'" if table=='service_meta' else '')).fetchone()[0]!=count:raise ValueError('Row count mismatch')
             main.execute("INSERT INTO service_meta(key,value) VALUES ('integrated-source',?)",(json.dumps({'id':record['id'],'source':str(source_db)}),))
             from .chunks import index_legacy
             index_legacy(main)

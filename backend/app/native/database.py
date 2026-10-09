@@ -84,8 +84,14 @@ class Database:
     async def _batch(self,statements,limit):
         """Enforce the caller-specific transaction budget in either native adapter."""
         if not 1<=len(statements)<=limit:raise ValueError('Too many statements per transaction')
+        bump=None
         try:
             with closing(self.connect()) as c, c:
                 c.execute('BEGIN IMMEDIATE')
-                return [[dict(r) for r in c.execute(sql,args)] for sql,args in statements]
-        finally:self.public_cache.invalidate()
+                results=[[dict(r) for r in c.execute(sql,args)] for sql,args in statements]
+                from .public_revision import revision_write
+                bump=revision_write(statements) if self.kind=='teacher' else None
+                if bump:c.execute(*bump)
+                return results
+        finally:
+            if bump:self.public_cache.invalidate()

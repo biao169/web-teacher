@@ -8,6 +8,6 @@
 {% set groups=[('primary',[('publications','论文成果','Publications','homepage_publication_limit'),('news','新闻动态','News','homepage_news_limit')]),('secondary',[('projects','科研项目','Projects','homepage_project_limit'),('patents','专利软著','Patents','homepage_patent_limit'),('students','学生','Students','homepage_student_limit')])] %}
 {% for group,modules in groups %}{% set visible=namespace(items=[]) %}
 {% for table,cn,eng,key in modules %}{% if table in home_pages %}{% set visible.items=visible.items+[(table,cn,eng,key)] %}{% endif %}{% endfor %}
-{% if visible.items %}<div class="home-module-grid home-module-grid-{{ group }}" data-home-group="{{ group }}" data-module-count="{{ visible.items|length }}">
+{% if visible.items %}<div hidden class="home-module-grid home-module-grid-{{ group }}" data-home-group="{{ group }}" data-module-count="{{ visible.items|length }}">
 {% for table,cn,eng,key in visible.items %}{% set rows=data.get(table,[]) %}{% if site.get(key) is not none %}{% set rows=rows[:([site.get(key)|int,0]|max)] %}{% endif %}{% include 'public/home-section.html' %}{% endfor %}
 </div>{% endif %}{% endfor %}

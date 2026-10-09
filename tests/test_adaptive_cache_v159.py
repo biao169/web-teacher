@@ -93,7 +93,7 @@ def test_real_worker_pages_reuse_queries_but_next_request_is_fresh(fixture,monke
     run(r.sql.batch([("INSERT INTO projects(uid,name,visibility) VALUES ('memo','Original memo title','public')",())]))
     first=c.get('/en/projects');assert first.status_code==200
     assert instances and sum(x.hits for x in instances)>0
-    assert first.headers['cache-control']=='no-store'
+    assert first.headers['cache-control']=='private, no-cache'
     assert 'Original memo title' in first.text
     before=len(instances)
     run(r.sql.batch([("UPDATE projects SET name='Updated memo title' WHERE uid='memo'",())]))

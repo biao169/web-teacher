@@ -48,18 +48,59 @@ class PublicReadCache:
 
 class PublicSQL:
     """Used only after resolving an anonymous GET identity; originals remain isolated."""
-    def __init__(self,sql):self.sql=sql;self.cache=sql.public_cache
+    def __init__(self,sql,ttl=1800,revision=None,namespace=None):self.sql=sql;self.cache=sql.public_cache;self.ttl=ttl;self.fixed_revision=revision;self.namespace=namespace
+    def current_revision(self):return self.fixed_revision if self.fixed_revision is not None else self.sql.cache_revision()
     def __getattr__(self,key):return getattr(self.sql,key)
     async def query(self,statement,args=()):
         # Do not cache clocks, permission/session reads or write-returning statements.
+        if not self.ttl:return await self.sql.query(statement,args)
         upper=statement.lstrip().upper()
         if not upper.startswith(('SELECT ','WITH ')) or any(word in upper for word in ('INSERT ','UPDATE ','DELETE ','AUTH_','OPERATION_LOGS','SERVICE_META','SYNC_TASKS','RANDOM(', 'RANDOMBLOB(')):
             return await self.sql.query(statement,args)
-        try:key=hashlib.sha256(json.dumps([statement,args],ensure_ascii=False,separators=(',',':')).encode()).digest()
+        try:key=hashlib.sha256(json.dumps([self.namespace,statement,args],ensure_ascii=False,separators=(',',':')).encode()).digest()
         except (TypeError,ValueError):return await self.sql.query(statement,args)
-        revision=self.sql.cache_revision();cached=self.cache.get(key,revision)
+        revision=self.current_revision()
+        try:cached=self.cache.get(key,revision)
+        except Exception:cached=None
         if cached is not None:return cached
         rows=await self.sql.query(statement,args)
-        if revision==self.sql.cache_revision():
-            self.cache.put(key,revision,rows,1 if any(token in upper for token in ('STRFTIME(', 'DATETIME(', 'DATE(', 'TIME(', 'CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME')) else 30)
+        if revision==self.current_revision():
+            try:self.cache.put(key,revision,rows,1 if any(token in upper for token in ('STRFTIME(', 'DATETIME(', 'DATE(', 'TIME(', 'CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME')) else self.ttl)
+            except Exception:pass
+        return rows
+
+class WorkerPublicSQL:
+    """Anonymous bounded SQL results in Cache API, not persistent Python heap."""
+    def __init__(self,sql,origin,revision,ttl,namespace=None):
+        self.sql,self.origin,self.revision,self.ttl=sql,origin,revision,ttl
+        self.namespace=namespace
+    def __getattr__(self,name):return getattr(self.sql,name)
+    async def query(self,statement,args=()):
+        from .request_cache import BYPASS
+        upper=statement.lstrip().upper()
+        if not self.ttl or not self.revision or not upper.startswith('SELECT ') or any(x in upper for x in BYPASS):
+            return await self.sql.query(statement,args)
+        digest=hashlib.sha256(json.dumps(['v055',self.revision,'anonymous',self.namespace,statement,args],ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+        key=self.origin.rstrip('/')+'/.public-cache/'+digest
+        cache=None
+        try:
+            from js import caches,Response
+            cache=await caches.open('teacher-public-v055')
+            response=await cache.match(key)
+            if response and int(response.headers.get('content-length') or 1000000)<=65536:
+                return json.loads(await response.text())
+        except Exception:pass # Cache failures never replace database results.
+        rows=await self.sql.query(statement,args)
+        if cache is not None and len(rows)<=500:
+            try:
+                if sum(len(v) for row in rows for v in row.values() if isinstance(v,str))>65536:return rows
+                payload=json.dumps(rows,ensure_ascii=False,separators=(',',':'))
+                length=len(payload.encode())
+                if length<=65536:
+                    response=Response.new(payload)
+                    response.headers.set('Cache-Control',f'public, max-age={self.ttl}')
+                    response.headers.set('Content-Type','application/json')
+                    response.headers.set('Content-Length',str(length))
+                    await cache.put(key,response)
+            except Exception:pass
         return rows

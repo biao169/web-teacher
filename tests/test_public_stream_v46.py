@@ -100,7 +100,7 @@ def test_list_projection_skips_heavy_fields_and_hidden_future_records(fixture):
     assert reads and all('"content"' not in s for s in reads)
     assert not any("FROM media_assets WHERE status='active'" in s for s in calls) # no referenced media keys
     assert 'PRIVATE_LIST_HEAVY_BODY' in c.get('/zh/news/'+uid).text
-    assert response.headers['cache-control']=='no-store'
+    assert response.headers['cache-control']=='private, no-cache'
 
 def test_public_projection_cannot_request_private_fields(fixture):
     c,r=fixture

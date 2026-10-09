@@ -1,5 +1,6 @@
 """Public/DO and maintenance declarations only; no full-site or admin routes."""
-from backend.app.native import web_public
+from backend.app.native import web_public,public_cache,public_revision
+from backend.app import public_performance
 from backend.app.web.rendering import Renderer
 from worker_runtime import site_resources
 from worker_runtime.bridge import BoundApplication
