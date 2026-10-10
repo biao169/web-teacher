@@ -12,6 +12,8 @@ from .editor import editor_fields,editor_sections,reference_choices,citation_pro
 from .web_common import payload
 
 def install(app,factory,resources,csrf,render,*,lazy_sync=False):
+    from .public_session import install as install_public_session
+    install_public_session(app,factory)
     from .media_admin import install as install_media_admin
     install_media_admin(app,resources,csrf,render)
     from .public_auth import install as install_public_auth

@@ -1,3 +1,51 @@
+## v0.16.077：返回恢复与请求取消
+
+部署脚本自动为Public和Admin加入enable_request_signal、request_signal_passthrough，移除相反标志；保持现有compatibility_date。Sync Executor/Native不继承本轮标志。Public通过SITE_ADMIN原样转发Request，不重建请求或读取正文，以保留平台取消信号。
+
+只有请求signal.aborted已确认且异常为AbortError（含Pyodide包装）或asyncio.CancelledError才归为客户端取消。仅包含“abort/cancel”文字的普通异常不算取消。已取消GET/HEAD可在调用Admin/ASGI前结束；正常写请求不会因导航保护被主动取消或重放。
+
+HTTP-CANCELLED/INVOCATION-CANCELLED与application_outcome=cancelled用于诊断。可返回响应时使用499、CLIENT_CANCELLED、no-store；客户端已离开时可能收不到任何响应。异步任务取消继续向运行时传播。真正的Service Binding错误仍记录并返回503、Retry-After:1；Admin真实异常保留原错误链，不吞错。平台强制终止仍可能无法被应用捕获。
+
+共享Public页面BFCache恢复只校验公开revision，私有组件重新鉴权；检查失败保留公开HTML，暂停分片并提供“重新检查内容版本”。自定义导航及Linux身份恢复逻辑保持原规则。导航中断使过期恢复结果失效。
+
+本轮验证是离线回归及Wrangler上传元数据检查，不能保证客户端取消立即停止已开始的Python/D1操作。真实Service Binding跨Worker取消效果、浏览器BFCache和PoP指标仍需部署后验收。
+
+## v0.16.075：30分钟公开缓存与Worker模式
+
+Cloudflare网页操作：打开主站 Worker → Settings → Builds → Variables and secrets，在构建变量中设置下表；保存后执行新的部署。构建脚本会生成主站和Admin缓存配置，辅助Worker无需手动修改。只改运行时变量不能切换已发布版本的边缘缓存配置。
+
+| 构建变量 | 推荐值 | 说明 |
+|---|---|---|
+| TEACHER_WORKER_CACHE_MODE | simple | 推荐生产模式 |
+| TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS | 1800 | 默认30分钟；允许0～3600；显式已有值不会自动覆盖 |
+| TEACHER_PUBLIC_CACHE_TTL_SECONDS | 1800 | 数据/fragment TTL，独立于整页TTL |
+
+| 模式 | Workers边缘缓存 | Worker SQL/Page Cache API | 预取 / stream并发 |
+|---|---|---|---|
+| simple | 开启（整页TTL>0） | 关闭 | 0 / 1 |
+| full | 关闭，便于对比 | 保留原内部缓存策略 | 按原配置 |
+| off | 关闭 | 关闭，Public两项TTL强制0 | 0 / 1 |
+
+Admin固定 cache.enabled=false、缓存模式off，不继承Public预取和缓存配置。后台HTML、同步监控、CSRF及写操作no-store。身份/项目私有接口保留private浏览器策略，但Cloudflare-CDN-Cache-Control:no-store，组件主动请求no-store。主站仅允许判定为共享的公开页面/fragment进入边缘缓存；表单、身份敏感导航、错误、Set-Cookie响应不进入。Sync Executor/Native不继承主站cache块，也不修改其协议和调度。
+
+默认公开HTML为public,max-age=1800，继续ETag/304。边缘命中可在Python运行前返回；不增加Python Cache API调用。cross_version_cache=false，版本缓存隔离。数据库revision变化不会主动清除仍新鲜的浏览器/边缘缓存，内容及公开性修改可能延后最多TTL才可见。需紧急停止复用时切换off并重新部署，必要时清除缓存/强制刷新；不要设置全站“Cache Everything”覆盖私有响应。未增加stale-while-revalidate。
+
+验收：部署后检查实际主站cache设置与Admin禁用状态；分别以匿名/登录访问同一标准页面，比较ETag、Vary、Age/缓存状态（若平台提供）及Worker调用指标；不要把X-Public-Page-Cache当作平台边缘命中标记，它仅代表内部Page Cache API。身份接口必须始终不可共享。部署验证不等于已测得线上HIT、CPU或1101/1102改善。
+
+Ubuntu/Debian仅把未显式配置时的公开整页TTL默认值从300调整为1800；原LRU、认证、预取、并发和服务结构不变。Worker专属模式对Linux无效。媒体仍public,max-age=3600或private,max-age=900。
+
+参考：[Cloudflare Workers Cache配置](https://developers.cloudflare.com/workers/cache/configuration/)。当前锁定Wrangler4.143支持cache配置；本轮使用该版本dry-run核对上传metadata.cache_options。
+
+以下历史说明如与本节冲突，以本节为准。
+
+## v0.16.071 · Public 浏览器标题国际化
+
+新增 public_modules(lang)，英文 Public 使用 Faculty/Students/Research/Projects/Publications/Patents/Courses/News；中文和后台 MODULES 保持不变。完整页和 fragment 使用同一映射，native.html 原有隐藏 h1 自动获得对应语言，无需重复修改模板。
+
+浏览器站点标题单独使用 site_name_en（英文）或 site_name（中文），英文缺省 Academic Website，不回退中文站名；页头 site.title 规则保持不变。详情继续复用原有条目英文名称及有效翻译覆盖，无译文不制造翻译。首页保留有效译文 SEO 或英文 SEO；未翻译的中文 SEO 不再成为英文页标签的回退值。导航与按钮、后台中文菜单保持原逻辑。
+
+Public ETag 表示版本更新为 0.16.071，避免重新验证时匹配旧标题；浏览器已新鲜的旧页面仍可能保留到原缓存 TTL，可刷新验证。不修改缓存 TTL、同步、数据库及部署策略。
+
 ## v0.16.070 · 统一辅助上传确认
 
 Native、Executor、Admin 上传后的配置和产物版本核对统一复用有限确认重试：最多 6 次读取，等待间隔 0/1/2/4/8/15 秒（合计 30 秒，不含 API 请求及网络重试时间）。同时检查变量类型/值、D1/R2/服务/DO 绑定和产物版本；所有权错误、API 异常不被当作配置延迟吞掉。原有回调与 Cron 确认保留。
@@ -130,11 +178,11 @@ inline 共 3 个 Worker；separate 共 4 个。只给 Public 保留网站域名�
 | 变量 | 默认 | 范围 | 功能与关闭方式 |
 | --- | --- | --- | --- |
 | `TEACHER_PUBLIC_CACHE_TTL_SECONDS` | 1800 | 0～86400 秒 | 公共数据缓存及当前 revision 分片缓存；0 关闭数据缓存 |
-| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 300 | 0～3600 秒 | 匿名安全整页浏览器 HTML 新鲜期（仅full同时启用Worker Render Cache）；0 关闭整页缓存 |
+| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 1800 | 0～3600 秒 | 匿名安全整页浏览器 HTML 新鲜期（仅full同时启用Worker Render Cache）；0 关闭整页缓存 |
 | `TEACHER_PUBLIC_STREAM_CONCURRENCY` | 2 | 1～4 | 页面内容分片加载并发；不是服务进程数 |
 | `TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY` | 1 | 0～2 | 导航意图预取并发；0 完全关闭预取 |
 
-两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=300`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
+两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=1800`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
 
 修改内容会更新 revision，但浏览器已经缓存且仍新鲜的 HTML 可能保持到 TTL 到期。需要每次导航验证时将整页 TTL 设为0。不要让反向代理覆盖 `Cache-Control` 或忽略 `Vary: Cookie, Authorization, X-Public-Fragment`。
 

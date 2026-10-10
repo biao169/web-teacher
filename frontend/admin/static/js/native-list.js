@@ -1,7 +1,7 @@
 /** One controller for every native list, including newly rendered panels after a mutation. */
 import {mountListHeaders} from './native-table-headers.js?v=0.15.113';
 import {mountTableSelection} from './native-table-selection.js?v=0.15.113';
-import {requestJSON} from './native-http.js';
+import {requestJSON} from './native-http.js?v=0.16.076';
 import {notify,rememberNotice} from './native-notifications.js';
 
 const mounted=new WeakMap();
@@ -210,7 +210,7 @@ export function mountList(root,transient=null,orderDrafts=new Map()){
  const enhancements=[
   ['列设置','./native-columns.js?v=0.15.113','[data-column-controls]',m=>{columns=m.setupColumns(root,table,transient)}],
   ['操作列布局','./native-table-layout.js','.native-actions',m=>m.observeActionColumn(table)],
-  ['媒体使用位置','./native-media-locations.js?v=0.16.063','[data-media-locations]',m=>m.setupMediaLocations(root)],
+  ['媒体使用位置','./native-media-locations.js?v=0.16.076','[data-media-locations]',m=>m.setupMediaLocations(root)],
   ['媒体预览','./native-media.js?v=0.15.113','[data-media-thumb],[data-media-large]',m=>{m.setupMediaPreviews(root);return ()=>m.clearMediaPreviews(root)}],
   ['翻译组导出','./native-translation-groups.js?v=0.15.29','[data-export-groups]',m=>{const cleanup=m.setupTranslationGroups(root);root.querySelector('[data-export-groups]').disabled=false;return cleanup}],
   ['日志导出','./native-message-logs.js','[data-log-export]',m=>m.setupLogExport(root)]

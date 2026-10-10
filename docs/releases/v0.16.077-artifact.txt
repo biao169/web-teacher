@@ -1,0 +1,9 @@
+{
+  "wrangler": "4.143.0",
+  "flags": [
+    "enable_request_signal",
+    "request_signal_passthrough"
+  ],
+  "dry_run": true,
+  "online_signal_propagation": "not_tested"
+}

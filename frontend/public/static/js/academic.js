@@ -2,11 +2,14 @@
 window.teacherImageRetry = (() => {
   const states = new WeakMap(), pending = new Map();
   let stopped = false;
-  window.addEventListener('pagehide', () => {
+  function stopImages() {
     stopped = true;
-    for (const timer of pending.values()) clearTimeout(timer);
+    for (const [img,timer] of pending) { clearTimeout(timer); states.get(img).retried=false; }
     pending.clear();
-  });
+  }
+  window.addEventListener('pagehide',stopImages);
+  document.addEventListener('teacher:navigation-start',stopImages);
+  document.addEventListener('teacher:navigation-cancel',()=>{stopped=false;for(const img of document.images)if(states.has(img)&&img.complete&&!img.naturalWidth)img.dispatchEvent(new Event('error'));});
   window.addEventListener('pageshow', () => { stopped = false; });
   return (img, fallback) => {
     if (states.has(img)) return;

@@ -19,7 +19,7 @@ def renderer():
         site['title']=(site.get('site_name_en') if lang=='en' else '') or site.get('site_name') or ('Academic website' if lang=='en' else '教师个人网站')
         if getattr(r,'public_light',False):
             return {'site':site,'browser_site_title':browser_site_title,'browser_home_title':browser_home_title,'lang':lang,'section':'public','asset_mode':r.asset_mode,'authenticated':bool(r.p),
-                    'can_enter_admin':bool(r.p and r.p.get('can_enter_admin')),'admin_menu':[],
+                    'public_components':getattr(r,'public_components',False),'can_enter_admin':bool(r.p and r.p.get('can_enter_admin')),'admin_menu':[],
                     'page_title':title or MODULES.get(table,'网站管理'),'csrf':r.p['csrf'] if r.p else '',
                     'principal':r.p,'label':label,'title_field':TITLE,'modules':public_modules(lang),'table':table}
         menu=[]

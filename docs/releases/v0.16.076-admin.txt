@@ -1,0 +1,26 @@
+✔ one request fills all cards including zero; repeated triggers never fan out (72.987231ms)
+✔ 503 preserves card links and only explicit retry issues another request (18.959874ms)
+✔ incomplete or invalid counts cannot partially paint cards (10.046281ms)
+✔ pagehide aborts; restored page resumes one pending read (12.731564ms)
+✔ other admin pages do not fetch statistics (7.846836ms)
+✔ empty permissions dashboard does not request counts (6.935638ms)
+(node:13) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ delayed current-page batches are serial, bounded20, separated200ms (136.74357ms)
+✔ dispose aborts and ignores late response (24.415817ms)
+✔ pagehide aborts and ignores late response (19.852327ms)
+✔ refresh aborts and ignores late response (14.013081ms)
+✔ search aborts and ignores late response (14.254282ms)
+✔ sort aborts and ignores late response (15.617562ms)
+✔ leave aborts and ignores late response (19.890082ms)
+(node:14) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ locations are click-only, single-flight, and ignore late dismissed responses (126.922477ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 746.283292

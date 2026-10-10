@@ -15,3 +15,9 @@ def policy(env,*,admin=False):
 def variables(env):
     mode,performance,request_cache=policy(env)
     return dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE=mode,TEACHER_WORKER_REQUEST_CACHE='1' if request_cache else '0')
+
+def edge_cache(env):
+    """Version-isolated platform cache; full retains the internal Cache API baseline."""
+    mode,performance,_=policy(env)
+    return {'enabled':mode=='simple' and performance.public_page_cache_ttl_seconds>0,
+            'cross_version_cache':False}

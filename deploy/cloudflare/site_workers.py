@@ -23,6 +23,11 @@ ADMIN_VARS=("TEACHER_METADATA_EMAIL","TEACHER_TRANSLATION_HOSTS")
 ADMIN_SECRETS=("TEACHER_SETUP_TOKEN","TEACHER_OPENALEX_API_KEY","TEACHER_SEMANTIC_SCHOLAR_API_KEY","TEACHER_PUBMED_API_KEY","TEACHER_GOOGLE_TRANSLATE_KEY","TEACHER_DEEPL_API_KEY","TEACHER_MICROSOFT_TRANSLATOR_KEY","TEACHER_LIBRETRANSLATE_API_KEY")
 
 def extend(root,stage,cfg,env=None):
+    from runtime.cache_policy import edge_cache
+    cfg['cache']=edge_cache(cfg.get('vars',{}))
+    # Sync configs were generated before this website-only flag update.
+    disabled={'disable_request_signal','no_request_signal_passthrough'}
+    cfg['compatibility_flags']=list(dict.fromkeys([f for f in cfg['compatibility_flags'] if f not in disabled]+['enable_request_signal','request_signal_passthrough']))
     src=stage/'src'
     (src/'worker_runtime/site_mode.py').write_text('SYNC_EXECUTOR_MODE = '+repr(cfg.get('vars',{}).get('TEACHER_SYNC_EXECUTOR_MODE','inline'))+'\n')
     values=literals(src/'generated_resources.py');templates=values['TEMPLATES']
@@ -38,6 +43,7 @@ def extend(root,stage,cfg,env=None):
     # HTTP control needs Native but never calls the Executor itself.
     from backend.app.public_performance import KEYS
     for key in KEYS:admin['vars'].pop(key,None)
+    admin['cache']={'enabled':False,'cross_version_cache':False}
     admin['vars'].update(TEACHER_WORKER_CACHE_MODE='off',TEACHER_WORKER_REQUEST_CACHE='0')
     admin['vars'].update({k:env[k] for k in ADMIN_VARS if env and k in env})
     admin['services']=[b for b in admin['services'] if b['binding']=='SYNC_NATIVE']
@@ -57,6 +63,7 @@ def extend(root,stage,cfg,env=None):
 def verify(stage):
     cfg=json.loads((stage/'wrangler.jsonc').read_text());admin=json.loads((stage/'wrangler.admin.jsonc').read_text())
     assert admin['name']==admin_name(cfg['name'])
+    assert admin['cache']=={'enabled':False,'cross_version_cache':False}
     assert admin['triggers']=={'crons':[]} and admin['workers_dev'] is False and admin['preview_urls'] is False
     assert not any(k in admin for k in ('assets','routes','durable_objects','migrations'))
     assert admin['d1_databases']==cfg['d1_databases'] and admin['r2_buckets']==cfg['r2_buckets']

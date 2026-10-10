@@ -27,4 +27,9 @@ class Default(WorkerEntrypoint):
         if owner(request.url)!='admin':
             from workers import Response
             return Response('Not found',status=404)
-        return await dispatch_upload(application,request,self.env,self.ctx,asgi.fetch,direct)
+        from worker_runtime.request_cancel import aborted,client_cancelled,cancelled_response
+        if getattr(request,'method','GET') in ('GET','HEAD') and aborted(request):return cancelled_response()
+        try:return await dispatch_upload(application,request,self.env,self.ctx,asgi.fetch,direct)
+        except Exception as exc:
+            if client_cancelled(request,exc):return cancelled_response()
+            raise

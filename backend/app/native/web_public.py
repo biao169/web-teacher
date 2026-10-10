@@ -9,10 +9,11 @@ from .public_http_cache import validator,not_modified,finish,identity_fingerprin
 from .public_page_cache import page_cache,page_response
 
 def public_headers(request,r,revision,fragment=False,form=False,safe=False):
-    headers={'Vary':'Cookie, Authorization, X-Public-Fragment','X-Public-Revision':revision}
+    shared=getattr(r,'public_shared',False)
+    headers={'Vary':'X-Public-Fragment' if shared and not form else 'Cookie, Authorization, X-Public-Fragment','X-Public-Revision':revision}
     ttl=r.public_performance.public_cache_ttl_seconds
     page_ttl=r.public_performance.public_page_cache_ttl_seconds
-    if request.headers.get('authorization') or form or (not fragment and not safe):
+    if (request.headers.get('authorization') and not shared) or form or (not fragment and not safe):
         policy='no-store'
     elif fragment:
         # Keep existing fragment policy and protocol separate from HTML freshness.
@@ -39,7 +40,7 @@ def install(app,factory,resources,csrf,render):
         from .public_revision import revision
         from .auth import Auth
         r=factory(request);auth=Auth(r.sql,r.passwords)
-        principal=await (auth.principal if r.kind=='local' else auth.public_principal)(request.cookies.get(r.config.name('session')))
+        principal=None if r.kind!='local' and request.query_params.get('shared')=='1' else await (auth.principal if r.kind=='local' else auth.public_principal)(request.cookies.get(r.config.name('session')))
         return JSONResponse({'revision':await revision(r.sql),'identity':identity_fingerprint(principal)},headers={'Cache-Control':'no-store'})
     @app.get('/{lang}/contact')
     async def public_form(request:Request,lang:str='en'):
@@ -162,7 +163,7 @@ def install(app,factory,resources,csrf,render):
         if table and not uid:
             from .public_data import validate_listing_query
             validate_listing_query(table,query,home_mode)
-        etag=await validator(request,r,public_revision,query,scope,fragment,table,uid)
+        etag=None if uid else await validator(request,r,public_revision,query,scope,fragment,table,uid)
         cached=not_modified(request,etag,public_headers(request,r,public_revision,fragment=fragment,safe=bool(etag)))
         if cached is not None:
             cached.headers['X-Public-Page-Cache']='BYPASS'
@@ -224,7 +225,7 @@ def install(app,factory,resources,csrf,render):
             params={'from':list_return(request.query_params.get('from'),switched,table,scope)}|({'nv':scope['stamp']} if scope else {})
             return target+'?'+urlencode(params)
 
-        values={'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'public_nav_prefetch_concurrency':r.public_performance.public_nav_prefetch_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
+        values={'public_shared':getattr(r,'public_shared',False),'public_components':getattr(r,'public_components',False),'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'public_nav_prefetch_concurrency':r.public_performance.public_nav_prefetch_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
                 'media_map':media_map,'pages':pages,'home_pages':home_pages,'home_mode':home_mode,'public_options':site_options,
                 'page_url':lambda p:query_url(list_path,(pages['query'] if pages else {})|{'page':p}|({'nv':scope['stamp']} if scope else {})),
                 'public_list_path':list_path,'public_scope':scope,
@@ -252,6 +253,11 @@ def install(app,factory,resources,csrf,render):
         if detail and table=='news' and detail.get('allow_comments')==1:
             from .public_contact import form_context
             values.update(await form_context(r,lang,news=detail))
+        if uid and getattr(r,'public_shared',False):
+            # Check existence, visibility and form eligibility before returning a 304.
+            etag=await validator(request,r,public_revision,dict(request.query_params),scope,False,table,uid)
+            cached=not_modified(request,etag,public_headers(request,r,public_revision,safe=bool(etag)))
+            if cached is not None:return cached
         response=await render(r,'public/native.html',**values)
         if 'challenge' in values:r.config.set_cookie(response,'public-form',values['challenge'],600)
         response.headers.update(public_headers(request,r,public_revision,form='challenge' in values,safe=bool(etag)))

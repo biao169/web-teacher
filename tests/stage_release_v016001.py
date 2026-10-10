@@ -10,7 +10,7 @@ from domains import settings,apply
 from integration_package import extend
 from pipeline import verify_stage
 
-def main(separate=False):
+def main(separate=False,cache_mode="full"):
     with tempfile.TemporaryDirectory(prefix='teacher-offline-acceptance-') as temp:
         work=Path(temp);stage=work/'worker'
         domains=settings({'TEACHER_ORIGIN':'https://primary.university.edu','TEACHER_CUSTOM_DOMAINS':'primary.university.edu,alias.university.edu'},'teacher-offline-test')
@@ -23,7 +23,7 @@ def main(separate=False):
         from backend.app.public_performance import PublicPerformance,KEYS
         performance=PublicPerformance.from_env({'TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS':'123','TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY':'2'})
         from runtime.cache_policy import variables
-        cfg['vars'].update(variables(dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE='full')))
+        cfg['vars'].update(variables(dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE=cache_mode)))
         if separate:cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']='separate'
         import tomllib
         cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
@@ -33,9 +33,17 @@ def main(separate=False):
         site_package=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/site_workers.py'),'--stage',str(stage)],cwd=stage,text=True,capture_output=True)
         if site_package.returncode:raise RuntimeError(site_package.stdout+site_package.stderr)
         cfg=json.loads((stage/'wrangler.jsonc').read_text())
+        signal_flags={'enable_request_signal','request_signal_passthrough'}
+        assert signal_flags.issubset(cfg['compatibility_flags'])
+        assert signal_flags.issubset(json.loads((stage/'wrangler.admin.jsonc').read_text())['compatibility_flags'])
+        if separate:assert not signal_flags.intersection(json.loads((stage/'wrangler.sync-executor.jsonc').read_text())['compatibility_flags'])
+        assert cfg['cache']=={'enabled':cache_mode=='simple','cross_version_cache':False}
+        assert json.loads((stage/'wrangler.admin.jsonc').read_text())['cache']=={'enabled':False,'cross_version_cache':False}
+        assert 'cache' not in json.loads((stage/'sync-native/wrangler.jsonc').read_text())
+        if separate:assert 'cache' not in json.loads((stage/'wrangler.sync-executor.jsonc').read_text())
         public_vars=json.loads((stage/'wrangler.jsonc').read_text())['vars']
         admin_vars=json.loads((stage/'wrangler.admin.jsonc').read_text())['vars']
-        assert all(public_vars[k]==v for k,v in performance.to_env().items())
+        assert all(public_vars[k]==v for k,v in variables(dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE=cache_mode)).items())
         assert not set(KEYS).intersection(admin_vars)
         assert admin_vars['TEACHER_WORKER_CACHE_MODE']=='off' and admin_vars['TEACHER_WORKER_REQUEST_CACHE']=='0'
         native_vars=json.loads((stage/'sync-native/wrangler.jsonc').read_text())['vars']
@@ -92,4 +100,4 @@ def main(separate=False):
         assert 'TEACHER_ALLOWED_ORIGINS=' in (work/'vps/teacher-site.env').read_text()
         report={'worker_source_staging':'passed','worker_snapshot_imports':'passed','executor_staged_cold_imports':'passed','executor_staged_deferred_imports':'passed','vps_config_generation':'passed','assets_and_feature_modules':'passed','worker_custom_domain_count':len(cfg['routes']),'cron':cfg['triggers']['crons'],'wrangler_sdk_bundle':'not_run','production_d1_r2':'not_run','real_server_deployment':'not_run'}
         print(json.dumps(report,ensure_ascii=False,indent=2))
-if __name__=='__main__':main('--separate-sync' in sys.argv)
+if __name__=='__main__':main('--separate-sync' in sys.argv,'simple' if '--simple-cache' in sys.argv else 'full')

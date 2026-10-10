@@ -1,0 +1,8 @@
+........................................                                 [100%]
+=============================== warnings summary ===============================
+deploy/cloudflare/tests/test_site_roles_step4.py::test_bundled_templates_render_public_admin_and_transfer
+  /workspace/scratch/0d1a9c0024a0/integration001-deps/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+40 passed, 1 warning in 1.04s

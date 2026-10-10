@@ -1,5 +1,5 @@
 /** Group selection exports and explicit per-source version adoption; no provider calls on reads. */
-import {requestJSON} from './native-http.js';
+import {requestJSON} from './native-http.js?v=0.16.076';
 import {notify} from './native-notifications.js';
 
 export function setupTranslationGroups(root){

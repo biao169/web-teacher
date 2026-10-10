@@ -38,6 +38,15 @@ async def payload(request,limit=500000):
         return {k:v[0] for k,v in parsed.items()}
     except (ValueError,UnicodeDecodeError):raise Error('请求格式不正确') from None
 
+def shared_public_route(request):
+    """Standard shared HTML allowlist; form-bearing news is checked separately."""
+    from .catalog import CONTENT
+    if request.method not in ('GET','HEAD'):return False
+    parts=request.url.path.strip('/').split('/')
+    if parts[0] not in ('en','zh'):return False
+    if any(k in request.query_params for k in ('nav','nv')):return False
+    return len(parts)==1 or (len(parts) in (2,3) and parts[1] in CONTENT)
+
 def worker_public_read(request,r):
     """Only Worker public read routes; media, forms, auth, admin and writes stay full."""
     if r.kind=='local' or request.method not in ('GET','HEAD'):return False
@@ -57,8 +66,17 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         r.public_performance=getattr(r,'public_performance',None) or PublicPerformance.from_env()
         r.auth=Auth(r.sql,r.passwords)
         r.public_light=worker_public_read(request,r)
+        r.public_shared=r.kind!='local' and shared_public_route(request)
+        if r.public_shared:
+            route=request.url.path.strip('/').split('/')
+            if len(route)==3 and route[1]=='news':
+                # A news comment form remains identity-sensitive; one UID lookup only.
+                rows=await r.sql.query('SELECT allow_comments FROM news WHERE uid=? LIMIT 1',(route[2],))
+                if rows and rows[0]['allow_comments']==1:r.public_shared=False
+        r.public_components=r.public_shared
+        request.state.public_shared=r.public_shared
         principal=r.auth.public_principal if r.public_light else r.auth.principal
-        r.p=await principal(request.cookies.get(r.config.name('session')))
+        r.p=None if r.public_shared else await principal(request.cookies.get(r.config.name('session')))
         parts=request.url.path.split('/')
         cache_namespace=[request.url.path,sorted((k,v) for k,v in request.query_params.multi_items() if k!='_rev'),request.headers.get('x-public-fragment')=='1','anonymous']
         if not r.p and request.method in ('GET','HEAD') and (len(parts)>1 and parts[1] in ('en','zh') or request.url.path.startswith('/api/public/')):
@@ -85,7 +103,8 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
     @app.middleware('http')
     async def headers(request,call_next):
         """核对Host并为响应设置安全策略和缓存控制。"""
-        try:factory(request).config.valid_host(request)
+        try:
+            base=factory(request);base.config.valid_host(request)
         except Error as exc:return HTMLResponse('请使用配置的网站地址访问',status_code=exc.status)
         response=await call_next(request)
         if request.url.path.startswith(('/admin','/auth/','/api/','/transfer','/health')):
@@ -106,6 +125,11 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
             if suffix in ('js','mjs','css'):
                 response.headers['Content-Type']='text/css; charset=utf-8' if suffix=='css' else 'text/javascript; charset=utf-8'
                 response.headers['Cache-Control']='no-cache'
+        # Platform edge cache is opt-in per public representation, not all GET routes.
+        if base.kind!='local':
+            shared=getattr(request.state,'public_shared',False)
+            cacheable=shared and request.method in ('GET','HEAD') and response.status_code in (200,304) and 'set-cookie' not in response.headers and response.headers.get('Cache-Control','').startswith('public,')
+            response.headers['Cloudflare-CDN-Cache-Control']=response.headers['Cache-Control'] if cacheable else 'no-store'
         return response
     @app.exception_handler(Error)
     async def domain_error(request,exc):

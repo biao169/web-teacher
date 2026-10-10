@@ -25,10 +25,11 @@ def test_all_admin_routes_have_owner(entry):
         if p.startswith('/health'):continue
         assert owner(p) in ('admin','sync','transfer'),p
 
-def test_admin_forward_does_not_parse_or_build_public(entry,monkeypatch):
+@pytest.mark.parametrize('path',['/api/admin/media/upload','/api/public/session-summary','/api/public/admin-project-fields?uid=x'])
+def test_admin_forward_does_not_parse_or_build_public(entry,monkeypatch,path):
     binding=SimpleNamespace(fetch=AsyncMock(return_value=SimpleNamespace(status=204)))
     worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=binding)
-    request=SimpleNamespace(url='https://teacher.invalid/api/admin/media/upload',body=object())
+    request=SimpleNamespace(url='https://teacher.invalid'+path,body=object())
     monkeypatch.setattr(entry,'build_application',lambda **k:pytest.fail('public app built for admin'))
     response=asyncio.run(entry.Default.fetch.__wrapped__(worker,request))
     assert response.status==204

@@ -1,0 +1,18 @@
+Relative to v0.16.069
+README.md
+deploy/cloudflare/README.md
+deploy/cloudflare/admin_release.py
+deploy/cloudflare/companion_release.py
+deploy/cloudflare/pyproject.toml
+deploy/cloudflare/runtime/entrypoint.py
+deploy/cloudflare/runtime/request_diagnostics.py
+deploy/cloudflare/tests/test_admin_release_step4.py
+deploy/cloudflare/tests/test_companion_release.py
+deploy/cloudflare/tests/test_request_diagnostics.py
+deploy/cloudflare/uv.lock
+docs/releases/v0.16.070.md
+docs/releases/validation-v0.16.070/release-tests.txt
+docs/releases/validation-v0.16.070/separate-stage.txt
+pyproject.toml
+docs/releases/changes-v0.16.070.txt
+release-manifest.json

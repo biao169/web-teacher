@@ -1,5 +1,5 @@
 /** Explicit one-at-a-time insertion; refresh never resumes and a lost response is not resent automatically. */
-import {requestJSON} from './native-http.js';
+import {requestJSON} from './native-http.js?v=0.16.076';
 import {notify} from './native-notifications.js';
 const root=document.querySelector('[data-examples]');
 if(root){

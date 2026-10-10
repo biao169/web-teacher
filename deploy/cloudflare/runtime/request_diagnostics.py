@@ -43,10 +43,15 @@ def traced(component,http=False):
                                 upstream_component=result.headers.get('x-teacher-component')
                                 if upstream_component:result.headers.set('x-upstream-component',upstream_component)
                                 result.headers.set('x-teacher-component',component)
-                                result.headers.set('x-teacher-release','0.16.070')
-                    record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='returned')
+                                result.headers.set('x-teacher-release','0.16.077')
+                    record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='cancelled' if status==499 else 'returned')
                     return result
                 except BaseException as exc:
+                    if http and component in ('main-site','admin-site') and data.get('route')!='sync-peer':
+                        from .request_cancel import client_cancelled
+                        if client_cancelled(request,exc):
+                            record('INVOCATION-CANCELLED',finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),error_type=type(exc).__name__,error_category='cancelled',application_outcome='cancelled',retryable=False)
+                            raise
                     record('INVOCATION-ERROR',finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),error_type=type(exc).__name__,diagnostic=failure(exc),**category(exc))
                     raise
         return wrapped

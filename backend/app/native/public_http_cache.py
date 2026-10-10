@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from .catalog import now
 
 # Bump with releases that change public rendering, even if the DB revision is unchanged.
-REPRESENTATION_VERSION='0.16.071'
+REPRESENTATION_VERSION='0.16.077'
 _TAG=re.compile(r'(?:W/)?"[\x21\x23-\x7e\x80-\xff]*"')
 
 def matches_etag(value,etag):
@@ -35,14 +35,14 @@ def representation_key(request,r,revision,query,scope=None,fragment=False,clock=
     # Includes current effective grants, display fields and session fingerprint.
     # Only the final digest leaves the server; no UID/username/CSRF in the header.
     identity=r.p or 'anonymous'
-    values=[('0.16.071' if getattr(r,'public_light',False) else REPRESENTATION_VERSION),revision,identity,request.url.path,
+    values=[('0.16.077' if getattr(r,'public_light',False) else REPRESENTATION_VERSION),revision,identity,request.url.path,
             sorted((k,str(v)) for k,v in query.items()),bool(fragment),
             scope['stamp'] if scope else '',clock,r.config.origin,
             getattr(r,'asset_mode',''),r.public_performance.to_env()]
     return hashlib.sha256(json.dumps(values,sort_keys=True,ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
 
 async def validator(request,r,revision,query,scope=None,fragment=False,table=None,uid=None):
-    if uid or request.method not in ('GET','HEAD') or request.headers.get('authorization'):
+    if (uid and not getattr(r,'public_shared',False)) or request.method not in ('GET','HEAD') or (request.headers.get('authorization') and not getattr(r,'public_shared',False)):
         return None
     # Keep explicit cache-disable semantics; conditional responses are not HTML storage.
     if not r.public_performance.public_cache_enabled and (fragment or not r.public_performance.public_page_cache_ttl_seconds):return None

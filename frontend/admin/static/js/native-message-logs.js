@@ -1,6 +1,6 @@
 import {adminFetch} from './native-access.js?v=0.15.28';
 /** Shared log downloads and message detail actions; lists keep their existing save lifecycle. */
-import {requestJSON} from './native-http.js';
+import {requestJSON} from './native-http.js?v=0.16.076';
 import {notify,rememberNotice} from './native-notifications.js';
 
 export function setupLogExport(root){

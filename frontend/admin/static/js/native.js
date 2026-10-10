@@ -1,6 +1,6 @@
 /** Isolated feature loading: failed helpers cannot disable saving, media or unrelated editors. */
 const modules=[
- ['native-dashboard.js?v=0.16.050','概览统计','[data-dashboard-counts]'],
+ ['native-dashboard.js?v=0.16.076','概览统计','[data-dashboard-counts]'],
  ['native-access.js?v=0.15.28','权限提示','body'],
  ['native-publications.js?v=0.15.40','论文辅助','[data-editor-table="publications"]'],
  ['native-metadata-query.js?v=0.15.40','论文检索','[data-metadata-standalone]'],

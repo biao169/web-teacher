@@ -1,10 +1,10 @@
 /** Read-only paged source panel; late responses never reopen a dismissed dialog. */
-import {requestJSON} from './native-http.js';
+import {requestJSON} from './native-http.js?v=0.16.076';
 import {adminFetch} from './native-access.js?v=0.15.28';
 export function setupMediaLocations(root){
  const events=new AbortController();let dialog=null,sequence=0,pending=false;
  let disposed=root.dataset.mediaUsageStopped==='true',timer=null,deadline=null,controller=null;
- const initialURL=location.href;
+ const initialURL=location.href;let nextOffset=0;
  const anchors=[...root.querySelectorAll('[data-media-locations]')];
  function stop(){disposed=true;clearTimeout(timer);clearTimeout(deadline);controller?.abort();controller=null;}
  const valid=()=>!disposed&&root.isConnected&&location.href===initialURL;
@@ -20,19 +20,25 @@ export function setupMediaLocations(root){
   if(!valid())return stop();
   const current=anchors.slice(offset,offset+20);if(!current.length)return;
   current.forEach(a=>paint(a,'读取中…'));controller=new AbortController();
-  const active=controller;deadline=setTimeout(()=>active.abort(),15000);
+  const active=controller;const activeDeadline=setTimeout(()=>active.abort(),15000);deadline=activeDeadline;
   try{
    const params=new URLSearchParams();current.forEach(a=>params.append('uid',a.dataset.mediaLocations));
    const response=await adminFetch('/api/admin/media/usage-summaries?'+params,{headers:{Accept:'application/json'},signal:active.signal});
    if(!response.ok)throw Error('HTTP '+response.status);
-   const data=await response.json();if(!valid())return;
+   const data=await response.json();if(!valid()||active.signal.aborted)return;
    current.forEach(a=>paint(a,summary(data.items?.[a.dataset.mediaLocations])));
   }catch(error){if(valid())current.forEach(a=>paint(a,'读取失败；点击查看'));}
-  finally{clearTimeout(deadline);if(controller===active)controller=null;}
+  finally{clearTimeout(activeDeadline);if(controller===active)controller=null;}
+  if(active.signal.aborted)return;
+  nextOffset=offset+20;
   if(valid()&&offset+20<anchors.length)timer=setTimeout(()=>batch(offset+20),200);
  }
  const on=(node,name,fn)=>node.addEventListener(name,fn,{signal:events.signal});
  on(window,'pagehide',stop);
+ on(document,'teacher:navigation-start',()=>{stop();close();});
+ function resume(){if(root.isConnected&&location.href===initialURL&&root.dataset.mediaUsageStopped!=='true'){disposed=false;clearTimeout(timer);timer=setTimeout(()=>batch(nextOffset),1000);}}
+ on(document,'teacher:navigation-cancel',resume);
+ on(window,'pageshow',e=>{if(e.persisted)resume();});
  on(root,'native-list-loading',stop);
  on(root,'submit',stop);
  root.addEventListener('click',e=>{if(e.target.closest('[data-column-sort],.native-popover button'))stop();},{capture:true,signal:events.signal});

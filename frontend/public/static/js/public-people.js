@@ -69,6 +69,7 @@
   formatControl?.addEventListener('change',cancelCitation);
   document.addEventListener('public:querychange',cancelCitation);
   window.addEventListener('pagehide',cancelCitation);
+  document.addEventListener('teacher:navigation-start',cancelCitation);
   async function copyCitations(items,status){
     if(citationJob){status.textContent=say('正在读取引文，请稍候。','Loading citations. Please wait.');return;}
     if(!items.length)return;
@@ -259,6 +260,8 @@
     if(!bio.textContent.trim()){message.textContent=say('暂无公开简介。','No public biography.');message.classList.remove('visually-hidden');}
   });
   window.addEventListener('pagehide',()=>{for(const controller of requests)controller.abort();});
+  document.addEventListener('teacher:navigation-start',()=>{for(const controller of requests)controller.abort();});
+  document.addEventListener('teacher:navigation-cancel',refresh);
   window.addEventListener('pageshow',refresh);
   const biographyObserver=typeof ResizeObserver==='function'?new ResizeObserver(()=>{
     for(const card of cards()){

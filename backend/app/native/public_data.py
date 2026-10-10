@@ -68,7 +68,7 @@ async def public_listing(r,table,query,site=None,home=False,profile_overview=Fal
     if table=='profiles' and not profile_overview:
         projection=[f for f in projection if f!='recruiting']
     # The principal is freshly resolved by resources() for every HTTP request.
-    if table=='projects' and not project_private_allowed(getattr(r,'p',None)):
+    if table=='projects' and (getattr(r,'public_components',False) or not project_private_allowed(getattr(r,'p',None))):
         projection=[f for f in projection if f not in ('principal','amount','members')]
     style=citation_style(site)
     if table=='publications':projection=[f for f in projection if not f.startswith(('citation_','highlight_')) or f in ('citation_'+style,'highlight_'+style)]

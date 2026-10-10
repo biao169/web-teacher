@@ -1,0 +1,21 @@
+✔ dialog requests fresh form with current return path and restores focus on close (94.427562ms)
+✔ failed submission cannot double-submit, retains server account field and clears password (30.952395ms)
+✔ registration success switches to login inside the same dialog (22.628825ms)
+✔ closing pending read aborts it and does not inject a late form (10.635807ms)
+✔ identity, CSRF and private values are safe and cleared on pagehide (83.983585ms)
+✔ anonymous does not request private fields (9.846912ms)
+✔ stale identity cannot update DOM after cancellation (9.160462ms)
+✔ 20 per batch, serial and append loads a new card of the same UID (236.549443ms)
+✔ BFCache and account change clear old identity and force network validation (17.468189ms)
+✔ failed private API leaves public content readable (12.285267ms)
+✔ native logout captures token before cleanup (11.766864ms)
+✔ late private response and pending batches cannot survive query change (232.780681ms)
+✔ ordinary authenticated user has logout but no admin or project request (9.894483ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 993.423115

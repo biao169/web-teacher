@@ -97,3 +97,18 @@ for(const concurrency of [1,2,4])test(`configured concurrency ${concurrency} is 
  }
  assert.equal(f.requests.length,5);
 });
+test('shared BFCache check requests anonymous revision only',async t=>{
+ const f=fixture(t);const main=f.w.document.querySelector('main');main.dataset.publicShared='1';main.dataset.publicRevision='r1';main.dataset.publicIdentity='';
+ f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow',{persisted:true}));
+ assert.equal(f.requests[0].url,'/api/public/cache-revision?shared=1');
+ f.requests[0].resolve({ok:true,json:async()=>({revision:'r1',identity:''})});await f.tick();
+ assert.notEqual(f.w.document.body.style.visibility,'hidden');
+});
+test('navigation aborts queued reads and timeout recovery restarts loader',async t=>{const f=fixture(t,{multi:true});f.observers[0].fire();f.observers[1].fire();f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-start'));await f.tick();assert.equal(f.requests.length,1);assert.ok(f.requests[0].opts.signal.aborted);f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-cancel'));f.observers[0].fire();assert.equal(f.requests.length,2);});
+test('shared BFCache check failure keeps HTML readable and fragments paused until retry',async t=>{
+ const f=fixture(t);const main=f.w.document.querySelector('main');main.dataset.publicShared='1';main.dataset.publicRevision='r1';main.dataset.publicIdentity='';
+ f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow',{persisted:true}));f.requests[0].reject(Error('offline'));await f.tick();
+ assert.ok(f.$('[data-restore-retry]'));assert.notEqual(f.w.document.body.style.visibility,'hidden');f.observers[0].fire();assert.equal(f.requests.length,1);
+ f.$('[data-restore-retry]').click();f.requests[1].resolve({ok:true,json:async()=>({revision:'r1',identity:''})});await f.tick();assert.equal(f.$('[data-restore-retry]'),null);
+ f.observers[0].fire();assert.equal(f.requests.length,3);
+});

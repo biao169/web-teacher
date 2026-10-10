@@ -61,6 +61,8 @@ def inspect_artifact(path, config, main_name, role):
     if 'metadata' not in parts:
         raise ValueError('Missing upload metadata')
     metadata=json.loads(parts.pop('metadata')[1])
+    if role=='admin' and 'cache' in config and metadata.get('cache_options')!=config['cache']:
+        raise ValueError('Admin edge cache upload configuration mismatch')
     main=metadata.get('main_module')
     if main not in parts:
         raise ValueError('Entrypoint missing from upload')

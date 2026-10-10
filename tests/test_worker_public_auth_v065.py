@@ -35,7 +35,8 @@ def test_permission_change_live_and_no_admin_menu(fixture):
  async def query(sql,args=()):calls.append(sql);return await original(sql,args)
  with patch.object(r.sql,'query',query),patch.object(Auth,'principal',side_effect=AssertionError('full auth on public')):
   page=c.get('/en');assert page.status_code==200,page.text
-  assert 'href="/admin"' in page.text
+  assert 'data-public-session' in page.text
+  assert c.get('/api/public/session-summary').json()['can_enter_admin']
   old=c.get('/api/public/cache-revision').json()['identity']
  assert not any("location='admin-sidebar'" in q or q.startswith('SELECT module,can_view') for q in calls)
  token=c.cookies.get(r.config.name('session'));auth=Auth(r.sql,r.passwords);p=run(auth.public_principal(token))

@@ -61,10 +61,13 @@ class Default(WorkerEntrypoint):
     async def fetch(self, request):
         from worker_runtime.site_routes import owner
         if owner(request.url)=='admin':
+            from worker_runtime.request_cancel import aborted,client_cancelled,cancelled_response
+            if getattr(request,'method','GET') in ('GET','HEAD') and aborted(request):return cancelled_response()
             # Forward the native stream unchanged: no ASGI, form or JSON parse here.
             try:
                 return await self.env.SITE_ADMIN.fetch(request)
             except Exception as exc:
+                if client_cancelled(request,exc):return cancelled_response()
                 from worker_runtime.diagnostics import failure
                 from site_sync.core.trace import current
                 from workers import Response
@@ -75,7 +78,7 @@ class Default(WorkerEntrypoint):
                 if body is not None and not body.locked:
                     try:await body.cancel()
                     except Exception as cancel_error:emit('ADMIN-BODY-CANCEL','ERROR',request_id=trace,exceptions=failure(cancel_error))
-                return Response(json.dumps({'error':'后台服务暂时不可用','code':'ADMIN_UNAVAILABLE','request_id':trace}),status=503,headers={'content-type':'application/json; charset=utf-8','cache-control':'no-store'})
+                return Response(json.dumps({'error':'后台服务暂时不可用','code':'ADMIN_UNAVAILABLE','request_id':trace}),status=503,headers={'content-type':'application/json; charset=utf-8','cache-control':'no-store','retry-after':'1'})
         import secrets,re
         from urllib.parse import urlsplit
         from site_sync.core.trace import current
@@ -83,7 +86,7 @@ class Default(WorkerEntrypoint):
         if path=='/sync/v1/read' and str(getattr(self.env,'TEACHER_SYNC_PAUSED','0'))=='1':
             from js import Response,Object
             from pyodide.ffi import to_js
-            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.070'}},dict_converter=Object.fromEntries))
+            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.077'}},dict_converter=Object.fromEntries))
         ray=str(request.headers.get('cf-ray') or '')
         ray=ray if re.fullmatch('[a-fA-F0-9]{8,32}-[A-Z]{3}',ray) else ''
         route='sync-peer' if path=='/sync/v1/read' else 'sync-admin' if path.startswith(('/admin/site-sync','/api/admin/site-sync')) else 'admin' if path.startswith('/admin') else 'public'
@@ -98,7 +101,7 @@ class Default(WorkerEntrypoint):
                     emit('SYNC-FORWARD','ERROR',component='main-site',request_id=trace,code='SYNC_EXECUTOR_UNAVAILABLE',exceptions=failure(exc))
                     from js import Response,Object
                     from pyodide.ffi import to_js
-                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.070'}},dict_converter=Object.fromEntries))
+                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.077'}},dict_converter=Object.fromEntries))
             elif request.headers.get('x-sync-stream')=='1' and path=='/sync/v1/read':
                 response=await self.env.SYNC_NATIVE.fetch(request)
             elif path=='/sync/v1/read':

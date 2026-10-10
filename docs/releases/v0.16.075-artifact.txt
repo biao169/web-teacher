@@ -1,0 +1,20 @@
+[
+  {
+    "wrangler": "4.143.0",
+    "dry_run": true,
+    "cache_options": {
+      "enabled": true,
+      "cross_version_cache": false
+    },
+    "live_upload": false
+  },
+  {
+    "wrangler": "4.143.0",
+    "dry_run": true,
+    "cache_options": {
+      "enabled": false,
+      "cross_version_cache": false
+    },
+    "live_upload": false
+  }
+]

@@ -90,5 +90,5 @@
   window.addEventListener('resize',reposition);window.visualViewport?.addEventListener('resize',reposition);
   document.addEventListener('scroll',event=>{if(opened&&!opened.panel.contains(event.target))reposition();},true);
   form.addEventListener('submit',()=>close());form.addEventListener('reset',()=>{close();queueMicrotask(()=>controls.forEach(sync));});
-  window.addEventListener('pagehide',()=>close());window.addEventListener('pageshow',()=>controls.forEach(sync));
+  document.addEventListener('teacher:navigation-start',()=>close());window.addEventListener('pagehide',()=>close());window.addEventListener('pageshow',()=>controls.forEach(sync));
 })();

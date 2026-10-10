@@ -1,3 +1,5 @@
+v0.16.075：公开整页TTL默认1800秒；已有显式配置优先。LRU、认证、预取、并发及服务结构不变；Worker缓存模式对Linux无效。
+
 ## 媒体 HTTP 缓存（v0.16.067）
 
 Worker、Ubuntu、Debian 共用媒体响应策略：公开媒体 `public, max-age=3600`；已授权后台/私有媒体 `private, max-age=900`。公开性由现有引用规则判断，与是否登录无关。响应保留 `Vary: Cookie, Authorization`，GET/HEAD 支持 ETag 与 If-None-Match / 304，并保留 Range 下载。
@@ -145,11 +147,11 @@ python -B -m deploy.vps.release verify --strict
 | 变量 | 默认 | 范围 | 功能与关闭方式 |
 | --- | --- | --- | --- |
 | `TEACHER_PUBLIC_CACHE_TTL_SECONDS` | 1800 | 0～86400 秒 | 公共数据缓存及当前 revision 分片缓存；0 关闭数据缓存 |
-| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 300 | 0～3600 秒 | 匿名安全整页 Render Cache 及浏览器 HTML 新鲜期；0 关闭整页缓存 |
+| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 1800 | 0～3600 秒 | 匿名安全整页 Render Cache 及浏览器 HTML 新鲜期；0 关闭整页缓存 |
 | `TEACHER_PUBLIC_STREAM_CONCURRENCY` | 2 | 1～4 | 页面内容分片加载并发；不是服务进程数 |
 | `TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY` | 1 | 0～2 | 导航意图预取并发；0 完全关闭预取 |
 
-两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=300`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
+两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=1800`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
 
 修改内容会更新 revision，但浏览器已经缓存且仍新鲜的 HTML 可能保持到 TTL 到期。需要每次导航验证时将整页 TTL 设为0。不要让反向代理覆盖 `Cache-Control` 或忽略 `Vary: Cookie, Authorization, X-Public-Fragment`。
 
@@ -163,7 +165,7 @@ Linux 使用有界内存预算，Worker 使用 Cache API；缓存可能被驱逐
 
 ```text
 TEACHER_PUBLIC_CACHE_TTL_SECONDS=1800
-TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS=300
+TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS=1800
 TEACHER_PUBLIC_STREAM_CONCURRENCY=2
 TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY=1
 ```

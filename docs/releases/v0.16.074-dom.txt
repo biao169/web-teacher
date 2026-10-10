@@ -1,0 +1,41 @@
+✔ identity, CSRF and private values are safe and cleared on pagehide (146.739512ms)
+✔ anonymous does not request private fields (16.430937ms)
+✔ stale identity cannot update DOM after cancellation (14.567166ms)
+✔ 20 per batch, serial and append loads a new card of the same UID (259.997954ms)
+✔ BFCache and account change clear old identity and force network validation (29.038856ms)
+✔ failed private API leaves public content readable (19.432791ms)
+✔ native logout captures token before cleanup (14.825203ms)
+✔ late private response and pending batches cannot survive query change (239.754147ms)
+✔ ordinary authenticated user has logout but no admin or project request (10.673111ms)
+✔ intersection starts one request and carries query filters without changing current URL (166.349927ms)
+✔ appends once per UID, including duplicate rows in the same response (36.489925ms)
+✔ last page removes continuation and disconnects automatic requests (26.368505ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (25.972807ms)
+✔ homepage streams share a one-request queue and keep independent record sets (19.814338ms)
+✔ wrong language/table/page response cannot contaminate current list (8.764849ms)
+✔ cross-origin or backwards continuation is rejected before append (15.449367ms)
+✔ HTML error pages do not replace cards (9.395614ms)
+✔ pagehide aborts active request and clears queued requests (21.452544ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (11.954308ms)
+✔ data-saving preference disables auto preload, keeps explicit click (10.772482ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (11.612385ms)
+✔ five nested homepage modules share one request queue and retain independent rows (31.539746ms)
+✔ fixed-entry stream retains slug and revision on every continuation (20.194097ms)
+✔ fixed-entry stream rejects unscoped continuation and changed revision before append (31.957773ms)
+✔ query identity and next-query mismatch cannot contaminate current stream (47.16593ms)
+✔ home page-zero slices start automatically in one serial queue without IO (36.942307ms)
+✔ empty first page hides module and empty group; group count reflects remaining cards (21.031608ms)
+✔ failed first page does not block next module and explicit retry remains available (17.520269ms)
+✔ save-data still loads hidden first pages and pagehide cancels queued initial modules (15.756641ms)
+✔ configured concurrency 1 is bounded and drains (16.69908ms)
+✔ configured concurrency 2 is bounded and drains (14.560896ms)
+✔ configured concurrency 4 is bounded and drains (19.464344ms)
+✔ shared BFCache check requests anonymous revision only (10.438923ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1438.722673

@@ -28,7 +28,7 @@ def test_headers_revision_and_identity(fixture):
  c,r=fixture
  assert c.get('/en').headers['cache-control']=='private, no-cache'
  c.cookies.clear();page=c.get('/en');assert page.status_code==200
- assert page.headers['cache-control']=='public, max-age=300'
+ assert page.headers['cache-control']=='public, max-age=1800'
  assert 'data-stream-state="pending"' in page.text
  rev=page.headers['x-public-revision']
  fragment=c.get('/en/projects?home=1&page=1&_rev='+rev,headers={'X-Public-Fragment':'1'})

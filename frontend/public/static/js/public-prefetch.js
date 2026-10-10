@@ -66,6 +66,8 @@
   document.addEventListener('focusin',event=>enqueue(event.target.closest?.(selector)));
   document.addEventListener('touchstart',event=>enqueue(event.target.closest?.(selector)),{passive:true});
   function stop(){cancelHover();queue.length=0;for(const controller of active.values())controller.abort();}
+  document.addEventListener('teacher:navigation-start',()=>{paused=true;stop();});
+  document.addEventListener('teacher:navigation-cancel',()=>{paused=false;});
   window.addEventListener('pagehide',()=>{paused=true;stop();});
   window.addEventListener('pageshow',()=>{paused=false;});
   window.addEventListener('offline',stop);

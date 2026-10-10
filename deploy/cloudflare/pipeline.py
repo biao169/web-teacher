@@ -166,8 +166,9 @@ def execute(command, runner, log, *, report_path=None):
         log('DOMAIN', '站点地址配置 / Site origin configuration', origin=config['origin'],
             custom_domain=config['custom_domain'], workers_dev=config['workers_dev'])
         from integration_package import extend
-        from runtime.cache_policy import variables
+        from runtime.cache_policy import variables,edge_cache
         cfg['vars'].update(variables(os.environ))
+        cfg['cache']=edge_cache(os.environ)
         cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
         cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']=config['sync_executor']
         cfg['vars']['TEACHER_SYNC_PAUSED']=config.get('sync_paused','0')

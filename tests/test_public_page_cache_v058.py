@@ -41,7 +41,7 @@ def test_hit_skips_queries_and_render_and_head_304(fixture,path):
   assert len(calls)==(2 if path.endswith('/news') else 1),calls
   head=c.head(path);assert head.content==b'' and head.headers['x-public-page-cache']=='HIT' and head.headers['content-length']==first.headers['content-length']
   conditional=c.get(path,headers={'If-None-Match':first.headers['etag']});assert conditional.status_code==304 and conditional.content==b''
- assert second.headers['cache-control']=='public, max-age=300'
+ assert second.headers['cache-control']=='public, max-age=1800'
 
 
 def test_identity_revision_query_and_navigation(fixture):

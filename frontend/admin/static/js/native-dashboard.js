@@ -14,7 +14,7 @@ if(root){
    const data=await response.json();
    if(!response.ok)throw new Error(`HTTP ${response.status} · ${data?.error||'统计读取失败'}`);
    if(!data?.counts||cells.some(cell=>!Number.isSafeInteger(data.counts[cell.dataset.dashboardCount])||data.counts[cell.dataset.dashboardCount]<0))throw new Error('统计结果不完整，请重试');
-   if(paused)return;
+   if(paused||current.signal.aborted)return;
    for(const cell of cells){cell.textContent=String(data.counts[cell.dataset.dashboardCount]);cell.setAttribute('aria-label','记录数量 '+cell.textContent);}
    loaded=true;status.textContent='';
   }catch(error){
@@ -22,6 +22,8 @@ if(root){
   }finally{clearTimeout(timer);controller=null;retry.disabled=false;}
  }
  retry.addEventListener('click',load);
+ document.addEventListener('teacher:navigation-start',()=>{paused=true;controller?.abort();});
+ document.addEventListener('teacher:navigation-cancel',()=>{paused=false;load();});
  window.addEventListener('pagehide',()=>{paused=true;controller?.abort();});
  window.addEventListener('pageshow',()=>{paused=false;load();});
  load();

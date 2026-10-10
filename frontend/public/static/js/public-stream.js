@@ -97,33 +97,44 @@
   initial();
   function pause(){paused=true;queue.length=0;for(const s of states){s.queued=false;s.observer?.disconnect();s.controller?.abort();}}
   document.addEventListener('public:querychange',pause);
+  document.addEventListener('teacher:navigation-start',()=>{pause();restoreSequence++;restoreController?.abort();});
+  document.addEventListener('teacher:navigation-cancel',()=>{if(restoreRequired){restore({persisted:true});return;}paused=false;for(const s of states)watch(s);initial();pump();});
   const pageIdentity=()=>document.querySelector('[data-public-identity]')?.dataset.publicIdentity||'';
-  let restoreController=null,restoreSequence=0;
+  let restoreController=null,restoreSequence=0,restoreRequired=false;
   window.addEventListener('pagehide',()=>{
     pause();restoreSequence++;restoreController?.abort();
     // Hide authenticated content before the browser snapshots it for back/forward.
     if(pageIdentity())document.body.style.visibility='hidden';
   });
-  window.addEventListener('pageshow',async event=>{
+  async function restore(event){
     const sequence=++restoreSequence;
     if(event.persisted){
+      restoreRequired=true;
       pause();restoreController?.abort();
       const controller=new AbortController();restoreController=controller;
       const timer=setTimeout(()=>controller.abort(),5000);
       try{
-        const response=await fetch('/api/public/cache-revision',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+        const response=await fetch('/api/public/cache-revision'+(document.querySelector('[data-public-shared="1"]')?'?shared=1':''),{credentials:'same-origin',cache:'no-store',signal:controller.signal});
         if(!response.ok)throw new Error('Identity check failed');
         const data=await response.json();
         if(typeof data.revision!=='string'||typeof data.identity!=='string')throw new Error('Invalid identity response');
         if(sequence!==restoreSequence)return;
+        if(controller.signal.aborted)throw new Error('Restore cancelled');
         if(data.revision!==document.querySelector('[data-public-revision]')?.dataset.publicRevision||data.identity!==pageIdentity()){location.reload();return;}
+        restoreRequired=false;document.querySelector('[data-restore-retry]')?.remove();
       }catch{
         if(sequence!==restoreSequence)return;
         if(pageIdentity()){location.reload();return;}
+        if(document.querySelector('[data-public-shared="1"]')){
+          let button=document.querySelector('[data-restore-retry]');
+          if(!button){button=document.createElement('button');button.type='button';button.dataset.restoreRetry='';button.className='btn btn-outline-secondary';button.textContent=document.documentElement.lang==='en'?'Retry content check':'重新检查内容版本';button.addEventListener('click',()=>restore({persisted:true}));document.querySelector('main')?.prepend(button);}
+          document.body.style.visibility='';return; // Keep readable HTML, pause new fragments until verified.
+        }
       }finally{clearTimeout(timer);if(restoreController===controller)restoreController=null;}
     }
     if(sequence!==restoreSequence)return;
     document.body.style.visibility='';
     paused=false;for(const s of states)watch(s);initial();pump();
-  });
+  }
+  window.addEventListener('pageshow',restore);
 })();

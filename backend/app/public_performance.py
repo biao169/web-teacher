@@ -10,7 +10,7 @@ class PublicPerformance:
     # Keep existing positional arguments stable; deployments use named export.
     public_cache_ttl_seconds:int=setting(1800,'TEACHER_PUBLIC_CACHE_TTL_SECONDS',0,86400)
     public_stream_concurrency:int=setting(2,'TEACHER_PUBLIC_STREAM_CONCURRENCY',1,4)
-    public_page_cache_ttl_seconds:int=setting(300,'TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS',0,3600)
+    public_page_cache_ttl_seconds:int=setting(1800,'TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS',0,3600)
     public_nav_prefetch_concurrency:int=setting(1,'TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY',0,2)
     @property
     def public_cache_enabled(self):return self.public_cache_ttl_seconds>0
