@@ -20,6 +20,9 @@ def main(separate=False):
         shutil.copytree(ROOT/'deploy/cloudflare/runtime',stage/'src/worker_runtime',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         (stage/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n')
         cfg=json.loads((stage/'wrangler.jsonc').read_text());cfg['main']='src/main.py'
+        from backend.app.public_performance import PublicPerformance,KEYS
+        performance=PublicPerformance.from_env({'TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS':'123','TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY':'2'})
+        cfg['vars'].update(performance.to_env())
         if separate:cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']='separate'
         import tomllib
         cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
@@ -29,6 +32,16 @@ def main(separate=False):
         site_package=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/site_workers.py'),'--stage',str(stage)],cwd=stage,text=True,capture_output=True)
         if site_package.returncode:raise RuntimeError(site_package.stdout+site_package.stderr)
         cfg=json.loads((stage/'wrangler.jsonc').read_text())
+        public_vars=json.loads((stage/'wrangler.jsonc').read_text())['vars']
+        admin_vars=json.loads((stage/'wrangler.admin.jsonc').read_text())['vars']
+        assert all(public_vars[k]==v for k,v in performance.to_env().items())
+        assert not set(KEYS).intersection(admin_vars)
+        native_vars=json.loads((stage/'sync-native/wrangler.jsonc').read_text())['vars']
+        assert not set(KEYS).intersection(native_vars)
+        if separate:
+            executor_vars=json.loads((stage/'wrangler.sync-executor.jsonc').read_text())['vars']
+            assert not set(KEYS).intersection(executor_vars)
+            assert executor_vars['TEACHER_RELEASE']==public_vars['TEACHER_RELEASE']
         print(site_package.stdout)
         admin_check=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/startup_check.py'),'--runtime',str(stage/'src/worker_runtime'),'--source',str(stage/'src'),'--admin-only'],cwd=stage,text=True,capture_output=True)
         if admin_check.returncode:raise RuntimeError(admin_check.stdout+admin_check.stderr)
@@ -63,6 +76,7 @@ def main(separate=False):
         for file in ('backend/app/native/request_cache.py','backend/maintenance/log_retention.py','site_sync/integration/web.py'):
             assert (stage/'src'/file).is_file(),file
         assert (stage/'assets/assets/public/js/public-stream.js').read_bytes()==(ROOT/'frontend/public/static/js/public-stream.js').read_bytes()
+        assert (stage/'assets/assets/public/js/public-prefetch.js').read_bytes()==(ROOT/'frontend/public/static/js/public-prefetch.js').read_bytes()
         public_tree=ast.parse((stage/'src/generated_public_templates.py').read_text())
         public_templates=next(ast.literal_eval(n.value) for n in public_tree.body if isinstance(n,ast.Assign) and n.targets[0].id=='TEMPLATES')
         assert public_templates['public/home-section.html']==(ROOT/'frontend/public/templates/home-section.html').read_text()

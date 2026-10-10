@@ -166,9 +166,9 @@ def execute(command, runner, log, *, report_path=None):
         log('DOMAIN', '站点地址配置 / Site origin configuration', origin=config['origin'],
             custom_domain=config['custom_domain'], workers_dev=config['workers_dev'])
         from integration_package import extend
-        from backend.app.public_performance import PublicPerformance,KEYS
+        from backend.app.public_performance import PublicPerformance
         performance=PublicPerformance.from_env(os.environ)
-        cfg['vars'].update(dict(zip(KEYS,map(str,(performance.public_cache_ttl_seconds,performance.public_stream_concurrency)))))
+        cfg['vars'].update(performance.to_env())
         cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
         cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']=config['sync_executor']
         cfg['vars']['TEACHER_SYNC_PAUSED']=config.get('sync_paused','0')

@@ -1,0 +1,499 @@
+{
+  "scope": "local CPython TestClient with temporary demo SQLite; no network; 10 samples after warmup",
+  "results": [
+    {
+      "path": "/en",
+      "mode": "disabled",
+      "median_ms": 19.274,
+      "samples_ms": [
+        19.265,
+        19.474,
+        19.498,
+        18.858,
+        19.683,
+        19.284,
+        19.074,
+        18.925,
+        18.949,
+        19.432
+      ],
+      "body_bytes": [
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    },
+    {
+      "path": "/en",
+      "mode": "render-hit",
+      "median_ms": 3.582,
+      "samples_ms": [
+        3.468,
+        3.574,
+        3.402,
+        3.602,
+        4.04,
+        8.778,
+        3.589,
+        3.436,
+        3.702,
+        3.539
+      ],
+      "body_bytes": [
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685,
+        9685
+      ],
+      "page_cache": [
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT"
+      ]
+    },
+    {
+      "path": "/en",
+      "mode": "conditional",
+      "median_ms": 3.461,
+      "samples_ms": [
+        3.455,
+        3.382,
+        3.59,
+        3.662,
+        3.885,
+        3.62,
+        3.467,
+        3.238,
+        3.261,
+        3.271
+      ],
+      "body_bytes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    },
+    {
+      "path": "/en/profiles",
+      "mode": "disabled",
+      "median_ms": 91.341,
+      "samples_ms": [
+        90.672,
+        92.813,
+        89.757,
+        92.151,
+        90.936,
+        90.017,
+        90.668,
+        91.746,
+        95.594,
+        96.1
+      ],
+      "body_bytes": [
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    },
+    {
+      "path": "/en/profiles",
+      "mode": "render-hit",
+      "median_ms": 3.476,
+      "samples_ms": [
+        3.422,
+        3.423,
+        3.271,
+        3.309,
+        3.315,
+        3.689,
+        3.653,
+        3.863,
+        3.528,
+        3.65
+      ],
+      "body_bytes": [
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782,
+        33782
+      ],
+      "page_cache": [
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT"
+      ]
+    },
+    {
+      "path": "/en/profiles",
+      "mode": "conditional",
+      "median_ms": 3.493,
+      "samples_ms": [
+        6.255,
+        3.451,
+        3.543,
+        3.624,
+        3.527,
+        3.387,
+        3.824,
+        3.275,
+        3.459,
+        3.18
+      ],
+      "body_bytes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    },
+    {
+      "path": "/en/projects",
+      "mode": "disabled",
+      "median_ms": 93.452,
+      "samples_ms": [
+        93.655,
+        92.297,
+        92.868,
+        93.032,
+        93.248,
+        95.967,
+        92.85,
+        95.744,
+        95.785,
+        94.252
+      ],
+      "body_bytes": [
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    },
+    {
+      "path": "/en/projects",
+      "mode": "render-hit",
+      "median_ms": 3.583,
+      "samples_ms": [
+        3.596,
+        3.569,
+        3.343,
+        3.688,
+        3.727,
+        3.552,
+        3.622,
+        3.339,
+        3.718,
+        3.52
+      ],
+      "body_bytes": [
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190,
+        19190
+      ],
+      "page_cache": [
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT"
+      ]
+    },
+    {
+      "path": "/en/projects",
+      "mode": "conditional",
+      "median_ms": 3.306,
+      "samples_ms": [
+        3.346,
+        3.254,
+        3.248,
+        3.304,
+        3.24,
+        3.192,
+        3.608,
+        3.309,
+        3.579,
+        3.423
+      ],
+      "body_bytes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    },
+    {
+      "path": "/en/students",
+      "mode": "disabled",
+      "median_ms": 107.297,
+      "samples_ms": [
+        104.337,
+        108.449,
+        105.27,
+        106.568,
+        109.305,
+        112.82,
+        107.502,
+        107.093,
+        108.034,
+        105.388
+      ],
+      "body_bytes": [
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    },
+    {
+      "path": "/en/students",
+      "mode": "render-hit",
+      "median_ms": 3.634,
+      "samples_ms": [
+        4.255,
+        3.599,
+        3.865,
+        3.66,
+        3.607,
+        4.623,
+        3.745,
+        3.341,
+        3.532,
+        3.548
+      ],
+      "body_bytes": [
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179,
+        26179
+      ],
+      "page_cache": [
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT",
+        "HIT"
+      ]
+    },
+    {
+      "path": "/en/students",
+      "mode": "conditional",
+      "median_ms": 3.422,
+      "samples_ms": [
+        3.633,
+        3.402,
+        3.753,
+        3.465,
+        3.29,
+        3.336,
+        3.478,
+        3.442,
+        3.25,
+        3.309
+      ],
+      "body_bytes": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "page_cache": [
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS",
+        "BYPASS"
+      ]
+    }
+  ],
+  "process_peak_rss_kib_linux": 55148,
+  "memory_note": "whole benchmark peak, not incremental cache or production worker memory"
+}

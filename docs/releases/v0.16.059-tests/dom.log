@@ -1,0 +1,41 @@
+✔ authenticated BFCache body stays hidden until current identity is confirmed (56.538542ms)
+✔ restore logout never reveals stale authenticated HTML (9.430594ms)
+✔ restore permissions never reveals stale authenticated HTML (8.559549ms)
+✔ restore revision never reveals stale authenticated HTML (7.966261ms)
+✔ restore http-error never reveals stale authenticated HTML (8.251535ms)
+✔ restore malformed never reveals stale authenticated HTML (8.94731ms)
+✔ restore network never reveals stale authenticated HTML (12.055992ms)
+✔ anonymous offline restore can keep public content (9.006002ms)
+✔ pagehide cancels in-flight restore and late reply cannot reveal it (9.205653ms)
+✔ restore timeout aborts verification and reloads authenticated page (9.563598ms)
+✔ intersection starts one request and carries query filters without changing current URL (121.948829ms)
+✔ appends once per UID, including duplicate rows in the same response (25.000369ms)
+✔ last page removes continuation and disconnects automatic requests (18.132535ms)
+✔ failure preserves existing rows and next URL; no automatic retry loop, manual retry works (16.28247ms)
+✔ homepage streams share a one-request queue and keep independent record sets (16.384079ms)
+✔ wrong language/table/page response cannot contaminate current list (8.013541ms)
+✔ cross-origin or backwards continuation is rejected before append (10.698614ms)
+✔ HTML error pages do not replace cards (8.800283ms)
+✔ pagehide aborts active request and clears queued requests (13.782986ms)
+✔ no IntersectionObserver keeps manual load and ordinary link functional (14.31092ms)
+✔ data-saving preference disables auto preload, keeps explicit click (9.63402ms)
+✔ public append event supports later selection/copy components without replacing existing nodes (13.81003ms)
+✔ five nested homepage modules share one request queue and retain independent rows (24.253917ms)
+✔ fixed-entry stream retains slug and revision on every continuation (13.184524ms)
+✔ fixed-entry stream rejects unscoped continuation and changed revision before append (16.613457ms)
+✔ query identity and next-query mismatch cannot contaminate current stream (22.151636ms)
+✔ home page-zero slices start automatically in one serial queue without IO (16.194874ms)
+✔ empty first page hides module and empty group; group count reflects remaining cards (20.436404ms)
+✔ failed first page does not block next module and explicit retry remains available (19.407995ms)
+✔ save-data still loads hidden first pages and pagehide cancels queued initial modules (19.811891ms)
+✔ configured concurrency 1 is bounded and drains (25.01906ms)
+✔ configured concurrency 2 is bounded and drains (23.740375ms)
+✔ configured concurrency 4 is bounded and drains (30.047072ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 906.358673

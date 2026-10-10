@@ -137,7 +137,7 @@ def render(output,base,teacher_domain,transfer_domain,python,port=8003,service_n
  if not re.fullmatch(r'[a-z][a-z0-9-]{0,50}\.service',service_name) or not re.fullmatch(r'[a-z][a-z0-9-]{0,30}',service_user):raise ValueError('无效服务名或账号')
  output=Path(output);output.mkdir(mode=0o700)
  (output/'storage.toml').write_text(f'[storage]\ndata_dir="{base}/data"\ndatabase_path="{base}/data/database/site.sqlite3"\ncache_dir="{base}/data/cache"\nmedia_dir="{base}/data/media"\ntransfer_database_path="{base}/data/database/legacy-transfer.sqlite3"\ntransfer_media_dir="{base}/transfer-data/files"\ntransfer_cache_dir="{base}/transfer-data/cache"\n')
- (output/'teacher-site.env').write_text(f'TEACHER_CONFIG={config_dir}/storage.toml\n# Canonical public origin also supplies robots.txt and sitemap URLs.\nTEACHER_ORIGIN=https://{host}\nTEACHER_ALLOWED_ORIGINS={','.join(origins)}\nTEACHER_ASSET_MODE=local\n# Optional; absent variables use defaults.\n# TEACHER_PUBLIC_CACHE_TTL_SECONDS=1800\n# TEACHER_PUBLIC_STREAM_CONCURRENCY=2\nPYTHONDONTWRITEBYTECODE=1\n')
+ (output/'teacher-site.env').write_text(f'TEACHER_CONFIG={config_dir}/storage.toml\n# Canonical public origin also supplies robots.txt and sitemap URLs.\nTEACHER_ORIGIN=https://{host}\nTEACHER_ALLOWED_ORIGINS={','.join(origins)}\nTEACHER_ASSET_MODE=local\n# Optional; absent variables use defaults.\n# TEACHER_PUBLIC_CACHE_TTL_SECONDS=1800\n# TEACHER_PUBLIC_STREAM_CONCURRENCY=2\n# TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS=300\n# TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY=1\nPYTHONDONTWRITEBYTECODE=1\n')
  (output/'teacher-site.env').chmod(0o600)
  unit=f"""[Unit]
 Description=Teacher website with integrated file transfer

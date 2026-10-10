@@ -36,24 +36,30 @@ def home_limit(table,site):
     field,default=HOME_FIELDS[table];value=(site or {}).get(field)
     return max(0,int(default if value is None else value))
 
+def validate_listing_query(table,query,home=False):
+    """Pure validation shared by the early validator and normal list execution."""
+    if table not in PUBLIC_FIELDS:raise Error('页面不存在',404)
+    if home:
+        if table not in HOME_FIELDS:raise Error('此模块没有首页分页',400)
+    else:
+        try:size=int(query.get('size',BATCH_SIZE))
+        except (TypeError,ValueError):raise Error('每页数量无效') from None
+        if size not in (10,20,50,100):raise Error('每页支持10、20条；旧50/100链接按20条分批读取')
+
 async def public_listing(r,table,query,site=None,home=False,profile_overview=False,*,fixed_conditions=None):
     """One SQL page per request; home totals cap all subsequent pages as well as the first."""
-    if table not in PUBLIC_FIELDS:raise Error('页面不存在',404)
+    validate_listing_query(table,query,home)
     if fixed_conditions is not None:
         from .filtering import normalize_conditions
         fixed_conditions=normalize_conditions(table,fixed_conditions,public=True)
     q=dict(query);q.pop('home',None)
     limit=None
     if home:
-        if table not in HOME_FIELDS:raise Error('此模块没有首页分页',400)
         limit=home_limit(table,site)
         if not limit:return {'rows':[],'total':0,'page':1,'pages':1,'size':BATCH_SIZE,'query':{'home':'1','size':BATCH_SIZE,'page':1}}
         q={'size':BATCH_SIZE,'page':min(page_number(q.get('page',1)),max(1,(limit+BATCH_SIZE-1)//BATCH_SIZE)),'f.is_featured':1}
     else:
-        try:size=int(q.get('size',BATCH_SIZE))
-        except (TypeError,ValueError):raise Error('每页数量无效') from None
-        if size not in (10,20,50,100):raise Error('每页支持10、20条；旧50/100链接按20条分批读取')
-        q['size']=min(size,MAX_BATCH_SIZE)
+        q['size']=min(int(q.get('size',BATCH_SIZE)),MAX_BATCH_SIZE)
     default=DEFAULT_SORT.get(table,'created_at')
     if default!='student_category' and default not in TABLES[table]['columns']:default='created_at'
     # Public presentation has one configured order; normalize legacy field-sort URLs.

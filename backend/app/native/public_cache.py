@@ -9,8 +9,10 @@ class PublicReadCache:
     def __init__(self,budget=None,clock=time.monotonic):
         self.budget=budget or CacheBudget();self.clock=clock;self.entries=OrderedDict();self.used=0
         self.revision=None;self.lock=RLock();self.hits=0;self.misses=0;self.next_sweep=0
+        from .public_page_cache import LocalPageStore
+        self.pages=LocalPageStore(self)
     def invalidate(self):
-        with self.lock:self.entries.clear();self.used=0;self.revision=None
+        with self.lock:self.entries.clear();self.used=0;self.revision=None;self.pages.clear()
     def _trim(self,limit):
         at=self.clock()
         # Expired keys are swept once a second, not on every SQL cache hit.
@@ -19,7 +21,8 @@ class PublicReadCache:
             self.next_sweep=at+1
             for key,(until,payload) in list(self.entries.items()):
                 if until<=at:self.used-=len(payload)+512;del self.entries[key]
-        while self.entries and (self.used>limit or len(self.entries)>2048):
+        self.pages.trim(limit) # Expired/old HTML goes before data under pressure.
+        while self.entries and (self.used+self.pages.used>limit or len(self.entries)>2048):
             _,(_,payload)=self.entries.popitem(last=False);self.used-=len(payload)+512
     def get(self,key,revision):
         with self.lock:

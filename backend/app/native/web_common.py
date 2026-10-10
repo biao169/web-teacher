@@ -52,7 +52,7 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         r.p=await r.auth.principal(request.cookies.get(r.config.name('session')))
         parts=request.url.path.split('/')
         cache_namespace=[request.url.path,sorted((k,v) for k,v in request.query_params.multi_items() if k!='_rev'),request.headers.get('x-public-fragment')=='1','anonymous']
-        if not r.p and request.method=='GET' and (len(parts)>1 and parts[1] in ('en','zh') or request.url.path.startswith('/api/public/')):
+        if not r.p and request.method in ('GET','HEAD') and (len(parts)>1 and parts[1] in ('en','zh') or request.url.path.startswith('/api/public/')):
             if r.kind!='local' and getattr(r,'public_request_cache',True):
                 from .request_cache import RequestSQL
                 from .public_cache import WorkerPublicSQL

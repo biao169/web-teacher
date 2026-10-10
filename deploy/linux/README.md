@@ -130,46 +130,38 @@ python -B -m deploy.vps.release verify --strict
 
 首次安装在依赖下载阶段失败且尚未激活时，可以 tweb resume-install 复用唯一暂存源码和原虚拟环境继续安装。必须先更新 /opt/teacher-site/tweb.py，具体命令见根目录 README。已有 current、同名服务、多个暂存目录或不匹配的安装状态都会拒绝续装，不自动删除数据。此命令不适用于已完成安装的网站日常更新。
 
-## 公共页面缓存与前台加载并发
+## 公共页面缓存与导航预取
 
-两端使用相同的部署参数，不写入数据库，也不参与两站同步：
+四项参数仅属于本机部署配置，不写入数据库，不随两站同步迁移。缺失使用默认值；显式空值、非整数或越界会报配置错误。
 
-| 变量 | 默认 | 范围 | 含义 |
+| 变量 | 默认 | 范围 | 功能与关闭方式 |
 | --- | --- | --- | --- |
-| TEACHER_PUBLIC_CACHE_TTL_SECONDS | 1800 | 0～86400 | 匿名公共数据缓存 TTL；0 关闭持久公共缓存 |
-| TEACHER_PUBLIC_STREAM_CONCURRENCY | 2 | 1～4 | Public 异步分片最大并发 |
+| `TEACHER_PUBLIC_CACHE_TTL_SECONDS` | 1800 | 0～86400 秒 | 公共数据缓存及当前 revision 分片缓存；0 关闭数据缓存 |
+| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 300 | 0～3600 秒 | 匿名安全整页 Render Cache 及浏览器 HTML 新鲜期；0 关闭整页缓存 |
+| `TEACHER_PUBLIC_STREAM_CONCURRENCY` | 2 | 1～4 | 页面内容分片加载并发；不是服务进程数 |
+| `TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY` | 1 | 0～2 | 导航意图预取并发；0 完全关闭预取 |
 
-变量缺失使用默认值；显式空值、非整数或越界会报配置错误，不会悄悄替换。分片并发不是 TEACHER_HTTP_CONCURRENCY（Ubuntu 网站整体 HTTP 并发上限），也不会增加 Uvicorn worker。
+两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=300`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
 
-Linux 使用有界 LRU/TTL 和资源预算；Worker 使用 Cache API 存公共查询结果，单条最多 64 KiB，驱逐或不可用时回源。Worker Cache API 按数据中心工作，不保证常驻或跨 PoP 命中。
+修改内容会更新 revision，但浏览器已经缓存且仍新鲜的 HTML 可能保持到 TTL 到期。需要每次导航验证时将整页 TTL 设为0。不要让反向代理覆盖 `Cache-Control` 或忽略 `Vary: Cookie, Authorization, X-Public-Fragment`。
 
-匿名带当前 revision 的列表分片使用 public,max-age=TTL，并设置 Vary: Cookie, Authorization, X-Public-Fragment。匿名完整 HTML 和无版本分片使用 private,no-cache，每次导航验证当前版本；身份相关页面、表单、后台、同步、写入和错误响应继续 no-store。此处不把完整 HTML 设为30分钟新鲜缓存，以免旧外壳在内容修改后继续请求旧 revision。
+Linux 使用有界内存预算，Worker 使用 Cache API；缓存可能被驱逐、跨 PoP 不保证命中。预取仅针对同源导航意图，不批量预取所有页面；离线、省流量及后台标签页不启动新预取。
 
-公开业务事务成功写入后，service_meta 中唯一 public_cache_revision 更新为随机唯一版本标识（不是时间戳或任务进度）。旧缓存自然到期；失败事务不变更版本。BFCache 返回时检查版本和身份；已经打开的页面不会被服务器强制推送更新，需要刷新/返回页面后取得新版本。不要让反向代理覆盖这些缓存头或忽略 Vary。
+### Ubuntu / Debian 设置与更新
 
-### Ubuntu / Debian 设置方法
-
-编辑默认实例：
-
-```bash
-sudo nano /etc/teacher-site/teacher-site.env
-```
-
-加入或修改（同一变量只保留一行）：
+1. 运行 `sudo tweb paths`，查看本实例 `config`、`service`、`command`；多实例使用该实例的管理命令。
+2. 编辑 config 目录下的 `teacher-site.env`。默认安装为 `/etc/teacher-site/teacher-site.env`，命名实例通常为 `/etc/teacher-site-实例名/teacher-site.env`。
+3. 同一变量只保留一行，示例：
 
 ```text
 TEACHER_PUBLIC_CACHE_TTL_SECONDS=1800
+TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS=300
 TEACHER_PUBLIC_STREAM_CONCURRENCY=2
+TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY=1
 ```
 
-然后执行 `sudo tweb restart`，或 `sudo systemctl restart teacher-site.service`。低配置 VPS 可以将分片并发设为1。
+4. 执行该实例的 `sudo tweb restart`；异常时查看 `sudo tweb logs`。变量不填也可正常启动。
 
-命名实例 lab 使用 `/etc/teacher-site-lab/teacher-site.env`，重启 `sudo systemctl restart teacher-site-lab.service`；每个实例独立设置。tweb 重新生成配置保留上述变量及 TEACHER_PUBLIC_CACHE_MB、同步密钥和历史天数；修改端口/域名保持原环境文件。
+本版管理脚本重新生成配置时保留以上四项，以及现有 `TEACHER_PUBLIC_CACHE_MB`、同步密钥和历史保留天数。更新配置、修复安装、修改端口及允许域名后仍保留自定义值。升级时确保实际运行的 tweb 管理脚本也是本版，不能只替换应用目录而继续使用旧脚本。无需重建数据库或增加服务。
 
-直接启动也可以：
-
-```bash
-TEACHER_PUBLIC_CACHE_TTL_SECONDS=3600 TEACHER_PUBLIC_STREAM_CONCURRENCY=1 bash start.sh
-```
-
-不配置即可使用1800/2。单服务、单端口、单 Uvicorn worker 的结构不变。
+手工部署使用 `deploy.vps.release render` 生成的 `teacher-site.env` 注释示例；取消注释即可启用。单服务、单端口、单进程保持不变。资源紧张时可设分片并发1、预取0；缓存容量仍由原有预算约束。

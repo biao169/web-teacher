@@ -5,17 +5,23 @@ from fastapi import Request
 from fastapi.responses import JSONResponse,RedirectResponse
 from .catalog import CONTENT,TITLE,MODULES,Error
 from .web_common import payload
+from .public_http_cache import validator,not_modified,finish,identity_fingerprint
+from .public_page_cache import page_cache,page_response
 
-def public_headers(request,r,revision,fragment=False,form=False):
+def public_headers(request,r,revision,fragment=False,form=False,safe=False):
     headers={'Vary':'Cookie, Authorization, X-Public-Fragment','X-Public-Revision':revision}
     ttl=r.public_performance.public_cache_ttl_seconds
-    if r.p or request.headers.get('authorization') or form or not ttl:
-        headers['Cache-Control']='no-store'
-    elif fragment and request.query_params.get('_rev')==revision:
-        headers['Cache-Control']=f'public, max-age={ttl}'
+    page_ttl=r.public_performance.public_page_cache_ttl_seconds
+    if request.headers.get('authorization') or form or (not fragment and not safe):
+        policy='no-store'
+    elif fragment:
+        # Keep existing fragment policy and protocol separate from HTML freshness.
+        policy='no-store' if r.p or not ttl else f'public, max-age={ttl}' if request.query_params.get('_rev')==revision else 'private, no-cache'
+    elif r.p:
+        policy='private, no-cache'
     else:
-        # Unversioned HTML must see current revision and login state on navigation.
-        headers['Cache-Control']='private, no-cache'
+        policy=f'public, max-age={page_ttl}' if page_ttl else 'private, no-cache'
+    headers['Cache-Control']=policy
     return headers
 
 def install(app,factory,resources,csrf,render):
@@ -24,16 +30,16 @@ def install(app,factory,resources,csrf,render):
         ctx=await form_context(r,lang,values,strict=not bool(message and not success))
         ctx.update(contact_message=message,contact_success=success)
         response=await render(r,'public/action.html',lang=lang,kind='contact',**ctx)
-        response.status_code=status;response.headers['Cache-Control']='no-store'
+        response.status_code=status;response.headers['Cache-Control']='no-store';response.headers['X-Public-Page-Cache']='BYPASS'
         r.config.set_cookie(response,'public-form',ctx['challenge'],600)
         return response
 
     @app.get('/api/public/cache-revision')
     async def cache_revision(request:Request):
         from .public_revision import revision
-        from .auth import Auth,sha
+        from .auth import Auth
         r=factory(request);principal=await Auth(r.sql,r.passwords).principal(request.cookies.get(r.config.name('session')))
-        return JSONResponse({'revision':await revision(r.sql),'identity':sha(principal['csrf']) if principal else ''},headers={'Cache-Control':'no-store'})
+        return JSONResponse({'revision':await revision(r.sql),'identity':identity_fingerprint(principal)},headers={'Cache-Control':'no-store'})
     @app.get('/{lang}/contact')
     async def public_form(request:Request,lang:str='en'):
         """Render public registration/contact with a short-lived form token."""
@@ -119,14 +125,14 @@ def install(app,factory,resources,csrf,render):
         from .public_navigation import api_scope
         scope=await api_scope(r,request.query_params,table)
         return JSONResponse(await people_facet(r.content,table,field,request.query_params.get('page',1),fixed_conditions=scope['conditions'] if scope else None,lang=request.query_params.get('lang','zh')),headers={'Cache-Control':'no-store'})
-    @app.get('/{lang}/n/{nav}')
-    @app.get('/{lang}/n/{nav}/{uid}')
+    @app.api_route('/{lang}/n/{nav}',methods=['GET','HEAD'])
+    @app.api_route('/{lang}/n/{nav}/{uid}',methods=['GET','HEAD'])
     async def public_navigation_entry(request:Request,lang:str,nav:str,uid:str=None):
         return await public(request,lang,uid=uid,nav=nav)
 
-    @app.get('/{lang}')
-    @app.get('/{lang}/{table}')
-    @app.get('/{lang}/{table}/{uid}')
+    @app.api_route('/{lang}',methods=['GET','HEAD'])
+    @app.api_route('/{lang}/{table}',methods=['GET','HEAD'])
+    @app.api_route('/{lang}/{table}/{uid}',methods=['GET','HEAD'])
     async def public(request:Request,lang:str,table:str=None,uid:str=None,nav:str=None):
         """从原生字段组合访客列表、详情、首页和翻译内容。"""
         if lang not in ('zh','en') or (table and table not in CONTENT):raise Error('页面不存在',404)
@@ -151,6 +157,19 @@ def install(app,factory,resources,csrf,render):
             canonical=query_url(list_path,query)
             actual=request.url.path+('?' +request.url.query if request.url.query else '')
             if actual!=canonical:return RedirectResponse(canonical,303)
+        # Validate all list-only semantics before a conditional short circuit.
+        if table and not uid:
+            from .public_data import validate_listing_query
+            validate_listing_query(table,query,home_mode)
+        etag=await validator(request,r,public_revision,query,scope,fragment,table,uid)
+        cached=not_modified(request,etag,public_headers(request,r,public_revision,fragment=fragment,safe=bool(etag)))
+        if cached is not None:
+            cached.headers['X-Public-Page-Cache']='BYPASS'
+            return cached
+        cache=page_cache(request,r,etag,public_revision,fragment,uid)
+        if cache:
+            body=await cache.get()
+            if body is not None:return finish(request,page_response(body,public_headers(request,r,public_revision,safe=bool(etag)),etag),etag)
         site_options={}
         site_rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')
         site_options=site_rows[0] if site_rows else {}
@@ -204,8 +223,7 @@ def install(app,factory,resources,csrf,render):
             params={'from':list_return(request.query_params.get('from'),switched,table,scope)}|({'nv':scope['stamp']} if scope else {})
             return target+'?'+urlencode(params)
 
-        from .auth import sha
-        values={'public_identity':sha(r.p['csrf']) if r.p else '', 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
+        values={'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'public_nav_prefetch_concurrency':r.public_performance.public_nav_prefetch_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
                 'media_map':media_map,'pages':pages,'home_pages':home_pages,'home_mode':home_mode,'public_options':site_options,
                 'page_url':lambda p:query_url(list_path,(pages['query'] if pages else {})|{'page':p}|({'nv':scope['stamp']} if scope else {})),
                 'public_list_path':list_path,'public_scope':scope,
@@ -215,9 +233,11 @@ def install(app,factory,resources,csrf,render):
                 'public_detail_url':detail_url}
         if fragment:
             markup=r.renderer.render('public/list-rows.html',**values,table=table,rows=data[table],title_field=TITLE,modules=MODULES)
-            return JSONResponse({'html':markup,'table':table,'lang':lang,'home':home_mode,'page':pages['page'],
+            response=JSONResponse({'html':markup,'table':table,'lang':lang,'home':home_mode,'page':pages['page'],
                                  'size':pages['size'],'total':pages['total'],'next_url':pages['next_url'],
                                  'query_id':pages['query_id'],'nav':scope['slug'] if scope else '', 'nav_stamp':scope['stamp'] if scope else ''},headers=public_headers(request,r,public_revision,fragment=True))
+            response.headers['X-Public-Page-Cache']='BYPASS'
+            return finish(request,response,etag)
         from .public_data import people_facets
         values['people_facets']=await people_facets(r.content,table,fixed_conditions=fixed,lang=lang,query=query) if table and not uid else []
         # Canonicalize default list controls; retain meaningful paging/filter state.
@@ -233,8 +253,10 @@ def install(app,factory,resources,csrf,render):
             values.update(await form_context(r,lang,news=detail))
         response=await render(r,'public/native.html',**values)
         if 'challenge' in values:r.config.set_cookie(response,'public-form',values['challenge'],600)
-        response.headers.update(public_headers(request,r,public_revision,form='challenge' in values))
-        return response
+        response.headers.update(public_headers(request,r,public_revision,form='challenge' in values,safe=bool(etag)))
+        if cache and request.method=='GET':await cache.put(response)
+        response.headers['X-Public-Page-Cache']=cache.state if cache else 'BYPASS'
+        return finish(request,response,etag)
 
 def create_public_app(factory,static_root=None):
     from .web_common import create_base

@@ -1,5 +1,6 @@
 """Package private native stream companion from this source tree only."""
 import json,shutil,ast
+from backend.app.public_performance import KEYS as PUBLIC_KEYS
 
 def worker_names(main):
     import re,hashlib
@@ -37,6 +38,7 @@ def native_package(root,stage,config):
         # Same staged source and locked Python dependencies; no second website,
         # database initialization file, public route, assets or admin session.
         executor={k:config[k] for k in ('compatibility_date','compatibility_flags','vars','d1_databases','r2_buckets','services')}
+        executor['vars']={k:v for k,v in config['vars'].items() if k not in PUBLIC_KEYS}
         executor.update(name=worker_names(config['name'])['executor'],main='src/sync_executor.py',workers_dev=False,preview_urls=False,triggers={'crons':['* * * * *']})
         (stage/'src/sync_executor.py').write_text('from worker_runtime.sync_executor import Default\n')
         (stage/'wrangler.sync-executor.jsonc').write_text(json.dumps(executor,indent=2))
@@ -56,8 +58,10 @@ def verify(root,stage):
         executor=json.loads((stage/'wrangler.sync-executor.jsonc').read_text())
         if executor.get('workers_dev') is not False or executor.get('preview_urls') is not False or any(k in executor for k in ('routes','assets','durable_objects')):raise ValueError('Executor must remain private and scheduled only')
         if executor.get('triggers')!={'crons':['* * * * *']}:raise ValueError('Executor recovery schedule missing')
-        for key in ('d1_databases','r2_buckets','compatibility_flags','vars'):
+        for key in ('d1_databases','r2_buckets','compatibility_flags'):
             if executor.get(key)!=cfg.get(key):raise ValueError('Executor resource/config mismatch: '+key)
+        expected_vars={k:v for k,v in cfg.get('vars',{}).items() if k not in PUBLIC_KEYS}
+        if executor.get('vars')!=expected_vars:raise ValueError('Executor variable scope mismatch')
         if executor.get('services')!=[b for b in cfg['services'] if b['binding'] not in ('SYNC_EXECUTOR','SITE_ADMIN')]:raise ValueError('Executor native binding mismatch')
         if not any(b.get('binding')=='SYNC_EXECUTOR' and b.get('service')==executor['name'] for b in cfg['services']):raise ValueError('Main executor binding missing')
         if executor.get('main')!='src/sync_executor.py' or (stage/'src/sync_executor.py').read_text().strip()!='from worker_runtime.sync_executor import Default':raise ValueError('Executor entrypoint missing')

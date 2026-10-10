@@ -97,10 +97,33 @@
   initial();
   function pause(){paused=true;queue.length=0;for(const s of states){s.queued=false;s.observer?.disconnect();s.controller?.abort();}}
   document.addEventListener('public:querychange',pause);
-  window.addEventListener('pagehide',pause);
+  const pageIdentity=()=>document.querySelector('[data-public-identity]')?.dataset.publicIdentity||'';
+  let restoreController=null,restoreSequence=0;
+  window.addEventListener('pagehide',()=>{
+    pause();restoreSequence++;restoreController?.abort();
+    // Hide authenticated content before the browser snapshots it for back/forward.
+    if(pageIdentity())document.body.style.visibility='hidden';
+  });
   window.addEventListener('pageshow',async event=>{
+    const sequence=++restoreSequence;
     if(event.persisted){
-      try{const response=await fetch('/api/public/cache-revision',{credentials:'same-origin'});if(response.ok){const data=await response.json();if(data.revision!==document.querySelector('[data-public-revision]')?.dataset.publicRevision||data.identity!==document.querySelector('[data-public-identity]')?.dataset.publicIdentity){location.reload();return;}}}catch{if(document.querySelector('[data-public-identity]')?.dataset.publicIdentity){location.reload();return;}}
+      pause();restoreController?.abort();
+      const controller=new AbortController();restoreController=controller;
+      const timer=setTimeout(()=>controller.abort(),5000);
+      try{
+        const response=await fetch('/api/public/cache-revision',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+        if(!response.ok)throw new Error('Identity check failed');
+        const data=await response.json();
+        if(typeof data.revision!=='string'||typeof data.identity!=='string')throw new Error('Invalid identity response');
+        if(sequence!==restoreSequence)return;
+        if(data.revision!==document.querySelector('[data-public-revision]')?.dataset.publicRevision||data.identity!==pageIdentity()){location.reload();return;}
+      }catch{
+        if(sequence!==restoreSequence)return;
+        if(pageIdentity()){location.reload();return;}
+      }finally{clearTimeout(timer);if(restoreController===controller)restoreController=null;}
     }
-    paused=false;for(const s of states)watch(s);initial();pump();});
+    if(sequence!==restoreSequence)return;
+    document.body.style.visibility='';
+    paused=false;for(const s of states)watch(s);initial();pump();
+  });
 })();

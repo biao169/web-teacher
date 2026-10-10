@@ -1,23 +1,51 @@
+## v0.16.062 · Step 7 回归与指标验收
+
+[验收报告](docs/releases/v0.16.062.md)与[复测教程](docs/public-performance-acceptance.md)。本地回归通过；线上当前版本不同，新版线上验收仍待部署后完成。
+
+## v0.16.061 · Step 6 部署配置与教程
+
+补齐四项性能参数的 Linux 保留、VPS 示例和 Public Worker 配置边界。设置方法见 [Linux 教程](deploy/linux/README.md) 与 [Cloudflare 网页教程](deploy/cloudflare/README.md)，验证见 [交付说明](docs/releases/v0.16.061.md)。
+
+## v0.16.060 · 导航意图预取（Step 5）
+
+安全前台导航支持停留/聚焦/触摸预取，默认并发1，省流模式关闭；详见 [交付说明](docs/releases/v0.16.060.md)。不改普通页面导航和同步逻辑。
+
+## v0.16.059 · 浏览器缓存策略（Step 4）
+
+匿名安全页面默认浏览器缓存300秒，登录安全页面使用 private,no-cache 与身份 ETag；表单和错误继续 no-store。详见 [交付说明](docs/releases/v0.16.059.md)。
+
+## v0.16.058 · 匿名整页缓存（Step 3）
+
+默认服务器缓存公开 HTML 300 秒；Ubuntu 与数据缓存共享预算，Worker 使用 Cache API。详见 [交付说明](docs/releases/v0.16.058.md)。浏览器五分钟 freshness 与导航预取仍待后续步骤。
+
+## v0.16.057 · ETag / 304（Step 2）
+
+公开首页、列表及分片支持提前 304；未改同步流程。详见 [交付说明](docs/releases/v0.16.057.md)。整页缓存、浏览器五分钟缓存及导航预取仍按后续步骤实施。
+
+## v0.16.056
+
+页面切换优化第一步：四项统一性能配置与Worker传递已接入。新增页面缓存/导航预取参数尚未启用执行功能，详见 [Step 1说明](docs/releases/v0.16.056.md)。
+
 ## v0.16.055
 
 首页模块隐藏后按需显示、可配置并发与公共缓存。详见 [交付说明](docs/releases/v0.16.055.md)。
 
-## 公共页面缓存与前台加载并发
+## 公共页面缓存与导航预取
 
-两端使用相同的部署参数，不写入数据库，也不参与两站同步：
+四项参数仅属于本机部署配置，不写入数据库，不随两站同步迁移。缺失使用默认值；显式空值、非整数或越界会报配置错误。
 
-| 变量 | 默认 | 范围 | 含义 |
+| 变量 | 默认 | 范围 | 功能与关闭方式 |
 | --- | --- | --- | --- |
-| TEACHER_PUBLIC_CACHE_TTL_SECONDS | 1800 | 0～86400 | 匿名公共数据缓存 TTL；0 关闭持久公共缓存 |
-| TEACHER_PUBLIC_STREAM_CONCURRENCY | 2 | 1～4 | Public 异步分片最大并发 |
+| `TEACHER_PUBLIC_CACHE_TTL_SECONDS` | 1800 | 0～86400 秒 | 公共数据缓存及当前 revision 分片缓存；0 关闭数据缓存 |
+| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 300 | 0～3600 秒 | 匿名安全整页 Render Cache 及浏览器 HTML 新鲜期；0 关闭整页缓存 |
+| `TEACHER_PUBLIC_STREAM_CONCURRENCY` | 2 | 1～4 | 页面内容分片加载并发；不是服务进程数 |
+| `TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY` | 1 | 0～2 | 导航意图预取并发；0 完全关闭预取 |
 
-变量缺失使用默认值；显式空值、非整数或越界会报配置错误，不会悄悄替换。分片并发不是 TEACHER_HTTP_CONCURRENCY（Ubuntu 网站整体 HTTP 并发上限），也不会增加 Uvicorn worker。
+两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=300`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
 
-Linux 使用有界 LRU/TTL 和资源预算；Worker 使用 Cache API 存公共查询结果，单条最多 64 KiB，驱逐或不可用时回源。Worker Cache API 按数据中心工作，不保证常驻或跨 PoP 命中。
+修改内容会更新 revision，但浏览器已经缓存且仍新鲜的 HTML 可能保持到 TTL 到期。需要每次导航验证时将整页 TTL 设为0。不要让反向代理覆盖 `Cache-Control` 或忽略 `Vary: Cookie, Authorization, X-Public-Fragment`。
 
-匿名带当前 revision 的列表分片使用 public,max-age=TTL，并设置 Vary: Cookie, Authorization, X-Public-Fragment。匿名完整 HTML 和无版本分片使用 private,no-cache，每次导航验证当前版本；身份相关页面、表单、后台、同步、写入和错误响应继续 no-store。此处不把完整 HTML 设为30分钟新鲜缓存，以免旧外壳在内容修改后继续请求旧 revision。
-
-公开业务事务成功写入后，service_meta 中唯一 public_cache_revision 更新为随机唯一版本标识（不是时间戳或任务进度）。旧缓存自然到期；失败事务不变更版本。BFCache 返回时检查版本和身份；已经打开的页面不会被服务器强制推送更新，需要刷新/返回页面后取得新版本。不要让反向代理覆盖这些缓存头或忽略 Vary。
+Linux 使用有界内存预算，Worker 使用 Cache API；缓存可能被驱逐、跨 PoP 不保证命中。预取仅针对同源导航意图，不批量预取所有页面；离线、省流量及后台标签页不启动新预取。
 
 ## v0.16.054
 

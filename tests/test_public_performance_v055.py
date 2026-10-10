@@ -26,9 +26,9 @@ def test_revision_business_only_and_rollback(fixture):
 
 def test_headers_revision_and_identity(fixture):
  c,r=fixture
- assert c.get('/en').headers['cache-control']=='no-store'
+ assert c.get('/en').headers['cache-control']=='private, no-cache'
  c.cookies.clear();page=c.get('/en');assert page.status_code==200
- assert page.headers['cache-control']=='private, no-cache'
+ assert page.headers['cache-control']=='public, max-age=300'
  assert 'data-stream-state="pending"' in page.text
  rev=page.headers['x-public-revision']
  fragment=c.get('/en/projects?home=1&page=1&_rev='+rev,headers={'X-Public-Fragment':'1'})
@@ -36,7 +36,7 @@ def test_headers_revision_and_identity(fixture):
  assert 'X-Public-Fragment' in fragment.headers['vary']
  stale=c.get('/en/projects?home=1&page=1&_rev=old',headers={'X-Public-Fragment':'1'})
  assert stale.headers['cache-control']=='private, no-cache'
- r.public_performance=P(0,1)
+ r.public_performance=P(0,1,0)
  assert c.get('/en').headers['cache-control']=='no-store'
  assert c.get('/api/public/cache-revision').headers['cache-control']=='no-store'
 

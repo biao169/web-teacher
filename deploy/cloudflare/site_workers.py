@@ -36,7 +36,8 @@ def extend(root,stage,cfg,env=None):
         (src/'worker_runtime'/(role+'_resources.py')).write_text('from generated_'+role+'_templates import TEMPLATES\nfrom backend.app.web.rendering import Renderer\nfrom worker_runtime.site_resources import resource\nrenderer=Renderer.bundled(TEMPLATES)\ndef resource_factory(request):\n    return resource(request,renderer,admin='+str(role=='admin')+')\n')
     admin={k:copy.deepcopy(cfg[k]) for k in ('compatibility_date','compatibility_flags','vars','d1_databases','r2_buckets','services')}
     # HTTP control needs Native but never calls the Executor itself.
-    for key in ('TEACHER_PUBLIC_CACHE_TTL_SECONDS','TEACHER_PUBLIC_STREAM_CONCURRENCY'):admin['vars'].pop(key,None)
+    from backend.app.public_performance import KEYS
+    for key in KEYS:admin['vars'].pop(key,None)
     admin['vars'].update({k:env[k] for k in ADMIN_VARS if env and k in env})
     admin['services']=[b for b in admin['services'] if b['binding']=='SYNC_NATIVE']
     admin.update(name=admin_name(cfg['name']),main='src/admin_main.py',workers_dev=False,preview_urls=False,triggers={'crons':[]})

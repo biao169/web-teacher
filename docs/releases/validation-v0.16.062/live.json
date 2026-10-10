@@ -1,0 +1,179 @@
+{
+  "captured_at": "2026-10-10T01:33:19.569753+00:00",
+  "scope": "anonymous real HTTP, current deployment; no browser cache or CPU measurement",
+  "sites": [
+    {
+      "origin": "https://biao.nebastars.com",
+      "observed_releases": [
+        "0.16.055"
+      ],
+      "expected_release": "0.16.061",
+      "release_match": false,
+      "samples": [
+        {
+          "path": "/en",
+          "mode": "first",
+          "status": 200,
+          "headers_ms": 5839.12,
+          "headers": {
+            "cache-control": "private, no-cache",
+            "vary": "Cookie, Authorization, X-Public-Fragment",
+            "x-public-revision": "0",
+            "x-teacher-release": "0.16.055",
+            "x-request-id": "a5b9aad477bb8d64e0ab26a51fbe0905",
+            "cf-ray": "a481e06ece276b47-DFW",
+            "content-type": "text/html; charset=utf-8"
+          },
+          "body_bytes": 13520,
+          "body_limit_exceeded": false,
+          "total_ms": 5842.84
+        },
+        {
+          "path": "/en",
+          "mode": "repeat",
+          "status": 200,
+          "headers_ms": 3381.81,
+          "headers": {
+            "cache-control": "private, no-cache",
+            "vary": "Cookie, Authorization, X-Public-Fragment",
+            "x-public-revision": "0",
+            "x-teacher-release": "0.16.055",
+            "x-request-id": "746e41dac3f3394d344a88c1c1abf20f",
+            "cf-ray": "a481e08bcef76b47-DFW",
+            "content-type": "text/html; charset=utf-8"
+          },
+          "body_bytes": 13520,
+          "body_limit_exceeded": false,
+          "total_ms": 3385.16
+        },
+        {
+          "path": "/en",
+          "mode": "conditional",
+          "status": "not_run",
+          "reason": "no ETag"
+        },
+        {
+          "path": "/en/projects",
+          "mode": "first",
+          "status": 503,
+          "headers_ms": 3697.35,
+          "headers": {
+            "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+            "cf-ray": "a481e09fdc936b47-DFW",
+            "content-type": "text/html; charset=UTF-8"
+          },
+          "body_bytes": 4660,
+          "body_limit_exceeded": false,
+          "total_ms": 3700.76
+        },
+        {
+          "path": "/en/projects",
+          "mode": "repeat",
+          "status": 500,
+          "headers_ms": 3012.38,
+          "headers": {
+            "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+            "cf-ray": "a481e0b888846b47-DFW",
+            "content-type": "text/html; charset=UTF-8"
+          },
+          "body_bytes": 4642,
+          "body_limit_exceeded": false,
+          "total_ms": 3014.82
+        },
+        {
+          "path": "/en/projects",
+          "mode": "conditional",
+          "status": "not_run",
+          "reason": "no ETag"
+        }
+      ]
+    },
+    {
+      "origin": "https://vip.moglider.com",
+      "observed_releases": [],
+      "expected_release": "0.16.061",
+      "release_match": false,
+      "samples": [
+        {
+          "path": "/en",
+          "mode": "first",
+          "status": 200,
+          "headers_ms": 4834.36,
+          "headers": {
+            "cache-control": "private, no-cache",
+            "vary": "Cookie, Authorization, X-Public-Fragment",
+            "x-public-revision": "0",
+            "cf-ray": "a481e0d47fb86b47-DFW",
+            "content-type": "text/html; charset=utf-8"
+          },
+          "body_bytes": 13763,
+          "body_limit_exceeded": false,
+          "total_ms": 4837.67
+        },
+        {
+          "path": "/en",
+          "mode": "repeat",
+          "status": 200,
+          "headers_ms": 4656.15,
+          "headers": {
+            "cache-control": "private, no-cache",
+            "vary": "Cookie, Authorization, X-Public-Fragment",
+            "x-public-revision": "0",
+            "cf-ray": "a481e0f258c96b47-DFW",
+            "content-type": "text/html; charset=utf-8"
+          },
+          "body_bytes": 13763,
+          "body_limit_exceeded": false,
+          "total_ms": 4658.99
+        },
+        {
+          "path": "/en",
+          "mode": "conditional",
+          "status": "not_run",
+          "reason": "no ETag"
+        },
+        {
+          "path": "/en/projects",
+          "mode": "first",
+          "status": 200,
+          "headers_ms": 4619.64,
+          "headers": {
+            "cache-control": "private, no-cache",
+            "vary": "Cookie, Authorization, X-Public-Fragment",
+            "x-public-revision": "0",
+            "cf-ray": "a481e10fa9646b47-DFW",
+            "content-type": "text/html; charset=utf-8"
+          },
+          "body_bytes": 8823,
+          "body_limit_exceeded": false,
+          "total_ms": 4622.59
+        },
+        {
+          "path": "/en/projects",
+          "mode": "repeat",
+          "status": 200,
+          "headers_ms": 2914.53,
+          "headers": {
+            "cache-control": "private, no-cache",
+            "vary": "Cookie, Authorization, X-Public-Fragment",
+            "x-public-revision": "0",
+            "cf-ray": "a481e1212d9d6b47-DFW",
+            "content-type": "text/html; charset=utf-8"
+          },
+          "body_bytes": 8823,
+          "body_limit_exceeded": false,
+          "total_ms": 2917.87
+        },
+        {
+          "path": "/en/projects",
+          "mode": "conditional",
+          "status": "not_run",
+          "reason": "no ETag"
+        }
+      ]
+    }
+  ],
+  "worker_cpu": "not_available",
+  "worker_memory": "not_available",
+  "browser_prefetch_reuse": "not_tested"
+}

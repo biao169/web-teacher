@@ -1,4 +1,4 @@
-# Cloudflare 网页部署 · v0.16.055
+# Cloudflare 网页部署 · v0.16.061
 
 只为原站点关联 Git 构建；程序自动发布 Public、Admin 和同步辅助 Worker，无需 GitHub Actions。Ubuntu/Debian 不受此部署拆分影响。
 
@@ -80,36 +80,36 @@ inline 共 3 个 Worker；separate 共 4 个。只给 Public 保留网站域名�
 
 可将构建部署命令临时改为 `python build.py cloud-check` 做只读配置检查（需构建令牌），检查各 Worker 版本、绑定、私有入口和 Cron；检查后改回 `python build.py deploy`。它不代替实际业务验收。`verify-native` 仍仅构建 JS 原生辅助；`verify-companions` 现在也检查 Python Admin。
 
-后台转发失败会记录 ADMIN-FORWARD / ADMIN_UNAVAILABLE、请求 ID；成功转发可通过响应头 x-upstream-request-id 关联 Admin 日志。Service Binding 分离代码和应用状态，但不承诺额外 CPU 配额，也不能消除共享 D1 压力。详细实现及验证边界见 [交付记录](../../docs/releases/v0.16.055.md)。
+后台转发失败会记录 ADMIN-FORWARD / ADMIN_UNAVAILABLE、请求 ID；成功转发可通过响应头 x-upstream-request-id 关联 Admin 日志。Service Binding 分离代码和应用状态，但不承诺额外 CPU 配额，也不能消除共享 D1 压力。详细实现及验证边界见 [交付记录](../../docs/releases/v0.16.061.md)。
 
 官方参考：[Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)、[Service Bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/http/)、[运行时 Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)。
 
-## 公共页面缓存与前台加载并发
+## 公共页面缓存与导航预取
 
-两端使用相同的部署参数，不写入数据库，也不参与两站同步：
+四项参数仅属于本机部署配置，不写入数据库，不随两站同步迁移。缺失使用默认值；显式空值、非整数或越界会报配置错误。
 
-| 变量 | 默认 | 范围 | 含义 |
+| 变量 | 默认 | 范围 | 功能与关闭方式 |
 | --- | --- | --- | --- |
-| TEACHER_PUBLIC_CACHE_TTL_SECONDS | 1800 | 0～86400 | 匿名公共数据缓存 TTL；0 关闭持久公共缓存 |
-| TEACHER_PUBLIC_STREAM_CONCURRENCY | 2 | 1～4 | Public 异步分片最大并发 |
+| `TEACHER_PUBLIC_CACHE_TTL_SECONDS` | 1800 | 0～86400 秒 | 公共数据缓存及当前 revision 分片缓存；0 关闭数据缓存 |
+| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 300 | 0～3600 秒 | 匿名安全整页 Render Cache 及浏览器 HTML 新鲜期；0 关闭整页缓存 |
+| `TEACHER_PUBLIC_STREAM_CONCURRENCY` | 2 | 1～4 | 页面内容分片加载并发；不是服务进程数 |
+| `TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY` | 1 | 0～2 | 导航意图预取并发；0 完全关闭预取 |
 
-变量缺失使用默认值；显式空值、非整数或越界会报配置错误，不会悄悄替换。分片并发不是 TEACHER_HTTP_CONCURRENCY（Ubuntu 网站整体 HTTP 并发上限），也不会增加 Uvicorn worker。
+两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=300`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
 
-Linux 使用有界 LRU/TTL 和资源预算；Worker 使用 Cache API 存公共查询结果，单条最多 64 KiB，驱逐或不可用时回源。Worker Cache API 按数据中心工作，不保证常驻或跨 PoP 命中。
+修改内容会更新 revision，但浏览器已经缓存且仍新鲜的 HTML 可能保持到 TTL 到期。需要每次导航验证时将整页 TTL 设为0。不要让反向代理覆盖 `Cache-Control` 或忽略 `Vary: Cookie, Authorization, X-Public-Fragment`。
 
-匿名带当前 revision 的列表分片使用 public,max-age=TTL，并设置 Vary: Cookie, Authorization, X-Public-Fragment。匿名完整 HTML 和无版本分片使用 private,no-cache，每次导航验证当前版本；身份相关页面、表单、后台、同步、写入和错误响应继续 no-store。此处不把完整 HTML 设为30分钟新鲜缓存，以免旧外壳在内容修改后继续请求旧 revision。
+Linux 使用有界内存预算，Worker 使用 Cache API；缓存可能被驱逐、跨 PoP 不保证命中。预取仅针对同源导航意图，不批量预取所有页面；离线、省流量及后台标签页不启动新预取。
 
-公开业务事务成功写入后，service_meta 中唯一 public_cache_revision 更新为随机唯一版本标识（不是时间戳或任务进度）。旧缓存自然到期；失败事务不变更版本。BFCache 返回时检查版本和身份；已经打开的页面不会被服务器强制推送更新，需要刷新/返回页面后取得新版本。不要让反向代理覆盖这些缓存头或忽略 Vary。
+### Cloudflare 网页设置与发布
 
-### Cloudflare 网页设置
+1. 选择原站点 Public Worker，在 Settings → Build/Builds → Variables and Secrets 添加上表四项普通文本构建变量。值只填数字，不加单位；也可全部省略使用默认值。
+2. 保持根目录 `deploy/cloudflare`、构建命令 `python build.py check`、部署命令 `python build.py deploy`，重新触发构建部署。
+3. 本项目部署脚本将已校验的构建变量写入 Public 的运行时 vars。部署成功后在 Public 的 Settings → Variables and Secrets 核对四项值。
+4. Admin、Sync Executor、Sync Native 不需要填写这四项；项目自动创建/更新辅助 Worker 并排除这些 Public 专用变量。无需手动更新辅助 Worker。
 
-在主/Public Worker 的 Settings → Variables and Secrets 添加普通文本变量（非 Secret）：
+Cloudflare 构建变量本身不会自动成为运行变量；这里由项目脚本明确转换。只改运行变量可临时生效，但下一次项目构建会用构建变量或默认值覆盖，所以长期配置应保存到 Builds。官方说明：[Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)。
 
-```text
-TEACHER_PUBLIC_CACHE_TTL_SECONDS=1800
-TEACHER_PUBLIC_STREAM_CONCURRENCY=2
-```
+部署后用未登录浏览器访问首页，检查 `Cache-Control`、`ETag`、`X-Public-Page-Cache`；携带相同 ETag 的条件请求可返回304（内容、身份及版本须不变）。禁用浏览器缓存会影响测试结果。再核对登录、后台和同步路径不被公开缓存。缓存异常会回源，不新增数据库或存储绑定；线上 CPU、内存和预取导航复用需在真实环境验收。
 
-保存并部署。使用 Workers Builds 自动部署时，也在构建变量中设置相同值，构建脚本会校验并写入 Public 配置，避免下一次构建恢复默认值。不设置构建变量即生成默认1800/2；不要只改运行变量却期望它覆盖后续生成配置。Admin 不需要设置这两个变量。不得把它们当作同步密钥或对端业务设置。
-
-缓存不可用按 MISS 处理，不增加 Worker/数据库/存储绑定。需要实测 CPU/outcome 验收，不以本地测试代替线上配额测试。
+需要暂时关闭优化时设置两种 TTL 为0、预取并发为0并重新部署；已有浏览器新鲜缓存仍可能保留至原 TTL 到期。部署过程不要求删除数据库、任务或媒体。

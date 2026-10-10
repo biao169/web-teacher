@@ -579,7 +579,7 @@ transfer_media_dir = "{self.l.base}/transfer-data/files"
 transfer_cache_dir = "{self.l.base}/transfer-data/cache"
 '''
         write(self.l.config/'storage.toml',storage,0o640)
-        preserved_keys=('TEACHER_SYNC_KEY','SYNC_HISTORY_DAYS','TEACHER_PUBLIC_CACHE_TTL_SECONDS','TEACHER_PUBLIC_STREAM_CONCURRENCY','TEACHER_PUBLIC_CACHE_MB')
+        preserved_keys=('TEACHER_SYNC_KEY','SYNC_HISTORY_DAYS','TEACHER_PUBLIC_CACHE_TTL_SECONDS','TEACHER_PUBLIC_STREAM_CONCURRENCY','TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS','TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY','TEACHER_PUBLIC_CACHE_MB')
         preserved_env=''.join(line+'\n' for line in (self.l.config/'teacher-site.env').read_text().splitlines() if line.split('=',1)[0].strip() in preserved_keys) if (self.l.config/'teacher-site.env').exists() else ''
         write(self.l.config/'teacher-site.env',f'TEACHER_CONFIG={self.l.config}/storage.toml\nTEACHER_ORIGIN=https://{state["domain"]}\nTEACHER_ALLOWED_ORIGINS={site_origins(state)}\nTEACHER_ASSET_MODE=local\nPYTHONDONTWRITEBYTECODE=1\n'+preserved_env,0o640)
         unit=(output/self.service).read_text()
