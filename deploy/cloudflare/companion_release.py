@@ -138,6 +138,36 @@ def check_bindings(settings,cfg,require_key=False):
     return remote
 
 
+def configuration_view(settings,cfg,expected_revision,require_key=False):
+    """Only the release number is printable; all other values are match flags."""
+    remote={b.get('name'):b for b in settings.get('bindings',[]) if isinstance(b,dict)}
+    checks=[]
+    for key,value in cfg.get('vars',{}).items():
+        b=remote.get(key,{})
+        item={'binding':key,'field':'text','present':bool(b),'type':b.get('type'),
+              'matched':b.get('type')=='plain_text' and b.get('text')==str(value)}
+        if key=='TEACHER_RELEASE':
+            def version(v):
+                return v if isinstance(v,str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',v) else None
+            item.update(expected=version(str(value)),actual=version(b.get('text')))
+        checks.append(item)
+    for group,field,expected_field,name_field,kind in (
+        ('d1_databases','id','database_id','binding','d1'),
+        ('r2_buckets','bucket_name','bucket_name','binding','r2_bucket'),
+        ('services','service','service','binding','service')):
+        for b in cfg.get(group,[]):
+            actual=remote.get(b[name_field],{})
+            checks.append({'binding':b[name_field],'field':field,'matched':actual.get('type')==kind and actual.get(field)==b[expected_field]})
+    for b in cfg.get('durable_objects',{}).get('bindings',[]):
+        actual=remote.get(b['name'],{})
+        checks.append({'binding':b['name'],'field':'class_name','matched':actual.get('type')=='durable_object_namespace' and actual.get('class_name')==b['class_name']})
+    if require_key:checks.append({'binding':'TEACHER_SYNC_KEY','field':'type','matched':remote.get('TEACHER_SYNC_KEY',{}).get('type')=='secret_text'})
+    b=remote.get('TEACHER_AUX_REVISION',{})
+    revision_match=b.get('type')=='plain_text' and b.get('text')==expected_revision
+    return {'release':next((v for v in checks if v['binding']=='TEACHER_RELEASE'),None),
+            'revision_match':revision_match,'differences':[v for v in checks if not v['matched']]}
+
+
 def payload_with_secret(path,info,main,role,key,migration_tag=None,runner=None,extra_secrets=None):
     """Change metadata only, preserving the original binary module parts."""
     raw=Path(path).read_bytes()
@@ -219,9 +249,18 @@ class Release:
                 self.client.request('PUT',worker,body=payload,content_type=info['content_type'])
             private(self.client,worker)
             schedule(self.client,worker,[])
-            settings=self.client.request('GET',worker,'/settings');owned(settings,self.main,role)
-            confirmed=check_bindings(settings,cfg,bool(self.key))
-            if confirmed.get('TEACHER_AUX_REVISION',{}).get('text')!=revision(info,self.key):raise ValueError('Companion revision not confirmed; main deployment stopped')
+            def read():
+                settings=self.client.request('GET',worker,'/settings')
+                owned(settings,self.main,role)  # Never retry an ownership mismatch.
+                return configuration_view(settings,cfg,revision(info,self.key),bool(self.key))
+            try:
+                self.confirm(worker,read,lambda v:not v['differences'] and v['revision_match'],
+                             lambda v:v,'AUX-CONFIG-CHECK')
+            except Exception as exc:
+                self.log('AUX-PREPARE-INCOMPLETE','辅助配置未确认；本轮主站尚未部署，Executor Cron 可能暂停 / Companion unconfirmed; main not deployed',
+                         worker=worker,role=role,stage='configuration',main_deployed=False,
+                         executor_cron='not_restored',error_type=type(exc).__name__)
+                raise
             self.log('AUX-REVISION','辅助产物版本已核对 / Companion artifact revision confirmed',worker=worker,role=role)
             self.log('AUX-READY','辅助已发布并关闭公开访问，Cron 暂停 / Companion ready; scheduling paused',worker=worker)
     def confirm(self,worker,read,check,view,event):

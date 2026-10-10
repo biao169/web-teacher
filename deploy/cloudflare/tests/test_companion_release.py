@@ -116,7 +116,7 @@ class ReleaseTests(unittest.TestCase):
                     if binding['name']=='TEACHER_AUX_REVISION':binding['text']='stale-artifact'
             return result
         self.api.request=request
-        with self.assertRaisesRegex(ValueError,'revision not confirmed'):
+        with self.assertRaisesRegex(ValueError,'AUX-CONFIG-CHECK not confirmed'):
             self.release().prepare(self.stage,self.root)
         self.assertFalse(any(args[0]=='AUX-READY' for args,kw in self.logs))
 
@@ -209,6 +209,41 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(release.cron_status,'written_unconfirmed')
         self.assertEqual(self.logs[-1][1]['stage'],'executor_cron')
         self.assertFalse(any(a[0]=='AUX-ACTIVE' for a,kw in self.logs))
+
+    def test_prepare_retries_stale_release_and_revision(self):
+        cfg=json.loads((self.stage/'sync-native/wrangler.jsonc').read_text())
+        cfg['vars']['TEACHER_RELEASE']='0.16.070'
+        self.fixture.cfg=cfg
+        self.fixture.meta['bindings'].append({'name':'TEACHER_RELEASE','type':'plain_text','text':'0.16.070'})
+        self.fixture.write();(self.root/'native.multipart').write_bytes(self.fixture.path.read_bytes())
+        (self.stage/'sync-native/wrangler.jsonc').write_text(json.dumps(cfg))
+        original=self.api.request;remaining=[2]
+        def request(method,name,suffix='',*args,**kwargs):
+            result=original(method,name,suffix,*args,**kwargs)
+            if method=='GET' and suffix=='/settings' and result and remaining[0]:
+                remaining[0]-=1
+                for b in result['bindings']:
+                    if b['name']=='TEACHER_RELEASE':b['text']='0.16.069'
+                    if b['name']=='TEACHER_AUX_REVISION':b['text']='stale'
+            return result
+        self.api.request=request;release=self.release();delays=[];release.sleep=delays.append
+        release.prepare(self.stage,self.root)
+        self.assertEqual(delays,[1,2])
+        checks=[kw for a,kw in self.logs if a[0]=='AUX-CONFIG-CHECK']
+        self.assertEqual(checks[0]['actual']['release']['actual'],'0.16.069')
+        self.assertFalse(checks[0]['actual']['revision_match'])
+        self.assertTrue(checks[-1]['confirmed'])
+
+    def test_config_view_redacts_values_and_checks_types(self):
+        from deploy.cloudflare.companion_release import configuration_view
+        cfg={'vars':{'TEACHER_RELEASE':'0.16.070','OTHER':'sensitive-value'}}
+        actual={'bindings':[{'name':'TEACHER_RELEASE','type':'secret_text','text':'secret-value'},
+                            {'name':'OTHER','type':'plain_text','text':'unexpected-sensitive'}]}
+        view=configuration_view(actual,cfg,'sensitive-hash',True)
+        self.assertIsNone(view['release']['actual'])
+        self.assertEqual(len(view['differences']),3)
+        for text in ('sensitive-value','secret-value','unexpected-sensitive','sensitive-hash'):
+            self.assertNotIn(text,repr(view))
 
 
 class ClientTests(unittest.TestCase):

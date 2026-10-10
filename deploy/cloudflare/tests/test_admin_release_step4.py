@@ -21,6 +21,9 @@ def artifact(tmp_path):
     f.write();(tmp_path/'admin.multipart').write_bytes(f.path.read_bytes())
     (tmp_path/'wrangler.admin.jsonc').write_text(json.dumps(f.cfg))
     api=FakeAPI();base=SimpleNamespace(client=api,main='teacher',key='ab'*32,log=lambda *a,**k:None)
+    from companion_release import Release
+    base.sleep=lambda _:None
+    base.confirm=Release.confirm.__get__(base)
     yield tmp_path,api,base,f
     f.doCleanups()
 
@@ -49,3 +52,18 @@ def test_admin_rejects_cron_do_and_public_route_config(artifact):
     for key,value in [('routes',[]),('durable_objects',{}),('assets',{}),('migrations',[])]:
         cfg={**f.cfg,key:value}
         with pytest.raises(ValueError):inspect_artifact(path/'admin.multipart',cfg,'teacher','admin')
+
+
+def test_admin_stale_revision_uses_shared_confirmation(artifact):
+    path,api,base,f=artifact
+    original=api.request;remaining=[2];logs=[];base.log=lambda *a,**kw:logs.append((a,kw))
+    def request(method,name,suffix='',*args,**kwargs):
+        result=original(method,name,suffix,*args,**kwargs)
+        if method=='GET' and suffix=='/settings' and result and remaining[0]:
+            remaining[0]-=1
+            for b in result['bindings']:
+                if b['name']=='TEACHER_AUX_REVISION':b['text']='old'
+        return result
+    api.request=request;AdminRelease(base).prepare(path,path)
+    checks=[kw for args,kw in logs if args[0]=='ADMIN-CONFIG-CHECK']
+    assert len(checks)==3 and checks[-1]['confirmed']

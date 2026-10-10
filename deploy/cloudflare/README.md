@@ -1,3 +1,13 @@
+## v0.16.070 · 统一辅助上传确认
+
+Native、Executor、Admin 上传后的配置和产物版本核对统一复用有限确认重试：最多 6 次读取，等待间隔 0/1/2/4/8/15 秒（合计 30 秒，不含 API 请求及网络重试时间）。同时检查变量类型/值、D1/R2/服务/DO 绑定和产物版本；所有权错误、API 异常不被当作配置延迟吞掉。原有回调与 Cron 确认保留。
+
+AUX-CONFIG-CHECK / ADMIN-CONFIG-CHECK 输出 release.expected、release.actual、revision_match、differences 与 attempt。只有格式正确的数字发布版本允许显示具体值；其他配置仅显示字段和匹配状态，密钥和产物版本哈希均不输出。actual=null 可能表示变量缺失、错误类型或不可安全展示的值，结合 present/type 判断。持续不匹配仍停止发布，不跳过校验。
+
+AUX-PREPARE-INCOMPLETE / ADMIN-PREPARE-INCOMPLETE 表示本轮主站尚未部署、Executor Cron 尚未执行恢复；不代表上一版主站被回滚或任务被删除。重新部署可完成确认与收尾。原网页构建/部署命令、环境变量保持不变，无需手动修改 TEACHER_RELEASE，无需删除 Worker 或数据库。
+
+本修复增强确认和诊断，并未证明此前平台返回旧配置就是唯一根因。未执行真实 Cloudflare 发布；同步运行代码、数据库、Linux/VPS 与前端不修改。
+
 ## v0.16.069 · 辅助发布收尾恢复
 
 修复主站已部署、Native 回调检查未确认而 Executor Cron 未恢复的发布路径。无需新增环境变量，保持原 Cloudflare 网页构建/部署命令与 separate 模式，更新源码后重新部署即可自动尝试完成收尾。不要删除数据库、任务、Durable Objects 或 Worker。

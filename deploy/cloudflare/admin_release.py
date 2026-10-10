@@ -1,6 +1,6 @@
 """Admin publication uses the existing verified multipart uploader, never linked CI deploy."""
 import json
-from companion_release import private,schedule,check_bindings,payload_with_secret,revision
+from companion_release import private,schedule,check_bindings,payload_with_secret,revision,configuration_view
 from companions import inspect_artifact
 from site_workers import admin_name
 
@@ -28,6 +28,12 @@ class AdminRelease:
             payload=payload_with_secret(path,info,self.main,'admin',self.release.key,extra_secrets=self.secrets)
             self.client.request('PUT',self.worker,body=payload,content_type=info['content_type'])
         private(self.client,self.worker);schedule(self.client,self.worker,[])
-        value=self.client.request('GET',self.worker,'/settings');self.owned(value)
-        if check_bindings(value,cfg,bool(self.release.key)).get('TEACHER_AUX_REVISION',{}).get('text')!=revision(info,self.identity):raise ValueError('Admin revision not confirmed')
+        def read():
+            value=self.client.request('GET',self.worker,'/settings');self.owned(value)
+            return configuration_view(value,cfg,revision(info,self.identity),bool(self.release.key))
+        try:
+            self.release.confirm(self.worker,read,lambda v:not v['differences'] and v['revision_match'],lambda v:v,'ADMIN-CONFIG-CHECK')
+        except Exception as exc:
+            self.release.log('ADMIN-PREPARE-INCOMPLETE','后台配置未确认，本轮主站尚未部署 / Admin unconfirmed; main not deployed',worker=self.worker,main_deployed=False,executor_cron='not_restored',error_type=type(exc).__name__)
+            raise
         self.release.log('ADMIN-READY','后台 Worker 已核对；无公开入口和 Cron / Admin ready, private HTTP only',worker=self.worker,release=cfg['vars'].get('TEACHER_RELEASE'))
