@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from .catalog import now
 
 # Bump with releases that change public rendering, even if the DB revision is unchanged.
-REPRESENTATION_VERSION='0.16.068'
+REPRESENTATION_VERSION='0.16.071'
 _TAG=re.compile(r'(?:W/)?"[\x21\x23-\x7e\x80-\xff]*"')
 
 def matches_etag(value,etag):
@@ -35,7 +35,7 @@ def representation_key(request,r,revision,query,scope=None,fragment=False,clock=
     # Includes current effective grants, display fields and session fingerprint.
     # Only the final digest leaves the server; no UID/username/CSRF in the header.
     identity=r.p or 'anonymous'
-    values=[('0.16.068' if getattr(r,'public_light',False) else REPRESENTATION_VERSION),revision,identity,request.url.path,
+    values=[('0.16.071' if getattr(r,'public_light',False) else REPRESENTATION_VERSION),revision,identity,request.url.path,
             sorted((k,str(v)) for k,v in query.items()),bool(fragment),
             scope['stamp'] if scope else '',clock,r.config.origin,
             getattr(r,'asset_mode',''),r.public_performance.to_env()]

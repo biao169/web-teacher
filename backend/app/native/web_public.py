@@ -3,7 +3,7 @@ import secrets,hmac
 from urllib.parse import quote,urlencode
 from fastapi import Request
 from fastapi.responses import JSONResponse,RedirectResponse
-from .catalog import CONTENT,TITLE,MODULES,Error
+from .catalog import CONTENT,TITLE,public_modules,Error
 from .web_common import payload
 from .public_http_cache import validator,not_modified,finish,identity_fingerprint,private_page_policy
 from .public_page_cache import page_cache,page_response
@@ -233,7 +233,7 @@ def install(app,factory,resources,csrf,render):
                 'public_return_url':request.url.path+'?'+urlencode({'from':back_url}|({'nv':scope['stamp']} if scope else {})) if uid else query_url(list_path,query),
                 'public_detail_url':detail_url}
         if fragment:
-            markup=r.renderer.render('public/list-rows.html',**values,table=table,rows=data[table],title_field=TITLE,modules=MODULES)
+            markup=r.renderer.render('public/list-rows.html',**values,table=table,rows=data[table],title_field=TITLE,modules=public_modules(lang))
             response=JSONResponse({'html':markup,'table':table,'lang':lang,'home':home_mode,'page':pages['page'],
                                  'size':pages['size'],'total':pages['total'],'next_url':pages['next_url'],
                                  'query_id':pages['query_id'],'nav':scope['slug'] if scope else '', 'nav_stamp':scope['stamp'] if scope else ''},headers=public_headers(request,r,public_revision,fragment=True))

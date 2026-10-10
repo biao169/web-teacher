@@ -1,6 +1,6 @@
 """Shared template context; no route registration or task execution."""
 from fastapi.responses import HTMLResponse
-from .catalog import MODULES,TITLE,Error,label
+from .catalog import MODULES,TITLE,Error,label,public_modules
 from .auth import sha
 
 def renderer():
@@ -8,15 +8,20 @@ def renderer():
         """组合公共页面变量、菜单、身份与模块权限。"""
         rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')
         site=rows[0] if rows else {'site_name':'','site_name_en':'','hero_title':'','hero_subtitle':'','footer_text':''}
+        browser_site_title=(site.get('site_name_en') or '').strip() or 'Academic Website' if lang=='en' else site.get('site_name') or '教师个人网站'
+        original_seo=site.get('seo_title')
         if lang=='en':
             from .translation_sources import overlay
             await overlay(r.sql,'site_settings',site)
+        import re
+        seo=site.get('seo_title') or ''
+        browser_home_title=seo if seo and (lang!='en' or seo!=original_seo or not re.search(r'[\u3400-\u9fff]',seo)) else browser_site_title
         site['title']=(site.get('site_name_en') if lang=='en' else '') or site.get('site_name') or ('Academic website' if lang=='en' else '教师个人网站')
         if getattr(r,'public_light',False):
-            return {'site':site,'lang':lang,'section':'public','asset_mode':r.asset_mode,'authenticated':bool(r.p),
+            return {'site':site,'browser_site_title':browser_site_title,'browser_home_title':browser_home_title,'lang':lang,'section':'public','asset_mode':r.asset_mode,'authenticated':bool(r.p),
                     'can_enter_admin':bool(r.p and r.p.get('can_enter_admin')),'admin_menu':[],
                     'page_title':title or MODULES.get(table,'网站管理'),'csrf':r.p['csrf'] if r.p else '',
-                    'principal':r.p,'label':label,'title_field':TITLE,'modules':MODULES,'table':table}
+                    'principal':r.p,'label':label,'title_field':TITLE,'modules':public_modules(lang),'table':table}
         menu=[]
         for key,name in MODULES.items():
             if key=='auth_roles' or not r.p:continue
@@ -38,7 +43,7 @@ def renderer():
         from .permissions import groups
         from .navigation_options import grouped_menu
         active_table='auth_users' if table=='auth_roles' else table
-        return {'site':site,'lang':lang,'section':'admin','asset_mode':r.asset_mode,'authenticated':bool(r.p),'admin_menu':menu,'admin_menu_groups':grouped_menu(menu),'current_module':active_table,'current_entry':next((m for m in menu if m['key']==active_table),None),'page_title':title or MODULES.get(table,'网站管理'),'csrf':r.p['csrf'] if r.p else '', 'principal':r.p,'label':label,'title_field':TITLE,'modules':MODULES,'table':table,'account_ui':table in ACCOUNT_TABLES,'account_actions':ACTIONS,'account_scopes':SCOPES,'permission_groups':groups()}
+        return {'site':site,'browser_site_title':browser_site_title,'browser_home_title':browser_home_title,'lang':lang,'section':'admin','asset_mode':r.asset_mode,'authenticated':bool(r.p),'admin_menu':menu,'admin_menu_groups':grouped_menu(menu),'current_module':active_table,'current_entry':next((m for m in menu if m['key']==active_table),None),'page_title':title or MODULES.get(table,'网站管理'),'csrf':r.p['csrf'] if r.p else '', 'principal':r.p,'label':label,'title_field':TITLE,'modules':MODULES,'table':table,'account_ui':table in ACCOUNT_TABLES,'account_actions':ACTIONS,'account_scopes':SCOPES,'permission_groups':groups()}
     async def render(r,name,table='',title='',**values):
         """使用指定模板与上下文输出HTML。"""
         ctx=await context(r,table,title,values.pop('lang','zh'));ctx.update(values)
@@ -49,6 +54,7 @@ def renderer():
             ctx['site']['logo_uid']=brand.get(ctx['site'].get('logo_key'))
             ctx['branding']={'icon_uid':'/media/'+brand[ctx['site']['favicon_key']] if ctx['site'].get('favicon_key') in brand else ''}
             ctx['section']='public'
+            ctx['modules']=public_modules(ctx['lang'])
             links=await navigation(r,ctx['lang']);ctx['public_nav']=links['header'];ctx['public_hero_nav']=links['hero']
             markup=r.renderer.render('public/native-footer-links.html',links=links['footer'],lang=ctx['lang'])
             ctx['footer_html']=footer_html(ctx['site'].get('footer_text') or '',markup)

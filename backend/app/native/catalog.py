@@ -11,6 +11,12 @@ except ImportError:
 TABLES=NATIVE['schema-spec']['tables']
 EDITORS=NATIVE['editor-contract']['tables']
 MODULES={'profiles':'教师与团队','students':'学生','student_category_displays':'学生分类','research_interests':'研究方向','projects':'科研项目','publications':'论文','patents':'专利软著','courses':'课程','news':'新闻动态','navigation_items':'导航与按钮','site_settings':'网站设置','global_settings':'全局设置','translation_cache':'翻译','media_assets':'媒体库','messages':'留言','auth_users':'账号与权限','auth_roles':'角色与权限','operation_logs':'操作日志','data_tools':'数据与备份','transfer':'文件快传'}
+PUBLIC_MODULES_EN={'profiles':'Faculty','students':'Students','research_interests':'Research',
+                   'projects':'Projects','publications':'Publications','patents':'Patents','courses':'Courses','news':'News'}
+def public_modules(lang):
+    """Public labels only; administrative MODULES remain Chinese."""
+    return PUBLIC_MODULES_EN if lang=='en' else MODULES
+
 CONTENT=('profiles','students','research_interests','projects','publications','patents','courses','news')
 SECRET={f for t in TABLES.values() for f in t['columns'] if any(s in f for s in ('password_hash','api_key','client_secret','translator_key','token_hash'))}
 READONLY={'id','uid','created_at','updated_at','last_login_at','is_system','translation_job_state','source_hash','source_ref_key','source_refs','error_message'}|SECRET
