@@ -20,8 +20,8 @@ FILES = ('pyproject.toml', 'uv.lock', 'pylock.toml', 'package.json', 'package-lo
 
 
 def settings(env):
-    from backend.app.public_performance import PublicPerformance
-    PublicPerformance.from_env(env)
+    from runtime.cache_policy import policy
+    policy(env)
     """No implicit production resource creation and no secret values in configuration."""
     def required(key):
         value = env.get(key, '').strip()
@@ -166,9 +166,8 @@ def execute(command, runner, log, *, report_path=None):
         log('DOMAIN', '站点地址配置 / Site origin configuration', origin=config['origin'],
             custom_domain=config['custom_domain'], workers_dev=config['workers_dev'])
         from integration_package import extend
-        from backend.app.public_performance import PublicPerformance
-        performance=PublicPerformance.from_env(os.environ)
-        cfg['vars'].update(performance.to_env())
+        from runtime.cache_policy import variables
+        cfg['vars'].update(variables(os.environ))
         cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
         cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']=config['sync_executor']
         cfg['vars']['TEACHER_SYNC_PAUSED']=config.get('sync_paused','0')

@@ -155,6 +155,7 @@ def test_r2_keeps_bounded_versioned_streaming(monkeypatch):
         async def read_range(self,key,offset,length,version):
             calls.append((offset,length,version));return body[offset:offset+length]
     class Media:
+        async def public_reference(self,row):return False
         async def inspect(self,p,uid):return {'uid':uid,'object_key':'file.dat','storage_kind':'r2','title':'Test'}
     monkeypatch.setattr(module,'inventory',lambda ignored:Store())
     request=Request({'type':'http','method':'GET','path':'/content','query_string':b'','headers':[]})

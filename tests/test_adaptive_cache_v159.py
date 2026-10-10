@@ -86,14 +86,14 @@ def test_local_exact_expiry_without_repeated_full_sweeps():
 
 def test_real_worker_pages_reuse_queries_but_next_request_is_fresh(fixture,monkeypatch):
     import backend.app.native.request_cache as module
-    c,r=fixture;r.kind='r2';c.cookies.clear();instances=[]
+    c,r=fixture;r.kind='r2';r.worker_cache_mode='full';c.cookies.clear();instances=[]
     class Observed(RequestSQL):
         def __init__(self,sql):super().__init__(sql);instances.append(self)
     monkeypatch.setattr(module,'RequestSQL',Observed)
     run(r.sql.batch([("INSERT INTO projects(uid,name,visibility) VALUES ('memo','Original memo title','public')",())]))
     first=c.get('/en/projects');assert first.status_code==200
     assert instances and sum(x.hits for x in instances)>0
-    assert first.headers['cache-control']=='private, no-cache'
+    assert first.headers['cache-control']=='public, max-age=300'
     assert 'Original memo title' in first.text
     before=len(instances)
     run(r.sql.batch([("UPDATE projects SET name='Updated memo title' WHERE uid='memo'",())]))

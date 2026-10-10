@@ -130,7 +130,7 @@ def test_worker_adapter_hit_expiry_revision_bounds_and_failure(worker_cache):
 def test_worker_real_public_route_hit(fixture,worker_cache):
  from fastapi.testclient import TestClient
  from backend.app.native.web_public import create_public_app
- c,r=fixture;r.kind='worker';r.public_request_cache=False
+ c,r=fixture;r.kind='worker';r.worker_cache_mode='full';r.public_request_cache=False
  with TestClient(create_public_app(lambda request:r),base_url=r.config.origin) as worker:
   first=worker.get('/en');assert first.headers['x-public-page-cache']=='MISS'
   with patch.object(r.renderer,'render',side_effect=AssertionError('Worker render on HIT')):

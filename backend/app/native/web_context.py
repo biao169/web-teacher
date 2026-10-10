@@ -12,6 +12,11 @@ def renderer():
             from .translation_sources import overlay
             await overlay(r.sql,'site_settings',site)
         site['title']=(site.get('site_name_en') if lang=='en' else '') or site.get('site_name') or ('Academic website' if lang=='en' else '教师个人网站')
+        if getattr(r,'public_light',False):
+            return {'site':site,'lang':lang,'section':'public','asset_mode':r.asset_mode,'authenticated':bool(r.p),
+                    'can_enter_admin':bool(r.p and r.p.get('can_enter_admin')),'admin_menu':[],
+                    'page_title':title or MODULES.get(table,'网站管理'),'csrf':r.p['csrf'] if r.p else '',
+                    'principal':r.p,'label':label,'title_field':TITLE,'modules':MODULES,'table':table}
         menu=[]
         for key,name in MODULES.items():
             if key=='auth_roles' or not r.p:continue

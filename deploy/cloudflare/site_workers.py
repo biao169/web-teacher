@@ -38,6 +38,7 @@ def extend(root,stage,cfg,env=None):
     # HTTP control needs Native but never calls the Executor itself.
     from backend.app.public_performance import KEYS
     for key in KEYS:admin['vars'].pop(key,None)
+    admin['vars'].update(TEACHER_WORKER_CACHE_MODE='off',TEACHER_WORKER_REQUEST_CACHE='0')
     admin['vars'].update({k:env[k] for k in ADMIN_VARS if env and k in env})
     admin['services']=[b for b in admin['services'] if b['binding']=='SYNC_NATIVE']
     admin.update(name=admin_name(cfg['name']),main='src/admin_main.py',workers_dev=False,preview_urls=False,triggers={'crons':[]})

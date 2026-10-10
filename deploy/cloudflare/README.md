@@ -1,4 +1,20 @@
-# Cloudflare 网页部署 · v0.16.061
+## v0.16.068 · Worker 媒体查询与图片重试
+
+Worker/R2 将直接媒体引用的逐字段查询合并为一条返回布尔值的 EXISTS 查询；命中时公开性检查只调用一次数据库（含此前媒体记录查询，共两次）。沿用原可见范围、PDF/课程资料公开策略。未命中仍使用原有分页正文与有效译文解析，不能承诺所有正文媒体检查只有 1～2 次查询；不以字符串匹配替代真实引用判断。Linux 仍沿用原查询路径，无新增全局引用缓存或数据库结构变更。
+
+前台 Logo、媒体占位图及正文图片首次失败后等待约 1000ms，按原 URL 仅重试一次；再次失败显示原占位或隐藏。重复绑定/错误不会增加重试；成功加载清除定时器，pagehide 取消待执行重试，脱离 DOM 或更换 src 的图片不会被旧回调覆盖。没有给 URL 添加随机参数。图片脚本版本与页面 ETag 表示版本已更新；三端 HTTP 媒体缓存保持 v0.16.067 策略。
+
+不修改同步协议、checkpoint、Executor/Native、媒体引用规则或 Linux 页面 LRU、预取、并发。未进行真实 Cloudflare 部署、CPU/内存测量；减少调用次数不等于保证消除 1101/1102。下一步为双平台回归与真实指标验收。
+
+## 媒体 HTTP 缓存（v0.16.067）
+
+Worker、Ubuntu、Debian 共用媒体响应策略：公开媒体 `public, max-age=3600`；已授权后台/私有媒体 `private, max-age=900`。公开性由现有引用规则判断，与是否登录无关。响应保留 `Vary: Cookie, Authorization`，GET/HEAD 支持 ETag 与 If-None-Match / 304，并保留 Range 下载。
+
+ETag 复用本地文件版本或 R2 对象版本，不读取完整文件计算哈希。私有媒体先鉴权再判断 304；错误响应及外部媒体跳转仍为 no-store，其他后台页面和接口仍为 no-store。浏览器在缓存有效期内可能直接复用媒体；权限或公开引用变更将在下一次服务器请求时检查，已有浏览器副本不会被远程清除。
+
+Linux 页面 LRU、Data LRU、认证、预取及 stream 并发不变；同步协议、checkpoint、Executor/Native 不变。本步未加入 Worker 媒体公开性 SQL 合并与图片失败重试，这些属于下一步。
+
+# Cloudflare 网页部署 · v0.16.066
 
 只为原站点关联 Git 构建；程序自动发布 Public、Admin 和同步辅助 Worker，无需 GitHub Actions。Ubuntu/Debian 不受此部署拆分影响。
 
@@ -86,12 +102,12 @@ inline 共 3 个 Worker；separate 共 4 个。只给 Public 保留网站域名�
 
 ## 公共页面缓存与导航预取
 
-四项参数仅属于本机部署配置，不写入数据库，不随两站同步迁移。缺失使用默认值；显式空值、非整数或越界会报配置错误。
+下表是full模式的参数默认值；simple/off会强制覆盖并发及预取，off还会覆盖两种TTL。四项参数仅属于本机部署配置，不写入数据库，不随两站同步迁移。缺失使用默认值；显式空值、非整数或越界会报配置错误。
 
 | 变量 | 默认 | 范围 | 功能与关闭方式 |
 | --- | --- | --- | --- |
 | `TEACHER_PUBLIC_CACHE_TTL_SECONDS` | 1800 | 0～86400 秒 | 公共数据缓存及当前 revision 分片缓存；0 关闭数据缓存 |
-| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 300 | 0～3600 秒 | 匿名安全整页 Render Cache 及浏览器 HTML 新鲜期；0 关闭整页缓存 |
+| `TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS` | 300 | 0～3600 秒 | 匿名安全整页浏览器 HTML 新鲜期（仅full同时启用Worker Render Cache）；0 关闭整页缓存 |
 | `TEACHER_PUBLIC_STREAM_CONCURRENCY` | 2 | 1～4 | 页面内容分片加载并发；不是服务进程数 |
 | `TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY` | 1 | 0～2 | 导航意图预取并发；0 完全关闭预取 |
 
@@ -99,7 +115,7 @@ inline 共 3 个 Worker；separate 共 4 个。只给 Public 保留网站域名�
 
 修改内容会更新 revision，但浏览器已经缓存且仍新鲜的 HTML 可能保持到 TTL 到期。需要每次导航验证时将整页 TTL 设为0。不要让反向代理覆盖 `Cache-Control` 或忽略 `Vary: Cookie, Authorization, X-Public-Fragment`。
 
-Linux 使用有界内存预算，Worker 使用 Cache API；缓存可能被驱逐、跨 PoP 不保证命中。预取仅针对同源导航意图，不批量预取所有页面；离线、省流量及后台标签页不启动新预取。
+Linux 使用有界内存预算，Worker只有full模式使用 Cache API；缓存可能被驱逐、跨 PoP 不保证命中。预取仅针对同源导航意图，不批量预取所有页面；离线、省流量及后台标签页不启动新预取。
 
 ### Cloudflare 网页设置与发布
 
@@ -113,3 +129,45 @@ Cloudflare 构建变量本身不会自动成为运行变量；这里由项目脚
 部署后用未登录浏览器访问首页，检查 `Cache-Control`、`ETag`、`X-Public-Page-Cache`；携带相同 ETag 的条件请求可返回304（内容、身份及版本须不变）。禁用浏览器缓存会影响测试结果。再核对登录、后台和同步路径不被公开缓存。缓存异常会回源，不新增数据库或存储绑定；线上 CPU、内存和预取导航复用需在真实环境验收。
 
 需要暂时关闭优化时设置两种 TTL 为0、预取并发为0并重新部署；已有浏览器新鲜缓存仍可能保留至原 TTL 到期。部署过程不要求删除数据库、任务或媒体。
+
+## Worker缓存模式（v0.16.064）
+
+在原站点 Public Worker 的 **Settings → Build/Builds → Variables and Secrets** 设置普通文本变量：
+
+```text
+TEACHER_WORKER_CACHE_MODE=simple
+```
+
+省略时默认simple；仅接受simple、full、off，空值或拼写错误会停止构建。保存后重新运行既有 `python build.py deploy`，程序自动更新Public及Admin/同步辅助Worker，无需新增Gateway Worker。
+
+| 模式 | 导航预取 | 首页stream并发 | Worker SQL/Page Cache API | 浏览器缓存与ETag |
+| --- | --- | --- | --- | --- |
+| simple（推荐生产） | 强制0 | 强制1 | 均关闭 | 保留；TTL沿用配置，默认1800/300秒 |
+| full（完整缓存实验/对比） | 配置值，默认1 | 配置值，默认2 | 保留原实现 | 保留 |
+| off（紧急稳定模式） | 强制0 | 强制1 | 均关闭 | 两种Public TTL强制0，动态公共HTML no-store，无该HTML的ETag |
+
+simple/off强制 `TEACHER_WORKER_REQUEST_CACHE=0`，即使误填1也不会开启SQL缓存。full默认开启原SQL缓存；显式设置REQUEST_CACHE=0仍可单独禁用。模式只控制动态Public缓存，静态资源/媒体自身的缓存协议不变。
+
+Admin固定mode=off、REQUEST_CACHE=0，且移除四项Public参数；后台HTML、同步状态、任务列表与CSRF不增加共享缓存。Ubuntu/Debian不读取此模式，其部署文件、LRU、默认TTL、并发和预取均不变。
+
+建议始终通过构建变量切换，再重新部署，以完整恢复full默认值。只临时修改运行时mode时，之前simple生成的并发1、预取0、REQUEST_CACHE=0仍是显式变量；要回到完整full需同时恢复这些值，off生成的TTL=0也需恢复。下一次构建以Builds中的值为准；不需要重建数据库或清理同步任务。
+
+检查simple首页HTML中的 `data-public-nav-prefetch-concurrency="0"`、`data-public-stream-concurrency="1"`；未登录安全整页仍有浏览器缓存头和ETag，相同条件请求可返回304，但不应显示内部整页缓存HIT。off验证动态整页no-store。原来浏览器已缓存的新鲜HTML可能到原TTL结束才更新，切换后验收请先强制刷新。
+
+此策略减少缓存桥接和预取突发，不能保证消除所有1101/1102。Cache API异常隔离不能捕获平台强制终止；仍需结合对应版本、request ID、Ray ID和平台outcome定位真实异常。
+
+## Worker Public轻量认证（v0.16.065）
+
+无需新增变量。Worker前台GET/HEAD页面及Public只读接口每次查询仍核验会话有效性、用户状态、角色状态和可见范围；通过EXISTS取得后台入口和项目查看权限摘要，不读取完整auth_permissions结果。session的last_seen/idle续期最多约120秒更新一次，条件UPDATE避免并发重复更新。没有isolate身份缓存。
+
+Public不构建后台模块菜单或查询admin-sidebar。完整认证继续用于Admin/Auth、媒体、联系表单与写操作，Ubuntu/Debian仍保持完整认证。v0.16.065阶段登录Public为private,no-cache；v0.16.066起使用下节的60/120秒private短缓存。保留上一版simple/full/off策略；不更改同步和数据库。
+
+## Worker登录Public短缓存（v0.16.066）
+
+无需新增变量。simple/full模式下，允许缓存的登录Public完整页面使用普通登录 `private, max-age=120`、系统管理员 `private, max-age=60`，并保留ETag及Vary: Cookie, Authorization, X-Public-Fragment。仅当前浏览器可缓存，不写入匿名Page Cache，也不启用共享登录页面缓存。匿名页面仍按整页TTL配置，默认300秒。
+
+off模式继续动态整页no-store；整页TTL=0时登录页面退回private,no-cache。强制改密账号不启用短新鲜期。详情、联系表单、Admin/Auth、写操作、带Authorization请求、登录分片和错误响应不增加缓存。Ubuntu/Debian仍使用原页面策略。
+
+浏览器命中新鲜缓存时不会请求服务器，因此会话撤销、权限变化和内容变化可能最多延迟60/120秒显示；回源时仍执行实时轻量认证并更新身份相关ETag。旧身份ETag不得验证为新身份的304。需要每次访问验证时把TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS设为0并重新部署；已存在的新鲜缓存仍需过期或强制刷新。
+
+验收使用浏览器普通导航且关闭“Disable cache”；验证private缓存复用。另用带If-None-Match的请求验证304、空正文与相同private策略。不能仅凭本地响应头测试宣称已降低真实Worker CPU。

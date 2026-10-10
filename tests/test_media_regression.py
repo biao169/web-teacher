@@ -46,7 +46,7 @@ def test_actual_passive_image_type_and_head(runtime, body, suffix, mime):
     assert head.content == b'' and response.content == body
     assert response.headers['content-disposition'].startswith('inline;')
     assert response.headers['x-content-type-options'] == 'nosniff'
-    assert 'no-store' in response.headers['cache-control']
+    assert response.headers['cache-control']=='private, max-age=900'
 
 @pytest.mark.parametrize('body', [b'<svg xmlns="http://www.w3.org/2000/svg"></svg>',b'<html>not an image</html>',b'',b'random bytes'])
 def test_claimed_jpeg_does_not_enable_active_or_unknown_content(runtime, body):

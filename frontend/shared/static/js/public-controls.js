@@ -8,8 +8,11 @@
       if (!img || !fallback || img.dataset.fallbackReady) continue;
       img.dataset.fallbackReady = '1';
       const failed = () => { img.hidden = true; fallback.hidden = false; };
-      img.addEventListener('error', failed, {once:true});
-      if (img.tagName === 'IMG' ? img.complete && !img.naturalWidth : img.error) failed();
+      if (img.tagName === 'IMG') window.teacherImageRetry(img, failed);
+      else { img.addEventListener('error', failed, {once:true}); if (img.error) failed(); }
+    }
+    for (const img of scope.querySelectorAll('img')) {
+      window.teacherImageRetry(img, () => { img.hidden = true; });
     }
   }
   prepareMedia(document);

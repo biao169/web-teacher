@@ -1,3 +1,31 @@
+## v0.16.068 · Worker 媒体查询与图片重试
+
+Worker/R2 将直接媒体引用的逐字段查询合并为一条返回布尔值的 EXISTS 查询；命中时公开性检查只调用一次数据库（含此前媒体记录查询，共两次）。沿用原可见范围、PDF/课程资料公开策略。未命中仍使用原有分页正文与有效译文解析，不能承诺所有正文媒体检查只有 1～2 次查询；不以字符串匹配替代真实引用判断。Linux 仍沿用原查询路径，无新增全局引用缓存或数据库结构变更。
+
+前台 Logo、媒体占位图及正文图片首次失败后等待约 1000ms，按原 URL 仅重试一次；再次失败显示原占位或隐藏。重复绑定/错误不会增加重试；成功加载清除定时器，pagehide 取消待执行重试，脱离 DOM 或更换 src 的图片不会被旧回调覆盖。没有给 URL 添加随机参数。图片脚本版本与页面 ETag 表示版本已更新；三端 HTTP 媒体缓存保持 v0.16.067 策略。
+
+不修改同步协议、checkpoint、Executor/Native、媒体引用规则或 Linux 页面 LRU、预取、并发。未进行真实 Cloudflare 部署、CPU/内存测量；减少调用次数不等于保证消除 1101/1102。下一步为双平台回归与真实指标验收。
+
+## 媒体 HTTP 缓存（v0.16.067）
+
+Worker、Ubuntu、Debian 共用媒体响应策略：公开媒体 `public, max-age=3600`；已授权后台/私有媒体 `private, max-age=900`。公开性由现有引用规则判断，与是否登录无关。响应保留 `Vary: Cookie, Authorization`，GET/HEAD 支持 ETag 与 If-None-Match / 304，并保留 Range 下载。
+
+ETag 复用本地文件版本或 R2 对象版本，不读取完整文件计算哈希。私有媒体先鉴权再判断 304；错误响应及外部媒体跳转仍为 no-store，其他后台页面和接口仍为 no-store。浏览器在缓存有效期内可能直接复用媒体；权限或公开引用变更将在下一次服务器请求时检查，已有浏览器副本不会被远程清除。
+
+Linux 页面 LRU、Data LRU、认证、预取及 stream 并发不变；同步协议、checkpoint、Executor/Native 不变。本步未加入 Worker 媒体公开性 SQL 合并与图片失败重试，这些属于下一步。
+
+## v0.16.066 · Worker登录Public短缓存
+
+安全Public整页：普通登录private,max-age=120，系统管理员private,max-age=60；保留ETag/304与身份隔离。Linux页面策略不变。见[交付说明](docs/releases/v0.16.066.md)。
+
+## v0.16.065 · Worker Public轻量认证
+
+Worker公共只读页面使用实时会话/角色检查与必要权限摘要，session活动时间约120秒最多更新一次；不构建完整后台菜单。Linux、后台、表单和写入继续完整认证。登录页面短缓存尚未启用。见[交付说明](docs/releases/v0.16.065.md)。
+
+## v0.16.064 · Worker轻缓存
+
+Worker新增 `TEACHER_WORKER_CACHE_MODE`：`simple`（默认生产模式）、`full`（完整缓存对比模式）、`off`（紧急无缓存模式）。simple关闭Worker SQL/Page Cache API和导航预取，首页stream并发1，保留浏览器缓存和ETag/304。Ubuntu/Debian保持原有LRU、并发、TTL与预取策略。配置步骤见[Cloudflare教程](deploy/cloudflare/README.md)，验证见[交付记录](docs/releases/v0.16.064.md)。
+
 ## v0.16.063 · 后台媒体摘要与同步来源
 
 媒体库延迟串行加载当前页使用摘要；定时同步任务显示来源计划ID。见[交付说明](docs/releases/v0.16.063.md)。

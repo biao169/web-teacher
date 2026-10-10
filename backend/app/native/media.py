@@ -115,17 +115,40 @@ class Media:
         rows=await self.sql.query("SELECT * FROM media_assets WHERE uid=? AND status='active'",(uid,))
         if not rows:raise Error('文件不存在',404)
         row=rows[0]
-        if p and p['permissions'].get('media_assets',{}).get('can_view'):return row
+        row['_public_media']=await self.public_reference(row)
+        if row['_public_media'] or (p and p['permissions'].get('media_assets',{}).get('can_view')):return row
+        raise Error('文件不可访问',404)
+    async def public_reference(self,row):
+        """Reuse existing public-reference rules for cache classification on both platforms."""
+        if row.get('status')!='active':return False
+        if self.kind=='r2':
+            return await self.worker_public_reference(row)
         for table in (*CONTENT,'site_settings'):
             cols=TABLES[table]['columns'];refs=[f for f,s in cols.items() if s.get('references',{}).get('table')=='media_assets']
             for field in refs:
                 where,args=self.content.scope(table,public=True)
                 policy='pdf_visibility' if field=='pdf_key' else 'material_visibility' if field=='material_key' else None
                 if policy:where+=' AND '+policy+"='public'"
-                if await self.sql.query(f'SELECT 1 FROM "{table}" WHERE "{field}"=? AND '+where+' LIMIT 1',(row['object_key'],*args)):return row
+                if await self.sql.query(f'SELECT 1 FROM "{table}" WHERE "{field}"=? AND '+where+' LIMIT 1',(row['object_key'],*args)):return True
         # Rich-text references are normalized by the sanitizer to /media/<uid>.
-        if await self.references.public_body_reference(uid):return row
-        raise Error('文件不可访问',404)
+        return bool(await self.references.public_body_reference(row['uid']))
+    async def worker_public_reference(self,row):
+        """One scalar query for direct references; retain exact rich-text validation."""
+        checks=[];params=[]
+        for table in (*CONTENT,'site_settings'):
+            for field,spec in TABLES[table]['columns'].items():
+                if spec.get('references',{}).get('table')!='media_assets':continue
+                where,args=self.content.scope(table,public=True)
+                policy='pdf_visibility' if field=='pdf_key' else 'material_visibility' if field=='material_key' else None
+                if policy:where+=' AND '+policy+"='public'"
+                checks.append(f'EXISTS(SELECT 1 FROM "{table}" WHERE "{field}"=? AND {where} LIMIT 1)')
+                params.extend((row['object_key'],*args))
+        if checks:
+            result=await self.sql.query('SELECT CASE '+''.join('WHEN '+check+' THEN 1 ' for check in checks)+'ELSE 0 END AS visible',tuple(params))
+            if result and result[0]['visible']:return True
+        # HTML/Markdown and current translations require semantic parsing; SQL
+        # substring matching cannot safely grant public access. Keep pagination.
+        return bool(await self.references.public_body_reference(row['uid']))
     async def inspect(self,p,uid):
         """后台授权用户可检查活跃或回收站媒体，公开读取仍仅接受活跃资源。"""
         self.auth.require(p,'media_assets')

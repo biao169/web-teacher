@@ -38,6 +38,13 @@ async def payload(request,limit=500000):
         return {k:v[0] for k,v in parsed.items()}
     except (ValueError,UnicodeDecodeError):raise Error('请求格式不正确') from None
 
+def worker_public_read(request,r):
+    """Only Worker public read routes; media, forms, auth, admin and writes stay full."""
+    if r.kind=='local' or request.method not in ('GET','HEAD'):return False
+    path=request.url.path
+    parts=path.strip('/').split('/')
+    return (parts[0] in ('en','zh') and (len(parts)==1 or parts[1]!='contact')) or path.startswith('/api/public/')
+
 def create_base(factory,static_root=None,*,areas=("shared","public","admin"),sync_assets=True):
     app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None)
     if static_root:
@@ -49,7 +56,9 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         from backend.app.public_performance import PublicPerformance
         r.public_performance=getattr(r,'public_performance',None) or PublicPerformance.from_env()
         r.auth=Auth(r.sql,r.passwords)
-        r.p=await r.auth.principal(request.cookies.get(r.config.name('session')))
+        r.public_light=worker_public_read(request,r)
+        principal=r.auth.public_principal if r.public_light else r.auth.principal
+        r.p=await principal(request.cookies.get(r.config.name('session')))
         parts=request.url.path.split('/')
         cache_namespace=[request.url.path,sorted((k,v) for k,v in request.query_params.multi_items() if k!='_rev'),request.headers.get('x-public-fragment')=='1','anonymous']
         if not r.p and request.method in ('GET','HEAD') and (len(parts)>1 and parts[1] in ('en','zh') or request.url.path.startswith('/api/public/')):
@@ -89,7 +98,7 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         response.headers.setdefault('Content-Security-Policy',f"default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net; img-src {image_policy}; media-src 'self' https: http:; connect-src {connect_policy}; worker-src 'self'; font-src 'self' data: blob:; object-src 'none'; frame-src {frame_policy}; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
         if not request.url.path.startswith('/assets/'):
             response.headers.setdefault('Cache-Control','no-store')
-            if request.method not in ('GET','HEAD') or request.url.path.startswith(('/admin','/api/admin','/auth','/setup','/sync','/transfer')) or response.status_code>=400:
+            if request.method not in ('GET','HEAD') or (request.url.path.startswith(('/admin','/api/admin','/auth','/setup','/sync','/transfer')) and not getattr(request.state,'media_cache_authorized',False)) or response.status_code>=400:
                 response.headers['Cache-Control']='no-store'
         elif response.status_code in (200,206,304):
             # Windows registry MIME mappings must not turn ES modules into text/plain.

@@ -1,0 +1,13 @@
+✔ delays once, duplicate errors coalesce, second error shows fallback (69.740189ms)
+✔ logo re-enhancement does not add retry handlers (14.848838ms)
+✔ pagehide cancels retries and detached images are not mutated (9.468683ms)
+✔ successful load clears pending retry (9.967902ms)
+✔ appended images use retry and source changes prevent stale writes (9.316921ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 446.797469

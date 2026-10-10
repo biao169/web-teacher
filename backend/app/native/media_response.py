@@ -7,6 +7,7 @@ from .catalog import Error
 from .media import signature
 from .media_policy import EXTENSIONS
 from .media_inventory_store import inventory
+from .public_http_cache import matches_etag
 
 def content_type(prefix,key):
     """以文件头识别所有已支持类型，兼容历史错误后缀；不信任登记MIME。"""
@@ -58,13 +59,14 @@ def byte_range(value,size):
 async def media_response(request,r,uid,private=False):
     """权限保持原规则；预览只读原文件，不再把上传体积上限用作流式读取上限。"""
     row=await r.media.inspect(r.p,uid) if private else await r.media.readable(uid,r.p)
+    if private:row['_public_media']=await r.media.public_reference(row)
     return await media_file_response(request,r,row)
 
 async def media_file_response(request,r,row):
     """已授权记录或核对条目共用同一文件读取流程，调用方负责授权。"""
     if row['storage_kind']=='external':
         from .media_links import external_url
-        return RedirectResponse(external_url(row['object_key']),307,headers={'Referrer-Policy':'no-referrer'})
+        return RedirectResponse(external_url(row['object_key']),307,headers={'Referrer-Policy':'no-referrer','Cache-Control':'no-store'})
     if row['storage_kind']!=r.kind:raise Error('此存储类型未接入当前媒体目录',404)
     store=inventory(r.media_store);key=row['object_key'];handle=None
     try:
@@ -73,19 +75,24 @@ async def media_file_response(request,r,row):
         else:
             info=await store.head(key)
             if info is None:raise Error('文件正文不存在，请核对媒体目录',404)
-            prefix=await store.read_range(key,0,min(info['size'],512),info['version']) if info['size'] else b''
-        size=info['size'];version=info['version'];mime=content_type(prefix,key)
+        size=info['size'];version=info['version']
+        request.state.media_cache_authorized=True
+        cache_headers={'ETag':'"'+version+'"','Cache-Control':'public, max-age=3600' if row.get('_public_media') else 'private, max-age=900','Vary':'Cookie, Authorization'}
+        if request.method in ('GET','HEAD') and not request.headers.get('if-match') and matches_etag(','.join(request.headers.getlist('if-none-match')),cache_headers['ETag']):
+            return Response(status_code=304,headers=cache_headers)
+        if handle is None:prefix=await store.read_range(key,0,min(size,512),version) if size else b''
+        mime=content_type(prefix,key)
         suffix=EXTENSIONS[mime][0] if mime in EXTENSIONS else PurePosixPath(key).suffix.lower().lstrip('.')
         from .media_names import disposition
         inline=(mime.startswith(('image/','video/')) or mime=='application/pdf') and request.query_params.get('download')!='1'
         headers={'Accept-Ranges':'bytes','ETag':'"'+version+'"','Content-Type':mime,
                  'Content-Disposition':disposition(row,mime,suffix,inline),
-                 'Content-Security-Policy':"default-src 'none'; frame-ancestors 'self'",'Cache-Control':'private, no-store'}
+                 'Content-Security-Policy':"default-src 'none'; frame-ancestors 'self'",**cache_headers}
         start,end=0,size-1;status=200
         selected=request.headers.get('range')
         if request.method!='HEAD' and selected and request.headers.get('if-range',headers['ETag'])==headers['ETag']:
             try:start,end=byte_range(selected,size)
-            except ValueError:return Response(status_code=416,headers=headers|{'Content-Range':f'bytes */{size}'})
+            except ValueError:return Response(status_code=416,headers=headers|{'Content-Range':f'bytes */{size}','Cache-Control':'no-store'})
             status=206;headers['Content-Range']=f'bytes {start}-{end}/{size}'
         headers['Content-Length']=str(max(0,end-start+1))
         if request.method=='HEAD':return Response(status_code=200,headers=headers)

@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from .catalog import now
 
 # Bump with releases that change public rendering, even if the DB revision is unchanged.
-REPRESENTATION_VERSION='0.16.063'
+REPRESENTATION_VERSION='0.16.068'
 _TAG=re.compile(r'(?:W/)?"[\x21\x23-\x7e\x80-\xff]*"')
 
 def matches_etag(value,etag):
@@ -35,7 +35,7 @@ def representation_key(request,r,revision,query,scope=None,fragment=False,clock=
     # Includes current effective grants, display fields and session fingerprint.
     # Only the final digest leaves the server; no UID/username/CSRF in the header.
     identity=r.p or 'anonymous'
-    values=[REPRESENTATION_VERSION,revision,identity,request.url.path,
+    values=[('0.16.068' if getattr(r,'public_light',False) else REPRESENTATION_VERSION),revision,identity,request.url.path,
             sorted((k,str(v)) for k,v in query.items()),bool(fragment),
             scope['stamp'] if scope else '',clock,r.config.origin,
             getattr(r,'asset_mode',''),r.public_performance.to_env()]
@@ -71,3 +71,13 @@ def finish(request,response,etag):
         # Preserve the GET representation length/type, but never send its body.
         return Response(status_code=response.status_code,headers=dict(response.headers))
     return response
+
+
+def private_page_policy(r):
+    """Worker-only browser freshness; never shared storage, local policy unchanged."""
+    if (r.kind=='local' or not getattr(r,'public_light',False)
+            or getattr(r,'worker_cache_mode','simple')=='off'
+            or not r.public_performance.public_page_cache_ttl_seconds
+            or r.p.get('must_change_password')):
+        return 'private, no-cache'
+    return 'private, max-age='+('60' if r.p.get('is_system')==1 else '120')

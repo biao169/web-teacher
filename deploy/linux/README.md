@@ -1,3 +1,11 @@
+## 媒体 HTTP 缓存（v0.16.067）
+
+Worker、Ubuntu、Debian 共用媒体响应策略：公开媒体 `public, max-age=3600`；已授权后台/私有媒体 `private, max-age=900`。公开性由现有引用规则判断，与是否登录无关。响应保留 `Vary: Cookie, Authorization`，GET/HEAD 支持 ETag 与 If-None-Match / 304，并保留 Range 下载。
+
+ETag 复用本地文件版本或 R2 对象版本，不读取完整文件计算哈希。私有媒体先鉴权再判断 304；错误响应及外部媒体跳转仍为 no-store，其他后台页面和接口仍为 no-store。浏览器在缓存有效期内可能直接复用媒体；权限或公开引用变更将在下一次服务器请求时检查，已有浏览器副本不会被远程清除。
+
+Linux 页面 LRU、Data LRU、认证、预取及 stream 并发不变；同步协议、checkpoint、Executor/Native 不变。本步未加入 Worker 媒体公开性 SQL 合并与图片失败重试，这些属于下一步。
+
 同步密钥可在部署后通过后台生成、复制和保存，无需环境变量或重启。见 [两平台密钥教程](../../docs/sync-key-setup.md)。
 
 > v0.15.157 新增多域名配置，参见 [多域名说明](../../docs/multiple-domains-v157.md)。

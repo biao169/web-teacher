@@ -5,7 +5,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse,RedirectResponse
 from .catalog import CONTENT,TITLE,MODULES,Error
 from .web_common import payload
-from .public_http_cache import validator,not_modified,finish,identity_fingerprint
+from .public_http_cache import validator,not_modified,finish,identity_fingerprint,private_page_policy
 from .public_page_cache import page_cache,page_response
 
 def public_headers(request,r,revision,fragment=False,form=False,safe=False):
@@ -18,7 +18,7 @@ def public_headers(request,r,revision,fragment=False,form=False,safe=False):
         # Keep existing fragment policy and protocol separate from HTML freshness.
         policy='no-store' if r.p or not ttl else f'public, max-age={ttl}' if request.query_params.get('_rev')==revision else 'private, no-cache'
     elif r.p:
-        policy='private, no-cache'
+        policy=private_page_policy(r)
     else:
         policy=f'public, max-age={page_ttl}' if page_ttl else 'private, no-cache'
     headers['Cache-Control']=policy
@@ -38,7 +38,8 @@ def install(app,factory,resources,csrf,render):
     async def cache_revision(request:Request):
         from .public_revision import revision
         from .auth import Auth
-        r=factory(request);principal=await Auth(r.sql,r.passwords).principal(request.cookies.get(r.config.name('session')))
+        r=factory(request);auth=Auth(r.sql,r.passwords)
+        principal=await (auth.principal if r.kind=='local' else auth.public_principal)(request.cookies.get(r.config.name('session')))
         return JSONResponse({'revision':await revision(r.sql),'identity':identity_fingerprint(principal)},headers={'Cache-Control':'no-store'})
     @app.get('/{lang}/contact')
     async def public_form(request:Request,lang:str='en'):

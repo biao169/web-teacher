@@ -22,7 +22,8 @@ def main(separate=False):
         cfg=json.loads((stage/'wrangler.jsonc').read_text());cfg['main']='src/main.py'
         from backend.app.public_performance import PublicPerformance,KEYS
         performance=PublicPerformance.from_env({'TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS':'123','TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY':'2'})
-        cfg['vars'].update(performance.to_env())
+        from runtime.cache_policy import variables
+        cfg['vars'].update(variables(dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE='full')))
         if separate:cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']='separate'
         import tomllib
         cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
@@ -36,6 +37,7 @@ def main(separate=False):
         admin_vars=json.loads((stage/'wrangler.admin.jsonc').read_text())['vars']
         assert all(public_vars[k]==v for k,v in performance.to_env().items())
         assert not set(KEYS).intersection(admin_vars)
+        assert admin_vars['TEACHER_WORKER_CACHE_MODE']=='off' and admin_vars['TEACHER_WORKER_REQUEST_CACHE']=='0'
         native_vars=json.loads((stage/'sync-native/wrangler.jsonc').read_text())['vars']
         assert not set(KEYS).intersection(native_vars)
         if separate:
