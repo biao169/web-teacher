@@ -52,7 +52,7 @@ class ReleaseTests(unittest.TestCase):
                   'WRANGLER_CI_OVERRIDE_NAME':'teacher','WRANGLER_CI_MATCH_TAG':'keep-this-tag'}
         self.api=FakeAPI();self.logs=[]
     def release(self,mode='inline'):
-        return Release(self.env,{'name':'teacher','sync_executor':mode},lambda *a,**kw:self.logs.append((a,kw)),client=self.api)
+        return Release(self.env,{'name':'teacher','sync_executor':mode},lambda *a,**kw:self.logs.append((a,kw)),client=self.api,sleep=lambda _:None)
     def add_executor_artifact(self):
         f=self.fixture
         f.cfg.pop('durable_objects');f.cfg.pop('migrations');f.meta['bindings']=[b for b in f.meta['bindings'] if b['name']!='SYNC_COORDINATOR']
@@ -143,6 +143,72 @@ class ReleaseTests(unittest.TestCase):
     def test_invalid_identity_or_credentials(self):
         for key,value in [('WRANGLER_CI_OVERRIDE_NAME','wrong'),('TEACHER_AUX_API_TOKEN',''),('CLOUDFLARE_ACCOUNT_ID','bad'),('TEACHER_SYNC_KEY','bad')]:
             with self.subTest(key=key),self.assertRaises(ValueError):validate(dict(self.env,**{key:value}),'teacher')
+
+    def test_callback_delayed_reads_then_cron_delayed_reads(self):
+        self.add_executor_artifact();release=self.release('separate');release.prepare(self.stage,self.root)
+        original=self.api.request;remaining={'binding':0,'cron':0}
+        def request(method,name,suffix='',*args,**kwargs):
+            value=original(method,name,suffix,*args,**kwargs)
+            if method=='PUT' and suffix=='':remaining['binding']=3
+            if method=='PUT' and suffix=='/schedules':remaining['cron']=2
+            if method=='GET' and suffix=='/settings' and remaining['binding']:
+                remaining['binding']-=1
+                value['bindings']=[b for b in value['bindings'] if b['name']!='SYNC_RUNNER']
+            if method=='GET' and suffix=='/schedules' and remaining['cron']:
+                remaining['cron']-=1;return {'schedules':[]}
+            return value
+        self.api.request=request;delays=[];release.sleep=delays.append;release.activate()
+        self.assertEqual(delays,[1,2,4,1,2]);self.assertEqual(release.cron_status,'confirmed')
+        self.assertEqual(release.activation_stage,'completed')
+        self.assertNotIn(self.env['TEACHER_SYNC_KEY'],repr(self.logs))
+
+    def test_permanent_mismatch_is_bounded_and_rerun_restores_cron(self):
+        self.add_executor_artifact();release=self.release('separate');release.prepare(self.stage,self.root)
+        original=self.api.request
+        def request(method,name,suffix='',*args,**kwargs):
+            value=original(method,name,suffix,*args,**kwargs)
+            if method=='GET' and suffix=='/settings':
+                for binding in value['bindings']:
+                    if binding['name']=='SYNC_RUNNER':binding['service']='wrong-worker'
+            return value
+        self.api.request=request;delays=[];release.sleep=delays.append
+        with self.assertRaisesRegex(ValueError,'AUX-CALLBACK-CHECK not confirmed'):release.activate()
+        self.assertEqual(delays,[1,2,4,8,15])
+        self.assertEqual(self.api.scripts['teacher-sync-executor']['schedules']['schedules'],[])
+        self.assertEqual(self.logs[-1][1]['executor_cron'],'not_confirmed')
+        self.assertFalse(self.logs[-1][1]['callback_confirmed'])
+        self.api.request=original;release=self.release('separate');release.prepare(self.stage,self.root);release.activate()
+        self.assertEqual(release.cron_status,'confirmed')
+
+    def test_code_update_preserves_existing_callback(self):
+        release=self.release();release.prepare(self.stage,self.root);release.activate()
+        path=self.root/'native.multipart';path.write_bytes(path.read_bytes().replace(b'export default {}',b'export default {updated:true}'))
+        release=self.release();release.prepare(self.stage,self.root)
+        bindings=self.api.scripts['teacher-sync-native']['settings']['bindings']
+        self.assertEqual([b['service'] for b in bindings if b['name']=='SYNC_RUNNER'],['teacher'])
+        count=sum(m=='PUT' and s=='' for m,_,s in self.api.calls)
+        release.activate()
+        self.assertEqual(sum(m=='PUT' and s=='' for m,_,s in self.api.calls),count)
+
+    def test_wrong_binding_type_is_not_accepted(self):
+        from deploy.cloudflare.companion_release import callback,callback_view
+        data={'bindings':[{'name':'SYNC_RUNNER','type':'secret_text','service':'teacher','text':'never-log-me'}]}
+        self.assertFalse(callback(data,'teacher'))
+        self.assertNotIn('never-log-me',repr(callback_view(data)))
+
+    def test_cron_unconfirmed_never_reports_active(self):
+        self.add_executor_artifact();release=self.release('separate');release.prepare(self.stage,self.root)
+        original=self.api.request
+        def request(method,name,suffix='',*args,**kwargs):
+            result=original(method,name,suffix,*args,**kwargs)
+            if method=='GET' and suffix=='/schedules':return {'schedules':[]}
+            return result
+        self.api.request=request
+        with self.assertRaisesRegex(ValueError,'AUX-CRON-CHECK not confirmed'):release.activate()
+        self.assertTrue(release.callback_confirmed)
+        self.assertEqual(release.cron_status,'written_unconfirmed')
+        self.assertEqual(self.logs[-1][1]['stage'],'executor_cron')
+        self.assertFalse(any(a[0]=='AUX-ACTIVE' for a,kw in self.logs))
 
 
 class ClientTests(unittest.TestCase):

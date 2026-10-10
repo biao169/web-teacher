@@ -1,3 +1,16 @@
+## v0.16.069 · 辅助发布收尾恢复
+
+修复主站已部署、Native 回调检查未确认而 Executor Cron 未恢复的发布路径。无需新增环境变量，保持原 Cloudflare 网页构建/部署命令与 separate 模式，更新源码后重新部署即可自动尝试完成收尾。不要删除数据库、任务、Durable Objects 或 Worker。
+
+- Native 上传时保留已确认正确的 SYNC_RUNNER（separate 指向独立 Executor，inline 指向主站）；首次部署或模式切换仍在主站发布后配置回调。
+- 写入回调后最多读取 6 次，间隔 0/1/2/4/8/15 秒，额外等待合计最多 30 秒（不含网络请求/API 层重试耗时）。核对绑定名称、service 类型和目标，不把任意同名变量视为有效绑定。所有权不匹配或 API 错误仍明确失败。
+- 回调与私有访问确认后，自动写入 Executor 的每分钟 Cron，并用同样有限读取确认。未确认时不会输出 AUX-ACTIVE/PUBLISHED；保留错误并可重新部署恢复。
+- AUX-ACTIVATE/AUX-CALLBACK-CHECK 输出预期目标及实际白名单字段，不输出密钥或整个 settings。AUX-CRON-CHECK 显示确认的 Cron；AUX-ACTIVATION-INCOMPLETE 明确失败阶段、回调是否确认、Cron 为 not_confirmed 或 written_unconfirmed。后者表示已提交写入但未确认，并不宣称实际不存在。
+
+成功应看到 AUX-CALLBACK-READY、AUX-CRON-CHECK confirmed=true、AUX-ACTIVE 和 PUBLISHED。如果仍失败，保留这些日志重新排查；不因猜测传播延迟而忽略校验。此前真实失败根因尚未取得 API 返回证据，本修复解决单次读取脆弱性与恢复诊断。
+
+不修改 Linux、同步协议、checkpoint、Executor/Native 运行代码或数据库；保留 v0.16.068 缓存和媒体优化。构建失败不会自动回滚已成功部署的主站；辅助收尾未完成时 Cron 可能尚未恢复。
+
 ## v0.16.068 · Worker 媒体查询与图片重试
 
 Worker/R2 将直接媒体引用的逐字段查询合并为一条返回布尔值的 EXISTS 查询；命中时公开性检查只调用一次数据库（含此前媒体记录查询，共两次）。沿用原可见范围、PDF/课程资料公开策略。未命中仍使用原有分页正文与有效译文解析，不能承诺所有正文媒体检查只有 1～2 次查询；不以字符串匹配替代真实引用判断。Linux 仍沿用原查询路径，无新增全局引用缓存或数据库结构变更。

@@ -104,6 +104,19 @@ def schedule(client,worker,crons):
         raise ValueError('Cron configuration not confirmed: '+worker)
 
 
+def callback(settings,runner):
+    bindings=settings.get('bindings',[]) if isinstance(settings,dict) else []
+    matches=[b for b in bindings if isinstance(b,dict) and b.get('name')=='SYNC_RUNNER']
+    return len(matches)==1 and matches[0].get('type')=='service' and matches[0].get('service')==runner
+
+
+def callback_view(settings):
+    # Allowlist diagnostic fields: never log settings, metadata or secret values.
+    bindings=settings.get('bindings',[]) if isinstance(settings,dict) else []
+    return [{k:str(b[k])[:128] for k in ('name','type','service','environment') if k in b}
+            for b in bindings if isinstance(b,dict) and b.get('name')=='SYNC_RUNNER']
+
+
 def revision(info,key):
     import hashlib
     return hashlib.sha256((info['content_sha256']+':'+key).encode()).hexdigest()
@@ -157,11 +170,12 @@ def payload_with_secret(path,info,main,role,key,migration_tag=None,runner=None,e
 
 
 class Release:
-    def __init__(self,env,config,log,*,client=None):
+    def __init__(self,env,config,log,*,client=None,sleep=time.sleep):
         self.main=config['name'];self.mode=config['sync_executor'];self.targets=validate(env,self.main)
         self.key=env.get('TEACHER_SYNC_KEY','');self.log=log
         self.client=client or Client(env['CLOUDFLARE_ACCOUNT_ID'],env['TEACHER_AUX_API_TOKEN'])
         self.existing={};self.remote={};self.migration_tags={}
+        self.sleep=sleep;self.activation_stage='not_started';self.callback_confirmed=False;self.cron_status='not_confirmed'
     def preflight(self):
         # Inspect both names before any database or Worker mutation, including an
         # old executor which must be stopped when returning to inline mode.
@@ -189,7 +203,9 @@ class Release:
         for role in roles:
             worker=self.targets[role];info,payload,cfg=artifacts[role]
             current=self.remote.get(role)
-            payload=payload_with_secret(work/(role+'.multipart'),info,self.main,role,self.key,self.migration_tags.get(role))
+            runner=self.targets['executor'] if self.mode=='separate' else self.main
+            preserved=runner if role=='native' and callback(current,runner) else None
+            payload=payload_with_secret(work/(role+'.multipart'),info,self.main,role,self.key,self.migration_tags.get(role),runner=preserved)
             reuse=False
             if current is not None:
                 try:
@@ -208,17 +224,52 @@ class Release:
             if confirmed.get('TEACHER_AUX_REVISION',{}).get('text')!=revision(info,self.key):raise ValueError('Companion revision not confirmed; main deployment stopped')
             self.log('AUX-REVISION','辅助产物版本已核对 / Companion artifact revision confirmed',worker=worker,role=role)
             self.log('AUX-READY','辅助已发布并关闭公开访问，Cron 暂停 / Companion ready; scheduling paused',worker=worker)
+    def confirm(self,worker,read,check,view,event):
+        for attempt,delay in enumerate((0,1,2,4,8,15),1):
+            if delay:self.sleep(delay)
+            actual=read()
+            ok=check(actual)
+            self.log(event,'发布配置确认 / Confirm release configuration',worker=worker,
+                     attempt=attempt,confirmed=ok,actual=view(actual))
+            if ok:return actual
+        raise ValueError(f'{event} not confirmed: {worker}; see sanitized confirmation logs; retry deployment')
+
     def activate(self):
-        # Resolve the new site's circular binding only after the main deploy.
+        # Re-running a release finishes the same activation; no task/DO deletion.
         worker=self.targets['native']
-        settings=self.client.request('GET',worker,'/settings');owned(settings,self.main,'native')
         runner=self.targets['executor'] if self.mode=='separate' else self.main
-        if not any(b.get('name')=='SYNC_RUNNER' and b.get('service')==runner for b in settings.get('bindings',[])):
-            path,info=self.native_artifact
-            payload=payload_with_secret(path,info,self.main,'native',self.key,self.client.migration_tag(worker),runner=runner)
-            self.client.request('PUT',worker,body=payload,content_type=info['content_type'])
-            actual=self.client.request('GET',worker,'/settings')
-            if not any(b.get('name')=='SYNC_RUNNER' and b.get('service')==runner for b in actual.get('bindings',[])):raise ValueError('Sync callback binding not confirmed')
-        private(self.client,worker)
-        if self.mode=='separate':schedule(self.client,self.targets['executor'],['* * * * *'])
-        self.log('AUX-ACTIVE','同步执行模式已配置 / Sync execution mode configured',mode=self.mode)
+        self.activation_stage='callback';self.callback_confirmed=False
+        self.cron_status='not_confirmed' if self.mode=='separate' else 'not_required'
+        self.log('AUX-ACTIVATE','开始发布收尾 / Activate companions',worker=worker,
+                 binding='SYNC_RUNNER',expected_service=runner,mode=self.mode)
+        try:
+            settings=self.client.request('GET',worker,'/settings');owned(settings,self.main,'native')
+            if not callback(settings,runner):
+                path,info=self.native_artifact
+                payload=payload_with_secret(path,info,self.main,'native',self.key,self.client.migration_tag(worker),runner=runner)
+                self.client.request('PUT',worker,body=payload,content_type=info['content_type'])
+                def read():
+                    actual=self.client.request('GET',worker,'/settings')
+                    owned(actual,self.main,'native')
+                    return actual
+                self.confirm(worker,read,lambda actual:callback(actual,runner),callback_view,'AUX-CALLBACK-CHECK')
+            self.callback_confirmed=True
+            self.log('AUX-CALLBACK-READY','回调绑定已确认 / Callback confirmed',worker=worker,service=runner)
+            self.activation_stage='private_access';private(self.client,worker)
+            if self.mode=='separate':
+                self.activation_stage='executor_cron';target=self.targets['executor']
+                owned(self.client.request('GET',target,'/settings'),self.main,'executor')
+                self.client.request('PUT',target,'/schedules',[{'cron':'* * * * *'}])
+                self.cron_status='written_unconfirmed'
+                self.confirm(target,lambda:self.client.request('GET',target,'/schedules'),
+                    lambda value:isinstance(value,dict) and sorted(x.get('cron','') for x in value.get('schedules',[]))==['* * * * *'],
+                    lambda value:[str(x.get('cron',''))[:128] for x in value.get('schedules',[])], 'AUX-CRON-CHECK')
+                self.cron_status='confirmed'
+            self.activation_stage='completed'
+            self.log('AUX-ACTIVE','同步执行模式已配置 / Sync execution mode configured',mode=self.mode,cron_status=self.cron_status)
+        except Exception as exc:
+            self.log('AUX-ACTIVATION-INCOMPLETE','主站部署已返回成功，辅助收尾未完成；重跑部署恢复 / Main deploy returned success; rerun to finish activation',
+                     stage=self.activation_stage,worker=worker,expected_service=runner,
+                     callback_confirmed=self.callback_confirmed,executor=self.targets.get('executor'),
+                     executor_cron=self.cron_status,error_type=type(exc).__name__)
+            raise
