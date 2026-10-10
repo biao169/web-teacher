@@ -1,0 +1,33 @@
+✔ independent tasks initializes without hidden page requests (269.775745ms)
+✔ independent create initializes without hidden page requests (90.058281ms)
+✔ independent schedules initializes without hidden page requests (49.654849ms)
+✔ independent connection initializes without hidden page requests (63.15278ms)
+✔ independent settings initializes without hidden page requests (49.988046ms)
+✔ manual task success and authorization failure show modal with task or request ID (89.341716ms)
+✔ probe displays authorization warning independently of connection success (49.995516ms)
+✔ key generation and save never place key in operation log (70.603296ms)
+✔ shared confirmation cancel sends no mutation and renders text only (47.071639ms)
+✔ push and schedule submission use the same result dialog (147.672055ms)
+✔ completed detail separates history; polling only requests summary even when expanded (79.638463ms)
+✔ detail 503 is local to details and does not stop summary refresh (87.226347ms)
+✔ schedule origin appears only when supplied and remains text (156.181768ms)
+(node:147) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ delayed current-page batches are serial, bounded20, separated200ms (140.007992ms)
+✔ dispose aborts and ignores late response (25.212144ms)
+✔ pagehide aborts and ignores late response (31.281325ms)
+✔ refresh aborts and ignores late response (20.563242ms)
+✔ search aborts and ignores late response (20.209675ms)
+✔ sort aborts and ignores late response (24.691781ms)
+✔ leave aborts and ignores late response (29.933924ms)
+(node:148) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ locations are click-only, single-flight, and ignore late dismissed responses (71.478286ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1793.802704

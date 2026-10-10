@@ -1,7 +1,45 @@
 /** Read-only paged source panel; late responses never reopen a dismissed dialog. */
 import {requestJSON} from './native-http.js';
+import {adminFetch} from './native-access.js?v=0.15.28';
 export function setupMediaLocations(root){
  const events=new AbortController();let dialog=null,sequence=0,pending=false;
+ let disposed=root.dataset.mediaUsageStopped==='true',timer=null,deadline=null,controller=null;
+ const initialURL=location.href;
+ const anchors=[...root.querySelectorAll('[data-media-locations]')];
+ function stop(){disposed=true;clearTimeout(timer);clearTimeout(deadline);controller?.abort();controller=null;}
+ const valid=()=>!disposed&&root.isConnected&&location.href===initialURL;
+ function paint(anchor,text){if(valid()&&root.contains(anchor)){const cell=anchor.querySelector('[data-media-usage-summary]');if(cell)cell.textContent=text;}}
+ function summary(item){
+  if(!item)return '未找到媒体；点击查看';
+  const parts=(item.groups||[]).map(g=>g.label+' ×'+g.count);
+  if(item.protected)parts.push('包含受保护引用');
+  if(item.uncertain)parts.push('引用需进一步核对');
+  return parts.join('；')||(item.used?'已使用':'未使用');
+ }
+ async function batch(offset){
+  if(!valid())return stop();
+  const current=anchors.slice(offset,offset+20);if(!current.length)return;
+  current.forEach(a=>paint(a,'读取中…'));controller=new AbortController();
+  const active=controller;deadline=setTimeout(()=>active.abort(),15000);
+  try{
+   const params=new URLSearchParams();current.forEach(a=>params.append('uid',a.dataset.mediaLocations));
+   const response=await adminFetch('/api/admin/media/usage-summaries?'+params,{headers:{Accept:'application/json'},signal:active.signal});
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const data=await response.json();if(!valid())return;
+   current.forEach(a=>paint(a,summary(data.items?.[a.dataset.mediaLocations])));
+  }catch(error){if(valid())current.forEach(a=>paint(a,'读取失败；点击查看'));}
+  finally{clearTimeout(deadline);if(controller===active)controller=null;}
+  if(valid()&&offset+20<anchors.length)timer=setTimeout(()=>batch(offset+20),200);
+ }
+ const on=(node,name,fn)=>node.addEventListener(name,fn,{signal:events.signal});
+ on(window,'pagehide',stop);
+ on(root,'native-list-loading',stop);
+ on(root,'submit',stop);
+ root.addEventListener('click',e=>{if(e.target.closest('[data-column-sort],.native-popover button'))stop();},{capture:true,signal:events.signal});
+ on(root,'input',e=>{if(e.target.matches('#search,[name="q"]'))stop();});
+ on(root,'change',e=>{if(e.target.matches('[data-page-size],select[name],input[name^="f."]'))stop();});
+ on(document,'click',e=>{const a=e.target.closest('a[href]');if(!a||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||a.target==='_blank'||a.hasAttribute('download')||a.matches('[data-media-locations]'))return;const url=new URL(a.href,location.href);if(url.pathname!==location.pathname||url.search!==location.search)stop();});
+ timer=setTimeout(()=>batch(0),1000);
  function close(){sequence++;dialog?.close();dialog?.remove();dialog=null}
  root.addEventListener('click',event=>{
   const anchor=event.target.closest('[data-media-locations]');if(!anchor||!root.contains(anchor)||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
@@ -21,5 +59,5 @@ export function setupMediaLocations(root){
   current.addEventListener('close',()=>{if(dialog===current){sequence++;dialog=null}current.remove();if(anchor.isConnected)anchor.focus()},{once:true});
   document.body.append(current);current.showModal();load('/api/admin/media/'+encodeURIComponent(anchor.dataset.mediaLocations)+'/locations');
  },{signal:events.signal});
- return ()=>{events.abort();close()};
+ return ()=>{stop();events.abort();close()};
 }

@@ -13,7 +13,7 @@
 {% if col=='__preview' %}
 {{ thumbnail(row) }}
 {% elif col=='__usage' %}
-<a class="native-cell native-media-usage" href="/admin/media/{{ row.uid }}/inspect#media-usage" data-media-locations="{{ row.uid }}" title="点击后读取此文件的引用统计和使用位置；未查询不代表未使用">点击查看</a>
+<a class="native-cell native-media-usage" href="/admin/media/{{ row.uid }}/inspect#media-usage" data-media-locations="{{ row.uid }}" title="自动读取当前页摘要；点击查看完整使用位置"><span data-media-usage-summary>待读取</span></a>
 {% endif %}
 {% endmacro %}
 

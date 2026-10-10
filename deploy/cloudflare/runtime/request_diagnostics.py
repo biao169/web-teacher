@@ -43,7 +43,7 @@ def traced(component,http=False):
                                 upstream_component=result.headers.get('x-teacher-component')
                                 if upstream_component:result.headers.set('x-upstream-component',upstream_component)
                                 result.headers.set('x-teacher-component',component)
-                                result.headers.set('x-teacher-release','0.16.062')
+                                result.headers.set('x-teacher-release','0.16.063')
                     record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='returned')
                     return result
                 except BaseException as exc:

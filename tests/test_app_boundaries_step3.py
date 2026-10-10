@@ -22,7 +22,7 @@ def test_full_route_inventory_matches_parent():
         for route in expected:
             if route[0] in ('/{lang}','/{lang}/{table}','/{lang}/{table}/{uid}','/{lang}/n/{nav}','/{lang}/n/{nav}/{uid}'):
                 route[1]=['GET','HEAD']
-        expected=sorted(expected+[['/api/public/cache-revision',['GET']]])
+        expected=sorted(expected+[['/api/public/cache-revision',['GET']],['/api/admin/media/usage-summaries',['GET']]])
         assert json.loads(json.dumps(actual))==expected
 
 

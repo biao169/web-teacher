@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from .catalog import now
 
 # Bump with releases that change public rendering, even if the DB revision is unchanged.
-REPRESENTATION_VERSION='0.16.062'
+REPRESENTATION_VERSION='0.16.063'
 _TAG=re.compile(r'(?:W/)?"[\x21\x23-\x7e\x80-\xff]*"')
 
 def matches_etag(value,etag):

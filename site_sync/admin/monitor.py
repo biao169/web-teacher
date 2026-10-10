@@ -1,6 +1,6 @@
 """Read-only monitor projections; no runtime, clone, media or event traversal."""
 import json
-FIELDS='task_id,peer_id,status,phase,progress_seq,no_progress_count,total_errors,last_dispatched_at,last_progress_at,next_run_at,created_at,mode,auto_confirm,cancel_intent,delete_requested,lease_until,fast_retries'
+FIELDS='task_id,peer_id,status,phase,progress_seq,no_progress_count,total_errors,last_dispatched_at,last_progress_at,next_run_at,created_at,mode,auto_confirm,cancel_intent,delete_requested,lease_until,fast_retries,operation_id'
 VIEWS={'running':('running',),'waiting':('ready','waiting','cancel_requested'),'paused':('paused',),'history':('done','cancelled'),'active':('ready','running','waiting','paused','cancel_requested')}
 def query(grant,view,cursor,limit):
     if view not in (*VIEWS,'all'):raise ValueError('Invalid task view')
@@ -36,3 +36,16 @@ def event(row):
         if not isinstance(value['detail'],dict):raise ValueError('event object')
     except (ValueError,TypeError):value['detail']={'diagnostic_unavailable':True}
     return value
+
+
+def source_schedule_id(task):
+    """Parse persisted scheduler identity without lookups; malformed legacy data is absent."""
+    if not isinstance(task,dict) or task.get('mode')!='scheduled':return None
+    value=task.get('operation_id')
+    if not isinstance(value,str) or len(value)>512:return None
+    parts=value.split(':')
+    if len(parts)!=4 or parts[0]!='auto':return None
+    _,schedule,revision,when=parts
+    if not schedule or not revision or not when.isascii() or not when.isdecimal():return None
+    if any(c.isspace() or ord(c)<32 or ord(c)==127 for c in schedule+revision):return None
+    return schedule

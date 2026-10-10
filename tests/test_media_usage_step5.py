@@ -18,7 +18,7 @@ def test_list_does_not_compute_usage_but_locations_does(fixture):
             assert response.status_code==200
         assert calls==[]
         response=client.get('/admin/media_assets')
-        assert '点击查看' in response.text
+        assert '待读取' in response.text
         assert '○ 暂未使用' not in response.text
         response=client.get('/api/admin/media/'+row['uid']+'/locations')
         assert response.status_code==200,response.text

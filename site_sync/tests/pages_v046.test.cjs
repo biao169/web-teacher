@@ -135,3 +135,13 @@ test('detail 503 is local to details and does not stop summary refresh',async()=
   assert.deepEqual(f.calls.slice(start).map(x=>new URL(x.url).pathname),['/admin/site-sync/api/status-summary']);
  }finally{f.close();}
 });
+test('schedule origin appears only when supplied and remains text',async()=>{
+ for(const source of [undefined,'hourly-pull','<img src=x onerror=alert(1)>']){
+  const monitor=terminalFixture();if(source)monitor.items[0].source_schedule_id=source;
+  const f=await setup('tasks',monitor);try{
+   const cell=f.w.document.querySelector('[data-tasks] .sync-id');
+   if(source)assert.ok(cell.textContent.includes('来源定时任务：'+source));else assert.ok(!cell.textContent.includes('来源'));
+   assert.equal(cell.querySelector('img'),null);
+  }finally{f.close();}
+ }
+});

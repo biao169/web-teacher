@@ -1,4 +1,4 @@
-from .monitor import query as summary_query,state as monitor_state,event as monitor_event
+from .monitor import query as summary_query,state as monitor_state,event as monitor_event,source_schedule_id
 from site_sync.core.selection import is_restore,normalize,selected_tables,visible_scopes,descriptions
 from site_sync.core.receiver import create_receiver,selection,validate as receiver_validate
 from site_sync.core.input_errors import InputError
@@ -78,6 +78,11 @@ class Admin:
         with step('load-task-summary'):
             rows=await self.db.query(sql,args)
         more=len(rows)>limit;rows=rows[:limit]
+        rows=[dict(row) for row in rows]
+        for row in rows:
+            source=source_schedule_id(row)
+            row.pop('operation_id',None)
+            if source is not None:row['source_schedule_id']=source
         annotate(task_count=len(rows))
         return {'items':rows,'cursor':[rows[-1]['created_at'],rows[-1]['task_id']] if more else None,'has_more':more,'server_time':self.clock()}
 

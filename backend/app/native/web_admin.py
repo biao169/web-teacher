@@ -506,6 +506,15 @@ def install(app,factory,resources,csrf,render,*,lazy_sync=False):
             """引用页码链接保留当前来源分组。"""
             return request.url.path+'?'+urlencode({'source':source or locations['source'],'page':page})+'#media-usage'
         return await render(r,'admin/native-media-detail.html','media_assets','媒体预览与使用位置',row=row,usage=usage,locations=locations,page_url=page_url,permissions=r.p['permissions']['media_assets'])
+    @app.get('/api/admin/media/usage-summaries')
+    async def media_usage_summaries(request:Request):
+        r=await resources(request);r.auth.require(r.p,'media_assets')
+        uids=request.query_params.getlist('uid')
+        if not 1<=len(uids)<=20 or any(not u or len(u)>128 for u in uids):
+            raise Error('每批需要1至20个有效媒体UID',400)
+        uids=list(dict.fromkeys(uids))
+        rows=await r.sql.query('SELECT uid,object_key FROM media_assets WHERE uid IN ('+','.join('?' for _ in uids)+') LIMIT 20',uids)
+        return JSONResponse({'items':await r.media.references.summaries(r.p,rows)},headers={'Cache-Control':'no-store'})
     @app.get('/api/admin/media/{uid}/locations')
     async def media_locations(request:Request,uid:str):
         """列表内分页读取真实使用位置，每次重新校验媒体与来源权限。"""

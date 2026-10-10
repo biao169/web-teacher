@@ -7,7 +7,7 @@ test('locations are click-only, single-flight, and ignore late dismissed respons
  const w=dom.window;w.HTMLDialogElement.prototype.showModal=function(){};
  w.HTMLDialogElement.prototype.close=function(){this.dispatchEvent(new w.Event('close'))};
  const context=dom.getInternalVMContext();let calls=0,resolve;
- const http=new vm.SyntheticModule(['requestJSON'],function(){this.setExport('requestJSON',()=>{calls++;return new Promise(r=>resolve=r)})},{context});
+ const http=new vm.SyntheticModule(['requestJSON','adminFetch'],function(){this.setExport('adminFetch',()=>{throw Error('unexpected auto request')});this.setExport('requestJSON',()=>{calls++;return new Promise(r=>resolve=r)})},{context});
  const module=new vm.SourceTextModule(fs.readFileSync('frontend/admin/static/js/native-media-locations.js','utf8'),{context});
  await module.link(()=>http);await module.evaluate();
  const dispose=module.namespace.setupMediaLocations(w.document.querySelector('main'));
