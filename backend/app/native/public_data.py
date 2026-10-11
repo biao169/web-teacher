@@ -66,7 +66,7 @@ async def public_listing(r,table,query,site=None,home=False,profile_overview=Fal
     q['sort']=default;q['direction']='desc' if q.get('direction')=='desc' else 'asc'
     projection=[f for f in PUBLIC_FIELDS[table] if f in TABLES[table]['columns']]
     if table=='profiles' and not profile_overview:
-        projection=[f for f in projection if f!='recruiting']
+        projection=[f for f in projection if f not in ('recruiting','is_featured','sort_order')]
     # The principal is freshly resolved by resources() for every HTTP request.
     if table=='projects' and (getattr(r,'public_components',False) or not project_private_allowed(getattr(r,'p',None))):
         projection=[f for f in projection if f not in ('principal','amount','members')]

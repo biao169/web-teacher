@@ -3,7 +3,7 @@ const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
 const read=name=>fs.readFileSync(path.join(__dirname,'../frontend/public/static/js',name),'utf8');
 const card=id=>`<article data-person-card data-record-id="${id}"><input type="checkbox" data-person-select hidden><p data-copy-field>Record ${id}</p></article>`;
 const facet=(field='venue')=>`<div data-person-facet data-field="${field}" data-facet-label="期刊/会议" data-page="1"><select name="f.${field}" id="filter-${field}" aria-label="期刊/会议"><option value="">期刊/会议 · 全部</option><option value="Alpha">Alpha</option><option value="Beta">Beta Long international journal title with spaces and 中文</option></select><button type="button" data-facet-trigger hidden aria-haspopup="listbox" aria-expanded="false"><span class="facet-width-sample">期刊/会议 · 全部</span><span class="facet-current"></span><svg></svg></button><button type="button" data-facet-more hidden>More</button></div>`;
-function fixture(t,{script=true,stream=false,selectValue='',html=null}={}){
+function fixture(t,{script=true,stream=false,selectValue='',html=null,deferred=false}={}){
  const form=`<form data-person-form><input name="q" value=""><div data-person-selection hidden><input type="checkbox" data-person-all><span data-person-count></span><button type="button" data-person-copy>Copy</button><button type="button" data-person-clear>Clear</button></div>${facet()}${facet('publication_type')}<label><input type="radio" name="direction" value="asc" checked>Asc</label><label><input type="radio" name="direction" value="desc">Desc</label><span data-person-total>20 条结果</span><button type="submit">Apply</button><a href="/zh/publications" data-person-reset>Reset</a><span data-person-tool-status></span></form>`;
  const section=`<section data-public-stream data-public-content data-table="publications" data-home="0" data-lang="zh" data-page="1" data-total="20" data-next="/zh/publications?sort=sort_order&direction=asc&page=2"><div data-stream-items>${card('a')}</div><div data-stream-controls><a data-load-more>More</a><a data-page-fallback>Page</a><span data-stream-status></span></div></section>`;
  const dom=new JSDOM(html??form+section,{url:'https://site.example/zh/publications?page=3&q=old',runScripts:'outside-only',pretendToBeVisual:true});t.after(()=>dom.window.close());const w=dom.window,$=s=>w.document.querySelector(s),requests=[];
@@ -12,6 +12,7 @@ function fixture(t,{script=true,stream=false,selectValue='',html=null}={}){
  w.fetch=(url,opts)=>new Promise((resolve,reject)=>requests.push({url,opts,resolve,reject}));
  w.navigator.clipboard={writeText:async()=>{}};
  if(selectValue)$('select').value=selectValue;
+ if(deferred)for(const f of w.document.querySelectorAll('[data-person-facet]')){f.dataset.page='0';f.dataset.facetDeferred='1';}
  if(script){if(stream)w.eval(read('public-stream.js'));w.eval(read('public-people.js'));w.eval(read('public-filters.js'));}
  const key=(el,key,extra={})=>el.dispatchEvent(new w.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,...extra}));
  const tick=()=>new Promise(r=>setTimeout(r,0));
@@ -35,15 +36,15 @@ test('candidate panel fits a narrow short viewport and keeps complete option tex
  const f=fixture(t);f.$('[data-facet-trigger]').click();const panel=f.$('.facet-panel'),rect=panel.getBoundingClientRect();assert.ok(parseFloat(panel.style.left)>=12);assert.ok(parseFloat(panel.style.left)+rect.width<=308);assert.ok(parseFloat(panel.style.top)+rect.height<=188);assert.match(panel.textContent,/Long international journal title with spaces and 中文/);
 });
 test('paged candidates preserve value/selection, append safely, announce and keep focus after last page',async t=>{
- const f=fixture(t,{selectValue:'Alpha'});f.$('[data-person-all]').click();f.$('[data-facet-trigger]').click();const more=f.$('[data-facet-more]');more.focus();more.click();more.click();assert.equal(f.requests.length,1);assert.match(f.requests[0].url,/facets\/venue\?page=2/);
+ const f=fixture(t,{selectValue:'Alpha'});f.$('[data-person-all]').click();f.$('[data-facet-trigger]').click();const more=f.$('[data-facet-more]');more.focus();more.click();more.click();await f.tick();assert.equal(f.requests.length,1);assert.match(f.requests[0].url,/facets\/venue\?page=2/);
  f.respond(0,{table:'publications',field:'venue',page:2,values:['Alpha','Gamma','<script>literal</script>'],has_more:false});await f.tick();assert.equal(f.$('select').value,'Alpha');assert.equal(f.$('select').options.length,5);assert.equal(f.$('.facet-panel script'),null);assert.equal(f.$('[data-person-all]').checked,true);assert.equal(f.w.document.activeElement,f.$('[role=listbox]'));assert.match(f.$('.facet-status').textContent,/已更新/);
 });
 test('facet failure stays on same page and retries from popup without clearing current values',async t=>{
- const f=fixture(t,{selectValue:'Alpha'});f.$('[data-facet-trigger]').click();f.$('[data-facet-more]').click();f.requests[0].reject(new Error('offline'));await f.tick();assert.equal(f.$('[data-person-facet]').dataset.page,'1');assert.equal(f.$('select').value,'Alpha');assert.match(f.$('.facet-status').textContent,/失败/);f.$('[data-facet-more]').click();assert.equal(f.requests[1].url,f.requests[0].url);f.requests[1].reject(new Error('offline'));await f.tick();
+ const f=fixture(t,{selectValue:'Alpha'});f.$('[data-facet-trigger]').click();f.$('[data-facet-more]').click();await f.tick();f.requests[0].reject(new Error('offline'));await f.tick();assert.equal(f.$('[data-person-facet]').dataset.page,'1');assert.equal(f.$('select').value,'Alpha');assert.match(f.$('.facet-status').textContent,/失败/);f.$('[data-facet-more]').click();await f.tick();assert.equal(f.requests[1].url,f.requests[0].url);f.requests[1].reject(new Error('offline'));await f.tick();
 });
 test('changing sort submits from first batch and cancels late candidate/list responses',async t=>{
  const f=fixture(t,{stream:true});let submissions=0;f.$('form').addEventListener('submit',e=>{e.preventDefault();submissions++;});
- f.$('[data-person-all]').click();f.$('[data-load-more]').click();f.$('[data-facet-trigger]').click();f.$('[data-facet-more]').click();assert.equal(f.requests.length,2);
+ f.$('[data-person-all]').click();f.$('[data-load-more]').click();f.$('[data-facet-trigger]').click();f.$('[data-facet-more]').click();await f.tick();assert.equal(f.requests.length,2);
  f.$('input[value=desc]').click();assert.equal(submissions,1);assert.equal(f.$('[data-person-all]').checked,false);assert.ok(f.requests.every(r=>r.opts.signal.aborted));assert.equal(new f.w.FormData(f.$('form')).has('page'),false);assert.equal(new f.w.FormData(f.$('form')).get('direction'),'desc');
  f.respond(0,{table:'publications',lang:'zh',home:false,page:2,total:20,html:card('late'),next_url:''});f.respond(1,{table:'publications',field:'venue',page:2,values:['LATE_OPTION'],has_more:false});await f.tick();assert.equal(f.$('[data-record-id=late]'),null);assert.equal([...f.$('select').options].some(o=>o.value==='LATE_OPTION'),false);
 });
@@ -59,4 +60,21 @@ test('reading-size change repositions an open facet without losing its selection
  trigger.getBoundingClientRect=()=>({left:10,right:100,top:30,bottom:60,width:90,height:30});
  f.w.document.dispatchEvent(new f.w.Event('public-reading-change'));
  assert.notEqual(panel.style.top,before);assert.equal(panel.hidden,false);assert.equal(f.$('select').value,'Alpha');assert.equal(f.requests.length,0);
+});
+
+test('deferred facets wait for open, serialize and do not reload on reopen',async t=>{
+ const f=fixture(t,{deferred:true});assert.equal(f.requests.length,0);
+ const triggers=f.w.document.querySelectorAll('[data-facet-trigger]');
+ triggers[0].click();triggers[1].click();await f.tick();assert.equal(f.requests.length,1);
+ f.respond(0,{table:'publications',field:'venue',page:1,values:['Gamma'],has_more:false});await f.tick();
+ assert.equal(f.requests.length,2);
+ f.respond(1,{table:'publications',field:'publication_type',page:1,values:[],has_more:false});await f.tick();
+ triggers[0].click();await f.tick();assert.equal(f.requests.length,2);
+});
+test('pagehide cancels active facet and discards queued facets',async t=>{
+ const f=fixture(t,{deferred:true}),triggers=f.w.document.querySelectorAll('[data-facet-trigger]');
+ triggers[0].click();triggers[1].click();await f.tick();
+ f.w.dispatchEvent(new f.w.Event('pagehide'));assert.equal(f.requests[0].opts.signal.aborted,true);
+ f.respond(0,{table:'publications',field:'venue',page:1,values:['Late'],has_more:false});await f.tick();
+ assert.equal(f.requests.length,1);assert.ok(!f.$('select').textContent.includes('Late'));
 });

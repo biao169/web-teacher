@@ -195,11 +195,22 @@
   form.querySelector('[data-person-reset]').addEventListener('click',navigate);
   root.querySelector('[data-stream-controls]')?.addEventListener('click',event=>{const link=event.target.closest('a');if(link&&!link.matches('[data-load-more]'))navigate(event);});
   form.addEventListener('change',event=>{if(event.target.matches('[name="direction"]'))form.requestSubmit();});
+  let facetQueue=Promise.resolve(),facetStopped=false,facetGeneration=0;
+  const stopFacets=()=>{facetStopped=true;facetGeneration++;};
+  window.addEventListener('pagehide',stopFacets);
+  document.addEventListener('teacher:navigation-start',stopFacets);
+  form.addEventListener('submit',stopFacets);
+  window.addEventListener('pageshow',()=>{facetStopped=false;});
   for(const facet of form.querySelectorAll('[data-person-facet]')){
     const button=facet.querySelector('[data-facet-more]');if(!button)continue;
-    button.hidden=false;
-    button.addEventListener('click',async()=>{
-      if(button.disabled)return;button.disabled=true;
+    const deferred=facet.dataset.facetDeferred==='1';
+    button.hidden=deferred;
+    let initialRequested=false;
+    const load=()=>{
+      if(button.disabled||facetStopped)return;button.disabled=true;
+      const generation=facetGeneration;
+      facetQueue=facetQueue.then(async()=>{
+      if(facetStopped||generation!==facetGeneration){button.disabled=false;initialRequested=false;return;}
       facet.dispatchEvent(new CustomEvent('public:facet-status',{detail:say('正在读取选项…','Loading options…')}));
       const controller=new AbortController();requests.add(controller);const timer=setTimeout(()=>controller.abort(),15000);
       const page=Number(facet.dataset.page)+1;
@@ -215,9 +226,13 @@
         facet.dataset.page=String(page);button.hidden=!result.has_more;
         select.dispatchEvent(new Event('public:facet-options'));
         status.textContent=say('分类选项已更新。','Filter options updated.');
-      }catch(_){if(!controller.signal.aborted)status.textContent=say('分类选项读取失败，请重试。','Could not load filter options. Please retry.');}
-      finally{clearTimeout(timer);requests.delete(controller);button.disabled=false;facet.dispatchEvent(new CustomEvent('public:facet-status',{detail:controller.signal.aborted?'':status.textContent}));}
-    });
+      }catch(_){if(!controller.signal.aborted){button.hidden=false;status.textContent=say('分类选项读取失败，请重试。','Could not load filter options. Please retry.');}}
+      finally{clearTimeout(timer);requests.delete(controller);button.disabled=false;if(controller.signal.aborted&&facet.dataset.page==='0')initialRequested=false;facet.dispatchEvent(new CustomEvent('public:facet-status',{detail:controller.signal.aborted?'':status.textContent}));}
+      });
+    };
+    button.addEventListener('click',load);
+    facet.addEventListener('public:facet-open',()=>{if(deferred&&!initialRequested){initialRequested=true;load();}});
+    facet.querySelector('select').addEventListener('focus',()=>{if(deferred&&!initialRequested){initialRequested=true;load();}});
   }
   root.addEventListener('click',async event=>{
     const button=event.target.closest('[data-person-expand]');if(!button)return;

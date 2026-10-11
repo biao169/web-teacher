@@ -42,6 +42,7 @@
     if(opened===s){active(s,Math.min(s.active,s.options.length-1));position(s);}
   }
   function open(s,last=false){
+    s.host.dispatchEvent(new Event('public:facet-open'));
     close();opened=s;s.panel.hidden=false;s.trigger.setAttribute('aria-expanded','true');
     position(s);if(opened!==s)return;
     s.list.focus({preventScroll:true});active(s,last?s.options.length-1:s.select.selectedIndex);

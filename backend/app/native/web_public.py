@@ -230,7 +230,7 @@ def install(app,factory,resources,csrf,render):
             return target+'?'+urlencode(params)
 
         values={'public_shared':getattr(r,'public_shared',False),'public_components':getattr(r,'public_components',False),'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'public_nav_prefetch_concurrency':r.public_performance.public_nav_prefetch_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
-                'media_map':media_map,'pages':pages,'home_pages':home_pages,'home_mode':home_mode,'public_options':site_options,
+                'media_map':media_map,'pages':pages,'home_pages':home_pages,'home_mode':home_mode,'public_options':site_options,'site_options':site_options,
                 'page_url':lambda p:query_url(list_path,(pages['query'] if pages else {})|{'page':p}|({'nv':scope['stamp']} if scope else {})),
                 'public_list_path':list_path,'public_scope':scope,
                 'public_language_urls':{code:language_url(code) for code in ('zh','en')},
@@ -244,8 +244,11 @@ def install(app,factory,resources,csrf,render):
                                  'query_id':pages['query_id'],'nav':scope['slug'] if scope else '', 'nav_stamp':scope['stamp'] if scope else ''},headers=public_headers(request,r,public_revision,fragment=True))
             response.headers['X-Public-Page-Cache']='BYPASS'
             return finish(request,response,etag)
-        from .public_data import people_facets
-        values['people_facets']=await people_facets(r.content,table,fixed_conditions=fixed,lang=lang,query=query) if table and not uid else []
+        from .public_data import people_facets,PEOPLE_FACETS
+        if table and not uid and r.kind!='local':
+            values['people_facets']=[{'field':f,'label':zh,'label_en':en,'values':[],'labels':{},'has_more':False,'deferred':True} for f,zh,en in PEOPLE_FACETS.get(table,())]
+        else:
+            values['people_facets']=await people_facets(r.content,table,fixed_conditions=fixed,lang=lang,query=query) if table and not uid else []
         # Canonicalize default list controls; retain meaningful paging/filter state.
         seo_query=dict(query)
         for key,default in (('page','1'),('size','10'),('direction','asc')):

@@ -1,3 +1,7 @@
+## v0.16.095 Public 冷路径减负
+
+复用站点设置，Worker筛选项改为用户打开后串行加载；Linux保留SSR。见[修改与验收](docs/releases/v0.16.095.md)。
+
 ## v0.16.094 锁文件修复
 
 统一 Worker manifest 与 uv.lock 项目版本，保留 --locked，并在构建检查时提前检验版本一致性。见[修复说明](docs/releases/v0.16.094.md)。
