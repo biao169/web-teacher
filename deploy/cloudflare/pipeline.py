@@ -1,3 +1,4 @@
+from integration_package import entrypoint_source
 """Stage/release a Worker in one disposable directory outside the checkout."""
 from contextlib import contextmanager
 import json
@@ -158,7 +159,7 @@ def execute(command, runner, log, *, report_path=None):
             shutil.move(str(stage/name), str(stage/'src'/name))
         shutil.copytree(HERE/'runtime', stage/'src/worker_runtime',
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-        (stage/'src/main.py').write_text('from worker_runtime.entrypoint import Default, PublicPage, TransferCoordinator\n', encoding='utf-8')
+        (stage/'src/main.py').write_text(entrypoint_source(), encoding='utf-8')
         cfg = json.loads((stage/'wrangler.jsonc').read_text())
         cfg['main'] = 'src/main.py'
         from domains import apply as apply_domains

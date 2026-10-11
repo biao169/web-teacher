@@ -4,6 +4,21 @@ import shutil
 from pathlib import Path
 
 
+WORKER_EXPORTS=('Default','PublicPage','TransferCoordinator')
+
+def entrypoint_source():
+    return 'from worker_runtime.entrypoint import '+', '.join(WORKER_EXPORTS)+'\n'
+
+def verify_entrypoint(path):
+    import ast
+    tree=ast.parse(path.read_text(encoding='utf-8'))
+    found={alias.name for node in tree.body if isinstance(node,ast.ImportFrom)
+           and node.module=='worker_runtime.entrypoint' and node.level==0
+           for alias in node.names if alias.asname in (None,alias.name)}
+    missing=set(WORKER_EXPORTS)-found
+    if missing:raise ValueError('Missing Python Worker exports: '+', '.join(sorted(missing)))
+
+
 def extend(root, stage, config):
     from resource_module import generate
     generate(root, stage)
@@ -58,8 +73,7 @@ def verify(root, stage, config):
         raise ValueError('Missing transfer cleanup schedule')
     if not {'/setup','/transfer','/transfer/*','/admin/*','/api/*'}.issubset(config.get('assets',{}).get('run_worker_first',[])):
         raise ValueError('Private/application routes must reach Worker first')
-    if (stage/'src/main.py').read_text().strip() != 'from worker_runtime.entrypoint import Default, TransferCoordinator':
-        raise ValueError('Missing Python Worker exports')
+    verify_entrypoint(stage/'src/main.py')
     for source in (root/'transfer/backend').rglob('*.py'):
         target=stage/'src'/source.relative_to(root)
         if not target.is_file() or target.read_bytes()!=source.read_bytes():

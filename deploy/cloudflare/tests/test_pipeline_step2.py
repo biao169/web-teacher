@@ -1,3 +1,4 @@
+from integration_package import entrypoint_source
 """Temporary packaging and immutable source, settings and lock validation."""
 import importlib.util
 import json
@@ -76,7 +77,7 @@ class PipelineTests(unittest.TestCase):
             config=json.loads((stage/'wrangler.json').read_text());config['main']='src/main.py'
             from integration_package import extend
             extend(pipeline.ROOT,stage,config)
-            (stage/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n')
+            (stage/'src/main.py').write_text(entrypoint_source())
             (stage/'wrangler.jsonc').write_text(json.dumps(config))
             self.assertEqual(pipeline.verify_stage(stage)['name'],'teacher-site')
             target=stage/'src/backend/app/config.py';target.write_text('changed')

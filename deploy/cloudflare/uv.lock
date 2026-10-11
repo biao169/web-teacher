@@ -395,7 +395,7 @@ wheels = [
 
 [[package]]
 name = "teacher-site-worker"
-version = "0.16.091"
+version = "0.16.092"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },

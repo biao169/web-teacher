@@ -1,3 +1,4 @@
+from integration_package import entrypoint_source
 """Website role packaging. Independent of synchronization protocol packaging."""
 import ast,copy,hashlib,json
 from pathlib import Path
@@ -30,7 +31,7 @@ def extend(root,stage,cfg,env=None):
     disabled={'disable_request_signal','no_request_signal_passthrough'}
     cfg['compatibility_flags']=list(dict.fromkeys([f for f in cfg['compatibility_flags'] if f not in disabled]+['enable_request_signal','request_signal_passthrough']))
     src=stage/'src'
-    (src/'main.py').write_text('from worker_runtime.entrypoint import Default, PublicPage, TransferCoordinator\n')
+    (src/'main.py').write_text(entrypoint_source())
     (src/'worker_runtime/site_mode.py').write_text('SYNC_EXECUTOR_MODE = '+repr(cfg.get('vars',{}).get('TEACHER_SYNC_EXECUTOR_MODE','inline'))+'\n')
     values=literals(src/'generated_resources.py');templates=values['TEMPLATES']
     (src/'generated_public_recovery.py').write_text('HTML = '+repr(templates.pop('public/public-recovery.html'))+'\n')

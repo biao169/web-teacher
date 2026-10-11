@@ -1,3 +1,4 @@
+from integration_package import entrypoint_source
 """Release configuration gates and bundled-template main-site regression."""
 import asyncio
 import json
@@ -82,7 +83,7 @@ def stage(tmp_path):
     for name in ('main.py','backend','site_sync','generated_native_resources.py','generated_resources.py'):shutil.move(str(out/name),str(out/'src'/name))
     cfg=json.loads((out/'wrangler.json').read_text());cfg['main']='src/main.py'
     extend(ROOT,out,cfg)
-    (out/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n')
+    (out/'src/main.py').write_text(entrypoint_source())
     (out/'wrangler.jsonc').write_text(json.dumps(cfg))
     return out,cfg
 
