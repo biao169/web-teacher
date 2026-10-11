@@ -1,4 +1,4 @@
-/* One navigation per failure. No fetch loop, storage, cache purge or background job. */
+/* One automatic fetch per failure document; failed attempts never navigate. */
 (() => {
   'use strict';
   const card = document.querySelector('[data-public-recovery]');
@@ -18,25 +18,49 @@
   const en = document.documentElement.lang === 'en';
   const helper = card.ownerDocument.querySelector('[data-recovery-helper]');
   let drag = null, helperMounted = false;
-  let timer = null, disposed = false, sent = false;
+  let timer = null, disposed = false, sent = false, controller = null, timeout = null;
   const stop = () => { if (timer !== null) clearTimeout(timer); timer = null; };
   const stopped = () => {
     status.textContent = en ? 'Automatic retry stopped' : '自动重试已停止';
     message.textContent = en ? 'Please use Reload when you are ready.' : '您可以在准备好后点击重新加载。';
   };
-  const send = () => {
+  const send = async () => {
     if (disposed || sent) return;
     stop(); sent = true;
     const url = new URL(location.href);
     url.searchParams.set('__recover', '1');
     status.textContent = en ? 'Loading fresh content…' : '正在加载最新内容…';
-    location.replace(url.pathname + url.search + url.hash);
+    controller = new AbortController();
+    timeout = setTimeout(() => controller?.abort(), 15000);
+    try {
+      const result = await fetch(url.pathname + url.search, {cache:'no-store',credentials:'same-origin',redirect:'error',headers:{Accept:'text/html'},signal:controller.signal});
+      if (result.status !== 200 || result.headers.get('x-public-recovery') === '1' || !String(result.headers.get('content-type')).includes('text/html')) throw Error('Recovery failed');
+      const reader = result.body.getReader(), decoder = new TextDecoder();
+      let bytes = 0, body = '';
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        bytes += part.value.byteLength;
+        if (bytes > 2*1024*1024) {await reader.cancel(); throw Error('Recovery response too large');}
+        body += decoder.decode(part.value,{stream:true});
+      }
+      body += decoder.decode();
+      if (disposed || controller.signal.aborted) return;
+      if (!/<html[\s>]/i.test(body) || /data-public-recovery(?:\s|=|>)/i.test(body)) throw Error('Invalid recovery document');
+      url.searchParams.delete('__recover');
+      hide(); history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+      document.open(); document.write(body); document.close();
+    } catch (error) {
+      if (!disposed) stopped();
+    } finally {
+      clearTimeout(timeout); timeout=null; controller=null; sent=false;
+    }
   };
   function manual(event) {
-    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (event.button !== 0) return;
     event.preventDefault(); send();
   }
-  function hide() { disposed = true; stop(); button.removeEventListener('click', manual); unmountHelper(); }
+  function hide() { disposed = true; stop(); controller?.abort(); clearTimeout(timeout); timeout=null; button.removeEventListener('click', manual); unmountHelper(); }
   function show(event) {
     if (!event.persisted) return;
     // Returning to the error document must never start a new automatic attempt.

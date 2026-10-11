@@ -20,7 +20,7 @@ def entry(monkeypatch):
     monkeypatch.setitem(sys.modules,'workers',workers)
     runtime=ModuleType('worker_runtime');runtime.__path__=[str(HERE/'runtime')]
     monkeypatch.setitem(sys.modules,'worker_runtime',runtime)
-    spec=importlib.util.spec_from_file_location('startup_test_entry',HERE/'runtime/entrypoint.py')
+    spec=importlib.util.spec_from_file_location('startup_test_entry',HERE/'runtime/site_entrypoint.py')
     module=importlib.util.module_from_spec(spec)
     with monkeypatch.context() as patch:
         patch.setattr(secrets,'token_hex',Mock(side_effect=OSError('startup entropy forbidden')))

@@ -34,6 +34,6 @@ def response(request):
     body=re.sub(r'@@([A-Z]+)@@',lambda m:html.escape(values[m[1]],quote=True),template())
     headers={'Cache-Control':'no-store','Cloudflare-CDN-Cache-Control':'no-store','Retry-After':'1',
              'X-Request-ID':str(trace)[:64],'X-Public-Recovery':'1','X-Robots-Tag':'noindex, nofollow',
-             'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+             'Content-Security-Policy':"default-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: https: http:; media-src 'self' https: http:; font-src 'self' data: blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
              'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin'}
     return HTMLResponse('' if request.method=='HEAD' else body,status_code=503,headers=headers)
