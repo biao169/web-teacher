@@ -8,8 +8,9 @@ run=asyncio.run
 def worker(r):r.kind='r2';r.worker_cache_mode='simple';r.public_request_cache=False
 
 @pytest.mark.parametrize('path',['/en','/zh','/en/projects','/en/profiles','/en/students','/en/publications','/en/news'])
-def test_equal_html_and_etag_without_auth(fixture,path):
- c,r=fixture;worker(r);token=c.cookies.get('ts_session')
+@pytest.mark.parametrize('kind',['local','r2'])
+def test_equal_html_and_etag_without_auth(fixture,path,kind):
+ c,r=fixture;worker(r);r.kind=kind;token=c.cookies.get('ts_session')
  with patch.object(Auth,'principal',side_effect=AssertionError('full auth')),patch.object(Auth,'public_principal',side_effect=AssertionError('light auth')):
   admin=c.get(path);assert admin.status_code==200
   c.cookies.clear();anon=c.get(path)

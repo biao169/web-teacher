@@ -67,7 +67,7 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         r.public_performance=getattr(r,'public_performance',None) or PublicPerformance.from_env()
         r.auth=Auth(r.sql,r.passwords)
         r.public_light=worker_public_read(request,r)
-        r.public_shared=r.kind!='local' and shared_public_route(request)
+        r.public_shared=shared_public_route(request)
         recovery_candidate=shared_public_route(request) and request.headers.get('x-public-fragment')!='1'
         if r.public_shared or recovery_candidate:
             route=request.url.path.strip('/').split('/')
@@ -75,6 +75,7 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
                 # A news comment form remains identity-sensitive; one UID lookup only.
                 rows=await r.sql.query('SELECT allow_comments FROM news WHERE uid=? LIMIT 1',(route[2],))
                 if rows and rows[0]['allow_comments']==1:r.public_shared=False;recovery_candidate=False
+        r.public_light=r.public_light or r.public_shared
         r.public_components=r.public_shared
         request.state.public_shared=r.public_shared
         principal=r.auth.public_principal if r.public_light else r.auth.principal

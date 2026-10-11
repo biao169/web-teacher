@@ -2,7 +2,19 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from .auth import Auth
+from .catalog import now
 from .public_data import project_private_allowed
+
+SUMMARY_HEADERS={'Cache-Control':'private, no-store','Cloudflare-CDN-Cache-Control':'no-store','Vary':'Cookie, Authorization'}
+
+def session_summary(p):
+    # Presentation hints only; private endpoints always authenticate independently.
+    data={'authenticated':bool(p),'can_enter_admin':False,'can_view_private_projects':False,
+          'checked_at':now(),'display_ttl_seconds':300 if p else 60,'heartbeat_interval_seconds':300}
+    if p:
+        data.update({k:p[k] for k in ('uid','username','display_name','csrf','must_change_password','can_enter_admin','can_view_private_projects')})
+        data.update(idle_expires_at=p['idle_expires_at'],absolute_expires_at=p['expires_at'])
+    return data
 
 HEADERS={'Cache-Control':'private, max-age=60','Vary':'Cookie, Authorization'}
 
@@ -17,11 +29,17 @@ def install(app,factory):
 
     @app.get('/api/public/session-summary')
     async def summary(request:Request):
-        _,p=await identity(request)
-        data={'authenticated':bool(p),'can_enter_admin':False,'can_view_private_projects':False}
-        if p:
-            data.update({k:p[k] for k in ('uid','username','display_name','csrf','must_change_password','can_enter_admin','can_view_private_projects')})
-        return JSONResponse(data,headers={**HEADERS,'Cache-Control':'private, no-store','Cloudflare-CDN-Cache-Control':'no-store'})
+        try:
+            _,p=await identity(request)
+            return JSONResponse(session_summary(p),headers=SUMMARY_HEADERS)
+        except Exception as exc:
+            # A storage/runtime failure is unknown identity, never authenticated=false.
+            from backend.app.ports.operations import current,emit,error
+            import secrets
+            trace=current().get('request_id') or secrets.token_hex(16)
+            emit('SESSION-SUMMARY-ERROR',request_id=trace,route=request.url.path,**error(exc))
+            return JSONResponse({'code':'SESSION_CHECK_UNAVAILABLE','retryable':True,'request_id':trace},
+                                status_code=503,headers={**SUMMARY_HEADERS,'Retry-After':'60','X-Request-ID':trace})
 
     @app.get('/api/public/admin-project-fields')
     async def project_fields(request:Request):

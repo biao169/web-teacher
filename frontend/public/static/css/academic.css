@@ -334,3 +334,31 @@ body.section-public .academic-card-media video{display:block;width:130px;height:
 body.section-public .content-detail-cover [data-media-fallback]{font-size:inherit;font-weight:inherit;line-height:inherit;padding:8px 0;}
 body.section-public .news-contact{margin-block:1.5rem;max-width:860px;margin-inline:auto;}
 body.section-public .news-contact textarea{min-height:7rem;}
+
+/* Fixed account footprint: shared HTML, cached identity and server identity agree. */
+body.section-public .academic-identity{
+ display:block;flex:0 0 18rem;width:18rem;max-width:100%;min-width:0;margin:0;
+}
+body.section-public .academic-identity,
+body.section-public .academic-identity-content{
+ grid-template-columns:minmax(0,1fr) 3.5rem 4rem;grid-template-rows:36px 1.25rem;
+ column-gap:.5rem;align-items:center;
+}
+body.section-public .academic-identity{display:grid}
+body.section-public .academic-identity-content{display:grid;grid-column:1/-1;grid-row:1/-1;min-width:0}
+body.section-public :is(.academic-identity,.academic-identity-content)>.academic-username{
+ grid-column:1;grid-row:1;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+body.section-public :is(.academic-identity,.academic-identity-content)>a[href="/admin"]{grid-column:2;grid-row:1;justify-content:center}
+body.section-public :is(.academic-identity,.academic-identity-content)>:is(.academic-logout,button){
+ grid-column:3;grid-row:1;white-space:nowrap;justify-self:stretch;
+}
+body.section-public .academic-identity button{font:inherit;border:0;background:transparent;color:var(--accent);cursor:pointer;padding:4px 0;min-height:36px;width:100%;text-align:center}
+body.section-public .academic-identity button:disabled{cursor:wait;opacity:.65}
+body.section-public .academic-identity [data-auth-open]{grid-column:2/-1;grid-row:1;justify-self:end}
+body.section-public .academic-identity .academic-identity-pending{grid-column:1/-1;grid-row:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.section-public .academic-identity .academic-identity-feedback{grid-column:1/-1;grid-row:2;font-size:.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:650px){
+ body.section-public .academic-header-inner>.academic-account{flex:1 1 100%;width:100%;justify-content:flex-end}
+ body.section-public .academic-identity{flex-basis:100%;width:100%}
+}

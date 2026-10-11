@@ -1,3 +1,7 @@
+## 当前 Public 身份显示与心跳
+
+标准 Public HTML 默认共享缓存30分钟，登录身份由独立摘要组件显示，5分钟内复用标签页显示缓存。活跃可见页面约5分钟核验一次，隐藏/闲置暂停；服务端最多约120秒写入一次会话心跳，过期或撤销会话不能续活。后台及私有接口实时鉴权。页面LRU、Data LRU、导航预取、stream并发与安装/systemd结构保持不变。无需新增变量或数据库迁移。详见[双平台验收](../../docs/releases/v0.16.100.md)。
+
 v0.16.075：公开整页TTL默认1800秒；已有显式配置优先。LRU、认证、预取、并发及服务结构不变；Worker缓存模式对Linux无效。
 
 ## 媒体 HTTP 缓存（v0.16.067）
@@ -151,7 +155,7 @@ python -B -m deploy.vps.release verify --strict
 | `TEACHER_PUBLIC_STREAM_CONCURRENCY` | 2 | 1～4 | 页面内容分片加载并发；不是服务进程数 |
 | `TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY` | 1 | 0～2 | 导航意图预取并发；0 完全关闭预取 |
 
-两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=1800`；已登录安全整页使用身份相关 ETag 和 `private, no-cache`。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
+两种 TTL 独立。整页 TTL=0、数据 TTL>0 时，完整 HTML 使用 `private, no-cache` 和 ETag 条件验证；两种 TTL 都为0时完整 HTML 使用 `no-store`。匿名安全整页默认 `public, max-age=1800`；标准共享Public整页对登录用户使用相同公开HTML与ETag，身份摘要独立且`private, no-store`；表单和自定义导航继续原鉴权边界。详情、表单、后台、同步接口和错误响应不进入匿名整页缓存。
 
 修改内容会更新 revision，但浏览器已经缓存且仍新鲜的 HTML 可能保持到 TTL 到期。需要每次导航验证时将整页 TTL 设为0。不要让反向代理覆盖 `Cache-Control` 或忽略 `Vary: Cookie, Authorization, X-Public-Fragment`。
 

@@ -49,7 +49,8 @@ def test_identity_revision_query_and_navigation(fixture):
  c,r=fixture;nav=entry(r,value='Alpha');token=c.cookies.get('ts_session');c.cookies.clear()
  a=c.get('/en/projects');assert c.get('/en/projects').headers['x-public-page-cache']=='HIT'
  c.cookies.set('ts_session',token);admin=c.get('/en/projects')
- assert admin.headers['x-public-page-cache']=='BYPASS' and admin.headers['cache-control']=='private, no-cache'
+ assert admin.headers['x-public-page-cache']=='HIT' and admin.content==a.content
+ assert admin.headers['cache-control'].startswith('public, max-age=1800')
  c.cookies.clear()
  assert c.get('/zh/projects').headers['x-public-page-cache']=='MISS'
  assert c.get('/en/projects?page=2').headers['x-public-page-cache']=='MISS'

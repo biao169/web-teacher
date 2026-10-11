@@ -43,10 +43,10 @@ class Auth:
             await self.sql.batch([("UPDATE auth_sessions SET last_seen_at=?,updated_at=?,idle_expires_at=min(?,expires_at) WHERE uid=? AND revoked_at IS NULL AND idle_expires_at>? AND expires_at>? AND (last_seen_at IS NULL OR last_seen_at<=?)",(at,at,now(seconds=1800),p['session_uid'],at,at,threshold))])
         return p
     async def public_principal(self,token):
-        """Worker public read projection; session/role validity remains live on every request."""
+        """Shared Public read projection; session/role validity remains live on every request."""
         if not token:return None
         at=now();threshold=now(seconds=-120)
-        rows=await self.sql.query("SELECT u.uid,u.display_name,u.username,u.role_uid,u.must_change_password,u.updated_at user_stamp,r.updated_at role_stamp,r.level,r.name role_name,r.visibility_scopes,r.is_system,s.uid session_uid,s.expires_at,s.last_seen_at,EXISTS(SELECT 1 FROM auth_permissions a WHERE a.role_uid=r.uid AND a.can_view=1 AND a.module IN ("+','.join('?' for _ in MODULES)+")) can_enter_admin,EXISTS(SELECT 1 FROM auth_permissions a WHERE a.role_uid=r.uid AND a.module='projects' AND a.can_view=1) project_view FROM auth_sessions s JOIN auth_users u ON u.uid=s.user_uid JOIN auth_roles r ON r.uid=u.role_uid WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.idle_expires_at>? AND s.expires_at>? AND u.status='active' AND r.is_active=1",(*MODULES,sha(token),at,at))
+        rows=await self.sql.query("SELECT u.uid,u.display_name,u.username,u.role_uid,u.must_change_password,u.updated_at user_stamp,r.updated_at role_stamp,r.level,r.name role_name,r.visibility_scopes,r.is_system,s.uid session_uid,s.expires_at,s.idle_expires_at,s.last_seen_at,EXISTS(SELECT 1 FROM auth_permissions a WHERE a.role_uid=r.uid AND a.can_view=1 AND a.module IN ("+','.join('?' for _ in MODULES)+")) can_enter_admin,EXISTS(SELECT 1 FROM auth_permissions a WHERE a.role_uid=r.uid AND a.module='projects' AND a.can_view=1) project_view FROM auth_sessions s JOIN auth_users u ON u.uid=s.user_uid JOIN auth_roles r ON r.uid=u.role_uid WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.idle_expires_at>? AND s.expires_at>? AND u.status='active' AND r.is_active=1",(*MODULES,sha(token),at,at))
         if not rows:return None
         p=dict(rows[0]);last_seen=p.pop('last_seen_at');project_view=bool(p.pop('project_view'))
         p['can_enter_admin']=bool(p['can_enter_admin'] and not p['must_change_password'])
@@ -55,7 +55,8 @@ class Auth:
         p['permissions']={'projects':{'can_view':project_view}}
         p['scopes']=json.loads(p['visibility_scopes']);p['csrf']=sha('csrf:'+token)
         if not last_seen or last_seen<=threshold:
-            await self.sql.batch([("UPDATE auth_sessions SET last_seen_at=?,updated_at=?,idle_expires_at=min(?,expires_at) WHERE uid=? AND revoked_at IS NULL AND idle_expires_at>? AND expires_at>? AND (last_seen_at IS NULL OR last_seen_at<=?)",(at,at,now(seconds=1800),p['session_uid'],at,at,threshold))])
+            updated=await self.sql.batch([("UPDATE auth_sessions SET last_seen_at=?,updated_at=?,idle_expires_at=min(?,expires_at) WHERE uid=? AND revoked_at IS NULL AND idle_expires_at>? AND expires_at>? AND (last_seen_at IS NULL OR last_seen_at<=?) RETURNING idle_expires_at",(at,at,now(seconds=1800),p['session_uid'],at,at,threshold))])
+            if updated and updated[0]:p['idle_expires_at']=updated[0][0]['idle_expires_at']
         return p
     def require(self,p,module,action='view'):
         """All action gates are server-side, including custom navigation destinations."""
