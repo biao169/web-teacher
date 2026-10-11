@@ -14,7 +14,7 @@ def test_forward_response_boundary(entry,monkeypatch,status,capsys):
  original=NS(status=status,headers={'x-request-id':'upstream'},body=body)
  worker=entry.Default();worker.env=NS(SITE_ADMIN=NS(fetch=AsyncMock(return_value=original)))
  req=NS(url='https://test/admin/profiles',method='GET',headers={})
- result=asyncio.run(entry.Default.fetch.__wrapped__(worker,req))
+ result=asyncio.run(entry.Default._dynamic_fetch.__wrapped__(worker,req))
  if status<500:assert result is original
  else:
   assert result.status==503 and '<title>' in result.body

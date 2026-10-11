@@ -7,7 +7,7 @@ sys.path[:0]=[str(ROOT),str(ROOT/'deploy/cloudflare')]
 from deploy.shared.worker_package import prepare
 from deploy.vps.release import render
 from domains import settings,apply
-from integration_package import extend
+from integration_package import extend,entrypoint_source,verify_entrypoint
 from pipeline import verify_stage
 
 def main(separate=False,cache_mode="full"):
@@ -18,7 +18,7 @@ def main(separate=False,cache_mode="full"):
         (stage/'wrangler.json').rename(stage/'wrangler.jsonc');(stage/'src').mkdir()
         for name in ('main.py','backend','site_sync','generated_native_resources.py','generated_resources.py'):shutil.move(str(stage/name),str(stage/'src'/name))
         shutil.copytree(ROOT/'deploy/cloudflare/runtime',stage/'src/worker_runtime',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
-        (stage/'src/main.py').write_text('from worker_runtime.entrypoint import Default, TransferCoordinator\n')
+        (stage/'src/main.py').write_text(entrypoint_source())
         cfg=json.loads((stage/'wrangler.jsonc').read_text());cfg['main']='src/main.py'
         from backend.app.public_performance import PublicPerformance,KEYS
         performance=PublicPerformance.from_env({'TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS':'123','TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY':'2'})
@@ -32,6 +32,7 @@ def main(separate=False,cache_mode="full"):
         verify_stage(stage)
         site_package=subprocess.run([sys.executable,'-B',str(ROOT/'deploy/cloudflare/site_workers.py'),'--stage',str(stage)],cwd=stage,text=True,capture_output=True)
         if site_package.returncode:raise RuntimeError(site_package.stdout+site_package.stderr)
+        verify_entrypoint(stage/'src/main.py')
         cfg=json.loads((stage/'wrangler.jsonc').read_text())
         signal_flags={'enable_request_signal','request_signal_passthrough'}
         assert signal_flags.issubset(cfg['compatibility_flags'])

@@ -32,7 +32,7 @@ def worker(entry,monkeypatch):
 def invoke(entry,worker,req):
  # Historical helper remains available, but is no longer installed around Public dispatch.
  from runtime.public_recovery import eligible,run
- async def call():return await entry.Default.fetch.__wrapped__(worker,req)
+ async def call():return await entry.Default._dynamic_fetch.__wrapped__(worker,req)
  return asyncio.run(run(req,call,'test-trace','') if eligible(req) else call())
 
 

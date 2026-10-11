@@ -25,7 +25,7 @@ def test_binding_failure_boundary(entry,monkeypatch,capsys,error,expected):
   actual.signal.aborted=True
   raise error
  worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=SimpleNamespace(fetch=fetch))
- response=asyncio.run(entry.Default.fetch.__wrapped__(worker,request))
+ response=asyncio.run(entry.Default._dynamic_fetch.__wrapped__(worker,request))
  assert response.status==expected and response.headers['cache-control']=='no-store'
  assert entry.application.application is None
  log=capsys.readouterr().out
@@ -37,7 +37,7 @@ def test_already_cancelled_read_never_calls_admin(entry,monkeypatch):
  monkeypatch.setattr(workers,'Response',lambda body,**kw:SimpleNamespace(body=body,**kw),raising=False)
  binding=SimpleNamespace(fetch=AsyncMock());worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=binding)
  request=SimpleNamespace(url='https://site.test/admin',method='GET',signal=SimpleNamespace(aborted=True))
- assert asyncio.run(entry.Default.fetch.__wrapped__(worker,request)).status==499
+ assert asyncio.run(entry.Default._dynamic_fetch.__wrapped__(worker,request)).status==499
  binding.fetch.assert_not_called()
 
 def test_admin_asgi_abort_is_cancelled(entry,monkeypatch):

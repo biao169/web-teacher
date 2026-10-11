@@ -1,5 +1,5 @@
 """Static shared-HTML gate. No SQL, identity or response-body processing."""
-from urllib.parse import urlsplit,parse_qs
+from urllib.parse import urlsplit
 
 TABLES=frozenset(('profiles','students','research_interests','projects','publications','patents','courses','news'))
 
@@ -13,10 +13,9 @@ def eligible(request,env):
     url=urlsplit(str(request.url));parts=url.path.split('/')
     # Exact standard home/list routes only. No details, forms or custom navigation.
     if not (len(parts)==2 and parts[1] in ('en','zh') or len(parts)==3 and parts[1] in ('en','zh') and parts[2] in TABLES):return False
-    if len(url.query)>8192:return False
-    try:query=parse_qs(url.query,keep_blank_values=True,max_num_fields=40)
-    except ValueError:return False
-    return not any(k in query for k in ('nav','nv','__recover'))
+    # All queries (including nav/nv/__recover) stay on the dynamic path.
+    return not url.query
+
 
 async def forward(request,env,ctx):
     from backend.app.security.http import AuthConfig,AuthError
@@ -26,7 +25,9 @@ async def forward(request,env,ctx):
     except AuthError:
         from workers import Response
         return Response('Invalid site address',status=400,headers={'cache-control':'no-store','cloudflare-cdn-cache-control':'no-store'})
-    from js import Request
-    public=Request.new(getattr(request,'js_object',request))
-    public.headers.delete('cookie');public.headers.delete('authorization')
+    public=getattr(request,'js_object',request)
+    if request.headers.get('cookie') is not None or request.headers.get('authorization') is not None:
+        from js import Request
+        public=Request.new(public)
+        public.headers.delete('cookie');public.headers.delete('authorization')
     return await ctx.exports.PublicPage.fetch(public)

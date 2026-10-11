@@ -1,3 +1,11 @@
+## v0.16.093 Public 缓存前减负
+
+只缓存无 query 标准 Public 页面；缓存转发绕过完整 traced，匿名请求不再复制 Request。浏览器 30 分钟缓存及 ETag 不变。见[本轮说明](docs/releases/v0.16.093.md)。
+
+## v0.16.092：修复Python入口导出校验
+
+统一入口生成并校验Default/PublicPage/TransferCoordinator，修复091构建错误Missing Python Worker exports。无需修改部署变量或数据库。[说明](docs/releases/v0.16.092.md)。
+
 ## v0.16.091：只缓存PublicPage
 
 默认入口缓存关闭；标准Public首页/列表通过named entrypoint启用平台缓存。simple/full均不使用Python SQL/Page Cache API，off关闭平台页面缓存。浏览器TTL默认1800秒；身份接口private,no-store，临时失败不再误显示未登录。下方旧版本说明仅为历史记录。[当前部署与验收说明](docs/releases/v0.16.091.md)。

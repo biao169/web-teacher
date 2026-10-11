@@ -14,7 +14,7 @@ def test_public_returns_dispatch_response(entry,monkeypatch,path,status):
  monkeypatch.setattr(entry,'dispatch',dispatch)
  obj=entry.Default();obj.env=SimpleNamespace(TEACHER_WORKER_CACHE_MODE="off");obj.ctx=SimpleNamespace()
  request=SimpleNamespace(url='https://site.test'+path,method='GET',headers={})
- assert asyncio.run(entry.Default.fetch.__wrapped__(obj,request)) is response
+ assert asyncio.run(entry.Default._dynamic_fetch.__wrapped__(obj,request)) is response
  dispatch.assert_awaited_once()
  assert entry.application.application is None
 

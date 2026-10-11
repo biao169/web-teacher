@@ -54,5 +54,5 @@ def test_admin_forward_before_public_init(entry,path,monkeypatch):
  response=SimpleNamespace(status=204)
  worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=SimpleNamespace(fetch=AsyncMock(return_value=response)))
  with patch.object(entry.application,'__call__',side_effect=AssertionError('public app')):
-  assert asyncio.run(entry.Default.fetch.__wrapped__(worker,SimpleNamespace(url='https://teacher.invalid'+path))) is response
+  assert asyncio.run(entry.Default._dynamic_fetch.__wrapped__(worker,SimpleNamespace(url='https://teacher.invalid'+path))) is response
  assert entry.application.application is None

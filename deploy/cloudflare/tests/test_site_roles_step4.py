@@ -34,7 +34,7 @@ def test_admin_forward_does_not_parse_or_build_public(entry,monkeypatch,path):
     worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=binding)
     request=SimpleNamespace(url='https://teacher.invalid'+path,body=object())
     monkeypatch.setattr(entry,'build_application',lambda **k:pytest.fail('public app built for admin'))
-    response=asyncio.run(entry.Default.fetch.__wrapped__(worker,request))
+    response=asyncio.run(entry.Default._dynamic_fetch.__wrapped__(worker,request))
     assert response.status==204
     binding.fetch.assert_awaited_once_with(request)
     assert entry.application.application is None
@@ -66,7 +66,7 @@ def test_admin_failure_is_bounded_and_public_application_remains_unbuilt(entry,m
         def __init__(self,body,**kw):self.body=body;self.__dict__.update(kw)
     monkeypatch.setattr(workers,'Response',Response,raising=False)
     worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=SimpleNamespace(fetch=AsyncMock(side_effect=RuntimeError('private-internal-detail'))))
-    response=asyncio.run(entry.Default.fetch.__wrapped__(worker,SimpleNamespace(url='https://teacher.invalid/admin')))
+    response=asyncio.run(entry.Default._dynamic_fetch.__wrapped__(worker,SimpleNamespace(url='https://teacher.invalid/admin')))
     assert response.status==503 and response.headers['x-error-code']=='ADMIN_UNAVAILABLE'
     assert '<title>' in response.body
     assert 'private-internal-detail' not in response.body

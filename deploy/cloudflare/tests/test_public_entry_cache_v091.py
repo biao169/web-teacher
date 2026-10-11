@@ -9,7 +9,7 @@ from test_startup_lazy import entry
 def request(path='/en',method='GET',headers=None):
     return SimpleNamespace(url='https://site.test'+path,method=method,headers=headers or {})
 
-@pytest.mark.parametrize('path',['/en','/zh','/en/profiles','/en/projects','/en/publications','/zh/students?q=a'])
+@pytest.mark.parametrize('path',['/en','/zh','/en/profiles','/en/projects','/en/publications','/zh/students'])
 @pytest.mark.parametrize('method',['GET','HEAD'])
 def test_allow(path,method):assert eligible(request(path,method),SimpleNamespace())
 
@@ -52,7 +52,7 @@ def test_router_uses_loopback_not_public_application(entry,monkeypatch):
     forwarder=AsyncMock(return_value=response);monkeypatch.setattr(route,'forward',forwarder)
     monkeypatch.setattr(entry,'dispatch',AsyncMock(side_effect=AssertionError('render on router')))
     obj=entry.Default();obj.env=SimpleNamespace();obj.ctx=SimpleNamespace()
-    assert asyncio.run(entry.Default.fetch.__wrapped__(obj,request())) is response
+    assert asyncio.run(obj.fetch(request())) is response
     forwarder.assert_awaited_once()
     assert entry.application.application is None
 
