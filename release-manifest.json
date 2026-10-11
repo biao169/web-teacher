@@ -1,7 +1,7 @@
 {
   "format": "teacher-release-v1",
-  "version": "0.16.093",
-  "based_on": "v0.16.092-entry-export-fix",
+  "version": "0.16.094",
+  "based_on": "v0.16.093-public-cache-hot-path",
   "files": {
     ".gitattributes": {
       "bytes": 280,
@@ -12,8 +12,8 @@
       "sha256": "1bb1b2af56ecd35a42a615b8ca2051a63893dd3db513ff7361ede6316c67f10f"
     },
     "README.md": {
-      "bytes": 122260,
-      "sha256": "c002d2c83eab528ec020e91f340831f8c147011b1ef91c984e24c69a066072db"
+      "bytes": 122459,
+      "sha256": "9a0e84e58306d2d7f7c44ef74145cfdbb20e41ffc47a35c9e70c8c773cf30009"
     },
     "backend/__init__.py": {
       "bytes": 0,
@@ -720,8 +720,8 @@
       "sha256": "0adba319f7dd563d1baf5a028ae3413ca3a6742a994528d64779a67f72faff3a"
     },
     "deploy/cloudflare/README.md": {
-      "bytes": 34931,
-      "sha256": "a1174f53614139da6b9e5a446e8d89e34da4190146afd32ffc29c39e1268582a"
+      "bytes": 35136,
+      "sha256": "a91cb77475505ba6e270dc33d67046898bf0cce865263c47013e20ef27f91470"
     },
     "deploy/cloudflare/STARTUP-ACCEPTANCE.md": {
       "bytes": 3060,
@@ -736,8 +736,8 @@
       "sha256": "5f5151c668c9c3e83c314b8e6991f2bbef8bd7530805dd187fdf4affdb993e87"
     },
     "deploy/cloudflare/build.py": {
-      "bytes": 9097,
-      "sha256": "6e3570e289d026432764e0f2374e2a293031d672e59388148ba291e8cb4c85fa"
+      "bytes": 9777,
+      "sha256": "f78294a8e4232306d1ca7ec0ff96f3999d5ec3ef49b3aa58c3a18ff1634be44c"
     },
     "deploy/cloudflare/cloud_check.py": {
       "bytes": 5529,
@@ -797,7 +797,7 @@
     },
     "deploy/cloudflare/pyproject.toml": {
       "bytes": 303,
-      "sha256": "d43de78aef021525fe4fbeac8ba581de99bee33eba7ebbbd7496c52a1c571f13"
+      "sha256": "a15b11c2c36e834de2920c9f1ea5a8e64d8e8ffb4283b3efd5f4207bd758c8cf"
     },
     "deploy/cloudflare/r2_check.py": {
       "bytes": 4166,
@@ -841,7 +841,7 @@
     },
     "deploy/cloudflare/runtime/entrypoint.py": {
       "bytes": 8760,
-      "sha256": "3ce272a1b2a24ccf4e77adec44bbf98fb69da84e11a2506940ad702384ab70ba"
+      "sha256": "fafddba24c508701270335162d5f46ec8abf0e9f257717fa04b214358b24bea2"
     },
     "deploy/cloudflare/runtime/maintenance.py": {
       "bytes": 1589,
@@ -865,7 +865,7 @@
     },
     "deploy/cloudflare/runtime/request_diagnostics.py": {
       "bytes": 4358,
-      "sha256": "7bdd9406de972a014c1d8cb2ad7726e753942d2fc6adb10bceca42da23b23f43"
+      "sha256": "16be141bb944844287575995c50a04240a483b67d32db13416365d9bb112df71"
     },
     "deploy/cloudflare/runtime/routing.py": {
       "bytes": 569,
@@ -1007,6 +1007,10 @@
       "bytes": 3997,
       "sha256": "efd2e3468b0828379788e75fdc52e1dbc3c75d2cc5be3d89b7f62e13267e9912"
     },
+    "deploy/cloudflare/tests/test_lock_version_v094.py": {
+      "bytes": 865,
+      "sha256": "1190bbd86f0c25b319fb34f75028b214484a290ff6c91cc77562d0d5848326c2"
+    },
     "deploy/cloudflare/tests/test_media_upload_route.py": {
       "bytes": 2115,
       "sha256": "9e367f00aeb19ad5fafd0b3aa120ad94ece32be3f0a515c79f78003bb49d0c14"
@@ -1041,7 +1045,7 @@
     },
     "deploy/cloudflare/tests/test_request_diagnostics.py": {
       "bytes": 4220,
-      "sha256": "e2f8084d435835612d543a5c9affa61fecc30db76e6705054402fc0eea4dc621"
+      "sha256": "c8294ddc32bbbf5d5f06b9d884f8ddc9ba024ee8cccabcfe5955a06ff20a82aa"
     },
     "deploy/cloudflare/tests/test_resource_module.py": {
       "bytes": 2635,
@@ -1089,7 +1093,7 @@
     },
     "deploy/cloudflare/uv.lock": {
       "bytes": 74032,
-      "sha256": "d31ba5d594e76394227dc8194eb9b7e324298331e15cf6c7552287ca7157969c"
+      "sha256": "fb24feece2ad39ea694bf87a1f7f77625cba37520cc1082c30f70df7e7110c06"
     },
     "deploy/linux/README.md": {
       "bytes": 16625,
@@ -3315,6 +3319,10 @@
       "bytes": 1469,
       "sha256": "9c7461a4c1504aa7b8c8b4fb4b3f7902b81de0548d1f2d218c4b36ed54a4a1ea"
     },
+    "docs/releases/v0.16.094.md": {
+      "bytes": 1187,
+      "sha256": "b565a1fe851adad83aa2fb4a3259ff67f4788b6f9bd6af30761e9819e11e55a7"
+    },
     "docs/releases/validation-v0.16.061/inline.txt": {
       "bytes": 2112,
       "sha256": "fc9e79ae324a7aa05f525acfb793490aa389f39d70518171b2d9230ea4262335"
@@ -5265,7 +5273,7 @@
     },
     "pyproject.toml": {
       "bytes": 352,
-      "sha256": "bbd806d7fd7368112c476312cf8b9fb841fbdf8d20c19301104572d5c9d586cd"
+      "sha256": "63d914ecd2674701663a9a673721059c859476ba7101794c3c4361094b82d2a5"
     },
     "site_sync/README.md": {
       "bytes": 7451,

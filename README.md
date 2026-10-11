@@ -1,3 +1,7 @@
+## v0.16.094 锁文件修复
+
+统一 Worker manifest 与 uv.lock 项目版本，保留 --locked，并在构建检查时提前检验版本一致性。见[修复说明](docs/releases/v0.16.094.md)。
+
 ## v0.16.093 Public 缓存前减负
 
 只缓存无 query 标准 Public 页面；缓存转发绕过完整 traced，匿名请求不再复制 Request。浏览器 30 分钟缓存及 ETag 不变。见[本轮说明](docs/releases/v0.16.093.md)。

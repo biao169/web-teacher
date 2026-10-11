@@ -43,6 +43,15 @@ def git_value(*args):
         return 'unavailable'
 
 
+def check_lock(project, manifest, lock):
+    packages = [p for p in lock.get('package', [])
+                if p.get('name') == manifest['name'] and p.get('source') == {'virtual': '.'}]
+    if project['version'] != manifest['version'] or len(packages) != 1 or packages[0].get('version') != manifest['version']:
+        raise BuildError('版本与锁文件不一致 / Version mismatch: root pyproject.toml, '
+                         'deploy/cloudflare/pyproject.toml and deploy/cloudflare/uv.lock; '
+                         'update the Worker lockfile before release (uv lock).')
+
+
 def preflight(env=None, version=None):
     env = os.environ if env is None else env
     version = sys.version_info[:2] if version is None else version
@@ -56,6 +65,7 @@ def preflight(env=None, version=None):
     parse_origins('https://startup-check.invalid')
     project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))['project']
     manifest = tomllib.loads((HERE / 'pyproject.toml').read_text(encoding='utf-8'))['project']
+    check_lock(project, manifest, tomllib.loads((HERE / 'uv.lock').read_text(encoding='utf-8')))
     minimum = re.fullmatch(r'>=(\d+)\.(\d+)', manifest['requires-python'])
     if not minimum:
         raise BuildError('无法识别 Workers Python 版本要求 / Unsupported Python requirement')
