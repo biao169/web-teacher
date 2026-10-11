@@ -1,6 +1,7 @@
 """Exercise the actual lazy builder with real FastAPI/transfer routes and local stores."""
 import asyncio
 from types import ModuleType
+from importlib.machinery import ModuleSpec
 from unittest.mock import Mock
 import sys
 import pytest
@@ -16,7 +17,7 @@ from runtime import transfer, setup, bridge
 @pytest.fixture
 def builder(entry, fixture, monkeypatch):
     _, r = fixture
-    worker=ModuleType('worker_runtime.resources');worker.resource_factory=lambda request:r
+    worker=ModuleType('worker_runtime.resources');worker.__spec__=ModuleSpec(worker.__name__,loader=None);worker.resource_factory=lambda request:r
     for role in ('public','admin','transfer'):monkeypatch.setitem(sys.modules,'worker_runtime.'+role+'_resources',worker)
     source=ROOT/'transfer/frontend/native'
     resources=ModuleType('generated_resources')

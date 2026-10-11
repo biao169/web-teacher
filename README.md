@@ -1,6 +1,10 @@
-## v0.16.088：Public最外层启动保护
+## v0.16.090：Public恢复策略更新
 
-无装饰器入口保护延迟业务导入，移除无关预加载；恢复页改为一次后台fetch，失败留在原页。详情见[发布说明](docs/releases/v0.16.088.md)。以下历史版本中的location.replace说明已被本版取代。
+当前恢复页仅手动重新加载，取消自动重试。内部HTML缓存不再提供stale回退；成功页30分钟及HTTP stale响应头保留，实际旧页服务取决于浏览器/CDN。下方历史版本说明不代表当前策略。[第四步说明](docs/releases/v0.16.090.md)。
+
+## v0.16.089：Public 请求链精简
+
+移除 Worker 外层 Public Recovery，保留 Admin 修复。98 项本地回归通过，线上根因未确认。[变更与验收边界](docs/releases/v0.16.089.md)。
 
 ## v0.16.087：Admin综合回归与验收清单
 

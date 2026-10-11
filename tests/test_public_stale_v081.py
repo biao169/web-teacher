@@ -1,61 +1,24 @@
-import asyncio
+"""v090 supersedes application stale storage with HTTP-only stale policy."""
 from unittest.mock import patch
-import pytest
 from fastapi.testclient import TestClient
 from test_accounts_regression import fixture
 from test_public_page_cache_v058 import worker_cache
 from backend.app.native.web_public import create_public_app
-from backend.app.native.catalog import Error
-from backend.app.native.public_page_cache import STALE_SECONDS
 
-@pytest.fixture
-def full(fixture,worker_cache,monkeypatch):
+def test_full_expiry_failure_is_not_cached(fixture,worker_cache):
  _,r=fixture;r.kind='worker';r.worker_cache_mode='full';r.public_request_cache=False
- clock=[100000.0];monkeypatch.setattr('backend.app.native.public_page_cache.time.time',lambda:clock[0])
- with TestClient(create_public_app(lambda request:r),base_url=r.config.origin,raise_server_exceptions=False) as client:
-  yield client,r,worker_cache[0],clock
-
-
-def test_expired_render_failure_serves_old_success_without_renewing(full,caplog):
- c,r,cache,clock=full
- first=c.get('/en/projects');assert first.status_code==200
- puts=cache.puts;clock[0]+=1801
- with patch.object(r.renderer,'render',side_effect=RuntimeError('synthetic renderer outage')):
-  old=c.get('/en/projects');head=c.head('/en/projects')
- assert old.status_code==head.status_code==200 and old.content==first.content
- assert old.headers['x-public-page-cache']=='STALE' and old.headers['age']=='1801'
- assert old.headers['cloudflare-cdn-cache-control']=='no-store'
- assert head.content==b'' and int(head.headers['content-length'])==len(first.content)
- assert cache.puts==puts and 'synthetic renderer outage' in caplog.text
- assert old.headers['x-request-id'] in caplog.text
- clock[0]+=STALE_SECONDS
- with patch.object(r.renderer,'render',side_effect=RuntimeError('still unavailable')):
-  assert c.get('/en/projects').status_code==503
- assert cache.puts==puts
-
-
-def test_recovery_and_new_revision_never_use_stale(full):
- c,r,cache,clock=full;c.get('/en/projects');clock[0]+=1801
- with patch.object(r.renderer,'render',side_effect=RuntimeError('broken')):
-  a=c.get('/en/projects?__recover=1');assert a.status_code==503 and a.headers['cache-control']=='no-store'
-  asyncio.run(r.sql.batch([("UPDATE site_settings SET site_name='Changed'",())]))
-  assert c.get('/en/projects').status_code==503
-
-@pytest.mark.parametrize('status',[403,404,429,500,502,503,504])
-def test_only_recoverable_errors_use_stale(full,status):
- c,r,_,clock=full;c.get('/en/projects');clock[0]+=1801
- with patch('backend.app.native.public_data.public_listing',side_effect=Error('temporary error',status)):
-  a=c.get('/en/projects')
- if status>=500:assert a.status_code==200 and a.headers['x-public-page-cache']=='STALE'
- else:assert a.status_code==status and a.headers['cache-control']=='no-store'
-
-
-def test_successful_refresh_replaces_old_entry(full):
- c,r,cache,clock=full;first=c.get('/en/projects');clock[0]+=1801;puts=cache.puts
- refreshed=c.get('/en/projects');assert refreshed.status_code==200 and cache.puts==puts+1
- assert refreshed.headers['x-public-page-cache']=='MISS'
- assert c.get('/en/projects').headers['x-public-page-cache']=='HIT'
-
+ cache,_=worker_cache
+ with TestClient(create_public_app(lambda request:r),base_url=r.config.origin,raise_server_exceptions=False) as c:
+  first=c.get('/en/projects');assert first.status_code==200
+  assert 'stale-if-error=86400' in first.headers['cache-control']
+  assert all(x.headers['cache-control']=='public, max-age=1800' for x in cache.entries.values())
+  cache.entries.clear() # Simulate actual Cache API TTL eviction.
+  puts=cache.puts
+  with patch.object(r.renderer,'render',side_effect=RuntimeError('synthetic outage')):
+   failed=c.get('/en/projects')
+  assert failed.status_code==503
+  assert failed.headers['cache-control']==failed.headers['cloudflare-cdn-cache-control']=='no-store'
+  assert cache.puts==puts and not cache.entries
 
 def test_simple_off_never_enter_internal_cache(fixture):
  from backend.app.public_performance import PublicPerformance

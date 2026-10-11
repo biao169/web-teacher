@@ -1,4 +1,4 @@
-/* One automatic fetch per failure document; failed attempts never navigate. */
+/* Manual recovery only. No automatic requests, storage or cache purge. */
 (() => {
   'use strict';
   const card = document.querySelector('[data-public-recovery]');
@@ -18,53 +18,28 @@
   const en = document.documentElement.lang === 'en';
   const helper = card.ownerDocument.querySelector('[data-recovery-helper]');
   let drag = null, helperMounted = false;
-  let timer = null, disposed = false, sent = false, controller = null, timeout = null;
-  const stop = () => { if (timer !== null) clearTimeout(timer); timer = null; };
+  let disposed = false, sent = false;
   const stopped = () => {
     status.textContent = en ? 'Automatic retry stopped' : '自动重试已停止';
     message.textContent = en ? 'Please use Reload when you are ready.' : '您可以在准备好后点击重新加载。';
   };
-  const send = async () => {
+  const send = () => {
     if (disposed || sent) return;
-    stop(); sent = true;
+    sent = true;
     const url = new URL(location.href);
     url.searchParams.set('__recover', '1');
     status.textContent = en ? 'Loading fresh content…' : '正在加载最新内容…';
-    controller = new AbortController();
-    timeout = setTimeout(() => controller?.abort(), 15000);
-    try {
-      const result = await fetch(url.pathname + url.search, {cache:'no-store',credentials:'same-origin',redirect:'error',headers:{Accept:'text/html'},signal:controller.signal});
-      if (result.status !== 200 || result.headers.get('x-public-recovery') === '1' || !String(result.headers.get('content-type')).includes('text/html')) throw Error('Recovery failed');
-      const reader = result.body.getReader(), decoder = new TextDecoder();
-      let bytes = 0, body = '';
-      while (true) {
-        const part = await reader.read();
-        if (part.done) break;
-        bytes += part.value.byteLength;
-        if (bytes > 2*1024*1024) {await reader.cancel(); throw Error('Recovery response too large');}
-        body += decoder.decode(part.value,{stream:true});
-      }
-      body += decoder.decode();
-      if (disposed || controller.signal.aborted) return;
-      if (!/<html[\s>]/i.test(body) || /data-public-recovery(?:\s|=|>)/i.test(body)) throw Error('Invalid recovery document');
-      url.searchParams.delete('__recover');
-      hide(); history.replaceState(history.state,'',url.pathname+url.search+url.hash);
-      document.open(); document.write(body); document.close();
-    } catch (error) {
-      if (!disposed) stopped();
-    } finally {
-      clearTimeout(timeout); timeout=null; controller=null; sent=false;
-    }
+    location.replace(url.pathname + url.search + url.hash);
   };
   function manual(event) {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault(); send();
   }
-  function hide() { disposed = true; stop(); controller?.abort(); clearTimeout(timeout); timeout=null; button.removeEventListener('click', manual); unmountHelper(); }
+  function hide() { disposed = true; button.removeEventListener('click', manual); unmountHelper(); }
   function show(event) {
     if (!event.persisted) return;
     // Returning to the error document must never start a new automatic attempt.
-    disposed = false; sent = false; stop(); stopped();
+    disposed = false; sent = false; stopped();
     button.removeEventListener('click', manual); button.addEventListener('click', manual); mountHelper();
   }
   // Drag listeners exist only while dragging. No RAF loop, fetch or persistent state.
@@ -118,7 +93,5 @@
   button.addEventListener('click', manual);
   window.addEventListener('pagehide', hide);
   window.addEventListener('pageshow', show);
-  if (card.dataset.attempted !== '1' && new URL(location.href).searchParams.get('__recover') !== '1') {
-    timer = setTimeout(send, 1000);
-  }
+  stopped();
 })();

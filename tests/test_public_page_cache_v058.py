@@ -102,7 +102,7 @@ def worker_cache(monkeypatch):
    if self.fail=='put':raise RuntimeError('offline')
    self.puts+=1;self.entries[key]=value
  cache=Cache()
- async def opened(name):assert name=='teacher-public-pages-v1';return cache
+ async def opened(name):assert name=='teacher-public-pages-v2';return cache
  monkeypatch.setitem(sys.modules,'js',SimpleNamespace(caches=SimpleNamespace(open=opened),Response=JSResponse))
  return cache,JSResponse
 
@@ -114,7 +114,7 @@ def test_worker_adapter_hit_expiry_revision_bounds_and_failure(worker_cache):
  one=PageCache(r,'W/"key"','1',300)
  assert run(one.get()) is None
  run(one.put(HTMLResponse('small html')))
- stored=next(iter(cache.entries.values()));assert stored.headers['cache-control']=='public, max-age=86700'
+ stored=next(iter(cache.entries.values()));assert stored.headers['cache-control']=='public, max-age=300'
  two=PageCache(r,'W/"key"','1',300);assert run(two.get())==b'small html' and two.state=='HIT'
  assert run(PageCache(r,'W/"new-key"','2',300).get()) is None
  cache.entries.clear() # Platform TTL expiry/eviction.

@@ -112,20 +112,12 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         try:
             base=factory(request);base.config.valid_host(request)
         except Error as exc:return no_store(HTMLResponse('请使用配置的网站地址访问',status_code=exc.status))
-        try:
-            response=await call_next(request)
-        except Exception as exc:
-            from .public_page_cache import stale_response
-            response=None if isinstance(exc,Error) and exc.status not in (500,502,503,504) else stale_response(request)
-            if response is None:raise
-            import logging
-            logging.getLogger(__name__).error('Public stale fallback request_id=%s ray=%s path=%s',response.headers['x-request-id'],request.headers.get('cf-ray',''),request.url.path,exc_info=(type(exc),exc,exc.__traceback__))
+        response=await call_next(request)
         if response.status_code in (500,502,503,504) and getattr(request.state,'public_recovery_eligible',False):
             from .public_recovery import response as recovery_response
             import logging
             original_status=response.status_code
-            from .public_page_cache import stale_response
-            response=stale_response(request) or recovery_response(request)
+            response=recovery_response(request)
             logging.getLogger(__name__).error('Public response failure status=%s request_id=%s ray=%s path=%s',original_status,response.headers['x-request-id'],request.headers.get('cf-ray',''),request.url.path)
         if request.url.path.startswith(('/admin','/auth/','/api/','/transfer','/health')):
             response.headers['X-Robots-Tag']='noindex, nofollow'
@@ -150,7 +142,7 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         if base.kind!='local':
             shared=getattr(request.state,'public_shared',False)
             cacheable=shared and request.method in ('GET','HEAD') and response.status_code in (200,304) and 'set-cookie' not in response.headers and response.headers.get('Cache-Control','').startswith('public,')
-            response.headers['Cloudflare-CDN-Cache-Control']=response.headers['Cache-Control'] if cacheable and response.headers.get('X-Public-Page-Cache')!='STALE' else 'no-store'
+            response.headers['Cloudflare-CDN-Cache-Control']=response.headers['Cache-Control'] if cacheable else 'no-store'
         if getattr(request.state,'admin_invalid_session',False):base.config.clear(response)
         return response
     @app.exception_handler(Exception)

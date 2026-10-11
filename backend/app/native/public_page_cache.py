@@ -1,12 +1,11 @@
 """Anonymous HTML cache adapters; bounded local storage shares the data budget."""
-import asyncio,time
+import asyncio
 from collections import OrderedDict
 from fastapi.responses import Response
 from .public_http_cache import recovery_request
 
 MAX_PAGE_BYTES=256*1024
 MAX_PAGES=128
-STALE_SECONDS=86400
 
 class LocalPageStore:
     """Owned by PublicReadCache; all operations use its lock, clock and revision."""
@@ -42,14 +41,14 @@ class PageCache:
     """Request-local adapter. Only bytes are stored; response headers are rebuilt."""
     def __init__(self,r,key,revision,ttl):
         self.r,self.key,self.revision,self.ttl=r,key,revision,ttl
-        self.cache=None;self.state='MISS';self.stale=None
+        self.cache=None;self.state='MISS'
     async def get(self):
         try:
             if self.r.kind=='local':
                 body=self.r.sql.public_cache.pages.get(self.key,self.revision)
             else:
                 from js import caches
-                self.cache=await asyncio.wait_for(caches.open('teacher-public-pages-v1'),1)
+                self.cache=await asyncio.wait_for(caches.open('teacher-public-pages-v2'),1)
                 self.key=self.r.config.origin.rstrip('/')+'/.public-page-cache/'+self.key.removeprefix('W/').strip('"')
                 response=await asyncio.wait_for(self.cache.match(self.key),1)
                 if not response:return None
@@ -57,15 +56,8 @@ class PageCache:
                 if response.status!=200 or not 0<=length<=MAX_PAGE_BYTES or response.headers.get('content-type')!='text/html; charset=utf-8' or response.headers.get('set-cookie'):
                     if response.body:await response.body.cancel()
                     return None
-                created=float(response.headers.get('x-page-created') or 0)
-                age=time.time()-created
-                if not created or not 0<=age<self.ttl+STALE_SECONDS:
-                    if response.body:await response.body.cancel()
-                    return None
                 body=(await asyncio.wait_for(response.text(),1)).encode('utf-8')
                 if len(body)!=length:return None
-                if age>=self.ttl:
-                    self.stale=(body,created);return None
             if body is not None:self.state='HIT'
             return body
         except Exception:
@@ -84,8 +76,7 @@ class PageCache:
                 # Internal Cache API freshness is independent of browser policy.
                 cached.headers.set('Content-Type','text/html; charset=utf-8')
                 cached.headers.set('Content-Length',str(len(body)))
-                cached.headers.set('Cache-Control',f'public, max-age={self.ttl+STALE_SECONDS}')
-                cached.headers.set('X-Page-Created',str(time.time()))
+                cached.headers.set('Cache-Control',f'public, max-age={self.ttl}')
                 await asyncio.wait_for(self.cache.put(self.key,cached),1)
         except Exception:self.state='BYPASS'
 
@@ -98,23 +89,3 @@ def page_cache(request,r,etag,revision,fragment=False,uid=None):
 
 def page_response(body,headers,etag):
     return Response(body,media_type='text/html',headers=dict(headers,ETag=etag,**{'X-Public-Page-Cache':'HIT'}))
-
-
-def stale_response(request):
-    """Request-local, same-representation fallback; never renew storage on failure."""
-    if recovery_request(request) or not getattr(request.state,'public_recovery_eligible',False):return None
-    candidate=getattr(request.state,'public_stale_page',None)
-    if candidate is None:return None
-    body,created,ttl,headers,etag=candidate
-    age=time.time()-created
-    if not ttl<=age<ttl+STALE_SECONDS:return None
-    from email.utils import formatdate
-    from uuid import uuid4
-    trace=getattr(request.state,'request_id',None) or uuid4().hex
-    request.state.request_id=trace
-    headers=dict(headers,ETag=etag,Age=str(int(age)),Date=formatdate(created,usegmt=True))
-    headers.update({'X-Public-Page-Cache':'STALE','X-Request-ID':trace,'Cloudflare-CDN-Cache-Control':'no-store'})
-    # Sending an old success is distinct from caching an error. Date/Age retain its age.
-    response=Response(b'' if request.method=='HEAD' else body,media_type='text/html',headers=headers)
-    if request.method=='HEAD':response.headers['Content-Length']=str(len(body))
-    return response

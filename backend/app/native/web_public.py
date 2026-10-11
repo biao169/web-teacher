@@ -175,8 +175,6 @@ def install(app,factory,resources,csrf,render):
         cache=page_cache(request,r,etag,public_revision,fragment,uid)
         if cache:
             body=await cache.get()
-            if cache.stale and getattr(r,'public_shared',False):
-                request.state.public_stale_page=(*cache.stale,cache.ttl,public_headers(request,r,public_revision,safe=True),etag)
             if body is not None:return finish(request,page_response(body,public_headers(request,r,public_revision,safe=bool(etag)),etag),etag)
         site_options={}
         site_rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')

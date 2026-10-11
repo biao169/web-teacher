@@ -22,13 +22,12 @@ def traced(component,http=False):
             if http and data.get('route')=='sync-peer':
                 data['peer_request_id']=field({'nonce':request.headers.get('x-sync-nonce')},'nonce','[a-f0-9]{32}')
                 data['peer_request_id_verified']=False # Correlation only; signature validation is downstream.
-            start=time.monotonic();status=None;response_received=False
+            start=time.monotonic();status=None
             with scope(**data),request_context(**data):
                 if not http or data.get('route')=='sync-peer':record('INVOCATION-START')
                 try:
                     with operation_stage('http-handler' if http else 'executor-handler'):
                         result=await fn(self,*args,**kwargs)
-                    response_received=True
                     if http:
                         # SDK service bindings return workers.Response, ASGI returns js.Response.
                         # ResponseInit must receive the native object (not HTTPMessage/PyProxy headers).
@@ -44,7 +43,7 @@ def traced(component,http=False):
                                 upstream_component=result.headers.get('x-teacher-component')
                                 if upstream_component:result.headers.set('x-upstream-component',upstream_component)
                                 result.headers.set('x-teacher-component',component)
-                                result.headers.set('x-teacher-release','0.16.088')
+                                result.headers.set('x-teacher-release','0.16.090')
                     record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='cancelled' if status==499 else 'returned')
                     return result
                 except BaseException as exc:
@@ -54,15 +53,6 @@ def traced(component,http=False):
                             record('INVOCATION-CANCELLED',finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),error_type=type(exc).__name__,error_category='cancelled',application_outcome='cancelled',retryable=False)
                             raise
                     record('INVOCATION-ERROR',finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),error_type=type(exc).__name__,diagnostic=failure(exc),**category(exc))
-                    # Final Python/JS response wrapping is outside Default.fetch.
-                    # Only a returned ordinary Public request gets this last boundary.
-                    if http and component=='main-site' and response_received and isinstance(exc,Exception):
-                        from .public_recovery import eligible,recovery_response,discard
-                        if eligible(request):
-                            await discard(result,{'request_id':data['request_id'],'phase':'response-wrap'})
-                            fallback=recovery_response(request,data['request_id'])
-                            record('PUBLIC-RECOVERY',http_status=503,phase='response-wrap')
-                            return getattr(fallback,'js_object',fallback)
                     raise
         return wrapped
     return decorate

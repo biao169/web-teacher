@@ -70,12 +70,15 @@ def check(runtime, source=None, executor_only=False, executor_dependencies=False
             spec=importlib.util.spec_from_file_location('worker_runtime.entrypoint',runtime/'entrypoint.py')
             module=importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            forbidden=('worker_runtime.site_entrypoint','worker_runtime.snapshot','backend.app.native.web_public','fastapi','worker_runtime.transfer','worker_runtime.cleanup','backend.maintenance.media_uploads','backend.app.native.web_admin','worker_runtime.admin_resources','worker_runtime.sync_resources')
+            assert module.application.application is None, 'Application built during startup'
+            assert 'backend.entrypoints.worker' not in sys.modules, 'Legacy entrypoint constructed an unused app'
+            if (runtime/'snapshot.py').exists():
+                for name in ('backend.app.native.web_public', 'worker_runtime.transfer', 'transfer.backend.codes'):
+                    assert name in sys.modules, 'Snapshot preload missing: '+name
+        if not executor_only:
+            if (runtime/'public_resources.py').exists():assert 'worker_runtime.public_resources' in sys.modules
+            forbidden=('backend.app.native.web','backend.app.native.web_admin','worker_runtime.admin_resources','generated_resources','generated_admin_templates','worker_runtime.setup','worker_runtime.media_upload')
             assert not any(n in sys.modules for n in forbidden),[n for n in forbidden if n in sys.modules]
-            # Verify deferred Public dependencies independently, still with side effects blocked.
-            importlib.import_module('worker_runtime.site_entrypoint')
-            heavy=('worker_runtime.transfer','worker_runtime.cleanup','backend.maintenance.media_uploads','backend.app.native.web_admin','worker_runtime.admin_resources','worker_runtime.sync_resources','site_sync.integration.peer_api')
-            assert not any(n in sys.modules for n in heavy),[n for n in heavy if n in sys.modules]
         executor_spec=importlib.util.spec_from_file_location('worker_runtime.sync_executor',runtime/'sync_executor.py')
         executor=importlib.util.module_from_spec(executor_spec);executor_spec.loader.exec_module(executor)
         assert hasattr(executor.Default,'sync_tick')

@@ -29,7 +29,11 @@ def worker(entry,monkeypatch):
  obj=entry.Default();obj.env=SimpleNamespace();obj.ctx=SimpleNamespace()
  return obj
 
-def invoke(entry,worker,req):return asyncio.run(entry.Default.fetch.__wrapped__(worker,req))
+def invoke(entry,worker,req):
+ # Historical helper remains available, but is no longer installed around Public dispatch.
+ from runtime.public_recovery import eligible,run
+ async def call():return await entry.Default.fetch.__wrapped__(worker,req)
+ return asyncio.run(run(req,call,'test-trace','') if eligible(req) else call())
 
 
 def test_failed_initialization_recovery_and_next_request_rebuild(entry,worker,monkeypatch,capsys):
@@ -124,17 +128,3 @@ def test_sync_binding_failure_response_untouched(entry,worker,monkeypatch):
  assert invoke(entry,worker,request('/sync/v1/read')) is original
 
 
-def test_response_wrap_failure_recovery(entry,worker,monkeypatch,capsys):
- import sys
- from runtime.request_diagnostics import traced
- body=SimpleNamespace(locked=False,cancel=AsyncMock())
- monkeypatch.setitem(sys.modules,'js',SimpleNamespace(Response=SimpleNamespace(new=Mock(side_effect=TypeError('bridge wrap')))))
- class Worker:
-  env=SimpleNamespace()
-  @traced('main-site',http=True)
-  async def fetch(self,req):return SimpleNamespace(status=200,headers={},body=body)
- a=asyncio.run(Worker().fetch(request()))
- assert a.status==503 and 'data-public-recovery' in a.body
- body.cancel.assert_awaited_once()
- logs=capsys.readouterr().out
- assert 'INVOCATION-ERROR' in logs and 'response-wrap' in logs
