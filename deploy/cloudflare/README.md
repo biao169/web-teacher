@@ -1,3 +1,54 @@
+## v0.16.082：第五步回归与部署验收准备
+
+286项Python回归及103项前端DOM测试通过；simple+separate离线打包检查通过。新增local/Worker simple/off连续故障恢复GET/HEAD测试，修正预取测试中的历史资产版本断言。本轮不改变缓存策略、同步逻辑或Linux性能配置。真实Cloudflare/D1、PoP缓存和CPU/内存尚未线上验收。
+
+详细矩阵、只读探针命令及部署验收清单：[第五步说明](../../docs/releases/v0.16.082.md)。
+
+## v0.16.081：旧成功页面回退与恢复小助手（第四步）
+
+| 模式 | 页面缓存与回退 |
+| --- | --- |
+| simple（生产默认） | 保留平台Workers Cache及30分钟TTL、SWR 120秒、stale-if-error 86400秒；不创建内部SQL/Page Cache API。平台回退以该PoP仍有旧成功条目为前提。 |
+| full（实验模式） | 保留内部缓存。HTML条目记录生成时间，正常TTL后重新生成，生成失败时可使用同一表示的旧成功HTML，最长到原TTL结束后24小时。内部保留期为TTL+86400，不等于浏览器新鲜期。 |
+| off | 不启用页面缓存或应用层旧页面回退；失败进入单次恢复页。 |
+| Admin/Auth/Sync/写操作 | 不新增共享缓存、旧页回退或小助手脚本。 |
+
+full模式只对已校验共享资格、相同版本/语言/查询/表示的首页和列表缓存回退。4xx、恢复请求、表单、私有页面、fragment和详情不使用内部stale候选。若读取版本已失败、版本变化、缓存被淘汰、条目超限或超过窗口，则进入恢复页，不跨版本猜测旧内容。单页上限仍为256KiB；旧候选仅存于当前请求，不新增全局大对象。仅捕获的失败可回退，平台强制终止不保证返回。
+
+回退响应为200，带X-Public-Page-Cache: STALE、原生成Date及累计Age；不回写旧缓存，不刷新时间戳，不让重复失败延长24小时窗口，Cloudflare-CDN-Cache-Control为no-store，原始异常及请求ID仍记录。刷新成功才替换内部条目。full不新增后台SWR任务；浏览器HTTP指令保留。Linux现有LocalPageStore、页面/Data LRU、预取及并发未改。
+
+恢复页增加纯内联SVG维修小助手：鼠标/触摸拖动、方向键辅助移动、视口限位、Reload按钮避让、resize重新限位。拖动结束/取消/失去捕获即卸载拖动监听；pagehide清理，BFCache恢复仅恢复手动交互。小助手无网络请求、无持续requestAnimationFrame循环；CSS眨眼遵守prefers-reduced-motion。首次失败仍只自动重试一次，小助手不改变这一规则。
+
+官方机制参考：[Workers Cache配置](https://developers.cloudflare.com/workers/cache/configuration/)、[内部Cache API限制](https://developers.cloudflare.com/workers/runtime-apis/cache/)。内部Cache API不会自行执行stale指令，因此full采用显式时间检查；simple保持平台缓存机制。
+
+## v0.16.080：Public Worker 外层恢复边界（第三步）
+
+标准Public GET/HEAD增加初始化、ASGI分派和最终Python/JS响应转换的异常边界。可捕获异常及500/502/503/504响应使用独立503恢复页，Retry-After:1，两类缓存头no-store；沿用前版仅一次客户端恢复请求。正常200/304及400/403/404/429保持原响应。已由应用层生成的恢复页不重复替换。
+
+日志保留request_id、Ray ID、路径、phase、异常类型和安全的错误链/代码位置；完整异常内容不展示给访客。PUBLIC-RECOVERY标识外层恢复，PUBLIC-RECOVERY-CLEANUP标识释放响应流失败。响应流取消最多等待1秒，不读取失败正文。轻量不可变恢复模板在快照中预加载，不执行SQL、鉴权或Jinja。
+
+Admin/Auth仍先转发SITE_ADMIN，Sync路由/Executor/Native、媒体、API、fragment、自定义导航、表单和写操作不进入恢复边界。新闻详情可能带评论表单，外层不查数据库、不猜测其公开性，仍交给应用层已验证无表单的路径处理。客户端正常取消继续499或传播CancelledError；不自动恢复，不吞真实异常。
+
+初始化失败不发布半成品应用，下次请求可重新构建；不重启Worker、不清缓存、不操作同步任务/checkpoint。部署快照本身失败或平台强制终止不在可捕获范围，不能保证所有1101/1102都返回恢复页面。
+
+## v0.16.079：Public 单次恢复页面（第二步）
+
+标准公开页面完成路由及表单边界检查后，可捕获的渲染异常、500/502/503/504响应改为503恢复页，保留原始错误日志、request ID和Ray ID。恢复页不读取数据库、身份或菜单，不依赖Jinja；使用内联样式、SVG品牌占位、中英文文案和手动重新加载链接。站点设置读取可能正是故障来源，因此本页使用安全的默认站点名称。
+
+首次失败约1秒后导航至当前地址加`__recover=1`；再次失败不自动重试。手动按钮保留标记，阻止双击重复提交；其他查询参数和锚点保留。成功响应通过专用脚本移除恢复参数，不改变历史state。pagehide停止计时，BFCache恢复保持手动模式。JS不可用时手动链接仍可使用。
+
+响应为503、Retry-After:1，两类缓存头均no-store。正常页面仍缓存30分钟；不创建后台任务、不发送Clear-Site-Data、不改变同步或私有鉴权。Worker构建生成独立的generated_public_recovery.py，避免错误时加载整套Public模板；源模板仍只有一份。
+
+范围：本轮接入应用层失败；Public资源初始化前、Service Binding、JS bridge和Worker最外层失败边界留到第三步。平台强制终止无法保证被捕获。小人的拖动交互按计划留到第四步。
+
+## v0.16.078：Public 恢复基础规则（第一步）
+
+标准 Public 成功 HTML 默认 `public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400`；正常 ETag/304 保留，TTL 自定义和 off 模式不被覆盖。表单、自定义导航及身份敏感页面不新增共享 stale 策略；fragment 协议保持原样。
+
+标准公开页面的 `__recover=1` 请求绕过本次数据/HTML缓存及304，响应同时设置 Cache-Control 与 Cloudflare-CDN-Cache-Control 为 no-store。参数不进入正式表示键或规范链接；列表规范化跳转保留参数直至本次页面生成。不会清空浏览器或服务端缓存。Admin/Auth/Sync、写操作、新闻评论表单及本地登录私有页面不启用恢复模式。
+
+错误响应（包括框架生成的未捕获异常500）明确 no-store 并移除ETag；原异常继续记录。恢复模板、单次自动导航和成功后的地址栏清理将在下一步接入，当前不会自动重试。平台 Workers Cache 与内部 Cache API 不同，后者不能仅凭 stale 响应头保证回退；本轮未做真实边缘故障验收。
+
 ## v0.16.077：返回恢复与请求取消
 
 部署脚本自动为Public和Admin加入enable_request_signal、request_signal_passthrough，移除相反标志；保持现有compatibility_date。Sync Executor/Native不继承本轮标志。Public通过SITE_ADMIN原样转发Request，不重建请求或读取正文，以保留平台取消信号。

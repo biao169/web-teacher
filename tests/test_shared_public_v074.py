@@ -17,7 +17,7 @@ def test_equal_html_and_etag_without_auth(fixture,path):
   assert admin.content==anon.content==invalid.content
   assert admin.headers['etag']==anon.headers['etag']==invalid.headers['etag']
   assert admin.headers['vary']=='X-Public-Fragment'
-  assert admin.headers['cache-control']=='public, max-age=1800'
+  assert admin.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
   assert c.get(path,headers={'If-None-Match':admin.headers['etag']}).status_code==304
   assert not c.head(path).content
   assert 'name="_csrf"' not in admin.text and 'data-public-identity=""' in admin.text

@@ -41,7 +41,7 @@ def test_hit_skips_queries_and_render_and_head_304(fixture,path):
   assert len(calls)==(2 if path.endswith('/news') else 1),calls
   head=c.head(path);assert head.content==b'' and head.headers['x-public-page-cache']=='HIT' and head.headers['content-length']==first.headers['content-length']
   conditional=c.get(path,headers={'If-None-Match':first.headers['etag']});assert conditional.status_code==304 and conditional.content==b''
- assert second.headers['cache-control']=='public, max-age=1800'
+ assert second.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
 
 
 def test_identity_revision_query_and_navigation(fixture):
@@ -114,7 +114,7 @@ def test_worker_adapter_hit_expiry_revision_bounds_and_failure(worker_cache):
  one=PageCache(r,'W/"key"','1',300)
  assert run(one.get()) is None
  run(one.put(HTMLResponse('small html')))
- stored=next(iter(cache.entries.values()));assert stored.headers['cache-control']=='public, max-age=300'
+ stored=next(iter(cache.entries.values()));assert stored.headers['cache-control']=='public, max-age=86700'
  two=PageCache(r,'W/"key"','1',300);assert run(two.get())==b'small html' and two.state=='HIT'
  assert run(PageCache(r,'W/"new-key"','2',300).get()) is None
  cache.entries.clear() # Platform TTL expiry/eviction.

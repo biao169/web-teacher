@@ -87,6 +87,9 @@ def main(separate=False,cache_mode="full"):
             assert (stage/'src'/file).is_file(),file
         assert (stage/'assets/assets/public/js/public-stream.js').read_bytes()==(ROOT/'frontend/public/static/js/public-stream.js').read_bytes()
         assert (stage/'assets/assets/public/js/public-prefetch.js').read_bytes()==(ROOT/'frontend/public/static/js/public-prefetch.js').read_bytes()
+        recovery=ast.parse((stage/'src/generated_public_recovery.py').read_text())
+        assert ast.literal_eval(recovery.body[0].value)==(ROOT/'frontend/public/templates/public-recovery.html').read_text()
+        assert (stage/'assets/assets/public/js/public-recovery.js').read_bytes()==(ROOT/'frontend/public/static/js/public-recovery.js').read_bytes()
         public_tree=ast.parse((stage/'src/generated_public_templates.py').read_text())
         public_templates=next(ast.literal_eval(n.value) for n in public_tree.body if isinstance(n,ast.Assign) and n.targets[0].id=='TEMPLATES')
         assert public_templates['public/home-section.html']==(ROOT/'frontend/public/templates/home-section.html').read_text()

@@ -12,7 +12,7 @@ def test_private_cache_and_304(fixture,system,ttl):
  if not system:run(r.sql.batch([('UPDATE auth_users SET role_uid=? WHERE uid=?',('role-registered',r.p['uid']))]))
  for path in ('/en','/en/projects','/en/profiles'):
   a=c.get(path);assert a.status_code==200
-  assert a.headers['cache-control']=='public, max-age=1800'
+  assert a.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
   assert a.headers['x-public-page-cache']=='BYPASS'
   assert a.headers['vary']=='X-Public-Fragment'
   b=c.get(path,headers={'If-None-Match':a.headers['etag']})
@@ -27,13 +27,13 @@ def test_sensitive_no_store(fixture,path):
 def test_boundaries_and_live_identity(fixture):
  c,r=fixture;worker(r);a=c.get('/en/projects');tag=a.headers['etag']
  assert c.get('/en/projects',headers={'X-Public-Fragment':'1'}).headers['cache-control']=='private, no-cache'
- assert c.get('/en',headers={'Authorization':'Bearer ignored'}).headers['cache-control']=='public, max-age=1800'
+ assert c.get('/en',headers={'Authorization':'Bearer ignored'}).headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
  run(r.sql.batch([("UPDATE auth_permissions SET can_view=0 WHERE role_uid=? AND module='projects'",(r.p['role_uid'],))]))
  assert c.get('/en/projects',headers={'If-None-Match':tag}).status_code==304
  run(r.auth.logout(r.p));a=c.get('/en/projects',headers={'If-None-Match':tag})
- assert a.status_code==304 and a.headers['cache-control']=='public, max-age=1800'
+ assert a.status_code==304 and a.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
 
-@pytest.mark.parametrize('kind,mode,page_ttl,expected',[('local','simple',300,'private, no-cache'),('r2','simple',0,'private, no-cache'),('r2','off',0,'no-store'),('r2','full',300,'public, max-age=300')])
+@pytest.mark.parametrize('kind,mode,page_ttl,expected',[('local','simple',300,'private, no-cache'),('r2','simple',0,'private, no-cache'),('r2','off',0,'no-store'),('r2','full',300,'public, max-age=300, stale-while-revalidate=120, stale-if-error=86400')])
 def test_policy_switches(fixture,kind,mode,page_ttl,expected):
  c,r=fixture;worker(r);r.kind=kind;r.worker_cache_mode=mode
  r.public_performance=PublicPerformance(public_cache_ttl_seconds=0 if mode=='off' else 1800,public_page_cache_ttl_seconds=page_ttl)

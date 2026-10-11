@@ -4,8 +4,8 @@ from urllib.parse import quote,urlencode
 from fastapi import Request
 from fastapi.responses import JSONResponse,RedirectResponse
 from .catalog import CONTENT,TITLE,public_modules,Error
-from .web_common import payload
-from .public_http_cache import validator,not_modified,finish,identity_fingerprint,private_page_policy
+from .web_common import payload,shared_public_route
+from .public_http_cache import validator,not_modified,finish,identity_fingerprint,private_page_policy,recovery_request
 from .public_page_cache import page_cache,page_response
 
 def public_headers(request,r,revision,fragment=False,form=False,safe=False):
@@ -13,7 +13,7 @@ def public_headers(request,r,revision,fragment=False,form=False,safe=False):
     headers={'Vary':'X-Public-Fragment' if shared and not form else 'Cookie, Authorization, X-Public-Fragment','X-Public-Revision':revision}
     ttl=r.public_performance.public_cache_ttl_seconds
     page_ttl=r.public_performance.public_page_cache_ttl_seconds
-    if (request.headers.get('authorization') and not shared) or form or (not fragment and not safe):
+    if recovery_request(request) or (request.headers.get('authorization') and not shared) or form or (not fragment and not safe):
         policy='no-store'
     elif fragment:
         # Keep existing fragment policy and protocol separate from HTML freshness.
@@ -22,7 +22,10 @@ def public_headers(request,r,revision,fragment=False,form=False,safe=False):
         policy=private_page_policy(r)
     else:
         policy=f'public, max-age={page_ttl}' if page_ttl else 'private, no-cache'
+        if page_ttl and (shared or (r.kind=='local' and not r.p and shared_public_route(request))) and request.method in ('GET','HEAD'):
+            policy+=', stale-while-revalidate=120, stale-if-error=86400'
     headers['Cache-Control']=policy
+    if recovery_request(request):headers['Cloudflare-CDN-Cache-Control']='no-store'
     return headers
 
 def install(app,factory,resources,csrf,render):
@@ -157,6 +160,7 @@ def install(app,factory,resources,csrf,render):
         home_mode=query.get('home')=='1'
         if table and not uid and not fragment:
             canonical=query_url(list_path,query)
+            if recovery_request(request):canonical+=('&' if '?' in canonical else '?')+'__recover=1'
             actual=request.url.path+('?' +request.url.query if request.url.query else '')
             if actual!=canonical:return RedirectResponse(canonical,303)
         # Validate all list-only semantics before a conditional short circuit.
@@ -171,6 +175,8 @@ def install(app,factory,resources,csrf,render):
         cache=page_cache(request,r,etag,public_revision,fragment,uid)
         if cache:
             body=await cache.get()
+            if cache.stale and getattr(r,'public_shared',False):
+                request.state.public_stale_page=(*cache.stale,cache.ttl,public_headers(request,r,public_revision,safe=True),etag)
             if body is not None:return finish(request,page_response(body,public_headers(request,r,public_revision,safe=bool(etag)),etag),etag)
         site_options={}
         site_rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')
@@ -258,6 +264,7 @@ def install(app,factory,resources,csrf,render):
             etag=await validator(request,r,public_revision,dict(request.query_params),scope,False,table,uid)
             cached=not_modified(request,etag,public_headers(request,r,public_revision,safe=bool(etag)))
             if cached is not None:return cached
+        values['public_recovery_success']=recovery_request(request)
         response=await render(r,'public/native.html',**values)
         if 'challenge' in values:r.config.set_cookie(response,'public-form',values['challenge'],600)
         response.headers.update(public_headers(request,r,public_revision,form='challenge' in values,safe=bool(etag)))

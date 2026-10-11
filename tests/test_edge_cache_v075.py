@@ -21,9 +21,9 @@ def test_override_and_local_defaults():
 
 def test_response_boundary(fixture):
  c,r=fixture;r.kind='r2';r.worker_cache_mode='simple';r.public_request_cache=False
- a=c.get('/en');assert a.headers['cache-control']=='public, max-age=1800'
- assert a.headers['cloudflare-cdn-cache-control']=='public, max-age=1800'
- assert c.get('/en',headers={'If-None-Match':a.headers['etag']}).headers['cloudflare-cdn-cache-control']=='public, max-age=1800'
+ a=c.get('/en');assert a.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
+ assert a.headers['cloudflare-cdn-cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
+ assert c.get('/en',headers={'If-None-Match':a.headers['etag']}).headers['cloudflare-cdn-cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
  for path in ('/admin','/auth/login','/en/contact','/api/public/session-summary','/api/public/cache-revision','/en/n/missing','/en/profiles/missing'):
   b=c.get(path);assert b.headers['cloudflare-cdn-cache-control']=='no-store',path
  r.kind='local';assert 'cloudflare-cdn-cache-control' not in c.get('/en').headers

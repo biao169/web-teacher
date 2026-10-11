@@ -8,7 +8,7 @@ run=asyncio.run
 @pytest.mark.parametrize('ttl',[0,30,300,3600])
 def test_anonymous_browser_policy_and_304(fixture,ttl):
  c,r=fixture;c.cookies.clear();r.public_performance=P(public_page_cache_ttl_seconds=ttl)
- expected=f'public, max-age={ttl}' if ttl else 'private, no-cache'
+ expected=f'public, max-age={ttl}, stale-while-revalidate=120, stale-if-error=86400' if ttl else 'private, no-cache'
  response=c.get('/en');assert response.status_code==200 and response.headers['cache-control']==expected
  assert set(x.strip() for x in response.headers['vary'].split(','))=={'Cookie','Authorization','X-Public-Fragment'}
  repeat=c.get('/en');assert repeat.headers['cache-control']==expected
@@ -28,12 +28,12 @@ def test_live_login_logout_expired_session_and_permissions(fixture):
  assert old_identity!=current_identity
  assert c.get('/en/projects',headers={'If-None-Match':tag}).status_code==200
  c.cookies.clear();anon=c.get('/en/projects',headers={'If-None-Match':tag})
- assert anon.status_code==200 and anon.headers['cache-control']=='public, max-age=300'
+ assert anon.status_code==200 and anon.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
  c.cookies.set('ts_session',token)
  assert c.get('/en/projects',headers={'If-None-Match':anon.headers['etag']}).status_code==200
  run(r.auth.logout(r.p))
  expired=c.get('/en/projects',headers={'If-None-Match':tag})
- assert expired.status_code==200 and expired.headers['cache-control']=='public, max-age=300'
+ assert expired.status_code==200 and expired.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
  assert c.get('/api/public/cache-revision').json()['identity']==''
 
 
@@ -70,5 +70,5 @@ def test_expired_session_does_not_revalidate_private_html(fixture,monkeypatch):
  c,r=fixture;first=c.get('/en')
  monkeypatch.setattr('backend.app.native.auth.now',lambda **kwargs:'9999-01-01T00:00:00.000Z')
  response=c.get('/en',headers={'If-None-Match':first.headers['etag']})
- assert response.status_code==200 and response.headers['cache-control']=='public, max-age=300'
+ assert response.status_code==200 and response.headers['cache-control']=='public, max-age=1800, stale-while-revalidate=120, stale-if-error=86400'
  assert c.get('/api/public/cache-revision').json()['identity']==''

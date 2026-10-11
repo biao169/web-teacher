@@ -7,7 +7,7 @@ def test_prefetch_configuration_reaches_real_html_and_cache(fixture,value):
  c,r=fixture;c.cookies.clear();r.public_performance=PublicPerformance(public_nav_prefetch_concurrency=value)
  first=c.get('/en');assert first.status_code==200
  assert f'data-public-nav-prefetch-concurrency="{value}"' in first.text
- assert '/assets/public/js/public-prefetch.js?v=0.16.060' in first.text
+ assert '/assets/public/js/public-prefetch.js?v=' in first.text
  second=c.get('/en');assert second.headers['x-public-page-cache']=='HIT' and second.content==first.content
  asset=c.get('/assets/public/js/public-prefetch.js');assert asset.status_code==200 and 'text/javascript' in asset.headers['content-type']
 

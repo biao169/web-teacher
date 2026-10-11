@@ -31,6 +31,7 @@ def extend(root,stage,cfg,env=None):
     src=stage/'src'
     (src/'worker_runtime/site_mode.py').write_text('SYNC_EXECUTOR_MODE = '+repr(cfg.get('vars',{}).get('TEACHER_SYNC_EXECUTOR_MODE','inline'))+'\n')
     values=literals(src/'generated_resources.py');templates=values['TEMPLATES']
+    (src/'generated_public_recovery.py').write_text('HTML = '+repr(templates.pop('public/public-recovery.html'))+'\n')
     groups={
       'public':{n:v for n,v in templates.items() if n.startswith(('shared/','public/'))},
       'admin':subset(templates,[n for n in templates if n.startswith(('shared/','admin/','sync/'))]+['public/auth-page.html','public/native-footer-links.html']),

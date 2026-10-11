@@ -4,8 +4,18 @@ from fastapi.responses import Response
 from .catalog import now
 
 # Bump with releases that change public rendering, even if the DB revision is unchanged.
-REPRESENTATION_VERSION='0.16.077'
+REPRESENTATION_VERSION='0.16.082'
 _TAG=re.compile(r'(?:W/)?"[\x21\x23-\x7e\x80-\xff]*"')
+
+def recovery_request(request):
+    """Set only after the ordinary Public route and form/identity boundary checks."""
+    return bool(getattr(getattr(request,'state',None),'public_recovery',False))
+
+def no_store(response):
+    response.headers['Cache-Control']='no-store'
+    response.headers['Cloudflare-CDN-Cache-Control']='no-store'
+    if 'etag' in response.headers:del response.headers['etag']
+    return response
 
 def matches_etag(value,etag):
     """GET/HEAD weak comparison; malformed or oversized lists fall back to 200."""
@@ -35,13 +45,14 @@ def representation_key(request,r,revision,query,scope=None,fragment=False,clock=
     # Includes current effective grants, display fields and session fingerprint.
     # Only the final digest leaves the server; no UID/username/CSRF in the header.
     identity=r.p or 'anonymous'
-    values=[('0.16.077' if getattr(r,'public_light',False) else REPRESENTATION_VERSION),revision,identity,request.url.path,
-            sorted((k,str(v)) for k,v in query.items()),bool(fragment),
+    values=[('0.16.082' if getattr(r,'public_light',False) else REPRESENTATION_VERSION),revision,identity,request.url.path,
+            sorted((k,str(v)) for k,v in query.items() if k!='__recover'),bool(fragment),
             scope['stamp'] if scope else '',clock,r.config.origin,
             getattr(r,'asset_mode',''),r.public_performance.to_env()]
     return hashlib.sha256(json.dumps(values,sort_keys=True,ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
 
 async def validator(request,r,revision,query,scope=None,fragment=False,table=None,uid=None):
+    if recovery_request(request):return None
     if (uid and not getattr(r,'public_shared',False)) or request.method not in ('GET','HEAD') or (request.headers.get('authorization') and not getattr(r,'public_shared',False)):
         return None
     # Keep explicit cache-disable semantics; conditional responses are not HTML storage.
@@ -56,14 +67,13 @@ async def validator(request,r,revision,query,scope=None,fragment=False,table=Non
 
 def not_modified(request,etag,headers):
     # Do not evaluate this ahead of other preconditions or range processing.
-    if etag and not request.headers.get('if-match') and not request.headers.get('range') and matches_etag(','.join(request.headers.getlist('if-none-match')),etag):
+    if not recovery_request(request) and etag and not request.headers.get('if-match') and not request.headers.get('range') and matches_etag(','.join(request.headers.getlist('if-none-match')),etag):
         return Response(status_code=304,headers=dict(headers,ETag=etag))
     return None
 
 def finish(request,response,etag):
-    if 'set-cookie' in response.headers or response.status_code>=400:
-        response.headers['Cache-Control']='no-store'
-        if 'etag' in response.headers:del response.headers['etag']
+    if recovery_request(request) or 'set-cookie' in response.headers or response.status_code>=400:
+        no_store(response)
         etag=None
     if response.status_code==200 and 'set-cookie' not in response.headers and etag:
         response.headers['ETag']=etag
