@@ -21,7 +21,7 @@ def install(app,factory):
         data={'authenticated':bool(p),'can_enter_admin':False,'can_view_private_projects':False}
         if p:
             data.update({k:p[k] for k in ('uid','username','display_name','csrf','must_change_password','can_enter_admin','can_view_private_projects')})
-        return JSONResponse(data,headers=HEADERS)
+        return JSONResponse(data,headers={**HEADERS,'Cache-Control':'private, no-store','Cloudflare-CDN-Cache-Control':'no-store'})
 
     @app.get('/api/public/admin-project-fields')
     async def project_fields(request:Request):

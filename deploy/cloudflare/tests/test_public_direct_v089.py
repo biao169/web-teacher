@@ -12,7 +12,7 @@ def test_public_returns_dispatch_response(entry,monkeypatch,path,status):
  response=SimpleNamespace(status=status,headers={},body=None)
  dispatch=AsyncMock(return_value=response)
  monkeypatch.setattr(entry,'dispatch',dispatch)
- obj=entry.Default();obj.env=SimpleNamespace();obj.ctx=SimpleNamespace()
+ obj=entry.Default();obj.env=SimpleNamespace(TEACHER_WORKER_CACHE_MODE="off");obj.ctx=SimpleNamespace()
  request=SimpleNamespace(url='https://site.test'+path,method='GET',headers={})
  assert asyncio.run(entry.Default.fetch.__wrapped__(obj,request)) is response
  dispatch.assert_awaited_once()

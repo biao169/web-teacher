@@ -26,7 +26,7 @@ def test_fragment_and_json():
 def worker(entry,monkeypatch):
  import workers
  monkeypatch.setattr(workers,'Response',lambda body,**kw:SimpleNamespace(body=body,**kw),raising=False)
- obj=entry.Default();obj.env=SimpleNamespace();obj.ctx=SimpleNamespace()
+ obj=entry.Default();obj.env=SimpleNamespace(TEACHER_WORKER_CACHE_MODE="off");obj.ctx=SimpleNamespace()
  return obj
 
 def invoke(entry,worker,req):

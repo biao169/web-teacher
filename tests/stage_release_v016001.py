@@ -39,7 +39,9 @@ def main(separate=False,cache_mode="full"):
         assert {'enable_request_signal','no_request_signal_passthrough'}.issubset(admin_flags)
         assert 'request_signal_passthrough' not in admin_flags
         if separate:assert not signal_flags.intersection(json.loads((stage/'wrangler.sync-executor.jsonc').read_text())['compatibility_flags'])
-        assert cfg['cache']=={'enabled':cache_mode=='simple','cross_version_cache':False}
+        assert cfg['cache']=={'enabled':False,'cross_version_cache':False}
+        assert cfg['exports']['default']['cache']['enabled'] is False
+        assert cfg['exports']['PublicPage']['cache']['enabled']==(cache_mode!='off')
         assert json.loads((stage/'wrangler.admin.jsonc').read_text())['cache']=={'enabled':False,'cross_version_cache':False}
         assert 'cache' not in json.loads((stage/'sync-native/wrangler.jsonc').read_text())
         if separate:assert 'cache' not in json.loads((stage/'wrangler.sync-executor.jsonc').read_text())

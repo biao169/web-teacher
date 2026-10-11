@@ -56,6 +56,15 @@ class TransferCoordinator(DurableObject):
             return await asgi.fetch(self._application, request, self.env, self.ctx)
 
 
+class PublicPage(WorkerEntrypoint):
+    async def fetch(self,request):
+        from worker_runtime.public_page import eligible
+        if not eligible(request,self.env):
+            from workers import Response
+            return Response('Not found',status=404,headers={'cache-control':'no-store','cloudflare-cdn-cache-control':'no-store'})
+        return await dispatch(application,request,self.env,self.ctx,asgi.fetch)
+
+
 class Default(WorkerEntrypoint):
     @traced('main-site',http=True)
     async def fetch(self, request):
@@ -63,6 +72,9 @@ class Default(WorkerEntrypoint):
         if owner(request.url)=='admin':
             from worker_runtime.admin_recovery import run,forward
             return await run(request,lambda:forward(self.env.SITE_ADMIN,request),'ADMIN-FORWARD')
+        from worker_runtime.public_page import eligible,forward as public_forward
+        if eligible(request,self.env):
+            return await public_forward(request,self.env,self.ctx)
         import secrets,re
         from urllib.parse import urlsplit
         from site_sync.core.trace import current
@@ -70,7 +82,7 @@ class Default(WorkerEntrypoint):
         if path=='/sync/v1/read' and str(getattr(self.env,'TEACHER_SYNC_PAUSED','0'))=='1':
             from js import Response,Object
             from pyodide.ffi import to_js
-            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.090'}},dict_converter=Object.fromEntries))
+            return Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','retry-after':'60','x-sync-error':'SYNC_PAUSED','x-sync-trace':trace,'x-sync-stage':'admission','x-sync-component':'peer-site','x-sync-release':'0.16.091'}},dict_converter=Object.fromEntries))
         ray=str(request.headers.get('cf-ray') or '')
         ray=ray if re.fullmatch('[a-fA-F0-9]{8,32}-[A-Z]{3}',ray) else ''
         route='sync-peer' if path=='/sync/v1/read' else 'sync-admin' if path.startswith(('/admin/site-sync','/api/admin/site-sync')) else 'admin' if path.startswith('/admin') else 'public'
@@ -85,7 +97,7 @@ class Default(WorkerEntrypoint):
                     emit('SYNC-FORWARD','ERROR',component='main-site',request_id=trace,code='SYNC_EXECUTOR_UNAVAILABLE',exceptions=failure(exc))
                     from js import Response,Object
                     from pyodide.ffi import to_js
-                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.090'}},dict_converter=Object.fromEntries))
+                    response=Response.new(None,to_js({'status':503,'headers':{'cache-control':'no-store','x-request-id':trace,'x-sync-error':'SYNC_EXECUTOR_UNAVAILABLE','x-sync-trace':trace,'x-sync-stage':'executor_forward','x-sync-component':'peer-site','x-sync-release':'0.16.091'}},dict_converter=Object.fromEntries))
             elif request.headers.get('x-sync-stream')=='1' and path=='/sync/v1/read':
                 response=await self.env.SYNC_NATIVE.fetch(request)
             elif path=='/sync/v1/read':

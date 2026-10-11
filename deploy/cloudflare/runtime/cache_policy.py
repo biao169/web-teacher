@@ -7,9 +7,9 @@ def policy(env,*,admin=False):
     mode='off' if admin else str(get('TEACHER_WORKER_CACHE_MODE','simple')).strip()
     if mode not in ('simple','full','off'):raise ValueError('TEACHER_WORKER_CACHE_MODE must be simple, full or off')
     performance=PublicPerformance() if admin else PublicPerformance.from_env(env)
-    if mode!='full':performance=replace(performance,public_nav_prefetch_concurrency=0,public_stream_concurrency=1)
+    performance=replace(performance,public_nav_prefetch_concurrency=0,public_stream_concurrency=1)
     if mode=='off':performance=replace(performance,public_cache_ttl_seconds=0,public_page_cache_ttl_seconds=0)
-    request_cache=mode=='full' and str(get('TEACHER_WORKER_REQUEST_CACHE','1')).strip()!='0'
+    request_cache=False # Shared HTML platform cache only; never Python SQL Cache API.
     return mode,performance,request_cache
 
 def variables(env):
@@ -17,7 +17,10 @@ def variables(env):
     return dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE=mode,TEACHER_WORKER_REQUEST_CACHE='1' if request_cache else '0')
 
 def edge_cache(env):
-    """Version-isolated platform cache; full retains the internal Cache API baseline."""
+    """The router is never cached, regardless of mode."""
+    return {'enabled':False,'cross_version_cache':False}
+
+def entrypoint_cache(env):
     mode,performance,_=policy(env)
-    return {'enabled':mode=='simple' and performance.public_page_cache_ttl_seconds>0,
-            'cross_version_cache':False}
+    return {'default':{'type':'worker','cache':{'enabled':False}},
+            'PublicPage':{'type':'worker','cache':{'enabled':mode!='off' and performance.public_page_cache_ttl_seconds>0}}}

@@ -11,7 +11,7 @@ def test_full_expiry_failure_is_not_cached(fixture,worker_cache):
  with TestClient(create_public_app(lambda request:r),base_url=r.config.origin,raise_server_exceptions=False) as c:
   first=c.get('/en/projects');assert first.status_code==200
   assert 'stale-if-error=86400' in first.headers['cache-control']
-  assert all(x.headers['cache-control']=='public, max-age=1800' for x in cache.entries.values())
+  assert not cache.entries and cache.puts==0
   cache.entries.clear() # Simulate actual Cache API TTL eviction.
   puts=cache.puts
   with patch.object(r.renderer,'render',side_effect=RuntimeError('synthetic outage')):
@@ -23,9 +23,9 @@ def test_full_expiry_failure_is_not_cached(fixture,worker_cache):
 def test_simple_off_never_enter_internal_cache(fixture):
  from backend.app.public_performance import PublicPerformance
  c,r=fixture;r.kind='worker';r.public_request_cache=False
- for mode in ('simple','off'):
+ for mode in ('simple','full','off'):
   r.worker_cache_mode=mode
-  r.public_performance=PublicPerformance() if mode=='simple' else PublicPerformance(public_cache_ttl_seconds=0,public_page_cache_ttl_seconds=0)
+  r.public_performance=PublicPerformance() if mode!='off' else PublicPerformance(public_cache_ttl_seconds=0,public_page_cache_ttl_seconds=0)
   with patch('backend.app.native.public_page_cache.PageCache',side_effect=AssertionError('internal cache')):
    assert c.get('/en').status_code==200
    with patch.object(r.renderer,'render',side_effect=RuntimeError('failed')):

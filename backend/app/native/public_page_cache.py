@@ -84,7 +84,7 @@ def page_cache(request,r,etag,revision,fragment=False,uid=None):
     # Called only after public route, scope, query and canonical URL validation.
     if recovery_request(request):return None
     if not etag or r.p or request.headers.get('authorization') or fragment or uid or request.method not in ('GET','HEAD') or request.headers.get('range') or request.headers.get('if-match') or not r.public_performance.public_page_cache_ttl_seconds:return None
-    if r.kind!='local' and getattr(r,'worker_cache_mode','simple')!='full':return None
+    if r.kind!='local':return None # Worker HTML caching is platform-owned at PublicPage.
     return PageCache(r,etag,revision,r.public_performance.public_page_cache_ttl_seconds)
 
 def page_response(body,headers,etag):

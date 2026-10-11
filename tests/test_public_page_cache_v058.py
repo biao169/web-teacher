@@ -127,14 +127,15 @@ def test_worker_adapter_hit_expiry_revision_bounds_and_failure(worker_cache):
  assert run(PageCache(r,'W/"key"','1',300).get()) is None
 
 
-def test_worker_real_public_route_hit(fixture,worker_cache):
+def test_worker_route_never_uses_internal_page_cache(fixture,worker_cache):
  from fastapi.testclient import TestClient
  from backend.app.native.web_public import create_public_app
  c,r=fixture;r.kind='worker';r.worker_cache_mode='full';r.public_request_cache=False
- with TestClient(create_public_app(lambda request:r),base_url=r.config.origin) as worker:
-  first=worker.get('/en');assert first.headers['x-public-page-cache']=='MISS'
-  with patch.object(r.renderer,'render',side_effect=AssertionError('Worker render on HIT')):
-   second=worker.get('/en');assert second.headers['x-public-page-cache']=='HIT' and second.content==first.content
+ with patch('backend.app.native.public_page_cache.PageCache',side_effect=AssertionError('internal Worker cache')):
+  with TestClient(create_public_app(lambda request:r),base_url=r.config.origin) as worker:
+   assert worker.get('/en').status_code==200
+   assert worker.get('/en').status_code==200
+ assert worker_cache[0].puts==0
 
 
 def test_time_publication_invalidates_cached_news(fixture):

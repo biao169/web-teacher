@@ -1,3 +1,7 @@
+## v0.16.091：只缓存PublicPage
+
+默认入口缓存关闭；标准Public首页/列表通过named entrypoint启用平台缓存。simple/full均不使用Python SQL/Page Cache API，off关闭平台页面缓存。浏览器TTL默认1800秒；身份接口private,no-store，临时失败不再误显示未登录。下方旧版本说明仅为历史记录。[当前部署与验收说明](../../docs/releases/v0.16.091.md)。
+
 ## v0.16.090：Public恢复策略更新
 
 当前恢复页仅手动重新加载，取消自动重试。内部HTML缓存不再提供stale回退；成功页30分钟及HTTP stale响应头保留，实际旧页服务取决于浏览器/CDN。下方历史版本说明不代表当前策略。[第四步说明](../../docs/releases/v0.16.090.md)。

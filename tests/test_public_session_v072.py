@@ -21,7 +21,8 @@ def test_summary_minimal_single_auth(fixture):
   response=c.get('/api/public/session-summary');data=response.json()
  assert response.status_code==200 and data['can_view_private_projects'] and data['csrf']
  assert len(queries)==1 and not {'permissions','session_uid','scopes','password_hash'}&data.keys()
- assert response.headers['cache-control']=='private, max-age=60'
+ assert response.headers['cache-control']=='private, no-store'
+ assert response.headers['cloudflare-cdn-cache-control']=='no-store'
  assert response.headers['vary']=='Cookie, Authorization'
  c.cookies.clear();data=c.get('/api/public/session-summary').json();assert not data['authenticated'] and 'csrf' not in data
 

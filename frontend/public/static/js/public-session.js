@@ -1,15 +1,24 @@
 /* Private islands on Worker Public pages. Never persist identity or private values. */
 (()=>{'use strict';
 const host=document.querySelector('[data-public-session]');if(!host)return;
-const en=host.dataset.lang==='en',login=host.firstElementChild.cloneNode(true);
+const en=host.dataset.lang==='en',login=host.firstElementChild.cloneNode(true);login.hidden=false;
 let generation=0,controller=null,timer=null,active=false,allowed=false,busy=false;
 let loaded=new WeakSet();const visible=new WeakSet();
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
-function clear(){host.replaceChildren(login.cloneNode(true));document.querySelectorAll('[data-private-value]').forEach(n=>n.remove());loaded=new WeakSet();}
-function stop(){generation++;active=false;allowed=false;busy=false;controller?.abort();controller=null;clearTimeout(timer);timer=null;observer?.disconnect();clear();}
+function clear(reset=false){
+ document.querySelectorAll('[data-private-value]').forEach(n=>n.remove());loaded=new WeakSet();
+ host.querySelector('form')?.remove();
+ if(reset)host.replaceChildren();
+}
+function pending(){
+ if(!host.querySelector('.academic-username'))host.replaceChildren(node('span',en?'Checking identity…':'身份确认中','academic-identity-pending'));
+}
+
+function stop(){generation++;active=false;allowed=false;busy=false;controller?.abort();controller=null;clearTimeout(timer);timer=null;observer?.disconnect();clear();pending();}
 async function read(url,signal){const timeout=setTimeout(()=>{if(!signal.aborted&&controller?.signal===signal)controller.abort();},15000);try{const response=await fetch(url,{credentials:'same-origin',cache:'no-store',redirect:'error',signal,headers:{Accept:'application/json'}});if(signal.aborted||!response.ok)throw Error('Private component unavailable');return await response.json();}finally{clearTimeout(timeout);}}
 function identity(data){
- if(!data.authenticated)return;
+ if(data.authenticated===false){clear(true);host.replaceChildren(login.cloneNode(true));return;}
+ if(data.authenticated!==true)throw Error('Invalid identity');
  if(typeof data.username!=='string'||typeof data.csrf!=='string')throw Error('Invalid identity');
  const name=node('span',data.display_name||data.username,'academic-username');name.title=data.username;host.replaceChildren(name);
  if(data.can_enter_admin===true){const a=node('a',en?'Admin':'后台','academic-account-link');a.href='/admin';host.append(a);}
@@ -17,7 +26,7 @@ function identity(data){
  const csrf=node('input');csrf.type='hidden';csrf.name='_csrf';csrf.value=data.csrf;
  const button=node('button',en?'Sign out':'退出');button.type='submit';form.append(csrf,button);host.append(form);
  // formdata fires after the browser has captured the CSRF field for native submission.
- form.addEventListener('formdata',()=>{announce();stop();},{once:true});
+ form.addEventListener('formdata',()=>{announce();stop();clear(true);pending();},{once:true});
 }
 function apply(row){
  for(const card of document.querySelectorAll('[data-project-private]')){
@@ -54,7 +63,7 @@ async function start(){
  active=true;controller=new AbortController();const seq=generation,signal=controller.signal;
  const timeout=setTimeout(()=>{if(seq===generation)controller?.abort();},15000);
  try{const data=await read('/api/public/session-summary',signal);if(seq!==generation||!active)return;identity(data);allowed=data.authenticated===true&&data.can_view_private_projects===true;watch();}
- catch(error){if(seq===generation){clear();allowed=false;}}
+ catch(error){if(seq===generation){clear();pending();allowed=false;}}
  finally{clearTimeout(timeout);}
 }
 function announce(){try{localStorage.setItem('teacher:identity-change',String(Date.now())+Math.random());}catch{}}
@@ -65,7 +74,7 @@ document.addEventListener('teacher:navigation-start',stop);
 document.addEventListener('teacher:navigation-cancel',start);
 document.addEventListener('public:querychange',stop);
 document.addEventListener('public:appended',watch);
-document.addEventListener('teacher:identity-change',()=>{announce();start();});
-window.addEventListener('storage',event=>{if(event.key==='teacher:identity-change')start();});
+document.addEventListener('teacher:identity-change',()=>{announce();clear(true);pending();start();});
+window.addEventListener('storage',event=>{if(event.key==='teacher:identity-change'){clear(true);pending();start();}});
 start();
 })();
