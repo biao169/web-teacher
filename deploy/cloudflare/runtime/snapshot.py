@@ -25,3 +25,6 @@ if find_spec('worker_runtime.site_mode') is not None:
     if SYNC_EXECUTOR_MODE=='inline':
         from worker_runtime import sync_resources
         from site_sync.integration import host,website
+
+# Lightweight error responses must also be available in the Python snapshot.
+from worker_runtime import admin_recovery

@@ -13,3 +13,6 @@ from site_sync.integration import lazy_routes,write_gate,credentials_api,control
 from importlib.util import find_spec
 if find_spec("worker_runtime.admin_resources") is not None:
     from worker_runtime import admin_resources
+
+# Lightweight error responses must also be available in the Python snapshot.
+from worker_runtime import admin_recovery

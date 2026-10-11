@@ -1,3 +1,23 @@
+## v0.16.087：Admin综合回归与验收清单
+
+Admin五步修复离线回归与部署验收清单完成，真实生产日志待确认。详见[第五步说明](../../docs/releases/v0.16.087.md)。
+
+## v0.16.086：Admin保守取消策略
+
+Admin关闭取消透传，Main转发后台请求使用独立信号，Public策略保持不变。详见[第四步说明](../../docs/releases/v0.16.086.md)。
+
+## v0.16.085：Admin双层异常边界
+
+Admin内部与转发5xx统一返回无缓存503，记录诊断，不自动重试写请求。详见[第三步说明](../../docs/releases/v0.16.085.md)。
+
+## v0.16.084：Admin失效会话与二次鉴权修复
+
+后台401/403不再二次鉴权；无效Cookie清理，HTML跳登录、API返回401。未线上发布。详见[第二步说明](../../docs/releases/v0.16.084.md)。
+
+## v0.16.083：Admin session heartbeat节流
+
+完整鉴权约120秒最多更新一次session；授权仍实时读取。42项回归通过，未线上发布。详见[第一步说明](../../docs/releases/v0.16.083.md)。
+
 ## v0.16.082：第五步回归与部署验收准备
 
 286项Python回归及103项前端DOM测试通过；simple+separate离线打包检查通过。新增local/Worker simple/off连续故障恢复GET/HEAD测试，修正预取测试中的历史资产版本断言。本轮不改变缓存策略、同步逻辑或Linux性能配置。真实Cloudflare/D1、PoP缓存和CPU/内存尚未线上验收。

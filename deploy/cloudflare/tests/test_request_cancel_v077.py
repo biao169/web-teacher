@@ -30,7 +30,7 @@ def test_binding_failure_boundary(entry,monkeypatch,capsys,error,expected):
  assert entry.application.application is None
  log=capsys.readouterr().out
  if expected==499:assert 'HTTP-CANCELLED' in log and 'ADMIN_UNAVAILABLE' not in log
- else:assert response.headers['retry-after']=='1' and 'ADMIN-FORWARD' in log
+ else:assert response.headers['retry-after']=='2' and 'ADMIN-FORWARD' in log
 
 def test_already_cancelled_read_never_calls_admin(entry,monkeypatch):
  import workers

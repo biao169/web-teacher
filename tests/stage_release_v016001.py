@@ -35,7 +35,9 @@ def main(separate=False,cache_mode="full"):
         cfg=json.loads((stage/'wrangler.jsonc').read_text())
         signal_flags={'enable_request_signal','request_signal_passthrough'}
         assert signal_flags.issubset(cfg['compatibility_flags'])
-        assert signal_flags.issubset(json.loads((stage/'wrangler.admin.jsonc').read_text())['compatibility_flags'])
+        admin_flags=json.loads((stage/'wrangler.admin.jsonc').read_text())['compatibility_flags']
+        assert {'enable_request_signal','no_request_signal_passthrough'}.issubset(admin_flags)
+        assert 'request_signal_passthrough' not in admin_flags
         if separate:assert not signal_flags.intersection(json.loads((stage/'wrangler.sync-executor.jsonc').read_text())['compatibility_flags'])
         assert cfg['cache']=={'enabled':cache_mode=='simple','cross_version_cache':False}
         assert json.loads((stage/'wrangler.admin.jsonc').read_text())['cache']=={'enabled':False,'cross_version_cache':False}

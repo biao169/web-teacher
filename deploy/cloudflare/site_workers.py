@@ -41,6 +41,7 @@ def extend(root,stage,cfg,env=None):
         file.write_text('TEMPLATES = '+repr(selected)+'\n'+(''.join(k+' = '+repr(values[k])+'\n' for k in ('TRANSFER_TEMPLATES','TRANSFER_DEFAULTS','TRANSFER_CATALOG')) if role=='transfer' else ''))
         (src/'worker_runtime'/(role+'_resources.py')).write_text('from generated_'+role+'_templates import TEMPLATES\nfrom backend.app.web.rendering import Renderer\nfrom worker_runtime.site_resources import resource\nrenderer=Renderer.bundled(TEMPLATES)\ndef resource_factory(request):\n    return resource(request,renderer,admin='+str(role=='admin')+')\n')
     admin={k:copy.deepcopy(cfg[k]) for k in ('compatibility_date','compatibility_flags','vars','d1_databases','r2_buckets','services')}
+    admin['compatibility_flags']=[f for f in admin['compatibility_flags'] if f!='request_signal_passthrough']+['no_request_signal_passthrough']
     # HTTP control needs Native but never calls the Executor itself.
     from backend.app.public_performance import KEYS
     for key in KEYS:admin['vars'].pop(key,None)

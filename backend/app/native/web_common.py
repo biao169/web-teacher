@@ -7,7 +7,7 @@ except ImportError:
     class IntegrityError(Exception):pass
 from urllib.parse import parse_qs
 from fastapi import FastAPI,Request
-from fastapi.responses import HTMLResponse,JSONResponse
+from fastapi.responses import HTMLResponse,JSONResponse,RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from .catalog import Error
 from .auth import Auth
@@ -79,6 +79,8 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         request.state.public_shared=r.public_shared
         principal=r.auth.public_principal if r.public_light else r.auth.principal
         r.p=None if r.public_shared else await principal(request.cookies.get(r.config.name('session')))
+        if request.url.path.startswith(('/admin','/api/admin')):
+            request.state.admin_invalid_session=bool(request.cookies.get(r.config.name('session')) and not r.p)
         request.state.public_recovery_eligible=recovery_candidate and (r.public_shared or not r.p)
         request.state.public_recovery=request.state.public_recovery_eligible and request.query_params.getlist('__recover')==['1']
         parts=request.url.path.split('/')
@@ -149,6 +151,7 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
             shared=getattr(request.state,'public_shared',False)
             cacheable=shared and request.method in ('GET','HEAD') and response.status_code in (200,304) and 'set-cookie' not in response.headers and response.headers.get('Cache-Control','').startswith('public,')
             response.headers['Cloudflare-CDN-Cache-Control']=response.headers['Cache-Control'] if cacheable and response.headers.get('X-Public-Page-Cache')!='STALE' else 'no-store'
+        if getattr(request.state,'admin_invalid_session',False):base.config.clear(response)
         return response
     @app.exception_handler(Exception)
     async def unexpected_error(request,exc):
@@ -167,14 +170,18 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
     async def domain_error(request,exc):
         """将业务异常转换为对应状态码及页面或JSON错误。"""
         code=exc.code or ('session_required' if exc.status==401 else 'request_forbidden' if exc.status==403 else 'request_failed')
-        if request.headers.get('accept','').startswith('application/json'):
+        admin_api=request.url.path.startswith('/api/admin/') or request.url.path.startswith('/admin/site-sync/api/')
+        if admin_api or request.headers.get('accept','').startswith('application/json'):
             response=JSONResponse({'error':exc.message,'code':code},status_code=exc.status)
             if code in ('media_read_denied','media_read_failed'):response.headers['X-Media-Error']=code
             return response
         if getattr(app.state,'web_role','full')!='public' and exc.status in (401,403) and request.url.path.startswith(('/admin','/api/','/transfer/login')):
-            r=await resources(request)
-            response=await render(r,'admin/native-access-error.html',title='权限不足' if code=='access_denied' else '登录已过期' if exc.status==401 else '操作受限',message=exc.message,access_code=code)
-            response.status_code=exc.status;return response
+            if exc.status==401 and request.method in ('GET','HEAD') and request.headers.get('x-native-list')!='1':
+                return no_store(RedirectResponse('/auth/login',303))
+            # Never re-enter authentication or database-backed template context on an auth error.
+            import html
+            title='权限不足' if exc.status==403 else '登录已过期'
+            return no_store(HTMLResponse('<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+title+'</title><body><main style="max-width:42rem;margin:10vh auto;padding:2rem;font-family:system-ui"><h1>'+title+'</h1><p>'+html.escape(exc.message)+'</p><p><a href="/admin">返回后台</a> · <a href="/auth/login">登录</a></p></main></body></html>',status_code=exc.status))
         import html
         return HTMLResponse('<!doctype html><html lang="zh"><meta charset="utf-8"><title>操作提示</title><body><h1>操作未完成</h1><p>'+html.escape(exc.message)+'</p><p><a href="/admin">返回后台</a> · <a href="/auth/login">登录</a></p></body></html>',status_code=exc.status)
     @app.exception_handler(IntegrityError)

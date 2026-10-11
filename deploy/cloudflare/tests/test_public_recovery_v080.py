@@ -91,10 +91,15 @@ def test_abort_and_async_cancel(entry,worker,monkeypatch,capsys):
 
 
 def test_admin_forward_never_builds_public(entry,worker,monkeypatch):
+ import worker_runtime.admin_recovery as recovery
+ async def forward(binding,request):return await binding.fetch(request)
+ monkeypatch.setattr(recovery,'forward',forward)
  expected=SimpleNamespace(status=500,headers={},body=None)
  worker.env.SITE_ADMIN=SimpleNamespace(fetch=AsyncMock(return_value=expected))
  monkeypatch.setattr(entry,'build_application',Mock(side_effect=AssertionError('public build')))
- assert invoke(entry,worker,request('/admin')) is expected
+ result=invoke(entry,worker,request('/admin'))
+ assert result.status==503 and result.headers['x-admin-recovery']=='1'
+ assert 'x-public-recovery' not in result.headers
  assert entry.application.application is None
 
 

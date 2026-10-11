@@ -27,6 +27,9 @@ def test_all_admin_routes_have_owner(entry):
 
 @pytest.mark.parametrize('path',['/api/admin/media/upload','/api/public/session-summary','/api/public/admin-project-fields?uid=x'])
 def test_admin_forward_does_not_parse_or_build_public(entry,monkeypatch,path):
+    import worker_runtime.admin_recovery as recovery
+    async def forward(binding,request):return await binding.fetch(request)
+    monkeypatch.setattr(recovery,'forward',forward)
     binding=SimpleNamespace(fetch=AsyncMock(return_value=SimpleNamespace(status=204)))
     worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=binding)
     request=SimpleNamespace(url='https://teacher.invalid'+path,body=object())
@@ -55,13 +58,17 @@ def test_admin_name_is_bounded_and_deterministic():
     assert admin_name('a'*63)!=admin_name('a'*62+'b')
 
 def test_admin_failure_is_bounded_and_public_application_remains_unbuilt(entry,monkeypatch,capsys):
+    import worker_runtime.admin_recovery as recovery
+    async def forward(binding,request):return await binding.fetch(request)
+    monkeypatch.setattr(recovery,'forward',forward)
     import workers
     class Response:
         def __init__(self,body,**kw):self.body=body;self.__dict__.update(kw)
     monkeypatch.setattr(workers,'Response',Response,raising=False)
     worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=SimpleNamespace(fetch=AsyncMock(side_effect=RuntimeError('private-internal-detail'))))
     response=asyncio.run(entry.Default.fetch.__wrapped__(worker,SimpleNamespace(url='https://teacher.invalid/admin')))
-    assert response.status==503 and json.loads(response.body)['code']=='ADMIN_UNAVAILABLE'
+    assert response.status==503 and response.headers['x-error-code']=='ADMIN_UNAVAILABLE'
+    assert '<title>' in response.body
     assert 'private-internal-detail' not in response.body
     assert entry.application.application is None
     assert 'ADMIN-FORWARD' in capsys.readouterr().out
