@@ -44,7 +44,7 @@ def install(app,resources,render):
         if request.headers.get('x-auth-fragment')=='1' or request.headers.get('accept','').startswith('application/json'):
             response=JSONResponse({'ok':False,'mode':mode,'html':r.renderer.render('public/auth-form.html',**values)},status_code=status)
         else:response=await render(r,'public/auth-page.html',**values);response.status_code=status
-        response.headers['Cache-Control']='no-store';response.headers['Cloudflare-CDN-Cache-Control']='no-store';r.config.set_cookie(response,'login' if mode=='login' else 'public-form',challenge,600)
+        response.headers['Cache-Control']='no-store';r.config.set_cookie(response,'login' if mode=='login' else 'public-form',challenge,600)
         return response
     @app.get('/auth/login')
     @app.get('/auth/register')
@@ -53,7 +53,7 @@ def install(app,resources,render):
     @app.post('/auth/login')
     @app.post('/auth/register')
     async def auth_post(request:Request):
-        r=await resources(request);mode='register' if request.url.path.endswith('register') else 'login';data={};session=None;login_result=None
+        r=await resources(request);mode='register' if request.url.path.endswith('register') else 'login';data={};session=None
         try:
             data=await payload(request,16384)
             if any(not isinstance(data.get(k,''),str) for k in ('username','password','email','lang','next','challenge')):raise Error('输入格式无效')
@@ -62,20 +62,16 @@ def install(app,resources,render):
             if mode=='register':
                 if not await r.sql.query('SELECT 1 FROM global_settings WHERE allow_public_registration=1 LIMIT 1'):raise Error('网站尚未开放注册',403)
                 await register(r,data,request.client.host if request.client else 'worker')
-            else:
-                login_result=await r.auth.login(data.get('username',''),data.get('password',''),request.client.host if request.client else 'worker',with_display=True)
-                session=login_result['token']
+            else:session=await r.auth.login(data.get('username',''),data.get('password',''),request.client.host if request.client else 'worker')
         except IntegrityError:return await presentation(request,r,mode,data,'账号已存在或不可用',409)
         except Error as exc:return await presentation(request,r,mode,data,exc.message,exc.status)
         lang=data.get('lang','en');lang=lang if lang in ('zh','en') else 'en';target=safe_next(data.get('next',''))
         if mode=='register':target='/auth/login?'+urlencode({'lang':lang,'next':target,'registered':'1'})
         elif not target:
-            target='/admin' if login_result['default_admin'] else '/'+lang
-        if request.headers.get('accept','').startswith('application/json'):
-            result={'ok':True,'redirect':target,'registered':mode=='register'}
-            if login_result:result['identity']=login_result['identity']
-            response=JSONResponse(result)
+            principal=await r.auth.principal(session)
+            target='/admin' if principal and any(v.get('can_view') for v in principal['permissions'].values()) else '/'+lang
+        if request.headers.get('accept','').startswith('application/json'):response=JSONResponse({'ok':True,'redirect':target,'registered':mode=='register'})
         else:response=RedirectResponse(target,303)
-        response.headers['Cache-Control']='no-store';response.headers['Cloudflare-CDN-Cache-Control']='no-store'
+        response.headers['Cache-Control']='no-store'
         if session:r.config.set_cookie(response,'session',session,43200)
         return response

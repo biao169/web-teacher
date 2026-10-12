@@ -17,7 +17,7 @@ class Auth:
         statements += [('INSERT INTO auth_roles(uid,name,level,visibility_scopes,is_active) VALUES (?,?,0,?,1)',('role-registered','网站用户',json.dumps(['public','authenticated']))),('INSERT INTO auth_permissions(uid,role_uid,module,can_view,can_create) VALUES (?,?,?,1,1)',(secrets.token_hex(16),'role-registered','transfer'))]
         statements += [('INSERT INTO site_settings(uid,site_name,is_active) VALUES (?,?,1)',(secrets.token_hex(16),'教师个人网站')),('INSERT INTO global_settings(uid) VALUES (?)',(secrets.token_hex(16),))]
         await self.sql.batch(statements);return uid
-    async def login(self,username,password,network,*,with_display=False):
+    async def login(self,username,password,network):
         """Reserve account/network attempts before expensive KDF; inactive roles cannot log in."""
         if not isinstance(username,str) or not isinstance(password,str) or len(username)>150 or len(password)>128:raise Error('账号或密码输入无效')
         at=now();expiry=now(seconds=900)
@@ -25,19 +25,12 @@ class Auth:
         for scope,key in keys:
             rows=await self.sql.batch([('INSERT INTO auth_login_throttles(key_hash,scope,failures,window_started_at,updated_at,expires_at) VALUES (?,?,1,?,?,?) ON CONFLICT(key_hash) DO UPDATE SET failures=CASE WHEN expires_at<=excluded.updated_at THEN 1 ELSE failures+1 END,window_started_at=CASE WHEN expires_at<=excluded.updated_at THEN excluded.window_started_at ELSE window_started_at END,expires_at=CASE WHEN expires_at<=excluded.updated_at THEN excluded.expires_at ELSE expires_at END,updated_at=excluded.updated_at RETURNING failures',(key,scope,at,at,expiry))])
             if rows[0][0]['failures']>(8 if scope=='account' else 40):raise Error('尝试过多，请15分钟后重试',429)
-        rows=await self.sql.query('SELECT u.*,EXISTS(SELECT 1 FROM auth_permissions a WHERE a.role_uid=r.uid AND a.can_view=1) login_admin FROM auth_users u JOIN auth_roles r ON r.uid=u.role_uid WHERE u.username=? COLLATE NOCASE AND u.status=\'active\' AND r.is_active=1',(username,))
+        rows=await self.sql.query('SELECT u.* FROM auth_users u JOIN auth_roles r ON r.uid=u.role_uid WHERE u.username=? COLLATE NOCASE AND u.status=\'active\' AND r.is_active=1',(username,))
         user=rows[0] if rows else None
         valid=await self.passwords.verify(password,user['password_hash'] if user else '')
         if not valid or not user:raise Error('账号或密码不正确',401)
         token=secrets.token_urlsafe(32);uid=secrets.token_hex(16)
-        created=await self.sql.batch([('INSERT INTO auth_sessions(uid,user_uid,token_hash,created_at,updated_at,last_seen_at,idle_expires_at,expires_at) SELECT ?,uid,?,?,?,?,?,? FROM auth_users WHERE uid=? AND updated_at=? AND status=\'active\' AND EXISTS(SELECT 1 FROM auth_roles WHERE uid=auth_users.role_uid AND is_active=1) RETURNING uid',(uid,sha(token),at,at,at,now(seconds=1800),now(seconds=43200),user['uid'],user['updated_at'])),('UPDATE auth_users SET last_login_at=? WHERE uid=?',(at,user['uid'])),('DELETE FROM auth_login_throttles WHERE key_hash=?',(keys[0][1],))])
-        if not created or not created[0]:raise Error('账号或密码不正确',401)
-        if with_display:
-            return {'token':token,'default_admin':bool(user['login_admin']),
-                    'identity':{'authenticated':True,'username':user['username'],
-                                'display_name':user.get('display_name') or user['username'],
-                                'can_enter_admin':bool(user['login_admin'] and not user['must_change_password']),
-                                'checked_at':now()}}
+        await self.sql.batch([('INSERT INTO auth_sessions(uid,user_uid,token_hash,created_at,updated_at,last_seen_at,idle_expires_at,expires_at) SELECT ?,uid,?,?,?,?,?,? FROM auth_users WHERE uid=? AND updated_at=? AND status=\'active\' AND EXISTS(SELECT 1 FROM auth_roles WHERE uid=auth_users.role_uid AND is_active=1)',(uid,sha(token),at,at,at,now(seconds=1800),now(seconds=43200),user['uid'],user['updated_at'])),('UPDATE auth_users SET last_login_at=? WHERE uid=?',(at,user['uid'])),('DELETE FROM auth_login_throttles WHERE key_hash=?',(keys[0][1],))])
         return token
     async def principal(self,token):
         """Re-read role and session for each request; return no password/hash secrets."""

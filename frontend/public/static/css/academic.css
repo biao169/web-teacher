@@ -381,3 +381,14 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
  body.section-public .academic-identity a[href="/admin"]::before{mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 11 12 3l9 8v10h-6v-7H9v7H3Z'/%3E%3C/svg%3E")}
  body.section-public .academic-identity :is(.academic-logout>button,.academic-identity-content>button)::before{mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 3h9v2H5v14h7v2H3Zm13 3 6 6-6 6-1.4-1.4 3.6-3.6H9v-2h9.2l-3.6-3.6Z'/%3E%3C/svg%3E")}
 }
+
+/* v119: mobile navigation is an overlay, never a header grid row. */
+body.section-public{--public-header-brand-size:clamp(12px,3.2vw,18px);--public-header-control-size:12px;--public-header-language-size:11px;--public-header-action-label-size:0px}
+.academic-menu-backdrop,.academic-menu-close{display:none}
+@media(max-width:650px){
+ .section-public .menu-ready .academic-menu-toggle:not([hidden]){position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;z-index:2202;box-shadow:0 4px 18px #0003}
+ .section-public .academic-header-inner.menu-ready.menu-open>.academic-nav{position:fixed;inset:0 0 0 auto;width:min(84vw,360px);height:100dvh;max-width:none;max-height:100dvh;box-sizing:border-box;margin:0;padding:64px 18px 88px;gap:8px;border:0;background:var(--surface);box-shadow:-8px 0 32px #0003;z-index:2201;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;justify-content:flex-start;align-items:stretch}
+ .section-public .menu-open>.academic-nav a{flex-shrink:0}
+ .section-public .menu-open .academic-menu-close{display:inline-flex;position:absolute;right:16px;top:14px;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-size:24px}
+ .section-public .menu-open>.academic-menu-backdrop:not([hidden]){display:block;position:fixed;inset:0;width:100%;height:100dvh;padding:0;border:0;background:#0005;z-index:2200;touch-action:none}
+}

@@ -38,29 +38,6 @@ PUBLIC_TABLES = frozenset(('profiles', 'students', 'research_interests', 'projec
                            'publications', 'patents', 'courses', 'news'))
 PUBLIC_DETAIL_TABLES = frozenset(('profiles', 'courses'))
 
-PUBLIC_NAV_HTML_TTL = 60
-PUBLIC_NAV_EDGE_POLICY = 'public, max-age=120, stale-while-revalidate=30, stale-if-error=300'
-
-def navigation_context(request):
-    """Fixed list path only; query/fragment representations still require live scope."""
-    import re
-    from urllib.parse import urlsplit
-    if str(getattr(request,'method','')) not in ('GET','HEAD'):return None
-    url=urlsplit(str(request.url));parts=url.path.split('/')
-    if (url.fragment or len(parts)!=4 or parts[:1]!=['']
-            or parts[1] not in ('en','zh') or parts[2]!='n'
-            or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,79}',parts[3])):return None
-    return parts[3]
-
-def navigation_target(request):
-    """Only the query-free full-page representation can enter shared cache."""
-    from urllib.parse import urlsplit
-    slug=navigation_context(request)
-    if slug is None or urlsplit(str(request.url)).query:return None
-    if any(request.headers.get(k) for k in ('x-public-fragment','range','if-match','if-unmodified-since')):return None
-    if 'application/json' in str(request.headers.get('accept') or '').lower():return None
-    return slug
-
 def page_request(request):
     """Static allowlist used before platform lookup and after rendering. No D1."""
     import re
@@ -82,16 +59,12 @@ def page_request(request):
         return not url.query
     if len(parts) == 3:
         return not url.query and parts[2] in PUBLIC_TABLES
-    if navigation_target(request) is not None:return True
     # News details may contain identity-sensitive forms and are excluded until split.
     return (len(parts) == 4 and parts[2] in PUBLIC_DETAIL_TABLES
             and re.fullmatch(r'[A-Za-z0-9_:-]{1,128}', parts[3]) is not None
             and (not url.query or url.query == urlencode({'from': '/' + parts[1] + '/' + parts[2]})))
 
-def page_headers(request=None):
-    if request is not None and navigation_target(request) is not None:
-        return {'Cache-Control':f'public, max-age={PUBLIC_NAV_HTML_TTL}',
-                'Cloudflare-CDN-Cache-Control':PUBLIC_NAV_EDGE_POLICY,'Vary':'X-Public-Fragment'}
+def page_headers():
     return {'Cache-Control': f'public, max-age={PUBLIC_HTML_TTL}',
             'Cloudflare-CDN-Cache-Control': PUBLIC_EDGE_POLICY,
             'Vary': 'X-Public-Fragment'}

@@ -1,18 +1,10 @@
-/* Complete public read models; fixed conditions are separate from visitor state. */
+/* Complete public read models; HTML and scoped navigation remain independent. */
 (() => {
   'use strict';
   const root=document.querySelector('[data-public-list-local]'),form=document.querySelector('[data-public-query-form]');
-  if(!root||!form||root.dataset.home==='1')return;
-  const table=root.dataset.table,lang=root.dataset.lang,en=lang==='en';
-  let scope=null;
-  if(root.dataset.nav){
-    try{scope=JSON.parse(root.querySelector('[data-public-fixed-scope]')?.textContent||'null');
-      if(!scope||scope.schema_version!=='public-fixed-scope-v1'||scope.module!==table||scope.slug!==root.dataset.nav||!/^[a-z0-9][a-z0-9_-]{0,79}$/.test(scope.slug)||scope.stamp!==root.dataset.navStamp||!/^[a-f0-9]{32}$/.test(scope.stamp)||!Array.isArray(scope.conditions)||!scope.conditions.length||scope.conditions.length>12)throw Error('Scope');
-      const seen=new Set();for(const condition of scope.conditions){if(!condition||Object.keys(condition).sort().join(',')!=='field,operator,value'||typeof condition.field!=='string'||seen.has(condition.field)||!['eq','contains'].includes(condition.operator)||typeof condition.value!=='string'||!condition.value||[...condition.value].length>500)throw Error('Condition');seen.add(condition.field);}
-    }catch{return;}
-  }
-  const path='/'+lang+(scope?'/n/'+scope.slug:'/'+table);
-  if(location.pathname!==path||new URL(form.action,location.href).pathname!==path)return;
+  if(!root||!form||root.dataset.nav||root.dataset.home==='1')return;
+  const table=root.dataset.table,lang=root.dataset.lang,en=lang==='en',path='/'+lang+'/'+table;
+  if(location.pathname!==path)return;
   const items=root.querySelector('[data-stream-items]'),controls=root.querySelector('[data-stream-controls]');
   // Capture once, before replacing SSR cards. Existing cached HTML may lack templates.
   const cardIcons=new Map(['chevron-down','box-arrow-up-right'].map(name=>[name,
@@ -21,14 +13,13 @@
   function appendIcon(button,name){const svg=cardIcons.get(name);if(!svg)throw Error('Card icon unavailable');button.append(svg.cloneNode(true));}
   const lower=value=>String(value??'').replace(/[A-Z]/g,c=>c.toLowerCase());
   const say=(zh,english)=>en?english:zh;
-  let model=null,scopedItems=null,job=null,failed=false,away=false;
+  let model=null,job=null,failed=false,away=false;
   root.dataset.localPending='1';
   window.addEventListener('pagehide',()=>{away=true;});
   window.addEventListener('pageshow',()=>{away=false;});
   const aliases={主持:['主持','负责人','项目负责人','主持人','主持/负责人','主持（负责人）','host','lead','leader','pi','principal investigator'],参与:['参与','成员','项目成员','参与者','参与/成员','参与（成员）','participant','member','participate','participation']};
   const role=value=>String(value).split(/[;；\r\n]/).map(x=>x.trim()).filter(Boolean).map(x=>Object.keys(aliases).find(k=>aliases[k].includes(lower(x)))||x).filter((x,i,a)=>a.indexOf(x)===i).join(' / ');
   function decode(url){
-    if(url.origin!==location.origin||url.pathname!==path)throw Error('Path');
     const params=url.searchParams,state={},seen=new Set();
     for(const [key,value] of params){if(seen.has(key))throw Error('Duplicate');seen.add(key);state[key]=value;}
     if(state.s){
@@ -43,8 +34,7 @@
       else if(key.startsWith('f.')||key.startsWith('c.')){
         const spec=model.semantics.filters[key.slice(2)];if(!spec||[...value].length>500)throw Error('Filter');
         if(key.startsWith('c.')&&value&&!spec.operators.includes('contains'))throw Error('Operator');
-      }else if(key==='nv'){if(!scope||value!==scope.stamp)throw Error('Changed scope');}
-      else if(key==='page'||key==='size'){if(!/^[0-9]{1,7}$/.test(value)||Number(value)<1||Number(value)>1000000)throw Error('Page');}
+      }else if(key==='page'||key==='size'){if(!/^[0-9]{1,7}$/.test(value)||Number(value)<1||Number(value)>1000000)throw Error('Page');}
       else if(key==='direction'){if(!['asc','desc'].includes(value))throw Error('Order');}
       else if(!['sort','_rev'].includes(key))throw Error('Scope');
       if(/[\x00-\x1f\x7f]/.test(value))throw Error('Control');
@@ -54,7 +44,7 @@
   }
   function result(state){
     const predicates=Object.entries(state).filter(([key,value])=>(key.startsWith('f.')||key.startsWith('c.'))&&value!=='');
-    const rows=scopedItems.filter(item=>{
+    const rows=model.items.filter(item=>{
       if(state.q?.trim()&&!item.search_values.some(value=>lower(value).includes(lower(state.q.trim()))))return false;
       return predicates.every(([key,value])=>{
         const field=key.slice(2),spec=model.semantics.filters[field],raw=item.filter_values[field];
@@ -74,10 +64,6 @@
   const fields={profiles:[['title','职称','Title'],['organization','单位','Organization'],['role','身份','Role'],['lab','实验室','Laboratory'],['email','邮箱','Email'],['phone','电话','Phone'],['office','办公室','Office']],students:[['degree','学位','Degree'],['category','分类','Category'],['grade','年级','Cohort'],['status','状态','Status'],['enrollment_date','入学时间','Enrollment'],['graduation_date','毕业时间','Graduation'],['destination','毕业去向','Destination'],['direction','研究方向','Research interests'],['awards','获奖情况','Awards'],['email','邮箱','Email']],projects:[['source','来源','Source'],['fund_name','基金计划','Fund / Program'],['project_number','项目编号','Project no.'],['project_role','承担角色','Role'],['start_date','开始日期','Start'],['end_date','结束日期','End'],['status','状态','Status']],publications:[['authors','作者','Authors'],['venue','期刊/会议','Venue'],['year','年份','Year'],['volume','卷','Volume'],['issue','期','Issue'],['pages','页码','Pages'],['doi','DOI','DOI'],['publication_type','论文类型','Paper type'],['display_tags','标签','Tags']],patents:[['patent_type','类型','Type'],['legal_status','状态','Status'],['inventors','发明人 / 作者','Inventors / Authors'],['owner','权利人','Owner'],['country','国家/地区','Country'],['application_number','申请号','Application no.'],['application_date','申请日期','Filed'],['grant_number','授权号','Grant no.'],['grant_date','授权日期','Granted']],courses:[['semester','学期','Semester'],['audience','授课对象','Audience']],news:[['published_at','发布日期','Published'],['category','分类','Category']],research_interests:[]};
   function node(tag,classes,text){const el=document.createElement(tag);if(classes)el.className=classes;if(text!=null)el.textContent=String(text);return el;}
   function safeURL(value,local=false){const url=new URL(value,location.href);if(!['http:','https:'].includes(url.protocol)||url.username||url.password||(local&&url.origin!==location.origin))throw Error('URL');return url;}
-  function detailTarget(item){
-    if(!scope)return safeURL(item.detail_url,true);
-    const target=new URL(path+'/'+encodeURIComponent(item.uid),location.href);target.searchParams.set('nv',scope.stamp);return target;
-  }
   function card(item,index,total,state){
     const display=item.display,title=display.name||display.title||'',article=node('article','public-list-card person-card '+(['profiles','students'].includes(table)?'card-with-media':'content-card'));
     article.id='record-'+item.uid;article.dataset.recordId=item.uid;article.dataset.personCard='';
@@ -85,7 +71,7 @@
     const select=node('div','person-select'),number=node('span','person-number',table==='profiles'?(state.page-1)*state.size+index+1:total-(state.page-1)*state.size-index),check=node('input');check.type='checkbox';check.dataset.personSelect='';check.hidden=true;check.setAttribute('aria-label',say('选择 ','Select ')+title);select.append(number,check);article.append(select);
     if(['profiles','students'].includes(table)){const photo=node('div','person-photo public-media');photo.dataset.publicMedia='';photo.setAttribute('role','img');photo.setAttribute('aria-label',title);const fallback=node('span','',String(title).trim().slice(0,1)||'?');fallback.dataset.mediaFallback='';fallback.setAttribute('aria-hidden','true');if(item.media.avatar_url){const img=node('img');img.src=safeURL(item.media.avatar_url,true).href;img.alt='';img.loading='lazy';img.width=88;img.height=88;img.decoding='async';fallback.hidden=true;img.addEventListener('error',()=>{img.hidden=true;fallback.hidden=false;});photo.append(img);}photo.append(fallback);article.append(photo);}else if(item.media.cover_url){article.classList.add('card-with-media');const cover=node('div','content-cover'),img=node(String(item.media_types?.cover_url||'').startsWith('video/')?'video':'img');if(img.tagName==='VIDEO'){img.controls=true;img.preload='none';}img.src=safeURL(item.media.cover_url,true).href;img.alt='';img.loading='lazy';img.addEventListener('error',()=>{img.hidden=true;});cover.append(img);article.append(cover);}
     const content=node('div','person-content'),heading=node('h2');heading.dataset.copyField='';
-    if(['profiles','courses','news'].includes(table)){const link=node('a','',title);const target=detailTarget(item);target.searchParams.set('from',location.pathname+location.search);link.href=target.pathname+target.search;link.dataset.personLink='';if(table==='news'){link.target='_blank';link.rel='noopener noreferrer';}heading.append(link);}else heading.textContent=title;
+    if(['profiles','courses','news'].includes(table)){const link=node('a','',title);const target=safeURL(item.detail_url,true);target.searchParams.set('from',location.pathname+location.search);link.href=target.pathname+target.search;link.dataset.personLink='';if(table==='news'){link.target='_blank';link.rel='noopener noreferrer';}heading.append(link);}else heading.textContent=title;
     content.append(heading);
     for(const [field,zh,english] of fields[table]||[]){if(display[field]==null||display[field]==='')continue;const p=node('p','content-field');p.dataset.copyField='';p.dataset.publicField=field;p.append(node('span','person-label',say(zh,english)+'：'),node('span','',display[field]));content.append(p);}
     if(table==='profiles'){const identity=node('div','faculty-identity');identity.append(heading);for(const [classes,keys] of [['faculty-rank',['title','role']],['faculty-affiliation',['organization','lab']]]){const group=node('div',classes);for(const key of keys){const field=content.querySelector('[data-public-field="'+key+'"]');if(field)group.append(field);}identity.append(group);}content.prepend(identity);const contacts=node('div','faculty-contacts');for(const key of ['email','phone','office']){const field=content.querySelector('[data-public-field="'+key+'"]');if(field)contacts.append(field);}identity.after(contacts);}
@@ -100,9 +86,9 @@
       const tags=node('div','content-tags');for(const field of ['publication_type','index_type','author_role','display_tags','corresponding_authors'])if(display[field])tags.append(node('span','',display[field]));content.append(tags);
       const button=node('button','person-icon',say('复制引文','Copy citation'));button.type='button';button.dataset.copyCitation='';links.append(button);const status=node('span','citation-status');status.dataset.citationStatus='';status.setAttribute('role','status');content.append(status);
     }
-    content.append(links);if(table==='profiles'){const summary=node('div','person-summary'),copy=node('div','person-copy'),actions=node('div','person-actions');for(const child of [...content.children]){if(child.matches('[data-person-expand]'))actions.append(child);else copy.append(child);}const details=node('a','person-icon'),target=detailTarget(item),label=say('查看详情','View details');target.searchParams.set('from',location.pathname+location.search);details.href=target.pathname+target.search;details.dataset.personLink='';details.title=label;details.setAttribute('aria-label',label);appendIcon(details,'box-arrow-up-right');actions.append(details);summary.append(copy,actions);content.append(summary);}article.append(content);return article;
+    content.append(links);if(table==='profiles'){const summary=node('div','person-summary'),copy=node('div','person-copy'),actions=node('div','person-actions');for(const child of [...content.children]){if(child.matches('[data-person-expand]'))actions.append(child);else copy.append(child);}const details=node('a','person-icon'),target=safeURL(item.detail_url,true),label=say('查看详情','View details');target.searchParams.set('from',location.pathname+location.search);details.href=target.pathname+target.search;details.dataset.personLink='';details.title=label;details.setAttribute('aria-label',label);appendIcon(details,'box-arrow-up-right');actions.append(details);summary.append(copy,actions);content.append(summary);}article.append(content);return article;
   }
-  function pageURL(state,page){const url=new URL(location.href);url.searchParams.set('page',String(page));if(scope)url.searchParams.set('nv',scope.stamp);url.hash='';return url;}
+  function pageURL(state,page){const url=new URL(location.href);url.searchParams.set('page',String(page));url.hash='';return url;}
   function syncForm(state){
     for(const control of form.elements){if(!control.name)continue;if(control.type==='radio')control.checked=state[control.name]===control.value;else if(control.name==='size')control.value=String(state.size);else if(control.name==='q'||control.name.startsWith('f.')||control.name.startsWith('c.'))control.value=state[control.name]||'';}
     form.querySelectorAll('select').forEach(select=>select.dispatchEvent(new Event('public:facet-options')));
@@ -129,44 +115,22 @@
     const ids=new Set();for(const item of value.items){if(!item||typeof item.uid!=='string'||ids.has(item.uid)||!item.display||!item.filter_values||!item.filter_tokens||!Array.isArray(item.search_values)||!item.order||!Number.isInteger(item.order.rank)||!Number.isInteger(item.order.group)||!item.media||!item.links||typeof item.detail_url!=='string')throw Error('Row');if(item.citation&&(!['gbt','elsevier','apa','ieee'].includes(item.citation.style)||typeof item.citation.text!=='string'||typeof item.citation.highlight!=='string'))throw Error('Citation');ids.add(item.uid);}
     return value;
   }
-  function prepareScope(){
-    if(!scope){scopedItems=model.items;return;}
-    if(model.semantics.custom_navigation!=='raw-fixed-eq-or-literal-contains-v1')throw Error('Unsupported scope contract');
-    for(const condition of scope.conditions){const spec=model.semantics.filters[condition.field];
-      if(!spec||!['text','json','integer','boolean'].includes(spec.kind)||!Array.isArray(spec.operators)||!spec.operators.includes(condition.operator)||!model.items.every(item=>Object.hasOwn(item.filter_values,condition.field)))throw Error('Unsupported scope');
-      if(['integer','boolean'].includes(spec.kind)&&(!/^-?[0-9]+$/.test(condition.value)||!Number.isSafeInteger(Number(condition.value))))throw Error('Numeric scope');
-    }
-    scopedItems=model.items.filter(item=>scope.conditions.every(condition=>{
-      const raw=item.filter_values[condition.field],spec=model.semantics.filters[condition.field];if(raw==null)return false;
-      if(condition.operator==='contains')return lower(raw).includes(lower(condition.value));
-      return ['integer','boolean'].includes(spec.kind)?Number(raw)===Number(condition.value):String(raw)===condition.value;
-    }));
-  }
-  function facetInScope(facet,value){
-    if(!scope)return true;
-    const spec=model.semantics.filters[facet.field];
-    return scopedItems.some(item=>{
-      const raw=item.filter_values[facet.field];
-      if(spec?.facet_tokens||(table==='projects'&&facet.field==='project_role'))return (item.filter_tokens[facet.field]||[]).some(token=>lower(token)===lower(value));
-      return raw!=null&&String(raw)===value;
-    });
-  }
   function facets(){
     const style=model.items.find(item=>item.citation)?.citation.style,copyFormat=document.querySelector('[data-copy-format]');if(style&&copyFormat)copyFormat.value=style;
-    for(const facet of model.facets){const host=[...form.querySelectorAll('[data-person-facet]')].find(x=>x.dataset.field===facet.field);if(!host)continue;const select=host.querySelector('select'),selected=select.value,first=select.options[0]?.cloneNode(true);select.replaceChildren();if(first)select.append(first);for(const value of facet.values.filter(value=>facetInScope(facet,value)))select.add(new Option(facet.labels[value]||value,value));if(selected&&![...select.options].some(o=>o.value===selected))select.add(new Option(selected,selected));select.value=selected;host.querySelector('[data-facet-more]')?.setAttribute('hidden','');select.dispatchEvent(new Event('public:facet-options'));}
+    for(const facet of model.facets){const host=[...form.querySelectorAll('[data-person-facet]')].find(x=>x.dataset.field===facet.field);if(!host)continue;const select=host.querySelector('select'),selected=select.value,first=select.options[0]?.cloneNode(true);select.replaceChildren();if(first)select.append(first);for(const value of facet.values)select.add(new Option(facet.labels[value]||value,value));if(selected&&![...select.options].some(o=>o.value===selected))select.add(new Option(selected,selected));select.value=selected;host.querySelector('[data-facet-more]')?.setAttribute('hidden','');select.dispatchEvent(new Event('public:facet-options'));}
   }
   async function load(){
     if(model)return model;if(job)return job;if(failed)throw Error('Unavailable');
     job=(async()=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{
       const response=await fetch('/api/public/data/'+lang+'/'+table,{credentials:'omit',redirect:'error',signal:controller.signal,headers:{Accept:'application/json'}});
       if(!response.ok||!response.headers.get('content-type')?.includes('application/json')||response.headers.get('X-Teacher-Data-OK')!=='1')throw Error('Unavailable');
-      const text=await response.text();if(new TextEncoder().encode(text).length>512*1024)throw Error('Too large');model=valid(JSON.parse(text));prepareScope();decode(new URL(location.href));return model;
+      const text=await response.text();if(new TextEncoder().encode(text).length>512*1024)throw Error('Too large');model=valid(JSON.parse(text));decode(new URL(location.href));return model;
     }catch(error){model=null;failed=true;throw error;}finally{clearTimeout(timer);}})();return job;
   }
   // The query encoder calls this only after a complete model has arrived.
   window.teacherPublicList={navigate(url){if(!model)return false;try{render(url,true);return true;}catch{return false;}}};
   root.addEventListener('click',event=>{const link=event.target.closest('[data-local-page]');if(!link||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();const url=new URL(link.href);if(!window.teacherPublicList.navigate(url))location.assign(url.href);});
-  form.querySelector('[data-person-reset]')?.addEventListener('click',event=>{if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||!model)return;const url=new URL(path,location.href);if(scope)url.searchParams.set('nv',scope.stamp);if(window.teacherPublicList.navigate(url))event.preventDefault();});
+  form.querySelector('[data-person-reset]')?.addEventListener('click',event=>{if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||!model)return;const url=new URL(path,location.href);if(window.teacherPublicList.navigate(url))event.preventDefault();});
   window.addEventListener('popstate',()=>{if(!model)return;try{if(location.pathname!==path)throw Error('Path');render(new URL(location.href));}catch{location.reload();}});
   // Start after initial HTML is visible; errors leave it and normal navigation intact.
   function fallback(){model=null;failed=true;delete root.dataset.localPending;root.dispatchEvent(new CustomEvent('public:local-fallback',{bubbles:true}));}

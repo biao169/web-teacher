@@ -34,30 +34,23 @@ def identity_fingerprint(principal):
     if not principal:return ''
     return hashlib.sha256(json.dumps(principal,sort_keys=True,ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
 
-def navigation_validated(request):
-    from backend.app.public_performance import navigation_target,PUBLIC_TABLES
-    slug=navigation_target(request)
-    if slug is None:return True
-    scope=getattr(getattr(request,'state',None),'public_navigation_scope',None)
-    return isinstance(scope,dict) and scope.get('slug')==slug and scope.get('table') in PUBLIC_TABLES
-
 def successful_page(request, response):
     from backend.app.public_performance import page_request
-    return (page_request(request) and navigation_validated(request) and response.status_code in (200, 304)
+    return (page_request(request) and response.status_code in (200, 304)
             and response.headers.get('X-Teacher-Render-OK') == '1'
             and 'set-cookie' not in response.headers
             and (response.status_code == 304 or response.headers.get('content-type', '').lower().startswith('text/html')))
 
 def finish(request, response, *, public_ok=False):
     from backend.app.public_performance import page_request, page_headers
-    cacheable = (public_ok and page_request(request) and navigation_validated(request) and response.status_code == 200
+    cacheable = (public_ok and page_request(request) and response.status_code == 200
                  and 'set-cookie' not in response.headers
                  and response.headers.get('content-type', '').lower().startswith('text/html')
                  and isinstance(getattr(response, 'body', None), bytes))
     if cacheable:
         # Hash the finished representation; no extra revision lookup or SQL cache.
         etag = 'W/"' + hashlib.sha256(response.body).hexdigest() + '"'
-        response.headers.update(page_headers(request))
+        response.headers.update(page_headers())
         response.headers['X-Teacher-Render-OK'] = '1'
         from .public_cache_tags import page_tags
         response.headers['Cache-Tag'] = page_tags(request)

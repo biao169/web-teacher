@@ -7,7 +7,7 @@
     for(const [key,value] of new FormData(form)){
       if(typeof value!=='string'||!value)continue;
       if(key==='q'||key.startsWith('f.')||key.startsWith('c.'))state[key]=value;
-      else if(['direction','size','nv'].includes(key))params.set(key,value);
+      else if(['direction','size'].includes(key))params.set(key,value);
     }
     if(Object.keys(state).length){
       const ordered=Object.fromEntries(Object.keys(state).sort().map(key=>[key,state[key]]));

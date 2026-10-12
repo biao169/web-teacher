@@ -1,0 +1,15 @@
+{
+  "baseline": "0.16.113",
+  "changed_source_files": [
+    "deploy/cloudflare/pyproject.toml",
+    "deploy/cloudflare/uv.lock",
+    "frontend/public/static/css/academic.css",
+    "frontend/public/static/js/academic.js",
+    "frontend/public/templates/header.html",
+    "frontend/public/templates/layout.html",
+    "pyproject.toml"
+  ],
+  "backend_byte_identical": true,
+  "worker_runtime_byte_identical": true,
+  "sync_byte_identical": true
+}

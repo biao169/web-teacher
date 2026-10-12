@@ -13,19 +13,13 @@ def visible_scopes(principal):
         if 'staff' in principal.get('scopes',[]):result.append('staff')
     return result
 
-async def load(r,slug):
-    """Read one configured row for this request; no persistent SQL cache."""
+async def resolve(r,slug,table=None,stamp=None):
     if not isinstance(slug,str) or not SLUG.fullmatch(slug):raise Error('导航不存在',404)
+    if stamp is not None and not re.fullmatch('[a-f0-9]{32}',stamp):raise Error('导航版本无效')
     rows=await r.sql.query('SELECT * FROM navigation_items WHERE url_name=?',(slug,))
     rows=[row for row in rows if row['location'] in PUBLIC_LOCATIONS]
     if len(rows)!=1:raise Error('导航不存在',404)
-    return rows[0]
-
-async def resolve(r,slug,table=None,stamp=None,*,row=None):
-    if not isinstance(slug,str) or not SLUG.fullmatch(slug):raise Error('导航不存在',404)
-    if stamp is not None and not re.fullmatch('[a-f0-9]{32}',stamp):raise Error('导航版本无效')
-    row=await load(r,slug) if row is None else row
-    if row.get('url_name')!=slug or row.get('location') not in PUBLIC_LOCATIONS:raise Error('导航不存在',404)
+    row=rows[0]
     if row['enabled']!=1 or row['visibility'] not in visible_scopes(r.p) or row['kind'] not in ('','route','button',None) or row.get('fragment'):raise Error('导航不存在或不可见',404)
     # Removed conditions must not silently broaden an old fixed-entry address.
     if not has_public_conditions(row.get('path')):raise Error('固定入口已移除，请重新选择导航',404)
@@ -34,7 +28,7 @@ async def resolve(r,slug,table=None,stamp=None,*,row=None):
     if not conditions or (table is not None and target!=table):raise Error('导航与内容模块不一致',404)
     version=hashlib.sha256(json.dumps([row['uid'],row['path'],row['visibility'],row['location'],row['updated_at']],ensure_ascii=False).encode()).hexdigest()[:32]
     if stamp is not None and stamp!=version:raise Error('导航条件已更新，请刷新页面',409)
-    return {'slug':slug,'table':target,'conditions':conditions,'stamp':version,'title':row['title'],'public':row['visibility']=='public'}
+    return {'slug':slug,'table':target,'conditions':conditions,'stamp':version,'title':row['title']}
 
 async def api_scope(r,params,table):
     for key in ('nav','nv'):
@@ -117,19 +111,3 @@ def query_identity(query):
     """Detect mixed fragments; this identifier is not a permission or fixed-scope token."""
     state={k:str(v) for k,v in query.items() if k not in ('page','nv')}
     return hashlib.sha256(json.dumps(state,ensure_ascii=True,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:24]
-
-
-def browser_scope(scope,principal=None):
-    """Only anonymous public conditions with exact v1 read-model semantics."""
-    if not scope or scope.get('public') is not True or principal is not None:return None
-    from .filtering import fields,operators
-    table=scope['table'];conditions=scope['conditions']
-    if not isinstance(conditions,list) or not 1<=len(conditions)<=12:return None
-    allowed=fields(table,public=True)
-    for condition in conditions:
-        if not isinstance(condition,dict) or set(condition)!={'field','operator','value'}:return None
-        field=condition['field'];spec=allowed.get(field)
-        if not spec or spec['kind'] not in ('text','json','integer','boolean'):return None
-        if condition['operator'] not in ('eq','contains') or condition['operator'] not in operators(table,field,public=True):return None
-    return {'schema_version':'public-fixed-scope-v1','module':table,'slug':scope['slug'],
-            'stamp':scope['stamp'],'conditions':conditions}
