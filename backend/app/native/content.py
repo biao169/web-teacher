@@ -276,7 +276,10 @@ class Content:
         statements += [self.audit(p,table,action,uid,detail),('DELETE FROM admin_mutation_guards WHERE uid=?',(guard_id,))]
         # New external registrations and content references commit together or roll back together.
         if media_links:statements=media_links.statements()+statements
-        await self.sql.batch(statements);return uid
+        from .public_cache_tags import mutation_hint
+        with mutation_hint(table,uid,current,merged):
+            await self.sql.batch(statements)
+        return uid
     def audit(self,p,table,action,uid,detail=None):
         """Audit metadata only; never serialize submitted passwords or provider credentials."""
         values=(secrets.token_hex(16),p['uid'],p['display_name'] or p['username'],action,table,uid,MODULES.get(table,table)+' '+action,'success')
@@ -297,7 +300,9 @@ class Content:
         nav_condition,nav_args=navigation_guard(navigation)
         scope,scope_args=self.scope(table,p)
         gid,guard=self.auth.guard(p,table,'delete',f'EXISTS(SELECT 1 FROM "{table}" WHERE uid=? AND updated_at=? AND '+scope+') AND '+nav_condition+' AND ('+extra+')',(uid,stamp,*scope_args,*nav_args,*args))
-        await self.sql.batch([guard,*cleanup,(f'DELETE FROM "{table}" WHERE uid=?',(uid,)),self.audit(p,table,'delete',uid),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
+        from .public_cache_tags import mutation_hint
+        with mutation_hint(table,uid,current,{},deleted=True):
+            await self.sql.batch([guard,*cleanup,(f'DELETE FROM "{table}" WHERE uid=?',(uid,)),self.audit(p,table,'delete',uid),('DELETE FROM admin_mutation_guards WHERE uid=?',(gid,))])
     async def matches(self,p,category,query=None):
         """按共享关键词规则返回授权学生的匹配总数和当前页，不写入分类关系。"""
         from .student_categories import match_page

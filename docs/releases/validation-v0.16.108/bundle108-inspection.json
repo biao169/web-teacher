@@ -1,0 +1,206 @@
+{
+  "wrangler": "4.143.0",
+  "artifacts": [
+    {
+      "worker": "teacher-site-admin",
+      "role": "admin",
+      "main_module": "admin_main.py",
+      "module_count": 1399,
+      "content_sha256": "6e65c423d24ddf1e223dbd8e41bac424b72d70f2e38644e9b9e3b482d1cb94e1",
+      "bytes": 12990515,
+      "sha256": "5a8e0dcf67dda662874605838fb84136c3c0f6f6e2ccb7ee434bcb214254649a",
+      "content_type": "multipart/form-data; boundary=----formdata-undici-003451901324",
+      "module_types": [
+        "application/javascript+module",
+        "application/octet-stream",
+        "text/x-python"
+      ],
+      "bindings": [
+        {
+          "name": "DB",
+          "type": "d1"
+        },
+        {
+          "name": "MEDIA",
+          "type": "r2_bucket"
+        },
+        {
+          "name": "SYNC_NATIVE",
+          "type": "service"
+        },
+        {
+          "name": "TEACHER_ALLOWED_ORIGINS",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_CACHE_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_CACHE_PREFIX",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_DATABASE_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_MEDIA_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_MEDIA_PREFIX",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_ORIGIN",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_RELEASE",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_SYNC_EXECUTOR_MODE",
+          "type": "plain_text"
+        }
+      ],
+      "artifact_validation": "passed",
+      "cloud_upload": "not_run",
+      "cloud_startup": "not_run",
+      "additional_release_steps": [
+        "ownership_check",
+        "secret_configuration",
+        "disable_public_access",
+        "schedule_configuration",
+        "runtime_check"
+      ]
+    },
+    {
+      "worker": "teacher-site-sync-executor",
+      "role": "executor",
+      "main_module": "sync_executor.py",
+      "module_count": 1399,
+      "content_sha256": "131fff3bfac35d1f9838bbac634228f2bbda794602ec04673c71417f98d19ff9",
+      "bytes": 12990400,
+      "sha256": "8682d0f5242a17ed5dfab99eaae5ce3a3e3c288980247c5061096c48b7e77097",
+      "content_type": "multipart/form-data; boundary=----formdata-undici-064936958502",
+      "module_types": [
+        "application/javascript+module",
+        "application/octet-stream",
+        "text/x-python"
+      ],
+      "bindings": [
+        {
+          "name": "DB",
+          "type": "d1"
+        },
+        {
+          "name": "MEDIA",
+          "type": "r2_bucket"
+        },
+        {
+          "name": "SYNC_NATIVE",
+          "type": "service"
+        },
+        {
+          "name": "TEACHER_ALLOWED_ORIGINS",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_CACHE_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_CACHE_PREFIX",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_DATABASE_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_MEDIA_BINDING",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_MEDIA_PREFIX",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_ORIGIN",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_RELEASE",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_SYNC_EXECUTOR_MODE",
+          "type": "plain_text"
+        }
+      ],
+      "artifact_validation": "passed",
+      "cloud_upload": "not_run",
+      "cloud_startup": "not_run",
+      "additional_release_steps": [
+        "ownership_check",
+        "secret_configuration",
+        "disable_public_access",
+        "schedule_configuration",
+        "runtime_check"
+      ]
+    },
+    {
+      "worker": "teacher-site-sync-native",
+      "role": "native",
+      "main_module": "native_service.js",
+      "module_count": 1,
+      "content_sha256": "e3fa74552bd998e137ab9380368e99999aad3a7a30223693035ca4a7144d435e",
+      "bytes": 44760,
+      "sha256": "18bcb486b4838135215acbc74d91c07b33efc9d66f24b7014b17cdca5b7f7247",
+      "content_type": "multipart/form-data; boundary=----formdata-undici-079475549663",
+      "module_types": [
+        "application/javascript+module"
+      ],
+      "bindings": [
+        {
+          "name": "DB",
+          "type": "d1"
+        },
+        {
+          "name": "MEDIA",
+          "type": "r2_bucket"
+        },
+        {
+          "name": "SYNC_COORDINATOR",
+          "type": "durable_object_namespace"
+        },
+        {
+          "name": "TEACHER_MEDIA_PREFIX",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_RELEASE",
+          "type": "plain_text"
+        },
+        {
+          "name": "TEACHER_SYNC_PAUSED",
+          "type": "plain_text"
+        }
+      ],
+      "artifact_validation": "passed",
+      "cloud_upload": "not_run",
+      "cloud_startup": "not_run",
+      "additional_release_steps": [
+        "ownership_check",
+        "secret_configuration",
+        "disable_public_access",
+        "schedule_configuration",
+        "runtime_check"
+      ]
+    }
+  ],
+  "publication": "not_run",
+  "cloud_runtime": "not_run"
+}

@@ -18,6 +18,7 @@
     return u.pathname+u.search;
   }
   function watch(s){
+    if((s.root.dataset.localReady==='1'||s.root.dataset.localPending==='1'))return;
     if(s.observer && !s.busy && !s.blocked && s.next && !paused) s.observer.observe(s.controls);
   }
   function updateLinks(s){
@@ -32,7 +33,7 @@
     button.hidden=false;
   }
   function schedule(s,manual=false){
-    if(paused || !s.next || s.busy || s.queued || (s.blocked&&!manual)) return;
+    if((s.root.dataset.localReady==='1'||s.root.dataset.localPending==='1')||paused || !s.next || s.busy || s.queued || (s.blocked&&!manual)) return;
     s.queued=true;queue.push({s,manual});pump();
   }
   function pump(){
@@ -42,7 +43,7 @@
     }
   }
   async function load(s,manual){
-    if(paused||!s.next||s.busy)return;
+    if((s.root.dataset.localReady==='1'||s.root.dataset.localPending==='1')||paused||!s.next||s.busy)return;
     s.observer?.unobserve(s.controls);s.busy=true;s.blocked=false;
     s.root.setAttribute('aria-busy','true');s.more.setAttribute('aria-disabled','true');
     if(s.home&&s.page===0)s.root.dataset.streamState='loading';
@@ -55,7 +56,7 @@
       const response=await fetch(url,{credentials:'same-origin',headers:{'Accept':'application/json','X-Public-Fragment':'1'},signal:controller.signal,redirect:'error'});
       if(!response.ok || !response.headers.get('content-type')?.includes('application/json'))throw new Error('HTTP error');
       const result=await response.json();
-      if(paused||controller.signal.aborted)return;
+      if((s.root.dataset.localReady==='1'||s.root.dataset.localPending==='1')||paused||controller.signal.aborted)return;
       if((s.queryId && result.query_id!==s.queryId) || (s.nav && (result.nav!==s.nav || result.nav_stamp!==s.stamp)) || result.table!==s.table || result.lang!==s.lang || result.home!==s.home || result.page!==expected || typeof result.html!=='string' || !Number.isInteger(result.total)||result.total<0)throw new Error('Changed results');
       const next=safeNext(s,result.next_url,result.page);
       const template=document.createElement('template');template.innerHTML=result.html;
@@ -97,44 +98,14 @@
   initial();
   function pause(){paused=true;queue.length=0;for(const s of states){s.queued=false;s.observer?.disconnect();s.controller?.abort();}}
   document.addEventListener('public:querychange',pause);
-  document.addEventListener('teacher:navigation-start',()=>{pause();restoreSequence++;restoreController?.abort();});
-  document.addEventListener('teacher:navigation-cancel',()=>{if(restoreRequired){restore({persisted:true});return;}paused=false;for(const s of states)watch(s);initial();pump();});
-  const pageIdentity=()=>document.querySelector('[data-public-identity]')?.dataset.publicIdentity||'';
-  let restoreController=null,restoreSequence=0,restoreRequired=false;
-  window.addEventListener('pagehide',()=>{
-    pause();restoreSequence++;restoreController?.abort();
-    // Hide authenticated content before the browser snapshots it for back/forward.
-    if(pageIdentity())document.body.style.visibility='hidden';
-  });
-  async function restore(event){
-    const sequence=++restoreSequence;
-    if(event.persisted){
-      restoreRequired=true;
-      pause();restoreController?.abort();
-      const controller=new AbortController();restoreController=controller;
-      const timer=setTimeout(()=>controller.abort(),5000);
-      try{
-        const response=await fetch('/api/public/cache-revision'+(document.querySelector('[data-public-shared="1"]')?'?shared=1':''),{credentials:'same-origin',cache:'no-store',signal:controller.signal});
-        if(!response.ok)throw new Error('Identity check failed');
-        const data=await response.json();
-        if(typeof data.revision!=='string'||typeof data.identity!=='string')throw new Error('Invalid identity response');
-        if(sequence!==restoreSequence)return;
-        if(controller.signal.aborted)throw new Error('Restore cancelled');
-        if(data.revision!==document.querySelector('[data-public-revision]')?.dataset.publicRevision||data.identity!==pageIdentity()){location.reload();return;}
-        restoreRequired=false;document.querySelector('[data-restore-retry]')?.remove();
-      }catch{
-        if(sequence!==restoreSequence)return;
-        if(pageIdentity()){location.reload();return;}
-        if(document.querySelector('[data-public-shared="1"]')){
-          let button=document.querySelector('[data-restore-retry]');
-          if(!button){button=document.createElement('button');button.type='button';button.dataset.restoreRetry='';button.className='btn btn-outline-secondary';button.textContent=document.documentElement.lang==='en'?'Retry content check':'重新检查内容版本';button.addEventListener('click',()=>restore({persisted:true}));document.querySelector('main')?.prepend(button);}
-          document.body.style.visibility='';return; // Keep readable HTML, pause new fragments until verified.
-        }
-      }finally{clearTimeout(timer);if(restoreController===controller)restoreController=null;}
-    }
-    if(sequence!==restoreSequence)return;
+  document.addEventListener('public:local-fallback',event=>{for(const s of states)if(s.root===event.target)watch(s);});
+  document.addEventListener('public:local-ready',event=>{for(const s of states)if(s.root===event.target){s.observer?.disconnect();s.controller?.abort();s.next='';}});
+  document.addEventListener('teacher:navigation-start',pause);
+  document.addEventListener('teacher:navigation-cancel',resume);
+  function resume(){
     document.body.style.visibility='';
     paused=false;for(const s of states)watch(s);initial();pump();
   }
-  window.addEventListener('pageshow',restore);
+  window.addEventListener('pagehide',pause);
+  window.addEventListener('pageshow',resume);
 })();

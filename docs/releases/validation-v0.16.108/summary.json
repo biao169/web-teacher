@@ -1,0 +1,29 @@
+{
+  "version": "0.16.108",
+  "based_on": "0.16.107",
+  "python_summary": "2265 passed, 1 skipped, 7 warnings, 47 subtests passed in 491.26s (0:08:11)",
+  "acceptance_results": {
+    "python": "passed",
+    "offline_inline": "passed",
+    "offline_separate_executor": "passed",
+    "native_stream": "passed",
+    "simulated_dom": "passed",
+    "credential_dom_http": "passed",
+    "real_browser": "not_run",
+    "credential_browser": "not_run"
+  },
+  "wrangler": "4.143.0",
+  "four_worker_dry_runs": "passed",
+  "companion_artifact_inspection": "passed",
+  "public_fault_matrix_with_router": {
+    "passed": 37
+  },
+  "release_diagnostics_tests": {
+    "passed": 7
+  },
+  "sync_runtime_unchanged_files": 142,
+  "cloudflare_fault_injection": "not_run",
+  "live_deployment": "not_run",
+  "real_platform_cache_hit_stale_tags": "not_run",
+  "browser_rendering": "not_run"
+}

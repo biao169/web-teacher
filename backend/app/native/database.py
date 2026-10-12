@@ -7,21 +7,9 @@ SCHEMA=ROOT/'database/native'
 from .schema_sources import initialization_sql
 class Database:
     supports_text_hash=True
-    def __init__(self,path,kind='teacher'):
+    def __init__(self,path,kind='teacher',on_public_commit=None):
         """保存构造参数和适配器，供此对象后续操作复用。"""
-        self.path=Path(path);self.kind=kind
-        from .public_cache import PublicReadCache
-        self.public_cache=PublicReadCache()
-    def cache_revision(self):
-        """Detect other-process commits/replacement too, without keeping SQLite handles open."""
-        try:
-            result=[]
-            for path in (self.path,Path(str(self.path)+'-wal')):
-                try:
-                    st=path.stat();result.append((st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns))
-                except FileNotFoundError:result.append(None)
-            return tuple(result) if result[0] is not None else None
-        except OSError:return None
+        self.path=Path(path);self.kind=kind;self.on_public_commit=on_public_commit
     def connect(self):
         """Open a short-lived, foreign-key enforcing connection with a 2 MiB cache."""
         c=sqlite3.connect(self.path,timeout=5);c.row_factory=sqlite3.Row
@@ -84,14 +72,13 @@ class Database:
     async def _batch(self,statements,limit):
         """Enforce the caller-specific transaction budget in either native adapter."""
         if not 1<=len(statements)<=limit:raise ValueError('Too many statements per transaction')
-        bump=None
-        try:
-            with closing(self.connect()) as c, c:
-                c.execute('BEGIN IMMEDIATE')
-                results=[[dict(r) for r in c.execute(sql,args)] for sql,args in statements]
-                from .public_revision import revision_write
-                bump=revision_write(statements) if self.kind=='teacher' else None
-                if bump:c.execute(*bump)
-                return results
-        finally:
-            if bump:self.public_cache.invalidate()
+        with closing(self.connect()) as c, c:
+            c.execute('BEGIN IMMEDIATE')
+            results=[[dict(r) for r in c.execute(sql,args)] for sql,args in statements]
+            from .public_revision import revision_write
+            bump=revision_write(statements) if self.kind=='teacher' else None
+            if bump:c.execute(*bump)
+        if self.kind=='teacher' and self.on_public_commit is not None:
+            from .public_cache_tags import after_commit
+            await after_commit(self,statements)
+        return results

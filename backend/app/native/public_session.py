@@ -16,7 +16,7 @@ def session_summary(p):
         data.update(idle_expires_at=p['idle_expires_at'],absolute_expires_at=p['expires_at'])
     return data
 
-HEADERS={'Cache-Control':'private, max-age=60','Vary':'Cookie, Authorization'}
+HEADERS=dict(SUMMARY_HEADERS)
 
 def denied(message,status):
     return JSONResponse({'error':message},status_code=status,headers={**HEADERS,'Cache-Control':'no-store'})

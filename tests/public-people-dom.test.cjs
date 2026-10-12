@@ -35,14 +35,14 @@ test('group heading appears once across appended batches, selection and copy exc
 const facetForm=form.replace('</form>','<label data-person-facet data-field="title" data-page="1"><select name="f.title"><option value="">All</option><option value="A" selected>A</option></select><button data-facet-more type="button" hidden>More</button></label></form>');
 test('facet options append safely without changing active filter or selected records',async t=>{
  const f=fixture(t,{html:facetForm+`<section data-public-stream data-table="profiles" data-lang="zh">${card('a')}</section>`});
- f.check('[data-person-all]');f.$('[data-facet-more]').click();f.$('[data-facet-more]').click();assert.equal(f.requests.length,1);assert.equal(f.requests[0].url,'/api/public/people/profiles/facets/title?page=2&lang=zh');
+ f.check('[data-person-all]');f.$('[data-facet-more]').click();f.$('[data-facet-more]').click();await f.tick();assert.equal(f.requests.length,1);assert.equal(f.requests[0].url,'/api/public/people/profiles/facets/title?page=2&lang=zh');
  f.requests[0].resolve({ok:true,headers:{get:()=> 'application/json'},json:async()=>({table:'profiles',field:'title',page:2,values:['A','B','<script>literal</script>'],has_more:false})});await f.tick();
  assert.equal(f.$('select').value,'A');assert.equal(f.$('select').options.length,4);assert.equal(f.$('select script'),null);assert.equal(f.$('[data-facet-more]').hidden,true);assert.equal(f.$('[data-person-all]').checked,true);
 });
 test('facet failure preserves options and page; retry stays on the same page',async t=>{
  const f=fixture(t,{html:facetForm+`<section data-public-stream data-table="profiles" data-lang="zh">${card('a')}</section>`});
- f.$('[data-facet-more]').click();f.requests[0].resolve({ok:true,headers:{get:()=> 'application/json'},json:async()=>({table:'students',field:'title',page:2,values:['Wrong'],has_more:false})});await f.tick();
- assert.equal(f.$('select').options.length,2);assert.equal(f.$('[data-person-facet]').dataset.page,'1');assert.match(f.$('[data-person-tool-status]').textContent,/失败/);f.$('[data-facet-more]').click();assert.equal(f.requests[1].url,f.requests[0].url);f.requests[1].reject(new Error('offline'));await f.tick();
+ f.$('[data-facet-more]').click();await f.tick();f.requests[0].resolve({ok:true,headers:{get:()=> 'application/json'},json:async()=>({table:'students',field:'title',page:2,values:['Wrong'],has_more:false})});await f.tick();
+ assert.equal(f.$('select').options.length,2);assert.equal(f.$('[data-person-facet]').dataset.page,'1');assert.match(f.$('[data-person-tool-status]').textContent,/失败/);f.$('[data-facet-more]').click();await f.tick();assert.equal(f.requests[1].url,f.requests[0].url);f.requests[1].reject(new Error('offline'));await f.tick();
 });
 const paperCard=(id,value,missing=false)=>`<article data-person-card data-record-id="${id}"><input data-person-select type="checkbox" hidden><p data-citation-text ${missing?'data-citation-fallback':''}>${value}</p><div class="content-tags">NOT_COPY_TAG</div><a>NOT_COPY_LINK</a><button type="button" data-copy-citation hidden><svg></svg></button><span data-citation-status></span></article>`;
 test('batch citations copy selected loaded raw text in list order with zero requests',async t=>{
@@ -129,7 +129,7 @@ test('scoped detail return accepts only its own entry and preserves encoded filt
 
 test('English facet continuation requests language and scope, and keeps raw values for identical labels',async t=>{
  const f=fixture(t,{html:facetForm+`<section data-public-stream data-table="profiles" data-lang="en" data-nav="faculty" data-nav-stamp="rev">${card('a')}</section>`});
- f.$('[data-facet-more]').click();const url=new URL(f.requests[0].url,'https://site.example');assert.equal(url.searchParams.get('lang'),'en');assert.equal(url.searchParams.get('nav'),'faculty');assert.equal(url.searchParams.get('nv'),'rev');
+ f.$('[data-facet-more]').click();await f.tick();const url=new URL(f.requests[0].url,'https://site.example');assert.equal(url.searchParams.get('lang'),'en');assert.equal(url.searchParams.get('nav'),'faculty');assert.equal(url.searchParams.get('nv'),'rev');
  f.requests[0].resolve({ok:true,headers:{get:()=> 'application/json'},json:async()=>({table:'profiles',field:'title',page:2,values:['教授甲','教授乙','讲师'],labels:{'教授甲':'Professor','教授乙':'Professor','讲师':'<script>Literal</script>'},has_more:false})});await f.tick();
  const options=[...f.$('select').options];assert.equal(options.filter(o=>o.textContent==='Professor').length,2);assert(options.some(o=>o.value==='教授甲'));assert(options.some(o=>o.value==='教授乙'));assert.equal(f.$('select script'),null);assert.equal(f.$('select').value,'A');
 });

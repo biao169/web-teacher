@@ -48,6 +48,6 @@ def test_toolbar_values_and_no_script_fallback(fixture):
     assert 'name="q" type="search" maxlength="200" value="Ada"' in response.text
     assert not DOM(response.text).find('select',name='sort')
     assert DOM(response.text).find('input',name='direction',value='desc',checked=None)
-    assert not DOM(response.text).find('select',name='size')
+    assert DOM(response.text).find('select',name='size')
     assert 'data-person-select hidden' in response.text and 'data-person-link href="/zh/profiles/' in response.text
     assert 'data-person-selection hidden' in response.text

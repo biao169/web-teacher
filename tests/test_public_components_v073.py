@@ -6,10 +6,10 @@ def test_worker_islands_and_local_unchanged(fixture):
  c,r=fixture
  run(r.sql.batch([("INSERT INTO projects(uid,name,visibility,principal,amount,members) VALUES('island','Project','public','PRIVATE-PI','123.45','PRIVATE-MEMBERS')",())]))
  local=c.get('/en/projects').text
- assert 'PRIVATE-PI' in local and 'data-public-session' not in local
+ assert 'PRIVATE-PI' not in local and 'data-public-session' in local
  r.kind='r2';r.worker_cache_mode='simple';r.public_request_cache=False
  worker=c.get('/en/projects').text
- assert 'data-public-session' in worker and 'public-session.js?v=0.16.076' in worker
+ assert 'data-public-session' in worker and 'public-session.js?v=' in worker
  assert 'data-project-private="island"' in worker
  assert 'PRIVATE-PI' not in worker and 'PRIVATE-MEMBERS' not in worker and '1,234,500' not in worker
  assert 'name="_csrf"' not in worker

@@ -11,13 +11,15 @@ def resource(request,renderer,*,admin=False):
     env=request.scope['env'];defaults=Settings(Path('/runtime-data'))
     names={'database_binding':'TEACHER_DATABASE_BINDING','media_binding':'TEACHER_MEDIA_BINDING','cache_binding':'TEACHER_CACHE_BINDING','media_prefix':'TEACHER_MEDIA_PREFIX','cache_prefix':'TEACHER_CACHE_PREFIX'}
     s=Settings(Path('/runtime-data'),**{k:str(getattr(env,v,getattr(defaults,k))) for k,v in names.items()})
-    mode,performance,request_cache=policy(env,admin=admin)
+    performance=policy(env,admin=admin)
     r=SimpleNamespace(public_performance=performance,sql=D1SQL(getattr(env,s.database_binding)),passwords=None,renderer=renderer,
         config=AuthConfig.from_origin(str(env.TEACHER_ORIGIN),str(getattr(env,'TEACHER_ALLOWED_ORIGINS',''))),
         media_store=R2Store(getattr(env,s.media_binding),s.media_prefix),cache_store=R2Store(getattr(env,s.cache_binding),s.cache_prefix),
-        asset_mode='local',worker_cache_mode=mode,public_request_cache=request_cache,kind='r2',sync_env=env,settings=s,
+        asset_mode='local',kind='r2',sync_env=env,settings=s,
         transfer_url=str(getattr(env,'TEACHER_TRANSFER_URL','')),transfer_secret=str(getattr(env,'TEACHER_TRANSFER_SECRET','')))
     if admin:
+        from backend.app.native.public_cache_tags import record_commit
+        r.sql.on_public_commit=record_commit
         from backend.app.security.passwords import Passwords
         from backend.app.adapters.worker_crypto.passwords import derive
         from backend.app.adapters.worker_crypto.scholarly import CrossrefTransport

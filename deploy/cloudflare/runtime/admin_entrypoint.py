@@ -28,4 +28,8 @@ class Default(WorkerEntrypoint):
             from workers import Response
             return Response('Not found',status=404)
         from worker_runtime.admin_recovery import run
-        return await run(request,lambda:dispatch_upload(application,request,self.env,self.ctx,asgi.fetch,direct),'ADMIN-DISPATCH')
+        from backend.app.native.public_cache_tags import CommittedChanges
+        from worker_runtime.public_invalidation import with_commit
+        with CommittedChanges() as changes:
+            response=await run(request,lambda:dispatch_upload(application,request,self.env,self.ctx,asgi.fetch,direct),'ADMIN-DISPATCH')
+        return with_commit(response,changes.plan)

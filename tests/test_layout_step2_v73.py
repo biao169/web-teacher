@@ -9,7 +9,8 @@ from backend.app.native.public_data import public_listing
 def test_private_projection_rechecks_live_identity(fixture,monkeypatch,change):
     c,r=fixture
     uid=add(r,'projects','Public title',principal='HIDDEN_PI',members='HIDDEN_TEAM',amount='4321.2345',status='RUNNING')
-    assert 'HIDDEN_PI' in c.get('/zh/projects').text
+    assert 'HIDDEN_PI' not in c.get('/zh/projects').text
+    assert c.get('/api/public/admin-project-fields',params={'uid':uid}).json()['projects'][0]['principal']=='HIDDEN_PI'
     if change=='password_change_required':
         run(r.sql.batch([('UPDATE auth_users SET must_change_password=1 WHERE uid=?',(r.p['uid'],))]))
     else:
@@ -28,6 +29,7 @@ def test_private_projection_rechecks_live_identity(fixture,monkeypatch,change):
     assert response.status_code==200
     assert all(value not in response.text for value in ('HIDDEN_PI','HIDDEN_TEAM','43,212,345'))
     assert reads and all(all('"'+key+'"' not in sql for key in ('principal','members','amount')) for sql in reads)
+    assert c.get('/api/public/admin-project-fields',params={'uid':uid}).status_code in (401,403)
     r.p=run(r.auth.principal(c.cookies.get('ts_session')))
     data=run(public_listing(r,'projects',{}))
     assert all(key not in data['rows'][0] for key in ('principal','members','amount'))
@@ -36,10 +38,11 @@ def test_private_projection_rechecks_live_identity(fixture,monkeypatch,change):
 def test_status_unique_right_slot_and_no_empty_slot(fixture,lang):
     c,r=fixture
     uid=add(r,'projects','TITLE73',principal='PRINCIPAL73',members='MEMBERS73',status='STATUS73',is_featured=1)
-    for path in ('/'+lang,'/'+lang+'/projects'):
-        text=article(c.get(path).text,uid)
+    for path in ('/'+lang+'/projects?home=1&page=1','/'+lang+'/projects'):
+        response=c.get(path,headers={'X-Public-Fragment':'1'} if 'home=' in path else {})
+        text=article(response.json()['html'] if 'home=' in path else response.text,uid)
         assert 'project-with-status' in text and 'class="project-main"' in text
-        assert text.count('STATUS73')==1 and text.index('MEMBERS73')<text.index('STATUS73')
+        assert text.count('STATUS73')==1 and text.index('TITLE73')<text.index('STATUS73') and 'MEMBERS73' not in text
     run(r.sql.batch([('UPDATE projects SET status=NULL WHERE uid=?',(uid,))]))
     text=article(c.get('/'+lang+'/projects').text,uid)
     assert 'project-with-status' not in text and 'project-status content-status' not in text

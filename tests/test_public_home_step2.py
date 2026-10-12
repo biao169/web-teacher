@@ -69,7 +69,7 @@ def test_projects_show_fund_source_and_never_summary(fixture):
     add(r,'projects','Project title',is_featured=1,source='Funding source',fund_name='Research program',summary='DO_NOT_SHOW_SUMMARY',amount='100.00')
     page=c.get('/zh/projects?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()['html']
     assert 'Funding source' in page and 'Research program' in page
-    assert 'DO_NOT_SHOW_SUMMARY' not in page and '100 万元' in page
+    assert 'DO_NOT_SHOW_SUMMARY' not in page and '100 万元' not in page
 
 def test_news_links_open_new_tab(fixture):
     c,r=fixture;uid=add(r,'news','news-demo',is_featured=1)
@@ -95,13 +95,16 @@ def test_navigation_only_configured_enabled_public_links(fixture):
 
 def test_real_admin_and_logout_csrf_then_registered_user_no_admin_link(fixture):
     c,r=fixture;page=c.get('/zh').text
-    assert 'href="/admin"' in page
-    dom=DOM(page);assert dom.find('form',action='/auth/logout',method='post')
-    assert dom.find('input',name='_csrf',value=r.p['csrf'])
+    assert 'href="/admin"' not in page
+    dom=DOM(page);assert not dom.find('form',action='/auth/logout',method='post')
+    assert not dom.find('input',name='_csrf')
+    summary=c.get('/api/public/session-summary');assert summary.json()['can_enter_admin'] is True
+    assert 'no-store' in summary.headers['cache-control']
     role_uid=run(r.content.save('auth_roles',r.p,{'name':'No admin access','level':1,'visibility_scopes':'["public"]','is_active':1},permissions={}))
     u=user(r,role_uid=role_uid);token=run(r.auth.login(u['username'],'Synthetic-only-password-035','home-test'))
     c.cookies.set('ts_session',token);page=c.get('/zh').text
-    assert 'href="/admin"' not in page and 'action="/auth/logout"' in page
+    assert 'href="/admin"' not in page and 'action="/auth/logout"' not in page
+    summary=c.get('/api/public/session-summary').json();assert summary['authenticated'] and not summary['can_enter_admin']
 
 def test_language_fallback_preserves_module_and_linked_record_filter(fixture):
     c,r=fixture;uid=add(r,'publications','Paper name',is_featured=1)

@@ -6,7 +6,7 @@ function fixture(t,{observer=true,reduced=false,publicPage=true}={}){
  const w=dom.window,scrolls=[];let observed;
  w.requestAnimationFrame=fn=>fn();w.matchMedia=()=>({matches:reduced});w.scrollTo=value=>scrolls.push(value);
  if(observer)w.IntersectionObserver=class{constructor(fn){observed=fn}observe(){}};
- w.eval(script);return {w,button:w.document.querySelector('[data-back-top]'),scrolls,update:()=>observed?.()};
+ w.eval(fs.readFileSync(path.join(__dirname,'../frontend/public/static/js/academic.js'),'utf8'));w.eval(script);return {w,button:w.document.querySelector('[data-back-top]'),scrolls,update:()=>observed?.()};
 }
 test('top control follows threshold, respects reduced motion and restores visible focus',t=>{
  const f=fixture(t,{reduced:true});assert.equal(f.button.hidden,true);
@@ -21,7 +21,9 @@ test('scroll fallback and history restore work without an observer',t=>{
 test('images appended by infinite scroll fall back on failure without copyable decoration',t=>{
  const f=fixture(t),root=f.w.document.querySelector('[data-stream-items]');
  root.innerHTML='<div data-public-media><img src="/media/unavailable"><span data-media-fallback aria-hidden="true" hidden>林</span></div>';
+ const timers=[];f.w.setTimeout=fn=>{timers.push(fn);return timers.length;};f.w.clearTimeout=()=>{};
  root.dispatchEvent(new f.w.CustomEvent('public:appended',{bubbles:true}));root.querySelector('img').dispatchEvent(new f.w.Event('error'));
+ assert.equal(root.querySelector('img').hidden,false);assert.equal(timers.length,1);timers.shift()();root.querySelector('img').dispatchEvent(new f.w.Event('error'));
  assert.equal(root.querySelector('img').hidden,true);assert.equal(root.querySelector('span').hidden,false);assert.equal(root.querySelector('[data-copy-field]'),null);
 });
 test('controls do nothing on administration pages',t=>{

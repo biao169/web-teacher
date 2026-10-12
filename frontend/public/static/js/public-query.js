@@ -15,6 +15,6 @@
       params.set('s',btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''));
     }
     const url=new URL(form.action,location.href);if(url.origin!==location.origin)return;
-    event.preventDefault();url.search=params.toString();url.hash='';location.assign(url.pathname+url.search);
+    event.preventDefault();url.search=params.toString();url.hash='';if(!(typeof window!=='undefined'&&window.teacherPublicList?.navigate(url)))location.assign(url.pathname+url.search);
   });
 })();

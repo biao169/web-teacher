@@ -75,8 +75,9 @@ def test_project_order_zero_amount_and_full_research_patent_description(fixture)
     c,r=fixture
     project=add(r,'projects','TITLE55',source='SOURCE55',fund_name='PLAN55',principal='PI55',project_role='ROLE55',amount='0',members='MEMBER55',summary='OMIT55')
     text=article(c.get('/zh/projects').text,project)
-    assert text.index('SOURCE55')<text.index('PLAN55')<text.index('>TITLE55<')<text.index('ROLE55')<text.index('PI55')<text.index('MEMBER55')
-    assert '金额：</span>0' in text and 'OMIT55' not in text and 'data-person-link' not in text
+    assert text.index('SOURCE55')<text.index('PLAN55')<text.index('>TITLE55<')<text.index('ROLE55')
+    assert all(value not in text for value in ('PI55','MEMBER55','金额：</span>0','OMIT55')) and 'data-person-link' not in text
+    assert c.get('/api/public/admin-project-fields',params={'uid':project,'lang':'zh'}).json()['projects'][0]['amount_display']=='0 万元'
     for table,field in [('research_interests','description'),('patents','summary')]:
         uid=add(r,table,'TITLE',**{field:'A'*2400+'END55'})
         assert 'END55' in article(c.get('/en/'+table).text,uid)

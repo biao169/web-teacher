@@ -1,26 +1,29 @@
-# 公共页面性能验收
+# Public 缓存验收（v0.16.108）
 
-先部署相同源码到 Ubuntu 与 Cloudflare；检查 Worker 响应中的 `x-teacher-release` 与部署版本一致。没有版本头的 Ubuntu 需在服务器核对 current/pyproject.toml。不同版本的线上结果不能当作新版验收。
+## 本地可验证
 
-## 重复执行
+- HTML GET/HEAD/304成功标记、ETag；含Cookie仍为匿名；固定页面 browser max-age=1800。
+- PublicData16个固定URL、完整且有界、禁止私有字段、GET/HEAD/304语义。
+- 400/404/500/503及未标记200模板 no-store，无成功标记、ETag或Cache-Tag污染。
+- Router模拟HIT/STALE不构建应用、不访问D1/R2；模拟不证明平台实际命中或故障回退。
+- 筛选/排序/分页复用一份模型；模型失败保留现有HTML并恢复渐进回退。
+- 身份503/timeout/abort保留旧成功显示；明确false才改为登录；真实私有API实时拒绝撤销权限。
+- tag通知只在提交后；拒绝、异常、超时不全站purge，不重放写操作。
+- inline/separate源码staging、官方Wrangler四配置dry-run、辅助产物目标与私有绑定检查。
 
-在已安装项目依赖的环境中，从源码根目录执行：
+## 真实部署后验证
 
-```bash
-python tests/benchmark_public_navigation.py > local-navigation.json
-python tests/probe_public_performance.py --origin https://biao.nebastars.com --origin https://vip.moglider.com --expected-release 0.16.062 --output live-navigation.json
-```
+1. 使用现有发布流程，cloud-check核对main/Admin/Native/Executor版本、绑定和私有入口。保留原站点资源及同步拓扑。
+2. 同一PoP访问标准HTML与固定PublicData多次；结合平台缓存诊断及Tail确认HIT无D1/渲染执行，记录CPU。不得只用响应耗时认定HIT。
+3. 浏览器重复筛选/排序/分页，Network确认不重复访问数据库接口；关闭JS或拒绝模型时验证服务器回退。
+4. 在测试环境预热成功对象并过新鲜期，再注入刷新5xx/timeout；检查返回旧成功HTML/JSON。实际1101/1102需测试环境故障与平台日志，不能用普通Python异常代替CPU限制错误。无旧成功对象的MISS无法回退。
+5. 恢复后验证新成功内容替换；故障期间没有purge或扫描；5xx未成为新缓存对象。不要在生产主动制造CPU耗尽。
+6. 普通修改提交后验证相关tag重新验证，撤回/删除及时移除；检查其他模块不误失效。验收跨PoP行为及通知pending恢复。浏览器新鲜缓存和已加载模型不受边缘tag失效控制。
+7. 阻断session-summary后页面可用、旧身份显示保留；明确退出后显示登录，后台写操作仍实时鉴权。
+8. Admin/Auth/Sync/private API、自由query及写请求不共享缓存，登录/退出及CSRF无缓存泄漏。
 
-第一条使用临时 SQLite 示例数据及 TestClient，比较关闭缓存、整页命中、ETag 条件请求；不是公网 TTFB。第二条只发匿名 GET，每站最多6次、单次超时15秒、正文读取上限512KiB；不跟随重定向、不自动重试、不记录正文或 Cookie。它是数据采集器，执行成功不等于验收通过，应检查 release_match、HTTP 状态、ETag 与缓存头。`headers_ms` 包含连接、TLS及到达响应头的时间，不等于服务端 CPU。
+只读HTTP探针：`python -B tests/probe_public_performance.py --origin https://你的站点 --expected-release 0.16.108 --output public-http.json`。不登录、不写入、不触发故障；Public缓存响应可能没有release诊断头，不能据此认定线上版本。以cloud-check的平台版本为准。Cloudflare可能消费移除 CDN cache-control / Cache-Tag；不要要求它们一定在客户端可见。
 
-## 真实环境待验收
+平台 stale-if-error行为依据：https://developers.cloudflare.com/workers/cache/configuration/ 。平台负责保留和返回可用旧对象；缓存可驱逐、不同PoP可能未预热，不承诺故障时所有页面均可用。避免附加s-maxage/must-revalidate/proxy-revalidate禁用该回退语义。
 
-- 两端均为目标版本；未登录首页、团队及项目列表200，重复请求命中 Render Cache；相同 ETag 条件请求304、正文0字节。
-- 浏览器 DevTools Network 保持缓存启用，悬停/聚焦导航后再点击；验证文档请求复用缓存，并检查预取最多配置并发数。DOM模拟不能证明浏览器HTTP缓存复用。
-- 分别以匿名和登录用户测试，确认身份相关页面不被匿名整页缓存；后台、同步、表单、错误响应继续 no-store。
-- 在测试站修改一条公开内容，确认 revision/ETag 改变，重新验证时返回新正文；仍新鲜的浏览器缓存允许保留到原 TTL。不要为验收修改生产内容。
-- 分别设整页 TTL=0、两种 TTL=0、预取并发=0，重启/部署后核对对应功能关闭；恢复默认1800/300/2/1。
-- Cloudflare 按 request ID/Ray ID 查看对应 Public Worker invocation 的 CPU、outcome 与错误；记录样本数、版本、colo和时间，不把端到端耗时当CPU。没有平台数据时资源指标标记未测，不推断内存占用。
-- Ubuntu 在相同负载下记录服务进程RSS、CPU和TTFB，区分冷启动、首次MISS和热HIT。基准脚本峰值RSS包含整个测试进程，不代表部署内存上限。
-
-线上验收通过应同时满足业务正确、身份隔离和错误率没有退化，再比较同网络同版本的性能。不要用跨网络单次数字或旧版本错误决定修改新缓存逻辑。
+重要边界：stale-if-error作用于可缓存entrypoint的已有成功对象及刷新失败。若Default Router在转发前就被平台终止，或请求到达从未预热的PoP，则不能保证走到PublicPage/PublicData的旧对象。浏览器也不能保证在所有错误码下自动返回过期对象。本设计没有Service Worker或独立外部故障网关；本轮不新增Recovery层。

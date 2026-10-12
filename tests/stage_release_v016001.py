@@ -10,7 +10,7 @@ from domains import settings,apply
 from integration_package import extend,entrypoint_source,verify_entrypoint
 from pipeline import verify_stage
 
-def main(separate=False,cache_mode="full"):
+def main(separate=False,output=None):
     with tempfile.TemporaryDirectory(prefix='teacher-offline-acceptance-') as temp:
         work=Path(temp);stage=work/'worker'
         domains=settings({'TEACHER_ORIGIN':'https://primary.university.edu','TEACHER_CUSTOM_DOMAINS':'primary.university.edu,alias.university.edu'},'teacher-offline-test')
@@ -21,9 +21,9 @@ def main(separate=False,cache_mode="full"):
         (stage/'src/main.py').write_text(entrypoint_source())
         cfg=json.loads((stage/'wrangler.jsonc').read_text());cfg['main']='src/main.py'
         from backend.app.public_performance import PublicPerformance,KEYS
-        performance=PublicPerformance.from_env({'TEACHER_PUBLIC_PAGE_CACHE_TTL_SECONDS':'123','TEACHER_PUBLIC_NAV_PREFETCH_CONCURRENCY':'2'})
+        performance=PublicPerformance.from_env({'TEACHER_PUBLIC_STREAM_CONCURRENCY':'1'})
         from runtime.cache_policy import variables
-        cfg['vars'].update(variables(dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE=cache_mode)))
+        cfg['vars'].update(variables(performance.to_env()))
         if separate:cfg['vars']['TEACHER_SYNC_EXECUTOR_MODE']='separate'
         import tomllib
         cfg['vars']['TEACHER_RELEASE']=tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
@@ -42,15 +42,16 @@ def main(separate=False,cache_mode="full"):
         if separate:assert not signal_flags.intersection(json.loads((stage/'wrangler.sync-executor.jsonc').read_text())['compatibility_flags'])
         assert cfg['cache']=={'enabled':False,'cross_version_cache':False}
         assert cfg['exports']['default']['cache']['enabled'] is False
-        assert cfg['exports']['PublicPage']['cache']['enabled']==(cache_mode!='off')
+        assert cfg['exports']['PublicPage']['cache']['enabled'] is True
+        assert cfg['exports']['PublicData']['cache']['enabled'] is True
         assert json.loads((stage/'wrangler.admin.jsonc').read_text())['cache']=={'enabled':False,'cross_version_cache':False}
         assert 'cache' not in json.loads((stage/'sync-native/wrangler.jsonc').read_text())
         if separate:assert 'cache' not in json.loads((stage/'wrangler.sync-executor.jsonc').read_text())
         public_vars=json.loads((stage/'wrangler.jsonc').read_text())['vars']
         admin_vars=json.loads((stage/'wrangler.admin.jsonc').read_text())['vars']
-        assert all(public_vars[k]==v for k,v in variables(dict(performance.to_env(),TEACHER_WORKER_CACHE_MODE=cache_mode)).items())
+        assert all(public_vars[k]==v for k,v in variables(performance.to_env()).items())
         assert not set(KEYS).intersection(admin_vars)
-        assert admin_vars['TEACHER_WORKER_CACHE_MODE']=='off' and admin_vars['TEACHER_WORKER_REQUEST_CACHE']=='0'
+        assert 'TEACHER_WORKER_CACHE_MODE' not in admin_vars and 'TEACHER_WORKER_REQUEST_CACHE' not in admin_vars
         native_vars=json.loads((stage/'sync-native/wrangler.jsonc').read_text())['vars']
         assert not set(KEYS).intersection(native_vars)
         if separate:
@@ -88,13 +89,11 @@ def main(separate=False,cache_mode="full"):
             assert templates[name]==local.env.loader.get_source(local.env,name)[0]==source.read_text(),name
         for source in (ROOT/'site_sync/frontend/static').iterdir():
             if source.is_file():assert (stage/'assets/assets/site-sync'/source.name).read_bytes()==source.read_bytes(),source.name
-        for file in ('backend/app/native/request_cache.py','backend/maintenance/log_retention.py','site_sync/integration/web.py'):
+        for file in ('backend/app/public_performance.py','backend/maintenance/log_retention.py','site_sync/integration/web.py'):
             assert (stage/'src'/file).is_file(),file
         assert (stage/'assets/assets/public/js/public-stream.js').read_bytes()==(ROOT/'frontend/public/static/js/public-stream.js').read_bytes()
-        assert (stage/'assets/assets/public/js/public-prefetch.js').read_bytes()==(ROOT/'frontend/public/static/js/public-prefetch.js').read_bytes()
-        recovery=ast.parse((stage/'src/generated_public_recovery.py').read_text())
-        assert ast.literal_eval(recovery.body[0].value)==(ROOT/'frontend/public/templates/public-recovery.html').read_text()
-        assert (stage/'assets/assets/public/js/public-recovery.js').read_bytes()==(ROOT/'frontend/public/static/js/public-recovery.js').read_bytes()
+        assert not (stage/'assets/assets/public/js/public-prefetch.js').exists()
+        assert not (stage/'src/generated_public_recovery.py').exists()
         public_tree=ast.parse((stage/'src/generated_public_templates.py').read_text())
         public_templates=next(ast.literal_eval(n.value) for n in public_tree.body if isinstance(n,ast.Assign) and n.targets[0].id=='TEMPLATES')
         assert public_templates['public/home-section.html']==(ROOT/'frontend/public/templates/home-section.html').read_text()
@@ -107,5 +106,14 @@ def main(separate=False,cache_mode="full"):
         assert 'alias.university.edu' in (work/'vps/Caddyfile.fragment').read_text()
         assert 'TEACHER_ALLOWED_ORIGINS=' in (work/'vps/teacher-site.env').read_text()
         report={'worker_source_staging':'passed','worker_snapshot_imports':'passed','executor_staged_cold_imports':'passed','executor_staged_deferred_imports':'passed','vps_config_generation':'passed','assets_and_feature_modules':'passed','worker_custom_domain_count':len(cfg['routes']),'cron':cfg['triggers']['crons'],'wrangler_sdk_bundle':'not_run','production_d1_r2':'not_run','real_server_deployment':'not_run'}
+        if output is not None:
+            output=Path(output).resolve()
+            if output.exists() or output.is_relative_to(ROOT):raise ValueError('Output must be a new directory outside the source checkout')
+            shutil.copytree(stage,output)
         print(json.dumps(report,ensure_ascii=False,indent=2))
-if __name__=='__main__':main('--separate-sync' in sys.argv,'simple' if '--simple-cache' in sys.argv else 'full')
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--separate-sync',action='store_true')
+    parser.add_argument('--output',type=Path,help='Keep the verified source stage in a new directory outside the checkout')
+    args=parser.parse_args();main(args.separate_sync,args.output)

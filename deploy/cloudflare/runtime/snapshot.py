@@ -1,5 +1,5 @@
 """Public/DO and maintenance declarations only; no full-site or admin routes."""
-from backend.app.native import web_public,public_cache,public_revision
+from backend.app.native import web_public,public_revision
 from backend.app import public_performance
 from backend.app.web.rendering import Renderer
 from worker_runtime import site_resources
@@ -24,3 +24,7 @@ if find_spec('worker_runtime.site_mode') is not None:
 
 # Lightweight error responses must also be available in the Python snapshot.
 from worker_runtime import admin_recovery
+
+# Pure cache-change declarations; no cache operation occurs during snapshot.
+from backend.app.native import public_cache_tags
+from worker_runtime import public_invalidation

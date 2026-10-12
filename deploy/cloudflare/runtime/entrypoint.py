@@ -57,6 +57,10 @@ class TransferCoordinator(DurableObject):
 
 
 class PublicPage(WorkerEntrypoint):
+    async def update_public_cache(self,payload):
+        from worker_runtime.public_invalidation import update
+        return await update(self.ctx,payload)
+
     async def fetch(self,request):
         from worker_runtime.public_page import eligible
         if not eligible(request,self.env):
@@ -65,17 +69,24 @@ class PublicPage(WorkerEntrypoint):
         return await dispatch(application,request,self.env,self.ctx,asgi.fetch)
 
 
+class PublicData(WorkerEntrypoint):
+    async def update_public_cache(self,payload):
+        from worker_runtime.public_invalidation import update
+        return await update(self.ctx,payload,data=True)
+
+    async def fetch(self, request):
+        from worker_runtime.public_data import serve
+        return await serve(request, self.env)
+
+
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
-        from worker_runtime.public_page import eligible,forward
-        if eligible(request,self.env):
-            try:
-                return await forward(request,self.env,self.ctx)
-            except Exception as exc:
-                # Log only failures; successful cache forwards allocate no trace scope.
-                from worker_runtime.diagnostics import failure
-                emit('PUBLIC-FORWARD','ERROR',path=str(request.url).split('?')[0],exceptions=failure(exc))
-                raise
+        from worker_runtime.public_data import eligible as data_eligible, forward as data_forward
+        if data_eligible(request, self.env):
+            return await data_forward(request, self.env, self.ctx)
+        from worker_runtime.public_page import eligible, forward
+        if eligible(request, self.env):
+            return await forward(request, self.env, self.ctx)
         return await self._dynamic_fetch(request)
 
     @traced('main-site',http=True)
@@ -83,7 +94,11 @@ class Default(WorkerEntrypoint):
         from worker_runtime.site_routes import owner
         if owner(request.url)=='admin':
             from worker_runtime.admin_recovery import run,forward
-            return await run(request,lambda:forward(self.env.SITE_ADMIN,request),'ADMIN-FORWARD')
+            from worker_runtime.public_invalidation import relay
+            async def committed_admin():
+                response=await forward(self.env.SITE_ADMIN,request)
+                return await relay(response,getattr(self,'ctx',None))
+            return await run(request,committed_admin,'ADMIN-FORWARD')
         import secrets,re
         from urllib.parse import urlsplit
         from site_sync.core.trace import current

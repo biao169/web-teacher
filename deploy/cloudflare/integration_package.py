@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 
-WORKER_EXPORTS=('Default','PublicPage','TransferCoordinator')
+WORKER_EXPORTS=('Default','PublicPage','PublicData','TransferCoordinator')
 
 def entrypoint_source():
     return 'from worker_runtime.entrypoint import '+', '.join(WORKER_EXPORTS)+'\n'

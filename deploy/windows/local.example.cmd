@@ -23,7 +23,6 @@ rem set "TEACHER_NO_PAUSE=1"
 rem Optional normal-site TOML: used only by start-normal.cmd, ignored by fresh development.
 rem set "TEACHER_CONFIG=D:\Teacher Site\storage.toml"
 
-rem Anonymous public query cache cap in MiB (default 32); 0 disables it.
-rem Actual budget adapts to available memory. Set worker count when using multiple processes.
-rem set "TEACHER_PUBLIC_CACHE_MB=16"
+rem Public HTML uses fixed browser caching; no Python query/page cache knobs.
+rem Set worker count when using multiple processes.
 rem set "WEB_CONCURRENCY=1"

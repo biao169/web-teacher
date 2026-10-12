@@ -14,7 +14,7 @@ from .auth import Auth
 from .content import Content
 from .media import Media
 from .web_context import renderer
-from .public_http_cache import no_store
+from .public_http_cache import no_store,successful_page
 
 async def payload(request,limit=500000):
     """Bound request size and reject duplicate form/JSON keys before dispatch."""
@@ -68,13 +68,12 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         r.auth=Auth(r.sql,r.passwords)
         r.public_light=worker_public_read(request,r)
         r.public_shared=shared_public_route(request)
-        recovery_candidate=shared_public_route(request) and request.headers.get('x-public-fragment')!='1'
-        if r.public_shared or recovery_candidate:
+        if r.public_shared:
             route=request.url.path.strip('/').split('/')
             if len(route)==3 and route[1]=='news':
                 # A news comment form remains identity-sensitive; one UID lookup only.
                 rows=await r.sql.query('SELECT allow_comments FROM news WHERE uid=? LIMIT 1',(route[2],))
-                if rows and rows[0]['allow_comments']==1:r.public_shared=False;recovery_candidate=False
+                if rows and rows[0]['allow_comments']==1:r.public_shared=False
         r.public_light=r.public_light or r.public_shared
         r.public_components=r.public_shared
         request.state.public_shared=r.public_shared
@@ -82,22 +81,6 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         r.p=None if r.public_shared else await principal(request.cookies.get(r.config.name('session')))
         if request.url.path.startswith(('/admin','/api/admin')):
             request.state.admin_invalid_session=bool(request.cookies.get(r.config.name('session')) and not r.p)
-        request.state.public_recovery_eligible=recovery_candidate and (r.public_shared or not r.p)
-        request.state.public_recovery=request.state.public_recovery_eligible and request.query_params.getlist('__recover')==['1']
-        parts=request.url.path.split('/')
-        cache_namespace=[request.url.path,sorted((k,v) for k,v in request.query_params.multi_items() if k not in ('_rev','__recover')),request.headers.get('x-public-fragment')=='1','anonymous']
-        if not request.state.public_recovery and not r.p and request.method in ('GET','HEAD') and (len(parts)>1 and parts[1] in ('en','zh') or request.url.path.startswith('/api/public/')):
-            if r.kind!='local' and getattr(r,'public_request_cache',True):
-                from .request_cache import RequestSQL
-                from .public_cache import WorkerPublicSQL
-                from .public_revision import revision
-                r.public_revision=await revision(r.sql)
-                r.sql=RequestSQL(WorkerPublicSQL(r.sql,r.config.origin,r.public_revision,r.public_performance.public_cache_ttl_seconds,cache_namespace))
-            elif r.kind=='local' and hasattr(r.sql,'public_cache'):
-                from .public_cache import PublicSQL
-                from .public_revision import revision
-                r.public_revision=await revision(r.sql)
-                r.sql=PublicSQL(r.sql,r.public_performance.public_cache_ttl_seconds,r.public_revision,cache_namespace)
         r.content=Content(r.sql,r.auth);r.media=Media(r.sql,r.auth,r.content,r.media_store,r.kind)
         return r
     def csrf(request,r,data):
@@ -114,12 +97,6 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
             base=factory(request);base.config.valid_host(request)
         except Error as exc:return no_store(HTMLResponse('请使用配置的网站地址访问',status_code=exc.status))
         response=await call_next(request)
-        if response.status_code in (500,502,503,504) and getattr(request.state,'public_recovery_eligible',False):
-            from .public_recovery import response as recovery_response
-            import logging
-            original_status=response.status_code
-            response=recovery_response(request)
-            logging.getLogger(__name__).error('Public response failure status=%s request_id=%s ray=%s path=%s',original_status,response.headers['x-request-id'],request.headers.get('cf-ray',''),request.url.path)
         if request.url.path.startswith(('/admin','/auth/','/api/','/transfer','/health')):
             response.headers['X-Robots-Tag']='noindex, nofollow'
         response.headers['X-Content-Type-Options']='nosniff';response.headers.setdefault('Referrer-Policy','same-origin')
@@ -138,12 +115,23 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
             if suffix in ('js','mjs','css'):
                 response.headers['Content-Type']='text/css; charset=utf-8' if suffix=='css' else 'text/javascript; charset=utf-8'
                 response.headers['Cache-Control']='no-cache'
-        if response.status_code>=400 or getattr(request.state,'public_recovery',False):no_store(response)
-        # Platform edge cache is opt-in per public representation, not all GET routes.
-        if base.kind!='local':
-            shared=getattr(request.state,'public_shared',False)
-            cacheable=shared and request.method in ('GET','HEAD') and response.status_code in (200,304) and 'set-cookie' not in response.headers and response.headers.get('Cache-Control','').startswith('public,')
-            response.headers['Cloudflare-CDN-Cache-Control']=response.headers['Cache-Control'] if cacheable else 'no-store'
+        if response.status_code>=400:no_store(response)
+        # Marker alone is insufficient: only standard anonymous page responses share.
+        from .public_read_api import successful_data
+        data_cacheable=getattr(request.state,'public_data_success',False) and successful_data(request,response)
+        cacheable=getattr(request.state,'public_shared',False) and successful_page(request,response)
+        if data_cacheable:
+            from backend.app.public_performance import data_headers
+            response.headers.update(data_headers())
+        elif request.url.path.startswith('/api/public/data/'):
+            no_store(response)
+        elif cacheable:
+            from backend.app.public_performance import page_headers
+            response.headers.update(page_headers())
+        elif getattr(request.state,'public_shared',False):
+            no_store(response)
+        else:
+            response.headers['Cloudflare-CDN-Cache-Control']='no-store'
         if getattr(request.state,'admin_invalid_session',False):base.config.clear(response)
         return response
     @app.exception_handler(Exception)
@@ -152,11 +140,6 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         # Keep its standard 500 body, preserve diagnostics, and never store it.
         import logging
         from fastapi.responses import PlainTextResponse
-        if getattr(request.state,'public_recovery_eligible',False):
-            from .public_recovery import response as recovery_response
-            result=recovery_response(request)
-            logging.getLogger(__name__).error('Public render failure request_id=%s ray=%s path=%s',result.headers['x-request-id'],request.headers.get('cf-ray',''),request.url.path,exc_info=(type(exc),exc,exc.__traceback__))
-            return result
         logging.getLogger(__name__).error('Unhandled request error: %s %s',request.method,request.url.path,exc_info=(type(exc),exc,exc.__traceback__))
         return no_store(PlainTextResponse('Internal Server Error',status_code=500))
     @app.exception_handler(Error)

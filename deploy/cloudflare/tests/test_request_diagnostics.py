@@ -77,3 +77,14 @@ def test_sdk_binding_response_uses_native_response_init(monkeypatch,status):
     assert len(result.headers['x-request-id'])==32
     assert 'x-request-id' not in native.headers
     assert current()=={}
+
+@pytest.mark.parametrize('release,expected',[('0.16.108','0.16.108'),('unsafe\nvalue','0.16.100')])
+def test_public_diagnostics_use_validated_deployment_release(monkeypatch,release,expected):
+    monkeypatch.setitem(sys.modules,'js',SimpleNamespace(Response=Response))
+    body=object()
+    class Worker:
+        env=SimpleNamespace(TEACHER_RELEASE=release)
+        @traced('main-site',http=True)
+        async def fetch(self,request):return SimpleNamespace(status=503,body=body,headers=Headers())
+    result=asyncio.run(Worker().fetch(SimpleNamespace(url='https://site.test/api/public/session-summary',method='GET',headers=Headers())))
+    assert result.headers['x-teacher-release']==expected and result.body is body

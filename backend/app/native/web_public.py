@@ -5,36 +5,21 @@ from fastapi import Request
 from fastapi.responses import JSONResponse,RedirectResponse
 from .catalog import CONTENT,TITLE,public_modules,Error
 from .web_common import payload,shared_public_route
-from .public_http_cache import validator,not_modified,finish,identity_fingerprint,private_page_policy,recovery_request
-from .public_page_cache import page_cache,page_response
+from .public_http_cache import finish,identity_fingerprint
+from backend.app.public_performance import public_headers as uncached_headers
 
 def public_headers(request,r,revision,fragment=False,form=False,safe=False):
-    shared=getattr(r,'public_shared',False)
-    headers={'Vary':'X-Public-Fragment' if shared and not form else 'Cookie, Authorization, X-Public-Fragment','X-Public-Revision':revision}
-    ttl=r.public_performance.public_cache_ttl_seconds
-    page_ttl=r.public_performance.public_page_cache_ttl_seconds
-    if recovery_request(request) or (request.headers.get('authorization') and not shared) or form or (not fragment and not safe):
-        policy='no-store'
-    elif fragment:
-        # Keep existing fragment policy and protocol separate from HTML freshness.
-        policy='no-store' if r.p or not ttl else f'public, max-age={ttl}' if request.query_params.get('_rev')==revision else 'private, no-cache'
-    elif r.p:
-        policy=private_page_policy(r)
-    else:
-        policy=f'public, max-age={page_ttl}' if page_ttl else 'private, no-cache'
-        if page_ttl and (shared or (r.kind=='local' and not r.p and shared_public_route(request))) and request.method in ('GET','HEAD'):
-            policy+=', stale-while-revalidate=120, stale-if-error=86400'
-    headers['Cache-Control']=policy
-    if recovery_request(request):headers['Cloudflare-CDN-Cache-Control']='no-store'
-    return headers
+    return dict(uncached_headers(), Vary='Cookie, Authorization, X-Public-Fragment', **{'X-Public-Revision':revision})
 
 def install(app,factory,resources,csrf,render):
+    from .public_read_api import install as install_read_api
+    install_read_api(app,factory)
     async def contact_response(r,lang,values=None,message='',success=False,status=200):
         from .public_contact import form_context
         ctx=await form_context(r,lang,values,strict=not bool(message and not success))
         ctx.update(contact_message=message,contact_success=success)
         response=await render(r,'public/action.html',lang=lang,kind='contact',**ctx)
-        response.status_code=status;response.headers['Cache-Control']='no-store';response.headers['X-Public-Page-Cache']='BYPASS'
+        response.status_code=status;response.headers['Cache-Control']='no-store'
         r.config.set_cookie(response,'public-form',ctx['challenge'],600)
         return response
 
@@ -160,22 +145,12 @@ def install(app,factory,resources,csrf,render):
         home_mode=query.get('home')=='1'
         if table and not uid and not fragment:
             canonical=query_url(list_path,query)
-            if recovery_request(request):canonical+=('&' if '?' in canonical else '?')+'__recover=1'
             actual=request.url.path+('?' +request.url.query if request.url.query else '')
             if actual!=canonical:return RedirectResponse(canonical,303)
         # Validate all list-only semantics before a conditional short circuit.
         if table and not uid:
             from .public_data import validate_listing_query
             validate_listing_query(table,query,home_mode)
-        etag=None if uid else await validator(request,r,public_revision,query,scope,fragment,table,uid)
-        cached=not_modified(request,etag,public_headers(request,r,public_revision,fragment=fragment,safe=bool(etag)))
-        if cached is not None:
-            cached.headers['X-Public-Page-Cache']='BYPASS'
-            return cached
-        cache=page_cache(request,r,etag,public_revision,fragment,uid)
-        if cache:
-            body=await cache.get()
-            if body is not None:return finish(request,page_response(body,public_headers(request,r,public_revision,safe=bool(etag)),etag),etag)
         site_options={}
         site_rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')
         site_options=site_rows[0] if site_rows else {}
@@ -229,7 +204,7 @@ def install(app,factory,resources,csrf,render):
             params={'from':list_return(request.query_params.get('from'),switched,table,scope)}|({'nv':scope['stamp']} if scope else {})
             return target+'?'+urlencode(params)
 
-        values={'public_shared':getattr(r,'public_shared',False),'public_components':getattr(r,'public_components',False),'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'public_nav_prefetch_concurrency':r.public_performance.public_nav_prefetch_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
+        values={'public_shared':getattr(r,'public_shared',False),'public_components':getattr(r,'public_components',False),'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
                 'media_map':media_map,'pages':pages,'home_pages':home_pages,'home_mode':home_mode,'public_options':site_options,'site_options':site_options,
                 'page_url':lambda p:query_url(list_path,(pages['query'] if pages else {})|{'page':p}|({'nv':scope['stamp']} if scope else {})),
                 'public_list_path':list_path,'public_scope':scope,
@@ -242,8 +217,7 @@ def install(app,factory,resources,csrf,render):
             response=JSONResponse({'html':markup,'table':table,'lang':lang,'home':home_mode,'page':pages['page'],
                                  'size':pages['size'],'total':pages['total'],'next_url':pages['next_url'],
                                  'query_id':pages['query_id'],'nav':scope['slug'] if scope else '', 'nav_stamp':scope['stamp'] if scope else ''},headers=public_headers(request,r,public_revision,fragment=True))
-            response.headers['X-Public-Page-Cache']='BYPASS'
-            return finish(request,response,etag)
+            return finish(request,response)
         from .public_data import people_facets,PEOPLE_FACETS
         if table and not uid and r.kind!='local':
             values['people_facets']=[{'field':f,'label':zh,'label_en':en,'values':[],'labels':{},'has_more':False,'deferred':True} for f,zh,en in PEOPLE_FACETS.get(table,())]
@@ -260,18 +234,10 @@ def install(app,factory,resources,csrf,render):
         if detail and table=='news' and detail.get('allow_comments')==1:
             from .public_contact import form_context
             values.update(await form_context(r,lang,news=detail))
-        if uid and getattr(r,'public_shared',False):
-            # Check existence, visibility and form eligibility before returning a 304.
-            etag=await validator(request,r,public_revision,dict(request.query_params),scope,False,table,uid)
-            cached=not_modified(request,etag,public_headers(request,r,public_revision,safe=bool(etag)))
-            if cached is not None:return cached
-        values['public_recovery_success']=recovery_request(request)
         response=await render(r,'public/native.html',**values)
         if 'challenge' in values:r.config.set_cookie(response,'public-form',values['challenge'],600)
-        response.headers.update(public_headers(request,r,public_revision,form='challenge' in values,safe=bool(etag)))
-        if cache and request.method=='GET':await cache.put(response)
-        response.headers['X-Public-Page-Cache']=cache.state if cache else 'BYPASS'
-        return finish(request,response,etag)
+        response.headers.update(public_headers(request,r,public_revision,form='challenge' in values))
+        return finish(request,response,public_ok=bool(getattr(r,'public_shared',False)) and 'challenge' not in values)
 
 def create_public_app(factory,static_root=None):
     from .web_common import create_base

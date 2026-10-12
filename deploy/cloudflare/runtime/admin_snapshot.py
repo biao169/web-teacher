@@ -16,3 +16,7 @@ if find_spec("worker_runtime.admin_resources") is not None:
 
 # Lightweight error responses must also be available in the Python snapshot.
 from worker_runtime import admin_recovery
+
+# Pure cache-change declarations; no cache operation occurs during snapshot.
+from backend.app.native import public_cache_tags
+from worker_runtime import public_invalidation

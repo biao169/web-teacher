@@ -27,7 +27,8 @@ def test_linux_preserves_custom_values(managed,monkeypatch,operation):
   monkeypatch.setattr(m,'permissions',lambda **kw:None)
   m.repair_install()
  lines=path.read_text().splitlines()
- for k,v in CUSTOM.items():assert lines.count(f'{k}={v}')==1
+ assert lines.count('TEACHER_PUBLIC_STREAM_CONCURRENCY=1')==1
+ assert PublicPerformance.from_env(CUSTOM).to_env()=={'TEACHER_PUBLIC_STREAM_CONCURRENCY':'1'}
  assert path.stat().st_mode & 0o777==0o640
 
 

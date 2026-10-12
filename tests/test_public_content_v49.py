@@ -26,9 +26,10 @@ def test_project_card_prioritizes_source_and_program_includes_amount_excludes_su
     for path in ['/zh/projects','/zh/projects/'+uid]:
         html=c.get(path).text
         assert 'SOURCE' in html and 'PLAN' in html
-        assert html.index('SOURCE')<html.index('PRINCIPAL')
-        assert 'NEVER_PROJECT_SUMMARY' not in html and '123456 万元' in html
-    assert 'MEMBERS' in c.get('/zh/projects/'+uid).text
+        assert html.index('SOURCE')<html.index('PLAN')
+        assert all(value not in html for value in ('PRINCIPAL','MEMBERS','NEVER_PROJECT_SUMMARY','123456 万元'))
+    data=c.get('/api/public/admin-project-fields',params={'uid':uid,'lang':'zh'}).json()['projects'][0]
+    assert data['principal']=='PRINCIPAL' and data['members']=='MEMBERS' and data['amount_display']=='123456 万元'
 
 def test_paper_details_citations_escaped_authors_and_safe_links(fixture):
     c,r=fixture;uid=add(r,'publications','PAPER',authors='Ada;Bob',corresponding_authors='Bob',venue='Venue',year=2025,volume='8',issue='2',pages='12–20',citation_apa='APA <script>literal</script>',bibtex='@article{example}',display_tags='TAG_ONLY',doi='10.1000/example')

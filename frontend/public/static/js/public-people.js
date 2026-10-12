@@ -83,7 +83,7 @@
       for(const {card,uid} of ordered){
         const el=card.querySelector('[data-citation-text]');
         const current=el?.dataset.citationFormat?.replace(/^citation_/,'')||'gbt';
-        if(style===current){
+        if(style===current&&!el?.hasAttribute('data-citation-remote')){
           if(!el||el.hasAttribute('data-citation-fallback')||!el.textContent.trim()||el.textContent.length>65536)missing++;
           else values.set(card,el.textContent);
         }else need.push({card,uid});
@@ -194,23 +194,24 @@
   form.addEventListener('submit',changingQuery);
   form.querySelector('[data-person-reset]').addEventListener('click',navigate);
   root.querySelector('[data-stream-controls]')?.addEventListener('click',event=>{const link=event.target.closest('a');if(link&&!link.matches('[data-load-more]'))navigate(event);});
-  form.addEventListener('change',event=>{if(event.target.matches('[name="direction"]'))form.requestSubmit();});
+  form.addEventListener('change',event=>{if(event.target.matches('[name="direction"], [name="size"]'))form.requestSubmit();});
   let facetQueue=Promise.resolve(),facetStopped=false,facetGeneration=0;
   const stopFacets=()=>{facetStopped=true;facetGeneration++;};
   window.addEventListener('pagehide',stopFacets);
   document.addEventListener('teacher:navigation-start',stopFacets);
   form.addEventListener('submit',stopFacets);
   window.addEventListener('pageshow',()=>{facetStopped=false;});
+  root.addEventListener('public:local-ready',()=>{stopFacets();for(const controller of requests)controller.abort();});
   for(const facet of form.querySelectorAll('[data-person-facet]')){
     const button=facet.querySelector('[data-facet-more]');if(!button)continue;
     const deferred=facet.dataset.facetDeferred==='1';
     button.hidden=deferred;
     let initialRequested=false;
     const load=()=>{
-      if(button.disabled||facetStopped)return;button.disabled=true;
+      if(root.dataset.localPending==='1'||root.dataset.localReady==='1'||button.disabled||facetStopped)return;button.disabled=true;
       const generation=facetGeneration;
       facetQueue=facetQueue.then(async()=>{
-      if(facetStopped||generation!==facetGeneration){button.disabled=false;initialRequested=false;return;}
+      if(root.dataset.localReady==='1'||facetStopped||generation!==facetGeneration){button.disabled=false;initialRequested=false;return;}
       facet.dispatchEvent(new CustomEvent('public:facet-status',{detail:say('正在读取选项…','Loading options…')}));
       const controller=new AbortController();requests.add(controller);const timer=setTimeout(()=>controller.abort(),15000);
       const page=Number(facet.dataset.page)+1;
@@ -219,7 +220,7 @@
         const url='/api/public/people/'+encodeURIComponent(root.dataset.table)+'/facets/'+encodeURIComponent(facet.dataset.field)+'?'+params;
         const response=await fetch(url,{credentials:'same-origin',cache:'no-store',redirect:'error',signal:controller.signal,headers:{Accept:'application/json'}});
         if(!response.ok||!response.headers.get('content-type')?.includes('application/json'))throw new Error('Facet failed');
-        const result=await response.json();if(controller.signal.aborted)return;
+        const result=await response.json();if(root.dataset.localReady==='1'||controller.signal.aborted)return;
         if(result.table!==root.dataset.table||result.field!==facet.dataset.field||result.page!==page||!Array.isArray(result.values)||result.values.length>50||result.values.some(v=>typeof v!=='string')||typeof result.has_more!=='boolean')throw new Error('Invalid facet');
         const select=facet.querySelector('select'),seen=new Set([...select.options].map(o=>o.value));
         for(const value of result.values){if(!seen.has(value)){select.add(new Option(en&&typeof result.labels?.[value]==='string'?result.labels[value]:en&&typeof result.labels_en?.[value]==='string'?result.labels_en[value]:value,value));seen.add(value);}}
@@ -231,8 +232,8 @@
       });
     };
     button.addEventListener('click',load);
-    facet.addEventListener('public:facet-open',()=>{if(deferred&&!initialRequested){initialRequested=true;load();}});
-    facet.querySelector('select').addEventListener('focus',()=>{if(deferred&&!initialRequested){initialRequested=true;load();}});
+    facet.addEventListener('public:facet-open',()=>{if(root.dataset.localPending!=='1'&&deferred&&!initialRequested){initialRequested=true;load();}});
+    facet.querySelector('select').addEventListener('focus',()=>{if(root.dataset.localPending!=='1'&&deferred&&!initialRequested){initialRequested=true;load();}});
   }
   root.addEventListener('click',async event=>{
     const button=event.target.closest('[data-person-expand]');if(!button)return;

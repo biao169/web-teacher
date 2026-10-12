@@ -66,5 +66,4 @@ class Monitor:
         for suffix in ('','-wal','-shm'):
             try:database[suffix or 'main']=Path(str(self.settings.database_path)+suffix).stat().st_size
             except FileNotFoundError:database[suffix or 'main']=0
-        cache=getattr(sql,'public_cache',None)
-        return {'process_bytes':process_memory(),'system_total':total,'system_available':available,'database':database,'disks':disk,'files':self.last,'scan_running':self.running,'public_cache':{'used':cache.used,'budget':cache.budget.limits()[0]} if cache else None}
+        return {'process_bytes':process_memory(),'system_total':total,'system_available':available,'database':database,'disks':disk,'files':self.last,'scan_running':self.running,'public_cache':None}

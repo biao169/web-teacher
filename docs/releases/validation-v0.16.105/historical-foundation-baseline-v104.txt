@@ -1,0 +1,80 @@
+Error: Uncaught [TypeError: window.teacherImageRetry is not a function]
+    at reportException (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/helpers/runtime-script-errors.js:66:24)
+    at innerInvokeEventListeners (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:353:9)
+    at invokeEventListeners (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at HTMLDivElementImpl._dispatch (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at HTMLDivElementImpl.dispatchEvent (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:104:17)
+    at HTMLDivElement.dispatchEvent (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/generated/EventTarget.js:241:34)
+    at TestContext.<anonymous> (/workspace/scratch/4e20c0ac0954/work-step4/tests/public-foundation-dom.test.cjs:24:7)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1382:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:960:18) TypeError: window.teacherImageRetry is not a function
+    at prepareMedia (eval at fixture (/workspace/scratch/4e20c0ac0954/work-step4/tests/public-foundation-dom.test.cjs:9:4), <anonymous>:11:41)
+    at Document.eval (eval at fixture (/workspace/scratch/4e20c0ac0954/work-step4/tests/public-foundation-dom.test.cjs:9:4), <anonymous>:19:57)
+    at Document.callTheUserObjectsOperation (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at HTMLDivElementImpl._dispatch (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at HTMLDivElementImpl.dispatchEvent (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:104:17)
+    at HTMLDivElement.dispatchEvent (/workspace/scratch/0d1a9c0024a0/step6-dom-deps/node_modules/jsdom/lib/jsdom/living/generated/EventTarget.js:241:34)
+    at TestContext.<anonymous> (/workspace/scratch/4e20c0ac0954/work-step4/tests/public-foundation-dom.test.cjs:24:7)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+✔ top control follows threshold, respects reduced motion and restores visible focus (57.604955ms)
+✔ scroll fallback and history restore work without an observer (11.447304ms)
+✖ images appended by infinite scroll fall back on failure without copyable decoration (16.151717ms)
+✔ controls do nothing on administration pages (7.35968ms)
+✖ public styles reference centralized typography and color values without missing tokens (28.168277ms)
+✔ news video appended by infinite scroll exposes fallback on media error (11.957692ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 4
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 506.855853
+
+✖ failing tests:
+
+test at work-step4/tests/public-foundation-dom.test.cjs:21:1
+✖ images appended by infinite scroll fall back on failure without copyable decoration (16.151717ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/workspace/scratch/4e20c0ac0954/work-step4/tests/public-foundation-dom.test.cjs:25:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at work-step4/tests/public-foundation-dom.test.cjs:30:1
+✖ public styles reference centralized typography and color values without missing tokens (28.168277ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /^(var\(|inherit$|normal$|initial$|unset$)/. Input:
+  
+  '.75rem'
+  
+      at walk (/workspace/scratch/4e20c0ac0954/work-step4/tests/public-foundation-dom.test.cjs:35:363)
+      at TestContext.<anonymous> (/workspace/scratch/4e20c0ac0954/work-step4/tests/public-foundation-dom.test.cjs:36:207)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '.75rem',
+    expected: /^(var\(|inherit$|normal$|initial$|unset$)/,
+    operator: 'match',
+    diff: 'simple'
+  }

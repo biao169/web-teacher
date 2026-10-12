@@ -36,7 +36,7 @@ def test_seed_appends_while_port_busy_and_visible_without_restart(tmp_path,monke
     with closing(sqlite3.connect(r.settings.database_path)) as con:
         assert con.execute("SELECT count(*) FROM profiles WHERE uid LIKE 'demo-%'").fetchone()[0]==10
     assert '示例教师' in c.get('/zh').text
-    assert 'Example publication' in c.get('/en').text
+    assert 'Example publication' in c.get('/en/publications?home=1&page=1',headers={'X-Public-Fragment':'1'}).json()['html']
     c.close()
 
 

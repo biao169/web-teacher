@@ -25,6 +25,8 @@ ADMIN_SECRETS=("TEACHER_SETUP_TOKEN","TEACHER_OPENALEX_API_KEY","TEACHER_SEMANTI
 
 def extend(root,stage,cfg,env=None):
     from runtime.cache_policy import edge_cache,entrypoint_cache
+    from backend.app.public_performance import LEGACY_CACHE_KEYS
+    for key in LEGACY_CACHE_KEYS:cfg.get('vars',{}).pop(key,None)
     cfg['cache']=edge_cache(cfg.get('vars',{}))
     cfg['exports']=entrypoint_cache(cfg.get('vars',{}))
     # Sync configs were generated before this website-only flag update.
@@ -34,7 +36,6 @@ def extend(root,stage,cfg,env=None):
     (src/'main.py').write_text(entrypoint_source())
     (src/'worker_runtime/site_mode.py').write_text('SYNC_EXECUTOR_MODE = '+repr(cfg.get('vars',{}).get('TEACHER_SYNC_EXECUTOR_MODE','inline'))+'\n')
     values=literals(src/'generated_resources.py');templates=values['TEMPLATES']
-    (src/'generated_public_recovery.py').write_text('HTML = '+repr(templates.pop('public/public-recovery.html'))+'\n')
     groups={
       'public':{n:v for n,v in templates.items() if n.startswith(('shared/','public/'))},
       'admin':subset(templates,[n for n in templates if n.startswith(('shared/','admin/','sync/'))]+['public/auth-page.html','public/native-footer-links.html']),
@@ -49,7 +50,6 @@ def extend(root,stage,cfg,env=None):
     from backend.app.public_performance import KEYS
     for key in KEYS:admin['vars'].pop(key,None)
     admin['cache']={'enabled':False,'cross_version_cache':False}
-    admin['vars'].update(TEACHER_WORKER_CACHE_MODE='off',TEACHER_WORKER_REQUEST_CACHE='0')
     admin['vars'].update({k:env[k] for k in ADMIN_VARS if env and k in env})
     admin['services']=[b for b in admin['services'] if b['binding']=='SYNC_NATIVE']
     admin.update(name=admin_name(cfg['name']),main='src/admin_main.py',workers_dev=False,preview_urls=False,triggers={'crons':[]})
@@ -70,7 +70,7 @@ def verify(stage):
     from runtime.cache_policy import entrypoint_cache
     assert cfg['cache']=={'enabled':False,'cross_version_cache':False}
     assert cfg['exports']==entrypoint_cache(cfg.get('vars',{}))
-    assert 'PublicPage' in (stage/'src/main.py').read_text()
+    assert all(name in (stage/'src/main.py').read_text() for name in ('PublicPage','PublicData'))
     assert admin['name']==admin_name(cfg['name'])
     assert admin['cache']=={'enabled':False,'cross_version_cache':False}
     assert admin['triggers']=={'crons':[]} and admin['workers_dev'] is False and admin['preview_urls'] is False

@@ -2,7 +2,7 @@ import asyncio,json
 from types import SimpleNamespace
 from unittest.mock import patch,AsyncMock
 import pytest
-import test_integration as fixtures
+from site_sync.tests_website import test_integration as fixtures
 run=fixtures.run
 from site_sync.integration.proposals import send,receive
 from site_sync.integration.outgoing import listing

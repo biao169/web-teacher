@@ -43,17 +43,13 @@ def memory_snapshot():
 class CacheBudget:
     def __init__(self,probe=memory_snapshot,clock=time.monotonic,environ=None):
         self.probe,self.clock=probe,clock;env=os.environ if environ is None else environ
-        try:self.cap=max(0,min(64,int(env.get('TEACHER_PUBLIC_CACHE_MB','32'))))*MIB
-        except ValueError:self.cap=32*MIB
-        try:self.workers=max(1,int(env.get('WEB_CONCURRENCY','1')))
-        except ValueError:self.workers=1
         self.checked=-float('inf');self.bytes=0;self.templates=32;self.lock=RLock()
     def limits(self):
         with self.lock:
             at=self.clock()
             if at-self.checked>=15:
                 total,available=self.probe();self.checked=at
-                self.bytes=0 if available<64*MIB else min(self.cap,total//256//self.workers,available//64//self.workers)
+                self.bytes=0
                 self.templates=32 if available<128*MIB else 96 if total<1024*MIB else 192 if total<4096*MIB else 256
             return self.bytes,self.templates
 

@@ -12,8 +12,7 @@ class LocalDB:
             return [dict(r) for r in c.execute(sql,args)]
     async def batch(self,statements):
         if not 1<=len(statements)<=100:raise ValueError('Sync transaction bound')
-        try:return await asyncio.to_thread(self._batch,statements)
-        finally:self.native.public_cache.invalidate()
+        return await asyncio.to_thread(self._batch,statements)
     def _batch(self,statements):
         c=self.native.connect()
         try:

@@ -82,8 +82,8 @@ def test_visibility_never_exposes_hidden_or_owner_links(fixture):
     c,r=fixture;site(r,'<p>Footer</p>')
     ids={scope:nav(r,title=scope,visibility=scope) for scope in ('public','authenticated','staff','owner','hidden')}
     admin=links(c.get('/zh').text)
-    assert all(ids[x] in admin for x in ('public','authenticated','staff'))
-    assert all(ids[x] not in admin for x in ('owner','hidden'))
+    assert ids['public'] in admin
+    assert all(ids[x] not in admin for x in ('authenticated','staff','owner','hidden'))
     c.cookies.clear();guest=links(c.get('/zh').text)
     assert ids['public'] in guest and all(ids[x] not in guest for x in ('authenticated','staff','owner','hidden'))
 

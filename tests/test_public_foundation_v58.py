@@ -23,8 +23,10 @@ def test_project_private_fields_require_system_admin_and_permission_across_home_
         headers=H if 'page=' in route else {}
         response=c.get(route,headers=headers);assert response.status_code==200,response.text
         html=response.json()['html'] if headers else response.text
-        for value in ['PRIVATE_PRINCIPAL',('CNY 24,681,234' if route.startswith('/en') else '2468.1234 万元'),'PRIVATE_MEMBERS']:assert (value in html)==allowed
-        assert response.headers['cache-control']=='no-store'
+        for value in ['PRIVATE_PRINCIPAL',('CNY 24,681,234' if route.startswith('/en') else '2468.1234 万元'),'PRIVATE_MEMBERS']:assert value not in html
+        assert response.headers['cache-control']==('public, max-age=1800' if route=='/en/projects' else 'no-store')
+    private=c.get('/api/public/admin-project-fields',params={'uid':run(r.sql.query('SELECT uid FROM projects LIMIT 1'))[0]['uid']})
+    assert (private.status_code==200)==allowed
     if not allowed:
         assert c.get('/zh/projects?f.principal=PRIVATE_PRINCIPAL').status_code==422
         assert c.get('/api/public/people/projects/facets/members').status_code==404
@@ -33,13 +35,15 @@ def test_project_private_fields_require_system_admin_and_permission_across_home_
 def test_revoked_project_grant_takes_effect_on_next_fragment_and_sql_excludes_fields(fixture,monkeypatch):
     c,r=fixture
     uid=add(r,'projects','Public',principal='PRIVATE',amount='10',members='MEMBERS')
-    assert 'PRIVATE' in c.get('/zh/projects?f.uid='+uid).text
+    assert 'PRIVATE' not in c.get('/zh/projects?f.uid='+uid).text
+    assert c.get('/api/public/admin-project-fields',params={'uid':uid}).json()['projects'][0]['principal']=='PRIVATE'
     run(r.sql.batch([("UPDATE auth_permissions SET can_view=0 WHERE role_uid=? AND module='projects'",(r.p['role_uid'],))]))
     original=r.sql.query;reads=[]
     async def collect(sql,args=()):
         if 'FROM "projects"' in sql:reads.append(sql)
         return await original(sql,args)
     monkeypatch.setattr(r.sql,'query',collect)
+    assert c.get('/api/public/admin-project-fields',params={'uid':uid}).status_code==403
     page=c.get('/zh/projects?f.uid='+uid,headers=H)
     assert page.status_code==200 and 'PRIVATE' not in page.json()['html']
     assert reads and all(all('"'+field+'"' not in sql for field in ('principal','amount','members')) for sql in reads)

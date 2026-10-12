@@ -12,7 +12,7 @@ def rows(result):
     result=plain(result);values=result['results'] if isinstance(result,dict) else result.results
     return [dict(plain(row)) for row in plain(values)]
 class D1SQL:
-    def __init__(self,binding):"""保存构造参数和适配器，供此对象后续操作复用。""";self.binding=binding
+    def __init__(self,binding,on_public_commit=None):"""保存构造参数和适配器，供此对象后续操作复用。""";self.binding=binding;self.on_public_commit=on_public_commit
     def statement(self,sql,args):
         """预处理SQL并绑定参数，不拼接用户输入。"""
         statement=self.binding.prepare(sql);return statement.bind(*args) if args else statement
@@ -31,7 +31,11 @@ class D1SQL:
                 if not 1<=len(statements)<=limit:raise ValueError('Too many statements per transaction')
                 bump=revision_write(statements)
                 work=list(statements)+([bump] if bump else [])
-                return [rows(result) for result in plain(await self.binding.batch([self.statement(sql,args) for sql,args in work]))][:len(statements)]
+                result=[rows(result) for result in plain(await self.binding.batch([self.statement(sql,args) for sql,args in work]))][:len(statements)]
         except Exception as exc:
             if 'constraint' in str(exc).lower():raise Error('数据、权限或引用已变化，请刷新检查',409) from None
             raise
+        if self.on_public_commit is not None:
+            from backend.app.native.public_cache_tags import after_commit
+            await after_commit(self,statements)
+        return result

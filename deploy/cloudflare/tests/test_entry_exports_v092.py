@@ -5,7 +5,7 @@ from integration_package import entrypoint_source,verify_entrypoint,WORKER_EXPOR
 
 def test_generated_entry_is_accepted(tmp_path):
  p=tmp_path/'main.py';p.write_text(entrypoint_source());verify_entrypoint(p)
- assert set(WORKER_EXPORTS)=={'Default','PublicPage','TransferCoordinator'}
+ assert set(WORKER_EXPORTS)=={'Default','PublicPage','PublicData','TransferCoordinator'}
 
 @pytest.mark.parametrize('missing',WORKER_EXPORTS)
 def test_each_missing_export_is_named(tmp_path,missing):
@@ -13,7 +13,7 @@ def test_each_missing_export_is_named(tmp_path,missing):
  with pytest.raises(ValueError,match=missing):verify_entrypoint(p)
 
 def test_order_comments_and_multiline_are_accepted(tmp_path):
- p=tmp_path/'main.py';p.write_text('# exports\nfrom worker_runtime.entrypoint import (TransferCoordinator,\n PublicPage, Default)\n');verify_entrypoint(p)
+ p=tmp_path/'main.py';p.write_text('# exports\nfrom worker_runtime.entrypoint import (TransferCoordinator,\n PublicPage, PublicData, Default)\n');verify_entrypoint(p)
 
 def test_alias_is_not_the_required_export(tmp_path):
  p=tmp_path/'main.py';p.write_text(entrypoint_source().replace('PublicPage','PublicPage as Hidden'))

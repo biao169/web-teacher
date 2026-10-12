@@ -1,4 +1,78 @@
-## v0.16.100 Public 身份缓存与心跳（当前规则）
+## v0.16.108 第八步：故障验证、部署验证与源码清理
+
+本轮统一当前部署文档和验收入口，增加数据/身份故障及错误缓存检查，验证匿名HTML、真实私有接口、固定Read Model与浏览器本地列表。四个Worker经过官方Wrangler打包预演；未发布到线上。完整结果与验证边界见 [第八步说明](docs/releases/v0.16.108.md)，部署步骤见 [Cloudflare README](deploy/cloudflare/README.md)。
+
+旧simple/full/off、SQL/LRU缓存、预取和revision分片策略均不再适用；下方为历史记录。当前行为以统一策略与最新部署/验收文档为准。Sync运行源码、同步协议及单服务结构保持。
+
+## v0.16.107 Cache-Tag 与提交后失效（历史记录）
+
+成功Public HTML/PublicData加入模块、首页、详情及共享翻译/媒体依赖标签。后台事务成功后合并通知，经原SITE_ADMIN转发，由各自PublicPage/PublicData entrypoint执行缓存控制；普通修改invalidate，删除/公开资格收紧purge对应依赖。回滚不通知，故障读请求不清缓存，通知失败记录pending并保留已提交保存结果。
+
+不新增绑定、API Token、Cron、扫描或恢复队列，不缓存SQL/执行过程。纯私有修改、非公开编辑和后台job进度不触发公开缓存通知。批量详情标签压缩为覆盖模块，通知大小有界。
+
+未部署；平台接受/传播和故障仍需线上验收。浏览器已有缓存仍按TTL到期，Sync执行器/协议未修改，同步写入不宣称即时失效。本地保持单服务和相同成功标签，不增加Cloudflare网络调用。详见 [v0.16.107说明](docs/releases/v0.16.107.md)。下方为历史记录。
+
+## v0.16.106 身份显示、异步确认与心跳（历史记录）
+
+身份sessionStorage只存五个显示字段，约300秒内切页和本地列表替换直接复用。过期先显示旧身份再后台确认；500/503、1101/1102、超时和中断保留旧成功UI或确认占位，不错误切成未登录。明确authenticated=false才显示登录。
+
+已登录页面可见且近期活跃时约5分钟心跳；隐藏/闲置暂停，失败60/120/240秒退避，不补发历史心跳。退出仍取得新鲜CSRF，后台/私有数据/写操作仍服务器实时鉴权，任何快照都不授予权限。
+
+未部署。161项浏览器专项、552项后端测试与26项子测试及两种Worker离线构建检查通过。详见 [v0.16.106说明](docs/releases/v0.16.106.md)。Cache-Tag与精确失效留第七步；下方为历史记录。
+
+## v0.16.105 浏览器列表筛选、排序、分页（历史记录）
+
+标准公开列表在完整PublicData模型到达后，本地搜索、筛选、升降序和每页10/20条分页，反复切换不再请求列表片段、分类API或D1。URL仍支持复制、刷新和前进后退，语言及详情返回链接同步更新。模型未就绪或读取失败保留原HTML和服务端回退；首页、固定条件导航、详情、Admin/Auth/Sync保持原路径。
+
+公开模型补充当前展示引文、媒体MIME及简介截短标记，仍严格限制500条/512 KiB/40次查询，错误和超预算no-store，不输出其他引文格式或私有字段。其他引用格式、长简介及管理员私有字段保留原独立鉴权请求。
+
+未部署；线上HIT/STALE/1101/1102需实际验收。登录快照优化留第六步，Cache-Tag失效通知留第七步。验证及限制见 [v0.16.105说明](docs/releases/v0.16.105.md)。下方旧版本为历史记录。
+
+## v0.16.104 PublicData 可缓存入口（历史记录）
+
+新增 /api/public/data/{lang}/{module}，仅允许八个标准模块及zh/en，共16个固定GET/HEAD地址；筛选、分页、自由query、片段和Range请求不进入共享缓存。Default保持cache OFF，PublicPage与PublicData分别使用Workers Caching。
+
+PublicData转发前校验Host并删除副本Cookie/Authorization；平台HIT不生成模型、不读取D1。MISS只准备D1读取资源，直接生成完整Read Model，不初始化FastAPI页面应用、Jinja、R2或身份客户端，不依赖HTML缓存。
+
+成功JSON设置X-Teacher-Data-OK: 1；浏览器缓存300秒，边缘缓存1800秒，stale-while-revalidate=300、stale-if-error=86400。预算超限、模型不完整、数据读取失败和非法请求均no-store，不清空旧成功缓存。弱ETag忽略generated_at/stats等运行元信息，数据变化仍改变验证值。
+
+本地单服务也提供同一JSON接口；Ubuntu/Debian服务结构与Admin/Auth/Sync鉴权未变。前端筛选排序尚未迁移，属于第五步；Cache-Tag失效通知属于第七步。真实Cloudflare HIT/STALE和1101/1102仍需线上验收，当前未部署。
+
+详情及日志见 [v0.16.104说明](docs/releases/v0.16.104.md)。下方旧版本章节仅为历史记录。
+
+## v0.16.103 粗粒度公开 Read Model（历史记录）
+
+新增 backend/app/native/public_read_model.py，为八类标准公开内容生成中英文完整索引，包含公开展示、原文筛选、双语搜索、稳定排序、完整分类选项和公开媒体URL。始终按匿名权限读取；项目私有字段、身份/权限/CSRF、新闻正文和论文摘要不进入模型。
+
+单模块最多500条、最终JSON最多512 KiB、生成最多40次查询；超过预算或检测到源变化时明确失败并保留原列表路径，不截断成不完整成功数据。翻译和媒体批量读取，不调用翻译服务，不写数据库，不缓存零散SQL。
+
+本版只完成模型生成器，未新增PublicData HTTP接口，未接入前端本地筛选。PublicPage缓存保持v0.16.102行为，HTML MISS不依赖模型。详情、预算和验证见 [v0.16.103说明](docs/releases/v0.16.103.md)。下方旧版本章节仅为历史记录。
+
+## v0.16.102 PublicPage 成功响应缓存（历史记录）
+
+标准中英文首页、八类列表、教师与课程公开详情启用浏览器30分钟缓存与 Workers PublicPage 平台缓存。详情仅接受无参数，或系统生成的“返回该模块默认列表”参数；筛选、排序、分页及自定义导航组合不进入共享缓存。新闻详情可能带评论表单，暂时全部保持动态。
+
+只有匿名共享视图的明确200 HTML成功结果才设置 X-Teacher-Render-OK: 1、ETag 和 public 缓存头。错误、表单、Set-Cookie、JSON片段、私有内容和动态接口为 no-store。Default 的缓存仍关闭；转发前验证Host并移除Cookie/Authorization，命中PublicPage时不需要初始化页面应用或访问D1。平台缓存由Cloudflare处理，不使用Python Cache API或SQL缓存。
+
+浏览器Cache-Control为 public, max-age=1800；Cloudflare策略为 public, max-age=1800, stale-while-revalidate=300, stale-if-error=86400。已有旧成功条目的刷新失败可由平台回退；首次未命中、缓存淘汰、Default入口故障和实际1101/1102行为需要线上验证。没有新增Recovery、Service Worker或缓存巡检。
+
+HTML MISS 保持原 FastAPI / D1 / Jinja。ETag由最终HTML计算，因此条件请求的应用MISS仍需要查库和渲染，304仅节省响应传输；不宣称应用MISS无D1。PublicData、浏览器本地筛选及tag失效通知尚未实现。身份快照、心跳与Admin/Auth/Sync的鉴权行为保留。
+
+变更和验收见 [v0.16.102说明](docs/releases/v0.16.102.md)。下方旧版本章节仅为历史记录。
+
+## v0.16.101 Public 缓存重构第一步（历史记录）
+
+本版是关闭旧 Public 缓存后的可运行过渡基线。公开 HTML、列表片段、身份与私有组件响应为 no-store；Default 与 PublicPage 的 Workers Caching 均关闭。移除旧公开 SQL 缓存、应用 HTML 缓存、页面预取、Public Recovery 页面/脚本和返回页面自动版本检查。原 FastAPI / 数据库 / Jinja 页面与列表功能继续运行。
+
+缓存策略统一到 backend/app/public_performance.py，Worker 配置由 deploy/cloudflare/runtime/cache_policy.py 适配。仅保留列表并发参数 TEACHER_PUBLIC_STREAM_CONCURRENCY（本地默认2、Worker固定1）。旧 TTL、预取、缓存预算和 simple/full/off 环境变量不再启用旧机制；已有部署文件中的旧变量可以移除。Worker构建不再导出这些变量。
+
+身份显示快照与活动心跳保留 v0.16.100 行为，留到第六步简化；公开内容版本号保留作为业务更新通知基础，不再用于旧应用缓存键。模板编译缓存、公开/授权媒体的 HTTP 缓存、翻译结果和文件快传缓存不属于本次清理范围。
+
+无数据库迁移。Sync Executor、Sync Native、协议、checkpoint 和状态机未修改；本地同步数据库适配器仅删除一个已失效的 Public 缓存清理调用，事务语义不变。Ubuntu/Debian 单服务结构不变。此版未启用新的30分钟PublicPage或PublicData缓存，需完成第二步后再评价缓存加速和故障旧副本回退。
+
+变更与验证见 [v0.16.101 说明](docs/releases/v0.16.101.md)。下方各旧版本章节为历史记录，旧缓存配置与行为不再适用于当前版本。
+
+## v0.16.100 Public 身份缓存与心跳（历史记录）
 
 标准 Public HTML 共享缓存默认30分钟，身份显示与页面缓存分离。Worker 和 Ubuntu/Debian 均使用标签页 sessionStorage 显示摘要：登录状态5分钟内复用，匿名1分钟；缓存不包含 Cookie、CSRF、权限表及项目私有字段，也不能授权任何后台或私有请求。
 

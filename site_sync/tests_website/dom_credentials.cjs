@@ -8,10 +8,10 @@ const assert=require('node:assert/strict');
  const info=await new Promise((resolve,reject)=>{let b='';const timer=setTimeout(()=>reject(Error('start timeout')),10000);server.stdout.on('data',d=>{b+=d;if(b.includes('\n')){clearTimeout(timer);resolve(JSON.parse(b.split('\n')[0]));}});server.once('exit',()=>reject(Error('server exited')));});
  const origin='http://127.0.0.1:'+info.port,requests=[];
  const request=(url,options={})=>{requests.push([url,options.method||'GET']);return fetch(new URL(url,origin),{...options,headers:{...options.headers,cookie:info.session_cookie+'=test-token',origin}});};
- const html=await (await request('/admin/site-sync')).text();assert.ok(!html.includes('6a'.repeat(32)));
+ const html=await (await request('/admin/site-sync?section=connection')).text();assert.ok(!html.includes('6a'.repeat(32)));
  const {time}=await import('../frontend/static/model.mjs');
- const script=fs.readFileSync('site_sync/frontend/static/credentials.mjs','utf8').replace("import {time} from './model.mjs';",'const time=window.formatTime;');
- function mount(){dom?.window.close();dom=new JSDOM(html,{url:origin+'/admin/site-sync',runScripts:'outside-only'});dom.window.fetch=request;dom.window.formatTime=time;dom.window.eval(script);}
+ const script=fs.readFileSync('site_sync/frontend/static/credentials.mjs','utf8').replace(/^import .*;\n/gm,'');
+ function mount(){dom?.window.close();dom=new JSDOM(html,{url:origin+'/admin/site-sync?section=connection',runScripts:'outside-only'});dom.window.fetch=request;dom.window.formatTime=time;dom.window.eval('const time=window.formatTime,begin=()=>{},finish=()=>{};\n'+script);}
  const el=s=>dom.window.document.querySelector(s),wait=async fn=>{for(let i=0;i<200;i++){if(fn())return;await new Promise(r=>setTimeout(r,10));}throw Error('timeout: '+el('[data-key-notice]').textContent);};
  const idle=()=>wait(()=>el('#sync-credentials').getAttribute('aria-busy')==='false');
  const fill=v=>{el('[name=sync_key]').value=v;el('[name=sync_key]').dispatchEvent(new dom.window.Event('input'));};

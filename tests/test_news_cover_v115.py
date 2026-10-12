@@ -12,7 +12,7 @@ def test_cover_component_in_detail_list_home_and_fragment(fixture,lang,mime):
     run(r.sql.batch([('UPDATE media_assets SET mime_type=? WHERE uid=?',(mime,asset['uid']))]))
     row=source(r,'news','content','BODY_SENTINEL',cover_key=asset['object_key'],is_featured=1)
     c.cookies.clear()
-    for url,fragment in [(f'/{lang}/news/{row["uid"]}',False),(f'/{lang}/news',False),(f'/{lang}',False),(f'/{lang}/news',True)]:
+    for url,fragment in [(f'/{lang}/news/{row["uid"]}',False),(f'/{lang}/news',False),(f'/{lang}/news?home=1&page=1',True),(f'/{lang}/news',True)]:
         response=c.get(url,headers={'X-Public-Fragment':'1'} if fragment else {})
         assert response.status_code==200,response.text
         html=response.json()['html'] if fragment else response.text

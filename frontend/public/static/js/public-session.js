@@ -10,16 +10,17 @@ function schedule(){
  clearTimeout(heartbeat);heartbeat=null;
  if(!active||document.hidden||!heartbeatWanted||Date.now()-lastActivity>ACTIVE_WINDOW)return;
  const saved=cache?.load();
- const due=Math.max(saved?Math.min(nextCheck||saved.freshUntil,saved.freshUntil):nextCheck,retryUntil,cache?.retryAt()||0);
+ const due=Math.max(saved?cache.freshUntil(saved):nextCheck,retryUntil,cache?.retryAt()||0);
  heartbeat=setTimeout(()=>{heartbeat=null;if(active&&!document.hidden&&Date.now()-lastActivity<=ACTIVE_WINDOW)start();},Math.max(1000,due-Date.now()));
 }
 function activity(){lastActivity=Date.now();if(heartbeat===null&&!checking)schedule();}
 for(const event of ['pointerdown','keydown','scroll'])document.addEventListener(event,activity,{passive:true});
-let generation=0,controller=null,timer=null,active=false,allowed=false,busy=false;
+let generation=0,controller=null,timer=null,active=false,allowed=false,busy=false,privateHint=null;
 let loaded=new WeakSet();const visible=new WeakSet();
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
+function clearPrivate(){document.querySelectorAll('[data-private-value]').forEach(n=>n.remove());loaded=new WeakSet();}
 function clear(reset=false){
- document.querySelectorAll('[data-private-value]').forEach(n=>n.remove());loaded=new WeakSet();
+ clearPrivate();
  host.querySelector('form')?.remove();
  if(reset)host.replaceChildren();
 }
@@ -36,7 +37,7 @@ async function read(url,signal){const timeout=setTimeout(()=>{if(!signal.aborted
 function identity(data,cached=false){
  if(data.authenticated===false){clear(true);host.replaceChildren(login.cloneNode(true));return;}
  if(data.authenticated!==true)throw Error('Invalid identity');
- if(typeof data.username!=='string'||(!cached&&typeof data.csrf!=='string'))throw Error('Invalid identity');
+ if(typeof data.username!=='string'||typeof data.display_name!=='string'||(!cached&&(typeof data.csrf!=='string'||!data.csrf)))throw Error('Invalid identity');
  const name=node('span',data.display_name||data.username,'academic-username');name.title=(data.display_name||data.username)+' ('+data.username+')';host.replaceChildren(name);
  if(data.can_enter_admin===true){const a=node('a',en?'Admin':'后台','academic-account-link');a.href='/admin';host.append(a);}
  if(cached){
@@ -56,7 +57,7 @@ function identity(data,cached=false){
  const csrf=node('input');csrf.type='hidden';csrf.name='_csrf';csrf.value=data.csrf;
  const button=node('button',en?'Sign out':'退出');button.type='submit';form.append(csrf,button);host.append(form);
  // formdata fires after the browser has captured the CSRF field for native submission.
- form.addEventListener('formdata',()=>{announce();stop();clear(true);pending();},{once:true});
+ form.addEventListener('formdata',()=>{stop();clear(true);pending();},{once:true});
 }
 function apply(row){
  for(const card of document.querySelectorAll('[data-project-private]')){
@@ -85,7 +86,7 @@ async function pump(){
   if(!Array.isArray(data.projects))throw Error('Invalid project response');
   document.querySelectorAll('[data-project-private]').forEach(n=>{if(ids.includes(n.dataset.projectPrivate))loaded.add(n);});
   for(const row of data.projects)if(ids.includes(row.uid))apply(row);
- }catch(error){if(seq===generation){allowed=false;clear();}}
+ }catch(error){if(seq===generation){allowed=false;privateHint=false;clearPrivate();}}
  finally{if(seq===generation){busy=false;if(allowed)timer=setTimeout(pump,200);}}
 }
 function start(force=false){
@@ -94,9 +95,9 @@ function start(force=false){
  stop();active=true;controller=new AbortController();
  const saved=cache?.load();
  if(saved){identity(saved,true);heartbeatWanted=saved.authenticated===true;}else if(cache){clear(true);pending();}
- if(!force&&saved&&saved.freshUntil>Date.now()){
+ if(!force&&saved&&cache.freshUntil(saved)>Date.now()){
   // A cached hint can initiate a request, but the private endpoint authorizes it.
-  allowed=saved.authenticated===true;watch();schedule();return Promise.resolve();
+  allowed=saved.authenticated===true&&(privateHint??saved.can_enter_admin===true);watch();schedule();return Promise.resolve();
  }
  if(!force&&Math.max(retryUntil,cache?.retryAt()||0)>Date.now()){heartbeatWanted=true;schedule();return Promise.resolve();}
  const seq=generation,signal=controller.signal;
@@ -104,25 +105,24 @@ function start(force=false){
   try{
    const data=await read('/api/public/session-summary',signal);
    if(seq!==generation||!active)return;
-   cache?.save(data);identity(data);cache?.success();retryUntil=0;
+   identity(data);cache?.save(data);cache?.success();retryUntil=0;
    heartbeatWanted=data.authenticated===true;nextCheck=Date.now()+HEARTBEAT;
-   allowed=data.authenticated===true&&data.can_view_private_projects===true;watch();
-  }catch(error){if(seq===generation){retryUntil=cache?.failure()||Date.now()+60000;heartbeatWanted=true;clear();if(saved&&saved.expiresAt>Date.now())identity(saved,true);else{if(cache)clear(true);pending();}allowed=false;}}
+   privateHint=data.authenticated===true&&data.can_view_private_projects===true;allowed=privateHint;watch();
+  }catch(error){if(seq===generation){retryUntil=cache?.failure()||Date.now()+60000;heartbeatWanted=true;clear();if(saved)identity(saved,true);else{if(cache)clear(true);pending();}allowed=false;}}
  })();
  checking=job;
  job.finally(()=>{if(checking===job){checking=null;schedule();}});
  return job;
 }
 
-function announce(){cache?.invalidate();}
 window.addEventListener('pagehide',stop);
 window.addEventListener('pageshow',event=>{if(event.persisted)start();});
 document.addEventListener('visibilitychange',()=>document.hidden?stop():start());
 document.addEventListener('teacher:navigation-start',stop);
 document.addEventListener('teacher:navigation-cancel',()=>{logoutBusy=false;start();});
 document.addEventListener('public:querychange',stop);
-document.addEventListener('public:appended',watch);
-function changed(){retryUntil=0;nextCheck=0;heartbeatWanted=false;stop();clear(true);pending();start(true);}
+document.addEventListener('public:appended',()=>{if(!active)start();else watch();});
+function changed(){privateHint=null;retryUntil=0;nextCheck=0;heartbeatWanted=false;stop();clear(true);pending();start(true);}
 document.addEventListener('teacher:identity-change',changed);
 document.addEventListener('teacher:identity-invalidated',changed);
 start();

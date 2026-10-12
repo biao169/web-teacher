@@ -94,4 +94,4 @@ def test_shared_page_save_preview_and_authorization(fixture,kind):
     if kind=='worker':
         assert state.json()['last']['counts']['operation_logs']==20
         assert c.post(url,json={'action':'scan','_csrf':r.p['csrf']},headers={'Origin':r.config.origin}).status_code==409
-    c.cookies.clear();assert c.get('/admin/runtime-maintenance').status_code in (401,403)
+    c.cookies.clear();assert c.get('/admin/runtime-maintenance',follow_redirects=False).status_code in (303,401,403)

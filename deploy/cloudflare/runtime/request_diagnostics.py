@@ -43,7 +43,8 @@ def traced(component,http=False):
                                 upstream_component=result.headers.get('x-teacher-component')
                                 if upstream_component:result.headers.set('x-upstream-component',upstream_component)
                                 result.headers.set('x-teacher-component',component)
-                                result.headers.set('x-teacher-release','0.16.100')
+                                release=field(self.env,'TEACHER_RELEASE',r'[0-9]+\.[0-9]+\.[0-9]+') if component in ('main-site','admin-site') and data.get('route') not in ('sync-peer','sync-admin') else None
+                                result.headers.set('x-teacher-release',release or '0.16.100')
                     record('INVOCATION-END',http_status=status,finished_at=time.time(),duration_ms=round((time.monotonic()-start)*1000,2),application_outcome='cancelled' if status==499 else 'returned')
                     return result
                 except BaseException as exc:

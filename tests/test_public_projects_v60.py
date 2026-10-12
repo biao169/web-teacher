@@ -34,12 +34,14 @@ def test_project_home_list_fragment_order_amount_and_public_policy(fixture):
         for path,fragment in [(f'/{lang}/projects?home=1&page=1',True),(f'/{lang}/projects',False),(f'/{lang}/projects?page=2',True),(f'/{lang}/projects?home=1&page=2',True)]:
             res=c.get(path,headers={'X-Public-Fragment':'1'} if fragment else {})
             text=res.json()['html'] if fragment else res.text
-            for word in [amount,role,'2025-01-01 – 2027-12-31']:assert word in text
+            for word in [role,'2025-01-01 – 2027-12-31']:assert word in text
+            assert all(value not in text for value in (amount,'PRIVATE_PI','PRIVATE_MEMBERS'))
             assert 'NEVER_SUMMARY' not in text
-            text=text.split('data-project-text>',1)[1].split('</article>',1)[0]
-            positions=[text.index(x) for x in ('SOURCE_TEXT','FUND_TEXT','>PROJECT_TITLE<','NUMBER_TEXT',role,'PRIVATE_PI',amount,'PRIVATE_MEMBERS','ACTIVE_TEXT')]
+            text=article(text,DOM(text).find('article',**{'data-person-card':None})[0]['data-record-id'])
+            positions=[text.index(x) for x in ('SOURCE_TEXT','FUND_TEXT','>PROJECT_TITLE<','NUMBER_TEXT',role,'ACTIVE_TEXT')]
             assert positions==sorted(positions)
     assert run(r.sql.query('SELECT amount FROM projects WHERE uid=?',(uid,)))[0]['amount']=='12.5000'
+    assert c.get('/api/public/admin-project-fields',params={'uid':uid,'lang':'en'}).json()['projects'][0]['amount_display']=='CNY 125,000'
     c.cookies.clear()
     for path in ('/zh','/zh/projects'):
         page=c.get(path).text

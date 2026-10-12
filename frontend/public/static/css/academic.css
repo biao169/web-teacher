@@ -357,7 +357,7 @@ body.section-public .academic-identity button{font:inherit;border:0;background:t
 body.section-public .academic-identity button:disabled{cursor:wait;opacity:.65}
 body.section-public .academic-identity [data-auth-open]{grid-column:2/-1;grid-row:1;justify-self:end}
 body.section-public .academic-identity .academic-identity-pending{grid-column:1/-1;grid-row:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-body.section-public .academic-identity .academic-identity-feedback{grid-column:1/-1;grid-row:2;font-size:.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.section-public .academic-identity .academic-identity-feedback{grid-column:1/-1;grid-row:2;font-size:var(--public-font-size-4);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:650px){
  body.section-public .academic-header-inner>.academic-account{flex:1 1 100%;width:100%;justify-content:flex-end}
  body.section-public .academic-identity{flex-basis:100%;width:100%}
