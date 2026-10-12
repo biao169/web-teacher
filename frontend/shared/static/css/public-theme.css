@@ -3,6 +3,10 @@
    Numbered tokens preserve existing responsive size and color variants.
    Vendor CSS, administration and document/image intrinsic typography are untouched. */
 :root{
+  --public-header-brand-size:clamp(12px,3.2vw,18px);
+  --public-header-control-size:12px;
+  --public-header-action-label-size:0px;
+  --public-header-language-size:11px;
   /* Ambient background palette and motion: all public visual parameters live here. */
   --public-ambient-base:#f3f8f7;
   --public-ambient-warm:#faf8f2;

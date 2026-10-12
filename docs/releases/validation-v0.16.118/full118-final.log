@@ -1,0 +1,95 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 52%]
+.......................................s................................ [ 55%]
+.......................................................................u [ 58%]
+uu...uuuu.......uuu....uuuu............................................. [ 60%]
+........................................................................ [ 63%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+..............................................................uuuuuuu... [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+.....................................................u.uuu.uu..uu..uuuu. [ 81%]
+.......................uuuu............................................. [ 84%]
+.................................................................uuuuuu. [ 86%]
+...uuuu................................................................. [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 99%]
+.......................                                                  [100%]
+=============================== warnings summary ===============================
+../deps109/starlette/testclient.py:37
+../deps109/starlette/testclient.py:37
+../deps109/starlette/testclient.py:37
+../deps109/starlette/testclient.py:37
+  /workspace/scratch/4e20c0ac0954/deps109/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_media_regression.py::test_connection_limit_static_requests[8-503]
+site_sync/tests_website/test_acceptance_credentials.py::AcceptanceTests::test_manual_pull
+  /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+    warnings.warn(  # deprecated in 14.0 - 2024-11-09
+
+tests/test_media_regression.py::test_connection_limit_static_requests[8-503]
+site_sync/tests_website/test_acceptance_credentials.py::AcceptanceTests::test_manual_pull
+  /workspace/scratch/4e20c0ac0954/deps109/uvicorn/protocols/websockets/websockets_impl.py:17: DeprecationWarning: websockets.server.WebSocketServerProtocol is deprecated
+    from websockets.server import WebSocketServerProtocol
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/4e20c0ac0954/work-step18/site_sync/integration/host.py:99: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event('startup')
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/4e20c0ac0954/deps109/fastapi/applications.py:4495: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/4e20c0ac0954/work-step18/site_sync/integration/host.py:101: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event('shutdown')
+
+tests/test_platform_baseline_step0.py::test_vps_entry_builds_one_app_and_one_sync_loop
+  /workspace/scratch/4e20c0ac0954/work-step18/backend/entrypoints/vps.py:11: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event('shutdown')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2351 passed, 1 skipped, 14 warnings, 47 subtests passed in 179.33s (0:02:59)

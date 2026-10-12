@@ -36,7 +36,7 @@ test('student descending reverses within groups, pagination clamps, legacy size 
 test('back/forward restores controls, clears selection, refreshes language and detail return links without reads',async t=>{
  const f=fixture(t);await f.respond();f.$('[data-person-all]').click();assert(f.$('[data-person-copy]').disabled===false);f.navigate('?f.title=教授&page=2');assert(f.$('[data-person-copy]').disabled);assert.equal(f.$('select').value,'教授');
  const url=new URL(f.$('[data-person-link]').href);assert.equal(url.searchParams.get('from'),'/zh/profiles?f.title=%E6%95%99%E6%8E%88&page=2');assert.equal(new URL(f.$('[data-public-language]').href).search,'?f.title=%E6%95%99%E6%8E%88&page=2');
- f.w.history.back();await new Promise(resolve=>setTimeout(resolve,20));assert.equal(f.$('select').value,'');assert.equal(f.ids()[0],'p0');assert.equal(f.requests.length,1);
+ const restored=new Promise(resolve=>f.w.addEventListener('popstate',resolve,{once:true}));f.w.history.back();await restored;assert.equal(f.$('select').value,'');assert.equal(f.ids()[0],'p0');assert.equal(f.requests.length,1);
 });
 test('unavailable, incomplete and oversized data leave HTML and native navigation available',async t=>{
  for(const mode of ['503','incomplete','oversized']){const f=fixture(t);const value=model();if(mode==='incomplete')value.complete=false;if(mode==='oversized')value.items[0].display.bio='X'.repeat(524288);await f.respond(value,mode==='503'?503:200);assert.deepEqual(f.ids(),['old']);assert.equal(f.$('[data-public-stream]').dataset.localReady,undefined);assert.equal(f.$('[data-public-stream]').dataset.localPending,undefined);assert.equal(f.navigate('?page=2'),false);assert(!f.$('[data-person-tool-status]').textContent.includes('错误'));}

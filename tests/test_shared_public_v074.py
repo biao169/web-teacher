@@ -49,7 +49,7 @@ def test_news_form_stays_authenticated_and_no_store(fixture):
  assert response.headers['cache-control']=='no-store' and 'etag' not in response.headers
  assert 'data-public-shared="1"' not in response.text
  with patch.object(Auth,'public_principal',wraps=Auth(r.sql,r.passwords).public_principal) as auth:
-  c.get('/en/n/missing');assert auth.call_count==1
+  response=c.get('/en/n/missing');assert response.status_code==404 and auth.call_count==0
 
 
 def test_detail_and_revision_guard(fixture):

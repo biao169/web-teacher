@@ -30,7 +30,7 @@ def test_configured_navigation_is_shared_and_not_duplicated(fixture):
     c,r=fixture
     teacher=c.get('/en').text;transfer=c.get('/transfer/?lang=en').text
     for tag,cls in (('a','academic-brand'),('nav','academic-nav')):
-        pattern=rf'<{tag} class="{cls}".*?</{tag}>'
+        pattern=rf'<{tag}\b[^>]*class="{cls}".*?</{tag}>'
         assert re.search(pattern,teacher,re.S).group()==re.search(pattern,transfer,re.S).group()
     assert transfer.count('class="academic-header"')==1
     # Shared header change does not alter normal teacher language links.

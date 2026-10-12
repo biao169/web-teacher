@@ -1,4 +1,4 @@
-# Public 缓存验收（v0.16.117）
+# Public 缓存验收（v0.16.118）
 
 ## 本地可验证
 
@@ -15,7 +15,7 @@
 
 新增固定导航的本轮源码测试与staging见v0.16.116发布记录；Wrangler dry-run和真实平台结果须按对应版本区分，不能用历史结果代替当前发布验收。
 
-固定入口浏览器筛选（v0.16.117）：只输出匿名公开范围的最小JSON条件，复用原16个PublicData URL；原始eq/字面contains先限定范围，再叠加访客条件。模型完整、字段和能力声明均匹配才替换SSR。缺字段、旧声明、超限/不完整、失败或unsupported条件均保留服务器页面；模型失败恢复原有分片/分页。详情、复制引文、简介等按需接口继续携带nav/nv并实时验证。直接带query的公开固定列表也匿名显示、支持本地处理，但HTML no-store；受限入口始终服务端。公开模型筛选本身不发数据请求，私有组件或用户主动读取详情/引用仍可调用实时鉴权接口。旧页面中的固定范围是显示快照，不构成后台权限，也不承诺管理员修改后立即撤回已加载页面。
+固定入口浏览器筛选（v0.16.118）：只输出匿名公开范围的最小JSON条件，复用原16个PublicData URL；原始eq/字面contains先限定范围，再叠加访客条件。模型完整、字段和能力声明均匹配才替换SSR。缺字段、旧声明、超限/不完整、失败或unsupported条件均保留服务器页面；模型失败恢复原有分片/分页。详情、复制引文、简介等按需接口继续携带nav/nv并实时验证。直接带query的公开固定列表也匿名显示、支持本地处理，但HTML no-store；受限入口始终服务端。公开模型筛选本身不发数据请求，私有组件或用户主动读取详情/引用仍可调用实时鉴权接口。旧页面中的固定范围是显示快照，不构成后台权限，也不承诺管理员修改后立即撤回已加载页面。
 
 ## 真实部署后验证
 
@@ -29,7 +29,7 @@
 8. Admin/Auth/Sync/private API、自由query及写请求不共享缓存，登录/退出及CSRF无缓存泄漏。
 9. 在测试站修改固定导航条件、重命名、关闭或改为登录专属，确认旧tag purge、旧匿名HTML不再从边缘返回；登录专属入口仍实时鉴权。检查同一模块正常修改invalidate，手动模块purge同时影响固定HTML及PublicData；不得预热或循环清缓存。边缘失效并非浏览器即时撤回，浏览器最多保留其新鲜60秒；RPC pending/传播延迟时不能保证立即撤回旧对象，按现有诊断处理。
 
-只读HTTP探针：`python -B tests/probe_public_performance.py --origin https://你的站点 --expected-release 0.16.117 --output public-http.json`。不登录、不写入、不触发故障；Public缓存响应可能没有release诊断头，不能据此认定线上版本。以cloud-check的平台版本为准。Cloudflare可能消费移除 CDN cache-control / Cache-Tag；不要要求它们一定在客户端可见。
+只读HTTP探针：`python -B tests/probe_public_performance.py --origin https://你的站点 --expected-release 0.16.118 --output public-http.json`。不登录、不写入、不触发故障；Public缓存响应可能没有release诊断头，不能据此认定线上版本。以cloud-check的平台版本为准。Cloudflare可能消费移除 CDN cache-control / Cache-Tag；不要要求它们一定在客户端可见。
 
 平台 stale-if-error行为依据：https://developers.cloudflare.com/workers/cache/configuration/ 。平台负责保留和返回可用旧对象；缓存可驱逐、不同PoP可能未预热，不承诺故障时所有页面均可用。避免附加s-maxage/must-revalidate/proxy-revalidate禁用该回退语义。
 
@@ -38,3 +38,6 @@
 当前代码验收补充：动态卡片图标共用模板，匿名Header立即显示登录，旧身份查询失败保留；右侧工具宽度和移动布局需真实浏览器复核。模块维护须同时收到Page/Data接受，home只Page；异常/超时为unknown，部分拒绝为failed，不重试。purge后重新生成仍500时查request_id错误栈，停止反复清理。
 
 2026-10-12匿名HTTP观察到当前站点200/HIT，PublicData304；所返回HTML仍引用旧资源并含身份等待文字。本次读取不证明109–113已发布，也不提供D1计数或CPU证明，详见最新发布记录。
+
+
+v0.16.118本地收尾：2351 Python/428 DOM/60 Native JS通过；真实Chromium64组Header布局、登录交接零重复确认、固定列表零新增模块请求及无JS服务器分页通过；四Worker dry-run和真实multipart检查通过。生产发布与实际平台缓存/CPU/标签传播未执行，当前环境只读线上返回403。可用 `node tests/public-browser-v118.cjs` 运行独立浏览器验收；需要安装Playwright浏览器及Python测试依赖，可通过PLAYWRIGHT_PATH、TEST_CHROMIUM_EXECUTABLE、TEST_CHROMIUM_ARGS、TEST_BROWSER_REPORT指定本机依赖和报告。该脚本自行启动一次性本地HTTP fixture，使用合成账号，不访问生产网站。
