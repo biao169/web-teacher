@@ -16,5 +16,6 @@ body.section-public .public-back-top[hidden]{display:none!important}
 body.section-public .citation-format-control{max-width:100%;min-width:0;flex-wrap:wrap}
 body.section-public .citation-format-control select{max-width:100%;min-width:0}
 body.section-public .academic-account{max-width:100%;min-width:0}
-body.section-public .academic-account :is(.public-reading-controls,.academic-language){max-width:100%}
+body.section-public .academic-account :is(.public-reading-controls,.academic-language){max-width:100%;flex:0 0 auto}
+body.section-public .academic-account .public-reading-controls button{padding-inline:.4rem}
 @media(max-width:650px){html[data-reading=large] body.section-public .academic-nav{flex-wrap:wrap}html[data-reading=large] body.section-public .academic-nav a{white-space:normal;overflow-wrap:anywhere;max-width:100%}}

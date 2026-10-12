@@ -140,8 +140,12 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         # Keep its standard 500 body, preserve diagnostics, and never store it.
         import logging
         from fastapi.responses import PlainTextResponse
-        logging.getLogger(__name__).error('Unhandled request error: %s %s',request.method,request.url.path,exc_info=(type(exc),exc,exc.__traceback__))
-        return no_store(PlainTextResponse('Internal Server Error',status_code=500))
+        from backend.app.ports.operations import current
+        import secrets,re
+        trace=current().get('request_id')
+        if not isinstance(trace,str) or not re.fullmatch('[a-f0-9]{32}',trace):trace=secrets.token_hex(16)
+        logging.getLogger(__name__).error('Unhandled request error: %s %s request_id=%s',request.method,request.url.path,trace,exc_info=(type(exc),exc,exc.__traceback__))
+        return no_store(PlainTextResponse('Internal Server Error',status_code=500,headers={'X-Request-ID':trace,'X-Teacher-Error-Code':'REQUEST_FAILED'}))
     @app.exception_handler(Error)
     async def domain_error(request,exc):
         """将业务异常转换为对应状态码及页面或JSON错误。"""

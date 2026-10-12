@@ -1,5 +1,5 @@
 {% extends 'admin/layout.html' %}
-{% block metadata %}{{ super() }}<link rel="stylesheet" href="/assets/admin/css/native-maintenance.css?v=0.16.002"><script src="/assets/admin/js/native-maintenance.js?v=0.16.002" defer></script>{% endblock %}
+{% block metadata %}{{ super() }}<link rel="stylesheet" href="/assets/admin/css/native-maintenance.css?v=0.16.002"><script src="/assets/admin/js/native-maintenance.js?v=0.16.002" defer></script><script src="/assets/admin/js/native-public-cache.js?v=0.16.112" defer></script>{% endblock %}
 {% block content %}
 <section class="maintenance" data-maintenance data-csrf="{{ csrf }}" data-revision="{{ policy.revision }}" data-platform="{{ 'local' if maintenance_local else 'worker' }}">
 <div class="native-title"><div><h1>运行维护</h1><p class="text-secondary">查看资源占用，设置历史保留期限，预览并分批清理。</p></div><button class="btn btn-outline-primary" type="button" data-refresh>刷新状态</button></div>
@@ -7,6 +7,8 @@
 {% if maintenance_local %}<section class="panel"><h2>资源概览</h2><div class="maintenance-metrics" data-metrics><p>正在读取资源状态…</p></div>
 <div class="maintenance-actions"><button type="button" class="btn btn-outline-primary" data-scan>更新文件占用统计</button><span data-scan-status>文件占用按需分批统计，刷新状态不会重新扫描。</span></div><div class="maintenance-table"><table class="table"><thead><tr><th>目录类别</th><th>文件占用</th><th>文件数</th><th>所在磁盘可用</th><th>跳过项</th></tr></thead><tbody data-storage></tbody></table></div><p class="text-secondary">统计期间文件可能变化；不同类别可能位于同一磁盘，磁盘可用量不要重复相加。内存显示当前网站进程，不含反向代理。</p></section>
 {% else %}<section class="panel"><h2>Cloudflare Worker</h2><p>数据库日志由 Cron 分批清理，每批最多 20 条。这里管理数据库日志，不提供本地磁盘或进程内存统计。</p></section>{% endif %}
+<section class="panel" data-public-cache><h2>公开缓存</h2><p>仅在确认公开内容缓存异常时清除。清除后，下一次真实公开访问将重新生成内容；不会自动预热，也不清除浏览器已有缓存。若重新生成仍失败，请检查页面错误，不要反复清除。</p>
+{% if maintenance_local %}<p>此服务没有共享 Workers Cache，无需执行边缘缓存清理。</p>{% else %}<div class="maintenance-table"><table class="table"><thead><tr><th>模块</th><th>操作</th></tr></thead><tbody>{% for module,label in public_cache_modules %}<tr><td>{{ label }}</td><td><button type="button" class="btn btn-outline-danger" data-public-cache-module="{{ module }}">清除异常缓存</button></td></tr>{% endfor %}</tbody></table></div>{% endif %}<p data-public-cache-result role="status" aria-live="polite"></p></section>
 <section class="panel"><h2>保留策略</h2><form data-policy>
 <label class="maintenance-switch"><input type="checkbox" name="enabled" {% if policy['values']['enabled'] %}checked{% endif %}> 启用自动清理</label>
 <div class="maintenance-fields">

@@ -3,7 +3,7 @@
 const host=document.querySelector('[data-public-session]');if(!host)return;
 const en=host.dataset.lang==='en',login=host.firstElementChild.cloneNode(true);login.hidden=false;
 const cache=window.TeacherIdentityCache;
-let checking=null,logoutBusy=false;
+let checking=null,logoutBusy=false,lastDisplay=null;
 let heartbeat=null,lastActivity=Date.now(),nextCheck=0,retryUntil=0,heartbeatWanted=false;
 const HEARTBEAT=300000,ACTIVE_WINDOW=600000;
 function schedule(){
@@ -28,16 +28,18 @@ function feedback(text){
  host.querySelector('.academic-identity-feedback')?.remove();
  const message=node('span',text,'academic-identity-feedback');message.setAttribute('role','status');message.title=text;host.append(message);
 }
-function pending(){
- if(!host.querySelector('.academic-username'))host.replaceChildren(node('span',en?'Checking identity…':'身份确认中','academic-identity-pending'));
+function defaultLogin(){
+ // Sign-in is a default affordance, not a server authentication verdict.
+ if(!host.querySelector('.academic-username')&&!host.querySelector('[data-auth-open]'))host.replaceChildren(login.cloneNode(true));
 }
 
-function stop(){clearTimeout(heartbeat);heartbeat=null;checking=null;generation++;active=false;allowed=false;busy=false;controller?.abort();controller=null;clearTimeout(timer);timer=null;observer?.disconnect();clear();pending();}
+function stop(){clearTimeout(heartbeat);heartbeat=null;checking=null;generation++;active=false;allowed=false;busy=false;controller?.abort();controller=null;clearTimeout(timer);timer=null;observer?.disconnect();clear();if(lastDisplay)identity(lastDisplay,true);else defaultLogin();}
 async function read(url,signal){const timeout=setTimeout(()=>{if(!signal.aborted&&controller?.signal===signal)controller.abort();},15000);try{const response=await fetch(url,{credentials:'same-origin',cache:'no-store',redirect:'error',signal,headers:{Accept:'application/json'}});if(signal.aborted||!response.ok)throw Error('Private component unavailable');return await response.json();}finally{clearTimeout(timeout);}}
 function identity(data,cached=false){
- if(data.authenticated===false){clear(true);host.replaceChildren(login.cloneNode(true));return;}
+ if(data.authenticated===false){lastDisplay={authenticated:false};clear(true);host.replaceChildren(login.cloneNode(true));return;}
  if(data.authenticated!==true)throw Error('Invalid identity');
  if(typeof data.username!=='string'||typeof data.display_name!=='string'||(!cached&&(typeof data.csrf!=='string'||!data.csrf)))throw Error('Invalid identity');
+ lastDisplay={authenticated:true,username:data.username,display_name:data.display_name,can_enter_admin:data.can_enter_admin===true};
  const name=node('span',data.display_name||data.username,'academic-username');name.title=(data.display_name||data.username)+' ('+data.username+')';host.replaceChildren(name);
  if(data.can_enter_admin===true){const a=node('a',en?'Admin':'后台','academic-account-link');a.href='/admin';host.append(a);}
  if(cached){
@@ -57,7 +59,7 @@ function identity(data,cached=false){
  const csrf=node('input');csrf.type='hidden';csrf.name='_csrf';csrf.value=data.csrf;
  const button=node('button',en?'Sign out':'退出');button.type='submit';form.append(csrf,button);host.append(form);
  // formdata fires after the browser has captured the CSRF field for native submission.
- form.addEventListener('formdata',()=>{stop();clear(true);pending();},{once:true});
+ form.addEventListener('formdata',()=>{stop();clear(true);defaultLogin();},{once:true});
 }
 function apply(row){
  for(const card of document.querySelectorAll('[data-project-private]')){
@@ -94,7 +96,7 @@ function start(force=false){
  if(document.visibilityState==='hidden')return Promise.resolve();
  stop();active=true;controller=new AbortController();
  const saved=cache?.load();
- if(saved){identity(saved,true);heartbeatWanted=saved.authenticated===true;}else if(cache){clear(true);pending();}
+ if(saved){identity(saved,true);heartbeatWanted=saved.authenticated===true;}else defaultLogin();
  if(!force&&saved&&cache.freshUntil(saved)>Date.now()){
   // A cached hint can initiate a request, but the private endpoint authorizes it.
   allowed=saved.authenticated===true&&(privateHint??saved.can_enter_admin===true);watch();schedule();return Promise.resolve();
@@ -108,7 +110,7 @@ function start(force=false){
    identity(data);cache?.save(data);cache?.success();retryUntil=0;
    heartbeatWanted=data.authenticated===true;nextCheck=Date.now()+HEARTBEAT;
    privateHint=data.authenticated===true&&data.can_view_private_projects===true;allowed=privateHint;watch();
-  }catch(error){if(seq===generation){retryUntil=cache?.failure()||Date.now()+60000;heartbeatWanted=true;clear();if(saved)identity(saved,true);else{if(cache)clear(true);pending();}allowed=false;}}
+  }catch(error){if(seq===generation){retryUntil=cache?.failure()||Date.now()+60000;heartbeatWanted=true;clearPrivate();defaultLogin();allowed=false;}}
  })();
  checking=job;
  job.finally(()=>{if(checking===job){checking=null;schedule();}});
@@ -122,7 +124,7 @@ document.addEventListener('teacher:navigation-start',stop);
 document.addEventListener('teacher:navigation-cancel',()=>{logoutBusy=false;start();});
 document.addEventListener('public:querychange',stop);
 document.addEventListener('public:appended',()=>{if(!active)start();else watch();});
-function changed(){privateHint=null;retryUntil=0;nextCheck=0;heartbeatWanted=false;stop();clear(true);pending();start(true);}
+function changed(){privateHint=null;retryUntil=0;nextCheck=0;heartbeatWanted=false;stop();start(true);}
 document.addEventListener('teacher:identity-change',changed);
 document.addEventListener('teacher:identity-invalidated',changed);
 start();

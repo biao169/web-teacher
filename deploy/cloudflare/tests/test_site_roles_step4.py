@@ -30,7 +30,7 @@ def test_admin_forward_does_not_parse_or_build_public(entry,monkeypatch,path):
     import worker_runtime.admin_recovery as recovery
     async def forward(binding,request):return await binding.fetch(request)
     monkeypatch.setattr(recovery,'forward',forward)
-    binding=SimpleNamespace(fetch=AsyncMock(return_value=SimpleNamespace(status=204)))
+    binding=SimpleNamespace(fetch=AsyncMock(return_value=SimpleNamespace(status=204,headers={})))
     worker=entry.Default();worker.env=SimpleNamespace(SITE_ADMIN=binding)
     request=SimpleNamespace(url='https://teacher.invalid'+path,body=object())
     monkeypatch.setattr(entry,'build_application',lambda **k:pytest.fail('public app built for admin'))

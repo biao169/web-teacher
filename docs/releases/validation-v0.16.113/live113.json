@@ -1,0 +1,39 @@
+{
+  "scope": "three anonymous bounded read-only requests; no retry/purge/login",
+  "samples": [
+    {
+      "path": "/en/profiles",
+      "status": 200,
+      "headers": {
+        "cf-ray": "a495615f7dd98c56-DFW",
+        "cf-cache-status": "MISS",
+        "cache-control": "public, max-age=1800"
+      },
+      "worker_error_codes": [],
+      "network_policy_blocked": false
+    },
+    {
+      "path": "/zh/profiles",
+      "status": 200,
+      "headers": {
+        "cf-ray": "a495618719a88c56-DFW",
+        "cf-cache-status": "MISS",
+        "cache-control": "public, max-age=1800"
+      },
+      "worker_error_codes": [],
+      "network_policy_blocked": false
+    },
+    {
+      "path": "/api/public/data/en/profiles",
+      "status": 200,
+      "headers": {
+        "cf-ray": "a49561b27e918c56-DFW",
+        "cf-cache-status": "MISS",
+        "cache-control": "public, max-age=300"
+      },
+      "worker_error_codes": [],
+      "network_policy_blocked": false
+    }
+  ],
+  "cloud_credentials_available": false
+}

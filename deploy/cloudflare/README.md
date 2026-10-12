@@ -1,4 +1,4 @@
-# Cloudflare 部署：v0.16.108
+# Cloudflare 部署：v0.16.113
 
 当前 Public 缓存策略以本文及 [验收清单](../../docs/public-performance-acceptance.md) 为准。历史版本说明在 `docs/releases/`，其中 simple/full/off、Linux LRU、SQL 缓存、revision 分片缓存和 Public 预取配置不再适用。
 
@@ -26,8 +26,16 @@ Cloudflare Builds 根目录保持 `deploy/cloudflare`，Build command 为 `pytho
 
 从项目根目录运行 `python -B tests/stage_release_v016001.py` 及带 `--separate-sync` 的同一命令。可加 `--output` 保存到项目外全新目录。随后使用官方 Wrangler 4.143.0 对生成的 main/admin/executor/native 配置逐一 deploy --dry-run；必须安装与锁文件一致的 Python Worker SDK依赖。产物不是生产部署。
 
-本轮实际打包与回归结果、失败诊断和线上待验收项见 [第八步记录](../../docs/releases/v0.16.108.md)。本轮未发布；缺少目标站点与发布凭据时，不能证明实际缓存命中、1101/1102旧内容回退、跨PoP tag失效或Worker CPU。
+本轮实际打包与回归结果、失败诊断和线上待验收项见 [最新故障与部署验收](../../docs/releases/v0.16.113.md)。本轮未发布；本轮只读HTTP已观察到当前站点的200/HIT及Data304；缺少发布和日志凭据，未验证新版本发布、1101/1102旧内容回退、跨PoP tag失效或Worker CPU。
 
 Ubuntu/Debian仍为原单服务部署；不会获得 Cloudflare 共享 Workers Cache。浏览器公共成功缓存策略一致，本轮不引入本地 LRU 或预取层。
 
-本轮主站/Admin/Executor预演压缩上传约3071.2KiB，Native约11.83KiB。预演不证明真实账号接受上传限额，也不验证Python Worker启动CPU/内存；发布前应以目标账号平台检查为准。不要将打包通过等同于1102风险已消除。
+本轮main/Admin/Executor预演未压缩上传约12397.9KiB，gzip约3072.6KiB；Native42.87KiB/gzip11.83KiB。预演不证明真实账号接受上传限额，也不验证Python Worker启动CPU/内存；发布前应以目标账号平台检查为准。不要将打包通过等同于1102风险已消除。
+
+## 模块缓存维护
+
+系统管理员进入后台运行维护的公开缓存区，确认异常后只清理一个白名单模块。main经原SITE_ADMIN鉴权响应，分别调用Page/Data所属entrypoint；首页Data不适用，单服务不执行共享边缘清理。accepted只表示平台接受，未知或部分失败需查日志，不自动重试或预热。不能清除浏览器新鲜缓存，不能修复页面生成500。
+
+HTTP500未处理异常现提供X-Request-ID和X-Teacher-Error-Code: REQUEST_FAILED；同一request_id记录在错误栈日志。该关联只在异常处理器运行时有效，不覆盖平台1101/1102硬终止。PublicData仍按原503/错误code诊断，身份失败保持静默。
+
+截至2026-10-12官方limits文档，Worker包限制为未压缩64MiB，gzip仅供参考；不要继续用历史压缩3MiB限制判断此包。来源：https://developers.cloudflare.com/workers/platform/limits/ 。实际CPU、启动时间与账号配置仍需平台确认。

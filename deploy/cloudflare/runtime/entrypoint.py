@@ -94,11 +94,13 @@ class Default(WorkerEntrypoint):
         from worker_runtime.site_routes import owner
         if owner(request.url)=='admin':
             from worker_runtime.admin_recovery import run,forward
-            from worker_runtime.public_invalidation import relay
+            from worker_runtime.public_invalidation import relay,relay_reset
             async def committed_admin():
                 response=await forward(self.env.SITE_ADMIN,request)
                 return await relay(response,getattr(self,'ctx',None))
-            return await run(request,committed_admin,'ADMIN-FORWARD')
+            response=await run(request,committed_admin,'ADMIN-FORWARD')
+            # Maintenance has no committed database write; preserve its per-cache failure JSON.
+            return await relay_reset(response,getattr(self,'ctx',None))
         import secrets,re
         from urllib.parse import urlsplit
         from site_sync.core.trace import current

@@ -1,4 +1,4 @@
-# Public 缓存验收（v0.16.108）
+# Public 缓存验收（v0.16.113）
 
 ## 本地可验证
 
@@ -22,8 +22,12 @@
 7. 阻断session-summary后页面可用、旧身份显示保留；明确退出后显示登录，后台写操作仍实时鉴权。
 8. Admin/Auth/Sync/private API、自由query及写请求不共享缓存，登录/退出及CSRF无缓存泄漏。
 
-只读HTTP探针：`python -B tests/probe_public_performance.py --origin https://你的站点 --expected-release 0.16.108 --output public-http.json`。不登录、不写入、不触发故障；Public缓存响应可能没有release诊断头，不能据此认定线上版本。以cloud-check的平台版本为准。Cloudflare可能消费移除 CDN cache-control / Cache-Tag；不要要求它们一定在客户端可见。
+只读HTTP探针：`python -B tests/probe_public_performance.py --origin https://你的站点 --expected-release 0.16.113 --output public-http.json`。不登录、不写入、不触发故障；Public缓存响应可能没有release诊断头，不能据此认定线上版本。以cloud-check的平台版本为准。Cloudflare可能消费移除 CDN cache-control / Cache-Tag；不要要求它们一定在客户端可见。
 
 平台 stale-if-error行为依据：https://developers.cloudflare.com/workers/cache/configuration/ 。平台负责保留和返回可用旧对象；缓存可驱逐、不同PoP可能未预热，不承诺故障时所有页面均可用。避免附加s-maxage/must-revalidate/proxy-revalidate禁用该回退语义。
 
 重要边界：stale-if-error作用于可缓存entrypoint的已有成功对象及刷新失败。若Default Router在转发前就被平台终止，或请求到达从未预热的PoP，则不能保证走到PublicPage/PublicData的旧对象。浏览器也不能保证在所有错误码下自动返回过期对象。本设计没有Service Worker或独立外部故障网关；本轮不新增Recovery层。
+
+当前代码验收补充：动态卡片图标共用模板，匿名Header立即显示登录，旧身份查询失败保留；右侧工具宽度和移动布局需真实浏览器复核。模块维护须同时收到Page/Data接受，home只Page；异常/超时为unknown，部分拒绝为failed，不重试。purge后重新生成仍500时查request_id错误栈，停止反复清理。
+
+2026-10-12匿名HTTP观察到当前站点200/HIT，PublicData304；所返回HTML仍引用旧资源并含身份等待文字。本次读取不证明109–113已发布，也不提供D1计数或CPU证明，详见最新发布记录。

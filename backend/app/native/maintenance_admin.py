@@ -16,6 +16,9 @@ from .maintenance_access import allowed
 
 
 def install(app,resources,csrf,render):
+    from .public_cache_tags import RESET_MODULES
+    from .catalog import MODULES as labels
+    public_cache_modules=[(m,'首页' if m=='home' else labels[m]) for m in RESET_MODULES]
     monitor=None;operation=asyncio.Lock()
     def check(r,action='view'):
         r.auth.require(r.p,'global_settings',action)
@@ -37,7 +40,7 @@ def install(app,resources,csrf,render):
     @app.get('/admin/runtime-maintenance')
     async def page(request:Request):
         r=await resources(request);check(r)
-        response=await render(r,'admin/native-maintenance.html','runtime-maintenance','运行维护',policy=await load(r.sql),maintenance_local=r.kind=='local')
+        response=await render(r,'admin/native-maintenance.html','runtime-maintenance','运行维护',policy=await load(r.sql),maintenance_local=r.kind=='local',public_cache_modules=public_cache_modules)
         response.headers['Cache-Control']='no-store';return response
     @app.get('/api/admin/runtime-maintenance/status')
     async def status(request:Request):

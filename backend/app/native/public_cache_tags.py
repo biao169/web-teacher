@@ -149,3 +149,10 @@ async def after_commit(sql,statements):
     except Exception:
         import logging
         logging.getLogger(__name__).error('Public cache notification could not be recorded after commit')
+
+# Explicit operator maintenance, separate from post-commit mutation collection.
+RESET_HEADER='x-teacher-public-cache-reset'
+RESET_MODULES=('home','profiles','students','projects','publications','patents','courses','news','research_interests')
+def reset_plan(module):
+    if not isinstance(module,str) or module not in RESET_MODULES:raise ValueError('Invalid public cache module')
+    return Plan(purge={'public-home' if module=='home' else module_tag(module)})

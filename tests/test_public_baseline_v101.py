@@ -63,6 +63,10 @@ def test_render_failure_remains_uncached_500(fixture, kind):
         assert failed.status_code == 500
         assert failed.headers['cache-control'] == failed.headers['cloudflare-cdn-cache-control'] == 'no-store'
         assert 'X-Public-Recovery' not in failed.headers
+        import re
+        assert re.fullmatch('[a-f0-9]{32}',failed.headers['x-request-id'])
+        assert failed.headers['x-teacher-error-code']=='REQUEST_FAILED'
+        assert 'etag' not in failed.headers and 'cache-tag' not in failed.headers and 'x-teacher-render-ok' not in failed.headers
         assert client.get('/en/projects').status_code == 200
 
 

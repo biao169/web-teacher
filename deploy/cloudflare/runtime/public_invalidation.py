@@ -1,5 +1,6 @@
-"""Internal commit relay and per-entrypoint cache control. No HTTP maintenance route."""
+"""Internal commit relay and per-entrypoint cache control. Trusted Admin response controls only."""
 import asyncio,base64,json
+RESET_TIMEOUT=3
 from backend.app.native.public_cache_tags import HEADER,Plan,validate_payload,COMMON,MODULES,module_tag
 
 
@@ -59,3 +60,42 @@ async def relay(response,ctx):
         from worker_runtime.diagnostics import emit
         emit('PUBLIC-CACHE-NOTIFY','FAILED',code='PUBLIC_CACHE_UPDATE_PENDING')
     return response
+
+async def relay_reset(response,ctx):
+    from backend.app.native.public_cache_tags import RESET_HEADER,reset_plan
+    value=response.headers.get(RESET_HEADER)
+    if value is None:return response
+    from workers import Response
+    from site_sync.core.trace import current
+    from worker_runtime.diagnostics import emit
+    import secrets
+    trace=current().get('request_id') or secrets.token_hex(16)
+    module=str(value);tag=None
+    outcomes={'page_cache':'unknown','data_cache':'not_applicable' if module=='home' else 'unknown'}
+    status=503
+    try:
+        if int(response.status)!=202:raise ValueError('Invalid maintenance response')
+        plan=reset_plan(module);tag=next(iter(plan.purge));payload=json.dumps(plan.payload(),separators=(',',':'))
+        async def one(name):
+            try:
+                result=await asyncio.wait_for(getattr(ctx.exports,name).update_public_cache(payload),RESET_TIMEOUT)
+                return 'accepted' if result is True else 'failed'
+            except asyncio.TimeoutError:return 'unknown'
+            except Exception:return 'unknown'
+        names=['PublicPage'] if module=='home' else ['PublicPage','PublicData']
+        results=await asyncio.gather(*(one(name) for name in names))
+        outcomes['page_cache']=results[0]
+        if len(results)>1:outcomes['data_cache']=results[1]
+        status=200 if all(v=='accepted' for v in results) else 503 if 'unknown' in results else 502
+    except Exception:status=502
+    # Discard the small placeholder stream; never parse, buffer or replay it.
+    body=getattr(response,'body',None)
+    if body is not None and not getattr(body,'locked',False):
+        try:await asyncio.wait_for(body.cancel(),.2)
+        except Exception:pass
+    emit('PUBLIC-CACHE-RESET','ACCEPTED' if status==200 else 'FAILED',module=module if tag else None,
+         cache_tag=tag,request_id=trace,**outcomes)
+    headers={'cache-control':'no-store','cloudflare-cdn-cache-control':'no-store','content-type':'application/json; charset=utf-8','x-request-id':trace}
+    result={'module':module if tag else None,**outcomes,'request_id':trace}
+    if status!=200:result['code']='PUBLIC_CACHE_RESET_INCOMPLETE'
+    return Response(json.dumps(result,separators=(',',':')),status=status,headers=headers)

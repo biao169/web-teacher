@@ -45,9 +45,9 @@ test('ordinary authenticated user has logout but no admin or project request',as
  assert.equal(f.requests.length,1);assert.equal(f.w.document.querySelector('a[href="/admin"]'),null);assert.equal(f.w.document.querySelector('input').value,'TOKEN');
 });
 test('failed navigation restores identity reads',async t=>{const f=setup(t);f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-start'));f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-cancel'));assert.equal(f.requests.length,2);f.reply(0,admin);await tick();assert.equal(f.w.document.querySelector('input'),null);f.reply(1,admin);await tick();assert.equal(f.w.document.querySelector('input').value,'TOKEN');});
-test('initial failure stays unknown, never claims signed out',async t=>{const f=setup(t);f.reply(0,{},false);await tick();assert.match(f.w.document.querySelector('[data-public-session]').textContent,/Checking identity/);assert.equal(f.w.document.querySelector('[data-public-session] a[href="/auth/login"]'),null);});
+test('initial failure preserves default sign-in without a checking message',async t=>{const f=setup(t);f.reply(0,{},false);await tick();assert.match(f.w.document.querySelector('[data-public-session]').textContent,/Sign in/);assert.ok(f.w.document.querySelector('[data-public-session] a[href="/auth/login"]'));});
 test('navigation retains last username and failed recheck does not log out',async t=>{const f=setup(t);f.reply(0,admin);await tick();f.reply(1,{projects:[]});await tick();f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-start'));assert.equal(f.w.document.querySelector('.academic-username').textContent,'<unsafe>');assert.equal(f.w.document.querySelector('input'),null);f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-cancel'));f.reply(2,{},false);await tick();assert.equal(f.w.document.querySelector('.academic-username').textContent,'<unsafe>');});
-test('malformed identity is unknown, only explicit false means signed out',async t=>{const f=setup(t);f.reply(0,{});await tick();assert.match(f.w.document.querySelector('[data-public-session]').textContent,/Checking identity/);f.w.document.dispatchEvent(new f.w.Event('teacher:identity-change'));f.reply(1,{authenticated:false});await tick();assert.match(f.w.document.querySelector('[data-public-session]').textContent,/Sign in/);});
+test('malformed identity is unknown, only explicit false means signed out',async t=>{const f=setup(t);f.reply(0,{});await tick();assert.match(f.w.document.querySelector('[data-public-session]').textContent,/Sign in/);f.w.document.dispatchEvent(new f.w.Event('teacher:identity-change'));f.reply(1,{authenticated:false});await tick();assert.match(f.w.document.querySelector('[data-public-session]').textContent,/Sign in/);});
 
 const cached=()=>({authenticated:true,username:'cached',display_name:'Cached User',can_enter_admin:true,checked_at:new Date().toISOString()});
 const dated=()=>({...admin,checked_at:new Date().toISOString(),idle_expires_at:new Date(Date.now()+1800000).toISOString(),absolute_expires_at:new Date(Date.now()+43200000).toISOString(),display_ttl_seconds:300});
@@ -68,11 +68,11 @@ test('failed stale check preserves display and does not confirm logout',async t=
  const f=setup(t,0,{...cached(),checked_at:new Date(Date.now()-300001).toISOString()});f.reply(0,{},false);await tick();
  assert.match(f.w.document.body.textContent,/Cached User/);assert.equal(f.w.document.querySelector('a[href="/auth/login"]'),null);
 });
-test('cross-tab invalidation clears old identity and ignores late response',async t=>{
+test('cross-tab invalidation clears stored snapshot, retains display until explicit result and ignores late response',async t=>{
  const f=setup(t,0,{...cached(),checked_at:new Date(Date.now()-300001).toISOString()});
  f.w.localStorage.setItem('teacher:identity-change','other');
  f.w.dispatchEvent(new f.w.StorageEvent('storage',{key:'teacher:identity-change',newValue:'other'}));
- assert.equal(f.requests.length,2);assert.ok(!f.w.document.body.textContent.includes('Cached User'));
+ assert.equal(f.requests.length,2);assert.ok(f.w.document.body.textContent.includes('Cached User'));
  f.reply(0,dated());await tick();assert.equal(f.w.sessionStorage.getItem('teacher:identity-display:v2'),null);
  f.reply(1,{authenticated:false,checked_at:new Date().toISOString(),display_ttl_seconds:60});await tick();assert.match(f.w.document.body.textContent,/Sign in/);
 });
@@ -191,4 +191,20 @@ test('summary timeout keeps stale identity and delays retries',async t=>{
 test('private component failure preserves live logout and does not re-probe on each list change',async t=>{
  const f=setup(t,1,{...cached(),checked_at:new Date(Date.now()-300001).toISOString()});f.reply(0,dated());await tick();f.reply(1,{},false);await tick();assert.equal(f.w.document.querySelector('input[name=_csrf]').value,'TOKEN');
  for(let i=0;i<10;i++){f.w.document.dispatchEvent(new f.w.Event('public:querychange'));f.w.document.dispatchEvent(new f.w.Event('public:appended'));}assert.equal(f.requests.length,2);assert.match(f.w.document.body.textContent,/unsafe/);
+});
+
+for(const status of [1101,1102,500,503])test('no-snapshot failure '+status+' keeps sign-in silently',async t=>{
+ const f=setup(t,0),host=f.w.document.querySelector('[data-public-session]'),initial=host.innerHTML;
+ assert.match(host.textContent,/Sign in/);assert.doesNotMatch(host.textContent,/Checking identity/);f.reply(0,{},false);await tick();assert.equal(host.innerHTML,initial);assert.equal(host.querySelector('.academic-identity-feedback'),null);
+});
+test('live identity is retained on failed forced refresh even without storage',async t=>{
+ const f=setup(t,0);f.reply(0,admin);await tick();f.w.document.dispatchEvent(new f.w.Event('teacher:identity-change'));
+ const host=f.w.document.querySelector('[data-public-session]'),initial=host.innerHTML;assert.match(host.textContent,/<unsafe>/);assert.match(host.textContent,/Sign out/);
+ f.reply(1,{},false);await tick();assert.equal(host.innerHTML,initial);assert.equal(host.querySelector('[data-auth-open]'),null);assert.equal(host.querySelector('.academic-identity-feedback'),null);
+});
+
+test('initial timeout and network failure retain the default button silently',async t=>{
+ const f=setup(t,0,null,true),host=f.w.document.querySelector('[data-public-session]'),initial=host.innerHTML;
+ await f.w.advance(15000);assert.equal(f.requests[0].options.signal.aborted,true);f.requests[0].reject(new f.w.DOMException('Timeout','AbortError'));await tick();assert.equal(host.innerHTML,initial);
+ await f.w.advance(60000);assert.equal(f.requests.length,2);f.requests[1].reject(Error('Network unavailable'));await tick();assert.equal(host.innerHTML,initial);assert.equal(host.querySelector('.academic-identity-feedback'),null);
 });

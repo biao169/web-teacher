@@ -160,6 +160,8 @@ def install(app,factory,resources,csrf,render,*,lazy_sync=False):
     install_translation_groups(app,resources,render,csrf,resolve,navigation_stamp)
     from .maintenance_admin import install as install_maintenance
     install_maintenance(app,resources,csrf,render)
+    from .public_cache_admin import install as install_public_cache
+    install_public_cache(app,resources,csrf)
     @app.get('/admin/transfer')
     async def transfer_admin(request:Request):
         """显示独立快传管理入口和身份桥接说明。"""

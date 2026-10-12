@@ -3,7 +3,7 @@ import argparse,json,time,urllib.request,urllib.error
 from datetime import datetime,timezone
 from pathlib import Path
 
-HEADERS=('etag','cache-control','vary','cf-cache-status','age','x-teacher-render-ok','x-teacher-data-ok','x-public-revision','x-teacher-release','x-request-id','cf-ray','content-type')
+HEADERS=('etag','cache-control','vary','cf-cache-status','age','x-teacher-render-ok','x-teacher-data-ok','x-public-revision','x-teacher-release','x-request-id','x-teacher-error-code','cf-ray','content-type')
 class NoRedirect(urllib.request.HTTPRedirectHandler):
  def redirect_request(self,*args,**kwargs):return None
 
@@ -31,7 +31,7 @@ def probe(origin,expected):
  return {'origin':origin,'observed_releases':releases,'expected_release':expected,'release_match':bool(releases) and releases==[expected], 'samples':rows}
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--origin',action='append',required=True);p.add_argument('--expected-release',default='0.16.108');p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--origin',action='append',required=True);p.add_argument('--expected-release',default='0.16.113');p.add_argument('--output',type=Path,required=True);a=p.parse_args()
  for origin in a.origin:
   u=urllib.parse.urlsplit(origin)
   if u.scheme!='https' or not u.hostname or u.username or u.password or u.path not in ('','/') or u.query or u.fragment:p.error('origin must be an HTTPS root URL')
