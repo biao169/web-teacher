@@ -84,9 +84,19 @@ class Default(WorkerEntrypoint):
         from worker_runtime.public_data import eligible as data_eligible, forward as data_forward
         if data_eligible(request, self.env):
             return await data_forward(request, self.env, self.ctx)
-        from worker_runtime.public_page import eligible, forward
+        from worker_runtime.public_page import eligible, forward, restricted_fallback
         if eligible(request, self.env):
-            return await forward(request, self.env, self.ctx)
+            response=await forward(request, self.env, self.ctx)
+            # Anonymous fixed-entry lookup cannot authorize a restricted navigation.
+            # Exactly one normal private route fallback; no retry on 5xx/timeouts.
+            if restricted_fallback(request,response,self.env):
+                body=getattr(response,'body',None)
+                if body is not None and not getattr(body,'locked',False):
+                    import asyncio
+                    try:await asyncio.wait_for(body.cancel(),.2)
+                    except Exception:pass
+                return await self._dynamic_fetch(request)
+            return response
         return await self._dynamic_fetch(request)
 
     @traced('main-site',http=True)

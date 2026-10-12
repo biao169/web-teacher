@@ -21,6 +21,8 @@ def record_tag(table,uid):
 
 def module_tag(table):return 'public-'+table.replace('_','-')
 
+def navigation_tag(slug):return 'public-nav-'+hashlib.sha256(str(slug).encode()).hexdigest()[:32]
+
 def page_tags(request):
     parts=urlsplit(str(request.url)).path.strip('/').split('/')
     tags={'public-layout','public-translations','public-media'}
@@ -28,12 +30,15 @@ def page_tags(request):
     elif len(parts)>=2 and parts[1] in MODULES:
         tags.add(module_tag(parts[1]))
         if len(parts)==3:tags.add(record_tag(parts[1],unquote(parts[2])))
+    scope=getattr(getattr(request,'state',None),'public_navigation_scope',None)
+    if scope and len(parts)==3 and parts[1]=='n' and scope['slug']==parts[2] and scope['table'] in MODULES:
+        tags.update({navigation_tag(scope['slug']),module_tag(scope['table'])})
     return ','.join(sorted(tags))
 
 def data_tags(table):return ','.join(sorted({module_tag(table),'public-translations','public-media'}))
 
 def valid_tag(tag):
-    return isinstance(tag,str) and (tag in COMMON or tag in {module_tag(t) for t in MODULES} or any(re.fullmatch(prefix+'-[a-f0-9]{32}',tag) for prefix in SINGULAR.values()))
+    return isinstance(tag,str) and (tag in COMMON or re.fullmatch(r'public-nav-[a-f0-9]{32}',tag) is not None or tag in {module_tag(t) for t in MODULES} or any(re.fullmatch(prefix+'-[a-f0-9]{32}',tag) for prefix in SINGULAR.values()))
 
 @dataclass
 class Plan:
@@ -90,6 +95,14 @@ def change_plan(table,uid,before,after,deleted=False):
         plan.add({module_tag('students'),'public-home','public-translations'},hard)
     elif table=='navigation_items':
         if before.get('location')=='admin-sidebar' and after.get('location')=='admin-sidebar':return plan
+        # Old fixed scopes must not survive disabling, renaming or scope changes.
+        old_slug=before.get('url_name');new_slug=after.get('url_name')
+        from .navigation import has_public_conditions
+        fixed_before=has_public_conditions(before.get('path'))
+        fixed_after=not deleted and has_public_conditions(after.get('path'))
+        scope_hard=hard or bool(changed & {'path','url_name','visibility','enabled','location','kind','fragment'})
+        if fixed_before or fixed_after:
+            plan.add({navigation_tag(slug) for slug in (old_slug,new_slug) if slug},scope_hard)
         plan.add({'public-layout'},hard)
         if changed & set(PUBLIC_DONOR_FIELDS[table]) or hard:plan.add({'public-translations'},hard)
     elif table=='site_settings':
@@ -116,6 +129,7 @@ def statements_plan(statements):
         # Bulk/tool writes lack before/after rows. Conservative per-dependency fallback.
         hard=bool(re.match(r'^\s*(DELETE|REPLACE)\b',sql,re.I) or re.search(r'ON\s+CONFLICT.*DO\s+UPDATE',sql,re.I))
         assignments=sql.split('WHERE',1)[0]
+        if table=='navigation_items' and re.search(r'\b(path|url_name|location|kind|fragment)\b',assignments,re.I):hard=True
         hard=hard or bool(re.match(r'^\s*UPDATE\b',sql,re.I) and re.search(r'\b(visibility|contact_visibility|pdf_visibility|material_visibility|is_active|enabled)\b',assignments,re.I))
         if table in MODULES:result.add({module_tag(table),'public-home','public-translations'},hard)
         elif table=='student_category_displays':result.add({module_tag('students'),'public-home','public-translations'},hard)

@@ -22,3 +22,11 @@ test('registration success switches to login inside the same dialog',async t=>{
 test('closing pending read aborts it and does not inject a late form',async t=>{
  const f=fixture(t);f.$('[data-auth-open]').click();f.$('[data-auth-close]').click();await f.tick();assert.equal(f.requests[0].opts.signal.aborted,true);assert.equal(f.$('[data-auth-slot]').children.length,0);
 });
+test('login success seeds five-field display before navigation without identity-change or summary',async t=>{
+ const f=fixture(t);f.w.eval(fs.readFileSync('frontend/shared/static/js/identity-cache.js','utf8'));
+ let invalidations=0;f.w.document.addEventListener('teacher:identity-change',()=>invalidations++);
+ let navigations=0;f.w.document.addEventListener('teacher:navigation-start',()=>{navigations++;assert.equal(f.w.TeacherIdentityCache.load().username,'Ada');});
+ f.$('[data-auth-open]').click();f.respond(0,content());await f.tick();f.$('form').dispatchEvent(new f.w.Event('submit',{bubbles:true,cancelable:true}));
+ f.requests[1].resolve({ok:true,json:async()=>({ok:true,registered:false,redirect:'/en',identity:{authenticated:true,username:'Ada',display_name:'Ada',can_enter_admin:false,checked_at:new Date().toISOString()}})});
+ await f.tick();assert.equal(f.requests.length,2);assert.equal(invalidations,0);assert.equal(navigations,1);assert.equal(f.w.TeacherIdentityCache.load().username,'Ada');assert.equal(f.w.TeacherIdentityCache.retryAt(),0);
+});

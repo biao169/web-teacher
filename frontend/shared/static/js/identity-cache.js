@@ -19,7 +19,12 @@ function retry(){try{const v=JSON.parse(sessionStorage.getItem(retryKey)||'null'
 function success(){try{sessionStorage.removeItem(retryKey);}catch{}}
 function failure(){const count=Math.min(3,(retry()?.count||0)+1),until=Date.now()+Math.min(300,60*2**(count-1))*1000;try{sessionStorage.setItem(retryKey,JSON.stringify({count,until}));}catch{}return until;}
 function invalidate(){clear();success();try{localStorage.setItem(change,Date.now()+':'+Math.random());}catch{}}
-window.TeacherIdentityCache={load,save,clear,invalidate,retryAt:()=>retry()?.until||0,success,failure,freshUntil:v=>Date.parse(v.checked_at)+TTL};
+function acceptLogin(data,notify=true){
+ if(data?.authenticated!==true||typeof data.username!=='string'||!data.username||data.username.length>150||typeof data.display_name!=='string'||data.display_name.length>200||typeof data.can_enter_admin!=='boolean')return false;
+ // Advance the cross-tab stamp before saving, so this tab retains its new identity.
+ invalidate();save(data);success();if(notify)document.dispatchEvent(new Event('teacher:identity-restored'));return true;
+}
+window.TeacherIdentityCache={load,save,clear,invalidate,acceptLogin,retryAt:()=>retry()?.until||0,success,failure,freshUntil:v=>Date.parse(v.checked_at)+TTL};
 // Old expiry/permission-shaped snapshots are never migrated into the new display format.
 try{sessionStorage.removeItem('teacher:identity-display:v1');}catch{}
 document.addEventListener('teacher:identity-change',invalidate);

@@ -277,7 +277,7 @@ async def build(r,table,lang,*,limits=None):
                         'default_order':'group-then-rank' if table=='students' else 'rank',
                         'descending':'reverse-within-group','page_sizes':[10,20],
                         'project_role_aliases':table=='projects',
-                        'custom_navigation':'server-fallback-until-client-parity'},
+                        'custom_navigation':'raw-fixed-eq-or-literal-contains-v1'},
            'stats':{'queries':reads.calls}}
     payload=_json(model).encode()
     if len(payload)>limits.max_json_bytes:raise ModelUnavailable('byte_limit')

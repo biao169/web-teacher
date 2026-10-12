@@ -20,3 +20,12 @@ async def forward(request, env, ctx, *, entrypoint='PublicPage'):
         public.headers.delete('cookie')
         public.headers.delete('authorization')
     return await getattr(ctx.exports, entrypoint).fetch(public)
+
+def restricted_fallback(request,response,env):
+    """Only an actual session cookie can require the normal restricted route."""
+    from backend.app.public_performance import navigation_target
+    if int(response.status)!=404 or navigation_target(request) is None:return False
+    from backend.app.security.http import AuthConfig
+    name=AuthConfig.from_origin(str(env.TEACHER_ORIGIN)).name('session')
+    return any(part.strip().partition('=')[0]==name and bool(part.strip().partition('=')[2])
+               for part in str(request.headers.get('cookie') or '').split(';'))

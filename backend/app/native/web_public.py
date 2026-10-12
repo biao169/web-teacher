@@ -137,7 +137,7 @@ def install(app,factory,resources,csrf,render):
         scope=None
         if nav:
             if len(request.query_params.getlist('nv'))>1:raise Error('导航版本重复')
-            scope=await resolve(r,nav,stamp=request.query_params.get('nv'));table=scope['table']
+            scope=getattr(r,'public_navigation_scope',None) or await resolve(r,nav,stamp=request.query_params.get('nv'),row=getattr(r,'public_navigation_row',None));table=scope['table']
         if fragment and (not table or uid):raise Error('仅列表支持分片读取',400)
         fixed=scope['conditions'] if scope else None
         list_path='/'+lang+('/n/'+nav if nav else '/'+table if table else '')
@@ -204,7 +204,8 @@ def install(app,factory,resources,csrf,render):
             params={'from':list_return(request.query_params.get('from'),switched,table,scope)}|({'nv':scope['stamp']} if scope else {})
             return target+'?'+urlencode(params)
 
-        values={'public_shared':getattr(r,'public_shared',False),'public_components':getattr(r,'public_components',False),'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
+        from .public_navigation import browser_scope
+        values={'public_browser_scope':browser_scope(scope,r.p),'public_shared':getattr(r,'public_shared',False),'public_components':getattr(r,'public_components',False),'public_identity':identity_fingerprint(r.p), 'public_revision':public_revision,'public_stream_concurrency':r.public_performance.public_stream_concurrency,'lang':lang,'section':'public','data':data,'detail':detail,'content_modules':CONTENT,'public_table':table,
                 'media_map':media_map,'pages':pages,'home_pages':home_pages,'home_mode':home_mode,'public_options':site_options,'site_options':site_options,
                 'page_url':lambda p:query_url(list_path,(pages['query'] if pages else {})|{'page':p}|({'nv':scope['stamp']} if scope else {})),
                 'public_list_path':list_path,'public_scope':scope,

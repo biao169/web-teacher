@@ -127,5 +127,7 @@ document.addEventListener('public:appended',()=>{if(!active)start();else watch()
 function changed(){privateHint=null;retryUntil=0;nextCheck=0;heartbeatWanted=false;stop();start(true);}
 document.addEventListener('teacher:identity-change',changed);
 document.addEventListener('teacher:identity-invalidated',changed);
+// A successful login already confirmed this display; cancel old reads, then reuse it.
+document.addEventListener('teacher:identity-restored',()=>{privateHint=null;retryUntil=0;nextCheck=Date.now()+HEARTBEAT;lastActivity=Date.now();stop();start();});
 start();
 })();

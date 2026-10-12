@@ -24,5 +24,5 @@ def test_truncated_description_markers_do_not_change_filter_source(fixture):
 def test_standard_page_hook_does_not_enable_home(fixture):
  client,r=fixture;source(r,'profiles','title','Shown')
  standard=client.get('/zh/profiles');assert standard.status_code==200 and 'data-public-list-local' in standard.text
- assert 'public-list.js?v=0.16.109' in standard.text
+ assert 'public-list.js?v=0.16.117' in standard.text
  home=client.get('/zh');assert 'data-public-list-local' not in home.text
