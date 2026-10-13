@@ -1,0 +1,26 @@
+{
+  "changed": [
+    "deploy/cloudflare/pyproject.toml",
+    "deploy/cloudflare/uv.lock",
+    "frontend/admin/static/js/native-corresponding-authors.js",
+    "frontend/admin/static/js/native-publications.js",
+    "frontend/admin/static/js/native.js",
+    "frontend/admin/templates/layout.html",
+    "frontend/public/static/css/academic.css",
+    "frontend/public/static/js/public-authors.js",
+    "frontend/public/templates/layout.html",
+    "frontend/shared/static/css/public-theme.css",
+    "pyproject.toml",
+    "tests/public-authors-dom.test.cjs",
+    "tests/public-browser-fixture-v119.py",
+    "tests/public-citations-dom.test.cjs",
+    "tests/test_public_reading_v99.py",
+    "transfer/frontend/native/portal.html"
+  ],
+  "backend_and_cache_byte_identical": true,
+  "sync_byte_identical": true,
+  "transfer_only_theme_asset_url_changed": true,
+  "production_deployed": false,
+  "browser_fixture": "temporary SQLite, synthetic content",
+  "clipboard_sink": "instrumented navigator.clipboard.writeText; no system clipboard read/write"
+}

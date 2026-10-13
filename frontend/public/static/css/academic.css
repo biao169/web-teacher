@@ -238,8 +238,23 @@ body.section-public .project-text .project-name{display:inline;font-size:var(--p
 body.section-public .project-piece{color:var(--public-muted)}
 body.section-public .project-separator{color:var(--public-muted)}
 body.section-public .content-status{display:inline-block;padding:1px 6px;border-radius:5px;background:var(--public-accent-soft);color:var(--public-accent);font-size:var(--public-project-meta);line-height:var(--public-line-height-4);vertical-align:baseline}
-body.section-public .patent-heading{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;margin-bottom:4px}
-body.section-public .patent-heading :is(h2,h3){margin:0;font-size:var(--public-project-title);line-height:var(--public-line-height-4)}
+body.section-public .patent-heading{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin-bottom:4px}  
+
+body.section-public .patent-heading :is(h2,h3){
+    margin:0;
+    font-size:var(--public-project-title);
+    line-height:var(--public-line-height-4);
+}
+
+body.section-public .patent-heading .content-status{
+    flex:0 0 auto;
+    white-space:nowrap;
+}
+
+body.section-public .patent-legal-status .person-label{
+    color:inherit;
+}
+
 body.section-public .patent-records{display:flex;flex-wrap:wrap;gap:4px 20px;margin:4px 0;font-size:var(--public-project-meta);color:var(--public-muted)}
 body.section-public .patent-record{display:flex;flex-wrap:wrap;gap:3px 10px;min-width:0;overflow-wrap:anywhere}
 body.section-public .patent-records:empty,body.section-public .patent-people:empty{display:none}
@@ -257,10 +272,10 @@ body.section-public .citation-format-control select{width:auto;min-width:0;paddi
 body.section-public .citation-manual{display:block;width:100%;min-height:100px;max-height:240px;resize:vertical;margin-top:6px;padding:8px;border:1px solid var(--public-line);border-radius:6px;background:var(--public-surface);color:var(--public-ink);font:inherit}
 
 /* Student/course descriptions share the existing expansion controller. */
-body.section-public .student-card .person-biography{-webkit-line-clamp:1}
+body.section-public .student-card .person-biography{-webkit-line-clamp:2}
 body.section-public .student-card .person-biography.is-expanded{-webkit-line-clamp:unset}
 body.section-public .student-card .person-facts{align-content:space-between;row-gap:.45rem}
-body.section-public .student-card .person-copy{min-height:5.5rem;display:flex;flex-direction:column;justify-content:space-evenly;gap:.3rem}
+body.section-public .student-card .person-copy{min-height:0;display:flex;flex-direction:column;justify-content:space-evenly;gap:.3rem}
 body.section-public .student-card .person-copy:has(.person-biography[hidden]){gap:0}
 body.section-public .course-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem 1rem}
 body.section-public .course-heading h2,body.section-public .course-heading h3{margin:0}
@@ -268,7 +283,7 @@ body.section-public .course-description{display:flex;align-items:flex-start;gap:
 body.section-public .course-description .person-biography{flex:1;min-width:0;margin:.3rem 0 0}
 body.section-public .course-description .person-icon{flex:none}
 body.section-public .content-links a:has(.card-icon){display:inline-flex;align-items:center;gap:.25rem}
-@media(max-width:600px){body.section-public .student-card .person-copy{min-height:3.75rem}}
+@media(max-width:600px){body.section-public .student-card .person-copy{min-height:0}}
 
 /* Frontend PDF presentation; shared administrator preview stays unchanged. */
 body.section-public .pdf-public{margin:1.2rem 0;padding-top:.5rem}
@@ -344,7 +359,7 @@ body.section-public .academic-identity :is(a,button,.academic-logout){flex-shrin
 body.section-public .academic-identity button{font:inherit;border:0;background:transparent;color:var(--accent);cursor:pointer;padding:4px 0;min-height:36px;white-space:nowrap}
 body.section-public .academic-identity button:disabled{cursor:wait;opacity:.65}
 body.section-public .academic-identity-feedback{position:absolute;right:0;top:100%;max-width:18rem;font-size:var(--public-font-size-4);color:var(--muted);background:var(--surface)}
-.section-public .academic-brand>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+/* .section-public .academic-brand>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .section-public .academic-header-inner>.academic-brand{grid-column:1;grid-row:1}
 .section-public .academic-header-inner>.academic-account{grid-column:3;grid-row:1}
 .section-public .academic-header-inner.nav-second-row{grid-template-columns:fit-content(240px) minmax(0,1fr)}
@@ -356,6 +371,7 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
 @media(max-width:1100px){
  .section-public .academic-header-inner>.academic-account{grid-column:2}
 }
+
 @media(max-width:650px){
  .section-public .academic-header-inner,.section-public .academic-header-inner.nav-second-row{grid-template-columns:minmax(0,1fr) auto;gap:8px;min-height:64px}
  .section-public .academic-brand{gap:5px;font-size:var(--public-header-brand-size)}
@@ -372,23 +388,595 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
  .section-public .academic-header-inner.menu-ready.menu-open>.academic-nav{display:flex;flex-direction:column;align-items:stretch;overflow-x:visible;white-space:normal}
  .section-public .menu-open>.academic-nav a{white-space:normal;overflow-wrap:anywhere}
  .section-public .menu-ready .academic-menu-toggle:not([hidden]){display:inline-flex}
-}
+} */
 
 /* Compact mobile actions retain their original accessible text and handlers. */
-@media(max-width:650px){
+/* @media(max-width:650px){
  body.section-public .academic-identity :is(a[href="/admin"],.academic-logout>button,.academic-identity-content>button){font-size:var(--public-header-action-label-size);display:inline-flex;align-items:center;justify-content:center;gap:0;min-width:26px;min-height:36px}
  body.section-public .academic-identity :is(a[href="/admin"],.academic-logout>button,.academic-identity-content>button)::before{content:"";display:block;width:18px;height:18px;background:currentColor;mask-repeat:no-repeat;mask-position:center;mask-size:contain}
  body.section-public .academic-identity a[href="/admin"]::before{mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 11 12 3l9 8v10h-6v-7H9v7H3Z'/%3E%3C/svg%3E")}
  body.section-public .academic-identity :is(.academic-logout>button,.academic-identity-content>button)::before{mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 3h9v2H5v14h7v2H3Zm13 3 6 6-6 6-1.4-1.4 3.6-3.6H9v-2h9.2l-3.6-3.6Z'/%3E%3C/svg%3E")}
-}
+} */
 
 /* v119: mobile navigation is an overlay, never a header grid row. */
-body.section-public{--public-header-brand-size:clamp(12px,3.2vw,18px);--public-header-control-size:12px;--public-header-language-size:11px;--public-header-action-label-size:0px}
-.academic-menu-backdrop,.academic-menu-close{display:none}
+/* .academic-menu-backdrop,.academic-menu-close{display:none}
 @media(max-width:650px){
- .section-public .menu-ready .academic-menu-toggle:not([hidden]){position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;z-index:2202;box-shadow:0 4px 18px #0003}
- .section-public .academic-header-inner.menu-ready.menu-open>.academic-nav{position:fixed;inset:0 0 0 auto;width:min(84vw,360px);height:100dvh;max-width:none;max-height:100dvh;box-sizing:border-box;margin:0;padding:64px 18px 88px;gap:8px;border:0;background:var(--surface);box-shadow:-8px 0 32px #0003;z-index:2201;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;justify-content:flex-start;align-items:stretch}
+ .section-public .menu-ready .academic-menu-toggle:not([hidden]){position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;z-index:2202;box-shadow:var(--public-menu-toggle-shadow)}
+ .section-public .academic-header-inner.menu-ready.menu-open>.academic-nav{position:fixed;inset:0 0 0 auto;width:min(84vw,360px);height:100dvh;max-width:none;max-height:100dvh;box-sizing:border-box;margin:0;padding:64px 18px 88px;gap:8px;border:0;background:var(--surface);box-shadow:var(--public-menu-drawer-shadow);z-index:2201;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;justify-content:flex-start;align-items:stretch}
  .section-public .menu-open>.academic-nav a{flex-shrink:0}
- .section-public .menu-open .academic-menu-close{display:inline-flex;position:absolute;right:16px;top:14px;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-size:24px}
- .section-public .menu-open>.academic-menu-backdrop:not([hidden]){display:block;position:fixed;inset:0;width:100%;height:100dvh;padding:0;border:0;background:#0005;z-index:2200;touch-action:none}
+ .section-public .menu-open .academic-menu-close{display:inline-flex;position:absolute;right:16px;top:14px;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-size:var(--public-menu-close-size)}
+ .section-public .menu-open>.academic-menu-backdrop:not([hidden]){display:block;position:fixed;inset:0;width:100%;height:100dvh;padding:0;border:0;background:var(--public-menu-backdrop);z-index:2200;touch-action:none}
+} */
+
+/* Header menu layout. */
+.section-public .academic-brand>span{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    min-width:0;
 }
+
+
+/* Desktop: wrapper does not change the existing grid layout. */
+.section-public .academic-menu-panel{
+    display:contents;
+}
+
+.section-public .academic-menu-panel-head{
+    display:none;
+}
+
+.section-public .academic-menu-tools{
+    display:contents;
+}
+
+.section-public .academic-header-inner>.academic-brand{
+    grid-column:1;
+    grid-row:1;
+}
+
+.section-public .academic-menu-panel>.academic-nav{
+    grid-column:2;
+    grid-row:1;
+}
+
+.section-public .academic-menu-panel>.academic-account{
+    grid-column:3;
+    grid-row:1;
+}
+
+.section-public .academic-header-inner.nav-second-row{
+    grid-template-columns:fit-content(240px) minmax(0,1fr);
+}
+
+.section-public .nav-second-row>.academic-brand{
+    grid-column:1;
+    grid-row:1;
+}
+
+.section-public .nav-second-row>.academic-menu-panel{
+    display:contents;
+}
+
+.section-public .nav-second-row>.academic-menu-panel>.academic-account{
+    grid-column:2;
+    grid-row:1;
+}
+
+.section-public .nav-second-row>.academic-menu-panel>.academic-nav{
+    grid-column:1/-1;
+    grid-row:2;
+    justify-content:flex-start;
+    padding-top:10px;
+    border-top:1px solid var(--line);
+}
+
+
+/* Menu buttons are hidden on desktop. */
+.section-public .academic-menu-toggle{
+    display:none;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    color:var(--ink);
+    width:40px;
+    height:40px;
+    padding:7px;
+    flex-shrink:0;
+}
+
+.section-public .academic-menu-toggle svg{
+    width:20px;
+    height:20px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2;
+}
+
+.section-public .academic-menu-toggle[hidden]{
+    display:none;
+}
+
+.academic-menu-backdrop,
+.academic-menu-close{
+    display:none;
+}
+
+
+@media(max-width:1100px){
+
+    .section-public .academic-menu-panel>.academic-account{
+        grid-column:2;
+        grid-row:1;
+    }
+
+    .section-public .academic-menu-panel>.academic-nav{
+        grid-column:1/-1;
+        grid-row:2;
+        justify-content:flex-start;
+        padding-top:10px;
+        border-top:1px solid var(--line);
+    }
+}
+
+
+/* Mobile floating navigation. */
+@media(max-width:650px){
+
+    /*
+     * Header only reserves space for:
+     *
+     * menu button | logo + site name
+     */
+    .section-public .academic-header-inner,
+    .section-public .academic-header-inner.nav-second-row{
+        display:grid;
+        grid-template-columns:
+            44px
+            minmax(0,1fr);
+        align-items:center;
+        gap:8px;
+        min-height:60px;
+        padding-block:7px;
+    }
+
+
+    .section-public .academic-header-inner>.academic-brand{
+        grid-column:2;
+        grid-row:1;
+        gap:7px;
+        min-width:0;
+        font-size:var(--public-header-brand-size);
+    }
+
+
+    .section-public .academic-brand-logo{
+        height:28px;
+        width:auto;
+        max-width:38px;
+        flex-shrink:0;
+    }
+
+
+    /*
+     * Without JavaScript the menu remains visible in normal flow.
+     * Once JS adds .menu-ready it becomes the floating panel.
+     */
+    .section-public .academic-menu-panel{
+
+        display:block;
+        grid-column:1/-1;
+        grid-row:2;
+        min-width:0;
+    }
+
+
+    /*
+     * Floating menu button:
+     * fixed at the upper-left corner.
+     */
+    .section-public
+    .menu-ready
+    .academic-menu-toggle:not([hidden]){
+        display:inline-flex;
+        position:fixed;
+        left:max(16px,env(safe-area-inset-left));
+        top:max(10px,env(safe-area-inset-top));
+        right:auto;
+        bottom:auto;
+        width:40px;
+        height:40px;
+        align-items:center;
+        justify-content:center;
+        padding:7px;
+        border:1px solid
+            color-mix(
+                in srgb,
+                var(--line) 75%,
+                transparent
+            );
+        border-radius:11px;
+        background:var(--surface);
+        background:
+            color-mix(
+                in srgb,
+                var(--surface) 84%,
+                transparent
+            );
+
+        color:var(--ink);
+
+        -webkit-backdrop-filter:blur(9px);
+        backdrop-filter:blur(9px);
+        box-shadow:
+            0 4px 18px rgba(20,45,58,.14);
+        z-index:2203;
+    }
+
+
+    /*
+     * Once JS is active, the menu becomes a completely
+     * independent floating panel.
+     */
+    .section-public
+    .academic-header-inner.menu-ready
+    .academic-menu-panel{
+        display:flex;
+        position:fixed;
+        left:max(12px,env(safe-area-inset-left));
+        top:max(
+            62px,
+            calc(env(safe-area-inset-top) + 62px)
+        );
+
+        right:auto;
+        bottom:auto;
+
+        width:min(88vw,340px);
+
+        height:auto;
+
+        max-height:
+            calc(
+                100dvh
+                - 78px
+                - env(safe-area-inset-bottom)
+            );
+
+        box-sizing:border-box;
+
+        margin:0;
+        padding:12px;
+
+        flex-direction:column;
+
+        overflow-y:auto;
+        overflow-x:hidden;
+        border:1px solid
+            color-mix(
+                in srgb,
+                var(--line) 74%,
+                transparent
+            );
+
+        border-radius:16px;
+        background:var(--surface);
+        background:
+            color-mix(
+                in srgb,
+                var(--surface) 88%,
+                transparent
+            );
+        -webkit-backdrop-filter:
+            blur(14px)
+            saturate(1.05);
+        backdrop-filter:
+            blur(14px)
+            saturate(1.05);
+        box-shadow:
+            0 18px 48px
+            rgba(20,45,58,.20);
+        opacity:0;
+        transform:
+            translate3d(-22px,-8px,0)
+            scale(.97,.92);
+        transform-origin:top left;
+        clip-path:
+            inset(0 0 100% 0 round 16px);
+        visibility:hidden;
+        pointer-events:none;
+        transition:
+            opacity .18s ease,
+            transform .28s cubic-bezier(.2,.8,.2,1),
+            clip-path .30s cubic-bezier(.2,.8,.2,1),
+            visibility 0s linear .30s;
+        overscroll-behavior:contain;
+        z-index:2202;
+    }
+
+
+    /*
+     * Open state:
+     * slide in from the left and expand downward.
+     */
+    .section-public
+    .academic-header-inner.menu-ready.menu-open
+    .academic-menu-panel{
+        opacity:1;
+        transform:
+            translate3d(0,0,0)
+            scale(1);
+        clip-path:
+            inset(0 0 0 0 round 16px);
+        visibility:visible;
+        pointer-events:auto;
+        transition:
+            opacity .18s ease,
+            transform .28s cubic-bezier(.2,.8,.2,1),
+            clip-path .30s cubic-bezier(.2,.8,.2,1),
+            visibility 0s;
+    }
+
+
+    /* Menu title row. */
+    .section-public
+    .menu-ready
+    .academic-menu-panel-head{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        min-height:36px;
+        padding:0 2px 9px;
+        margin-bottom:5px;
+        border-bottom:1px solid
+            color-mix(
+                in srgb,
+                var(--line) 78%,
+                transparent
+            );
+    }
+
+
+    .section-public
+    .academic-menu-panel-head strong{
+        color:var(--muted);
+        font-size:.78rem;
+        font-weight:650;
+        letter-spacing:.04em;
+    }
+
+
+    /* Close button. */
+    .section-public
+    .menu-open
+    .academic-menu-close{
+        display:inline-flex;
+        position:static;
+        width:32px;
+        height:32px;
+        align-items:center;
+        justify-content:center;
+        padding:0;
+        border:0;
+        border-radius:9px;
+        background:
+            color-mix(
+                in srgb,
+                var(--surface) 65%,
+                transparent
+            );
+        color:var(--ink);
+        font-size:22px;
+        line-height:1;
+    }
+
+
+    /*
+     * Navigation links are vertical inside the panel.
+     */
+    .section-public
+    .academic-menu-panel
+    .academic-nav{
+        display:flex;
+        position:static;
+        width:100%;
+        max-width:none;
+        margin:0;
+        padding:2px 0 10px;
+        flex-direction:column;
+        align-items:stretch;
+        justify-content:flex-start;
+        gap:3px;
+        overflow:visible;
+        border:0;
+    }
+
+
+    .section-public
+    .academic-menu-panel
+    .academic-nav a{
+        display:flex;
+        width:100%;
+        min-height:40px;
+        align-items:center;
+        flex-shrink:0;
+        padding:8px 10px;
+        border-radius:9px;
+        white-space:normal;
+        overflow-wrap:anywhere;
+        font-size:.88rem;
+    }
+
+
+    .section-public
+    .academic-menu-panel
+    .academic-nav a[aria-current="page"]{
+        background:var(--accent-soft);
+        color:var(--accent);
+        font-weight:650;
+    }
+
+
+    /*
+     * Font size + language controls.
+     */
+    .section-public
+    .academic-menu-tools{
+        display:flex;
+        width:100%;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        flex-wrap:wrap;
+        padding:10px 2px;
+        border-top:1px solid
+            color-mix(
+                in srgb,
+                var(--line) 78%,
+                transparent
+            );
+    }
+
+    body.section-public
+    .academic-menu-tools
+    .public-reading-controls{
+        margin:0;
+        padding:0;
+    }
+
+
+    /*
+     * Account area lives at the bottom of the menu.
+     */
+    .section-public
+    .academic-menu-panel
+    .academic-account{
+        display:flex;
+        width:100%;
+        margin:0;
+        padding:0;
+        flex-direction:column;
+        align-items:stretch;
+        gap:8px;
+        white-space:normal;
+    }
+
+
+    body.section-public
+    .academic-menu-panel
+    .academic-identity{
+        display:flex;
+        width:100%;
+        max-width:none;
+        min-height:44px;
+        padding:9px 10px;
+        align-items:center;
+        gap:8px;
+        flex-wrap:wrap;
+        border-radius:10px;
+        background:
+            color-mix(
+                in srgb,
+                var(--accent-soft) 60%,
+                transparent
+            );
+    }
+
+
+    body.section-public
+    .academic-menu-panel
+    .academic-identity-content{
+        display:flex;
+        width:100%;
+        max-width:none;
+        align-items:center;
+        gap:8px;
+        flex-wrap:wrap;
+    }
+
+
+    body.section-public
+    .academic-menu-panel
+    .academic-username{
+        max-width:100%;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-weight:650;
+    }
+
+    /*
+     * Light transparent backdrop.
+     */
+    .section-public
+    .menu-open
+    >.academic-menu-backdrop:not([hidden]){
+
+        display:block;
+        position:fixed;
+        inset:0;
+        width:100%;
+        height:100dvh;
+        padding:0;
+        border:0;
+        background:  rgba(18,38,50,.13);
+        -webkit-backdrop-filter:blur(1.5px);
+        backdrop-filter:blur(1.5px);
+        z-index:2201;
+        touch-action:none;
+    }
+
+    body.section-public.public-menu-open{
+        overflow:hidden;
+    }
+}
+
+
+/* Accessibility: remove menu animation when requested. */
+@media(prefers-reduced-motion:reduce){
+
+    .section-public
+    .academic-header-inner.menu-ready
+    .academic-menu-panel{
+
+        transition:none!important;
+    }
+
+    .section-public
+    .academic-header-inner.menu-ready.menu-open
+    .academic-menu-panel{
+
+        transform:none;
+    }
+}
+
+/* Multi-value news categories wrap within the card on narrow screens. */
+body.section-public [data-news-categories]{min-width:0;overflow-wrap:anywhere}
+body.section-public [data-news-category]{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+
+/* Use existing colors/type; labels and chips share one wrapping row. */
+body.section-public .content-field:has([data-news-categories]){display:flex;align-items:baseline;flex-wrap:nowrap;gap:4px 8px}
+body.section-public .content-field>[data-news-categories]{display:inline-flex;margin:0;flex:1 1 0}
+body.section-public .person-summary>.person-actions{flex-direction:column;align-self:end}
+
+/* Compact public cards inherit the same centrally controlled ink and type scale. */
+body.section-public .publication-citation,
+body.section-public .student-card .person-facts,
+body.section-public .student-card .person-biography,
+body.section-public .course-heading .content-facts,
+body.section-public .course-description .person-biography,
+body.section-public .patent-records,
+body.section-public .patent-summary{color:var(--public-ink)}
+body.section-public .student-card .person-facts{align-items:baseline;align-content:start;gap:3px 10px;margin-bottom:0}
+body.section-public .student-card .student-chip{display:inline-flex;gap:2px;padding:1px 6px;border-radius:5px;background:var(--public-accent-soft);font-size:var(--public-faculty-meta);line-height:var(--public-line-height-4)}
+body.section-public .student-card .student-highlights{display:contents;margin:0}
+body.section-public .student-card .person-card-links:empty,
+body.section-public .student-card .student-highlights:empty,
+body.section-public .patent-record:empty{display:none}
+body.section-public .course-heading .content-facts{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 14px}
+body.section-public .course-heading .content-facts p{margin:0;min-width:0;overflow-wrap:anywhere}
+body.section-public .patent-records{gap:3px 18px}
+body.section-public .patent-record{gap:3px 10px}
+body.section-public .patent-record [data-public-field="legal_status"]{padding:1px 6px;border-radius:5px;background:var(--public-accent-soft)}

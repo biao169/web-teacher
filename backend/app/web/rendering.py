@@ -12,6 +12,8 @@ class Renderer:
         self.budget=budget or CacheBudget()
         self.env = Environment(loader=loader, autoescape=select_autoescape(['html']),
                                undefined=StrictUndefined, cache_size=self.budget.limits()[1])
+        from backend.app.native.suggestions import split_values
+        self.env.filters['split_values']=split_values
         self.env.filters['admin_datetime']=admin_datetime
         self.env.filters.update(project_role=project_role,project_amount=project_amount)
         self.env.globals['project_period']=project_period

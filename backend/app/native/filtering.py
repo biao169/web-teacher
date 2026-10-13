@@ -105,6 +105,9 @@ def compile_conditions(table,conditions,*,public=False):
     clauses=[];args=[]
     for item in normalize_conditions(table,conditions,public=public):
         if item['operator']=='contains':clause,values=contains_predicate(table,item['field'],item['value'])
+        elif table=='news' and item['field']=='category':
+            from .public_data import public_filter
+            clause,values=public_filter(table,'category',item['value'])
         else:clause,values=f'"{table}"."{item["field"]}"=?',[item['value']]
         clauses.append(clause);args.extend(values)
     return '('+' AND '.join(clauses)+')' if clauses else '1',args

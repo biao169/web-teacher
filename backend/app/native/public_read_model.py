@@ -17,7 +17,7 @@ from .public_data import PEOPLE_FACETS, PUBLIC_FIELDS, DERIVED_YEARS, trim_snipp
 from backend.app.domain.public_projects import project_role, ROLE_LABELS
 from .public_revision import revision
 from .student_categories import ASCII_LOWER, parse_keywords, MATCH_FIELDS
-from .suggestions import MULTIVALUE
+from .suggestions import MULTIVALUE,split_values
 from .translation_sources import FIELDS, ENGLISH, PUBLIC_DONOR_FIELDS, reference
 from .translation_index import ranked_candidates, format_sql
 
@@ -156,7 +156,7 @@ async def _media(reads,table,rows):
 
 
 def _tokens(value):
-    return list(dict.fromkeys(part.strip(' \t\n\r') for part in str(value or '').replace('；',';').replace('\r',';').replace('\n',';').split(';') if part.strip(' \t\n\r')))
+    return split_values(value)
 
 async def build(r,table,lang,*,limits=None):
     """Generate a complete module/locale index; never accept visitor queries/principals."""

@@ -2,7 +2,7 @@
 import {generatePublicationCitations,parsePublicationCitation} from './publication-tools.mjs?v=0.15.40';
 import {createDraftReview} from './native-draft-review.js?v=0.15.40';
 import {setupMetadata,metadataLabels} from './native-metadata-query.js?v=0.15.40';
-import {paintAuthorMarkers} from './native-corresponding-authors.js?v=0.15.40';
+import {paintAuthorMarkers} from './native-corresponding-authors.js?v=0.16.125';
 import {assist} from './native-assistance.js';
 const form=document.querySelector('[data-editor-table="publications"]');
 if(form){

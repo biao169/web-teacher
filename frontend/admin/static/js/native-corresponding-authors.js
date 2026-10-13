@@ -1,9 +1,9 @@
 /** Display-only author markers; author/citation values are never rewritten. */
-import {splitPublicationAuthors} from './publication-tools.mjs?v=0.15.40';
+const splitDisplayAuthors=value=>[...new Set(String(value??'').normalize('NFC').split(/[;；\r\n]/u).map(name=>name.replace(/\s+/gu,' ').trim()).filter(Boolean))];
 export function authorMarkers(authors,corresponding){
  const key=value=>value.normalize('NFC').replace(/\s+/gu,' ').trim().toLocaleLowerCase();
- const marked=new Set(splitPublicationAuthors(corresponding).map(key));
- return splitPublicationAuthors(authors).map(name=>({name,corresponding:marked.has(key(name))}));
+ const marked=new Set(splitDisplayAuthors(corresponding).map(key));
+ return splitDisplayAuthors(authors).map(name=>({name,corresponding:marked.has(key(name))}));
 }
 export function paintAuthorMarkers(host,authors,corresponding){
  host.replaceChildren();

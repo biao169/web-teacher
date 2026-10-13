@@ -1,0 +1,27 @@
+{
+  "changed": [
+    "backend/app/native/content.py",
+    "backend/app/native/field_help.py",
+    "backend/app/native/filtering.py",
+    "backend/app/native/public_read_model.py",
+    "backend/app/native/suggestions.py",
+    "backend/app/native/web_admin.py",
+    "backend/app/web/rendering.py",
+    "deploy/cloudflare/pyproject.toml",
+    "deploy/cloudflare/uv.lock",
+    "frontend/admin/templates/native-list-panel.html",
+    "frontend/public/static/css/academic.css",
+    "frontend/public/static/js/public-list.js",
+    "frontend/public/templates/content-fields.html",
+    "frontend/public/templates/layout.html",
+    "frontend/public/templates/publication-tags.html",
+    "pyproject.toml",
+    "tests/public-list-local-v105.test.cjs",
+    "tests/test_public_card_icons_v109.py",
+    "tests/test_public_list_model_v105.py"
+  ],
+  "cache_policy_and_invalidation_unchanged": true,
+  "sync_unchanged": true,
+  "no_database_migration": true,
+  "production_deployed": false
+}

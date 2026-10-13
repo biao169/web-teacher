@@ -1,5 +1,5 @@
 """Disposable HTTP fixture for real Public browser checks; never user data."""
-import sys,tempfile,asyncio
+import sys,tempfile,asyncio,os
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]));sys.path.insert(0,str(Path(__file__).resolve().parent))
 from list_fixture import client_at
@@ -18,4 +18,17 @@ with tempfile.TemporaryDirectory(prefix='teacher-browser-') as folder:
  asyncio.run(r.content.save('navigation_items',r.p,{'title':'Featured papers','title_en':'Featured papers','url_name':'featured','kind':'route','location':'header','visibility':'public','enabled':1,'path':build_public_path('publications',[{'field':'is_featured','operator':'eq','value':'1'}])}))
  for i in range(3):source(r,'profiles','name','Public Teacher '+str(i),title='Professor',bio='Research and teaching.',avatar_key='browser-logo.png')
  for i in range(24):add(r,'publications','Paper '+str(i),is_featured=int(i%2==0),year=2020+i%3,sort_order=i)
+ if os.environ.get('TEST_PUBLIC_REGRESSION')=='1':
+  styles={'citation_gbt':'Smith, John; 王，明. GB/T 引文，intact.','citation_elsevier':'Smith, John; 王，明. Elsevier citation, intact.','citation_apa':'Smith, John; 王，明. APA citation, intact.','citation_ieee':'Smith, John; 王，明. IEEE citation, intact.','bibtex':'@article{test, title={Citation, intact}}'}
+  asyncio.run(r.sql.batch([('UPDATE publications SET '+','.join(field+'=?' for field in styles)+',authors=?,corresponding_authors=?,highlight_gbt=?,doi=?,url=?',(*styles.values(),'Smith, John;王，明','Smith, John\r\n王，明','Smith, John','10.1000/test','https://publisher.test/paper')),('UPDATE publications SET index_type=?,display_tags=? WHERE sort_order=0',('SCI；EI\r\nSCI','Tag, intact;中文，完整;'+('LongTag-'+'X'*220)))]))
+  for title,category in [('Token news','学术动态；研讨, Forum\r\n诊断研究;学术动态'),('Nonmatching news','诊断研究所')]:
+   asyncio.run(r.content.save('news',r.p,{'title':title,'slug':title.lower().replace(' ','-'),'category':category,'published_at':'2025-01-01T00:00:00.000Z','visibility':'public','is_featured':1}))
+ if os.environ.get('TEST_UI_REGRESSION')=='1':
+  for i in range(24):source(r,'profiles','name','Auto Teacher '+str(i),title='Professor',bio=('A long biography. '*40),google_scholar='https://scholar.google.com/citations?user=test',avatar_key='browser-logo.png')
+  for i in range(12):
+   source(r,'students','name','Compact Student '+str(i),degree='博士',category='研究生',grade='2025',status='在读',enrollment_date='2025-09-01',direction='AI',bio='A long student biography. '*25,avatar_key='browser-logo.png')
+   add(r,'patents','Compact Patent '+str(i),patent_type='发明专利',legal_status='已授权',inventors='Smith, John;王明',owner='Research Group',country='CN',application_number='APP-2025',application_date='2025-01-01',grant_number='GRANT-2025',grant_date='2025-10-01',summary='A compact public patent summary.')
+   add(r,'courses','Compact Course '+str(i),semester='2025 Autumn',audience='Graduate students',summary='A long course summary. '*25)
+  for i in range(24):add(r,'news','Auto news '+str(i),category='学术动态;诊断研究',is_featured=1)
+  asyncio.run(r.content.save('navigation_items',r.p,{'title':'News fixed','url_name':'news-fixed','kind':'route','location':'header','visibility':'public','enabled':1,'path':build_public_path('news',[{'field':'category','operator':'eq','value':'诊断研究'}])}))
  uvicorn.run(c.app,host='127.0.0.1',port=8765,log_level='warning');c.close()

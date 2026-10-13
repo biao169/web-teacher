@@ -15,12 +15,16 @@ MULTIVALUE={
     'publications':{'authors','publication_type','author_role','corresponding_authors','index_type','display_tags','keywords'},
     'projects':{'project_role','members'},'patents':{'inventors','owner'},
     'students':{'category','direction'},'student_category_displays':{'keywords'},
-    'courses':{'audience'},'media_assets':{'category'},
+    'courses':{'audience'},'media_assets':{'category'},'news':{'category'},
 }
 MAX_ROWS=300
 MAX_ITEMS=50
 MAX_SOURCE=4096
 MAX_TERM=240
+
+def split_values(value):
+    """Stable display tokens: semicolons/line breaks, never commas."""
+    return list(dict.fromkeys(part.strip() for part in re.split(r'[;；\r\n]',str(value or '')) if part.strip()))
 
 def normalized(value):
     """统一宽窄字符、大小写和空白，用于候选去重、已选项排除和片段比较。"""
@@ -51,7 +55,7 @@ async def suggestions(content,principal,data,base=None):
     rows=await content.sql.query(f'SELECT CAST("{field}" AS TEXT) AS value FROM "{table}" WHERE '+ ' AND '.join(clauses)+f' ORDER BY updated_at DESC,id DESC LIMIT {MAX_ROWS}',args)
     values=[];seen=set(blocked);multiple=field in MULTIVALUE.get(table,set())
     for row in rows:
-        parts=re.split(r'[;；\r\n]',row['value']) if multiple else [row['value']]
+        parts=split_values(row['value']) if multiple else [row['value']]
         for part in parts:
             value=' '.join(part.split());key=normalized(value)
             if not key or len(value)>MAX_TERM or needle not in key or key in seen:continue

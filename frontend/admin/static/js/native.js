@@ -2,7 +2,7 @@
 const modules=[
  ['native-dashboard.js?v=0.16.076','概览统计','[data-dashboard-counts]'],
  ['native-access.js?v=0.15.28','权限提示','body'],
- ['native-publications.js?v=0.15.40','论文辅助','[data-editor-table="publications"]'],
+ ['native-publications.js?v=0.16.125','论文辅助','[data-editor-table="publications"]'],
  ['native-metadata-query.js?v=0.15.40','论文检索','[data-metadata-standalone]'],
  ['native-history.js?v=0.15.25','历史输入建议','[data-history-field],#history-explorer'],
  ['native-editor.js','表单保存','#native-editor'],

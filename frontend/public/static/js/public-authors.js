@@ -1,5 +1,5 @@
 /* Reuse the existing pure author matching helper; never alter stored author/citation text. */
-import {authorMarkers} from '/assets/admin/js/native-corresponding-authors.js?v=0.15.40';
+import {authorMarkers} from '/assets/admin/js/native-corresponding-authors.js?v=0.16.125';
 export function paintAuthors(root=document){
   for(const host of root.querySelectorAll('[data-citation-highlight]')){
     if(host.dataset.highlightPainted)continue;

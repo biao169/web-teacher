@@ -1,3 +1,30 @@
-{% from 'public/card-icons.html' import icon %}{% if table=='publications' %}{% if row.get('doi') %}<a href="https://doi.org/{{ row.doi|urlencode }}" target="_blank" rel="noopener noreferrer">https://doi.org/{{ row.doi }}</a>{% endif %}{% if row.get('url') and row.url.lower().startswith(('https://','http://')) %}<a href="{{ row.url }}" target="_blank" rel="noopener noreferrer">{{ 'Publisher' if lang=='en' else '论文原文' }} ↗</a>{% endif %}{% if row.get('pdf_visibility')=='public' and row.get('pdf_key') and media_map.get(row.pdf_key) %}<a href="/media/{{ media_map[row.pdf_key] }}" target="_blank" rel="noopener noreferrer">PDF ↗</a>{% endif %}{% endif %}
+{% from 'public/card-icons.html' import icon %}
+    {% if table=='publications' %}
+        {% if publication_template|default(false) or row.get('doi') %}
+            <a data-publication-link="doi" href="https://doi.org/{{ (row.get('doi') or '')|urlencode }}" target="_blank" rel="noopener noreferrer" title="DOI" aria-label="DOI">
+                <!-- https://doi.org/{{ row.get('doi') or '' }} -->
+                <span class="publication-online-icon-fallback">doi</span>
+                <img
+                    class="publication-online-icon-image"
+                    src="https://cdn.jsdelivr.net/npm/simple-icons@16.35.0/icons/doi.svg"
+                    alt=""
+                    aria-hidden="true"
+                    hidden
+                    onload="this.hidden=false;this.previousElementSibling.hidden=true"
+                    onerror="this.hidden=true;this.previousElementSibling.hidden=false"
+                >
+            </a>
+        {% endif %}
+        {% if publication_template|default(false) or (row.get('url') and row.url.lower().startswith(('https://','http://'))) %}
+            <a data-publication-link="publisher" href="{{ row.get('url') or '' }}" target="_blank" rel="noopener noreferrer" title="{{ 'Publisher' if lang=='en' else '论文原文' }}">
+                {{ 'Publisher' if lang=='en' else '论文原文' }} <!--  ↗ -->
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: middle; margin-left: 2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>
+        {% endif %}
+        {% if publication_template|default(false) or (row.get('pdf_visibility')=='public' and row.get('pdf_key') and media_map.get(row.pdf_key)) %}
+            <a data-publication-link="pdf" href="/media/{{ media_map.get(row.get('pdf_key')) or '' }}" target="_blank" rel="noopener noreferrer">PDF ↗</a>
+        {% endif %}
+    {% endif %}
 
-{% set attachments=[('certificate_key','证书','Certificate',true)] if table=='patents' else ([('syllabus_key','教学大纲','Syllabus',true),('material_key','课程资料','Materials',row.get('material_visibility')=='public')] if table=='courses' else []) %}{% for field,zh,en,allowed in attachments %}{% if allowed and row.get(field) and media_map.get(row[field]) %}<a href="/media/{{ media_map[row[field]] }}" target="_blank" rel="noopener noreferrer"{% if table=='patents' %} class="person-icon" title="{{ en if lang=='en' else zh }}" aria-label="{{ en if lang=='en' else zh }}"{% endif %}>{% if table=='patents' %}{{ icon('box-arrow-up-right') }}{% else %}{{ icon('box-arrow-up-right') }}<span>{{ en if lang=='en' else zh }}{% if row.get('_attachment_types',{}).get(field)=='application/pdf' %} · PDF{% endif %}</span>{% endif %}</a>{% endif %}{% endfor %}
+
+{% set attachments=[('certificate_key','证书','Certificate',true)] if table=='patents' else ([('syllabus_key','教学大纲','Syllabus',true),('material_key','课程资料','Materials',row.get('material_visibility')=='public')] if table=='courses' else []) %}{% for field,zh,en,allowed in attachments %}{% if card_template|default(false) or (allowed and row.get(field) and media_map.get(row[field])) %}<a data-public-attachment="{{ field }}" href="/media/{{ media_map.get(row.get(field)) or '' }}" target="_blank" rel="noopener noreferrer"{% if table=='patents' %} class="person-icon" title="{{ en if lang=='en' else zh }}" aria-label="{{ en if lang=='en' else zh }}"{% endif %}>{% if table=='patents' %}{{ icon('box-arrow-up-right') }}{% else %}{{ icon('box-arrow-up-right') }}<span>{{ en if lang=='en' else zh }}{% if row.get('_attachment_types',{}).get(field)=='application/pdf' %} · PDF{% endif %}</span>{% endif %}</a>{% endif %}{% endfor %}

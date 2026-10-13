@@ -1,4 +1,31 @@
-<div class="patent-heading"><{{ heading }} data-copy-field>{{ item_title }}</{{ heading }}>{% for field in ['patent_type','legal_status'] %}{% if row.get(field) %}<span class="content-status" data-copy-field>{{ row[field] }}</span>{% endif %}{% endfor %}</div>
-<div class="content-facts patent-people">{{ fields(row,[('inventors','发明人 / 作者','Inventors / Authors'),('owner','权利人','Owner'),('country','国家 / 地区','Country / Region')],lang) }}</div>
-<div class="patent-records">{% for group,items in [('application',[('application_number','申请号','Application no.'),('application_date','申请日期','Filed')]),('grant',[('grant_number','授权号','Grant no.'),('grant_date','授权日期','Granted')])] %}{% if row.get(items[0][0]) or row.get(items[1][0]) %}<div class="patent-record" data-patent-group="{{ group }}">{{ fields(row,items,lang) }}</div>{% endif %}{% endfor %}</div>
-{% if row.get('summary') %}<p class="patent-summary" data-copy-field>{{ row.summary }}</p>{% endif %}
+
+<div class="patent-heading">
+  <{{ heading }} data-copy-field>{{ item_title }}</{{ heading }}>
+
+  {% if card_template|default(false) or row.get('patent_type') %}
+  <span
+    class="content-status patent-type"
+    data-copy-field
+    data-public-field="patent_type"
+  >
+    <span data-public-value>{{ row.get('patent_type','') }}</span>
+  </span>
+  {% endif %}
+
+  {% if card_template|default(false) or row.get('legal_status') %}
+  <span
+    class="content-status patent-legal-status"
+    data-copy-field
+    data-public-field="legal_status"
+  >
+    <span class="person-label">
+      {{ 'Legal status' if lang=='en' else '授权状态' }}：
+    </span>
+    <span data-public-value>{{ row.get('legal_status','') }}</span>
+  </span>
+  {% endif %}
+</div>
+
+<div class="content-facts patent-people">{{ fields(row,[('inventors','发明人 / 作者','Inventors / Authors'),('owner','权利人','Owner'),('country','国家 / 地区','Country / Region')],lang,card_template|default(false)) }}</div>
+<div class="patent-records">{% for group,items in [('application',[('application_number','申请号','Application no.'),('application_date','申请日期','Filed')]),('grant',[('grant_number','授权号','Grant no.'),('grant_date','授权日期','Granted')])] %}<div class="patent-record" data-patent-group="{{ group }}">{{ fields(row,items,lang,card_template|default(false)) }}</div>{% endfor %}</div>
+{% if card_template|default(false) or row.get('summary') %}<p class="patent-summary" data-copy-field data-public-field="summary" data-public-value>{{ row.get('summary','') }}</p>{% endif %}

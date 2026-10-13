@@ -12,7 +12,7 @@ def test_public_header_controls_and_early_preference_script(fixture):
         assert html.count('data-reading-choice="large"')==1,path
         assert html.count('/assets/shared/js/reading.js?v=0.15.101')==1,path
         assert '<script src="/assets/shared/js/reading.js?v=0.15.101"></script>' in html
-        assert 'public-theme.css?v=0.15.102' in html
+        assert 'public-theme.css?v=0.16.125' in html
     admin=c.get('/admin').text
     assert 'data-public-reading' not in admin
     assert 'data-reading-choice' not in admin

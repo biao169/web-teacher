@@ -1,6 +1,7 @@
 /* Bounded server-rendered chunks, shared by home modules and public lists. */
 (() => {
   'use strict';
+  const afterFrame=callback=>window.requestAnimationFrame?window.requestAnimationFrame(callback):setTimeout(callback,0);
   const states=[];
   const queue=[];
   const configured=Number(document.querySelector('[data-public-stream-concurrency]')?.dataset.publicStreamConcurrency);
@@ -18,7 +19,8 @@
     return u.pathname+u.search;
   }
   function watch(s){
-    if((s.root.dataset.localReady==='1'||s.root.dataset.localPending==='1'))return;
+    if(s.root.dataset.localPending==='1')return;
+    if(s.root.dataset.localReady==='1'){if(s.observer&&!paused&&!s.blocked&&window.teacherPublicList?.hasMore())s.observer.observe(s.controls);return;}
     if(s.observer && !s.busy && !s.blocked && s.next && !paused) s.observer.observe(s.controls);
   }
   function updateLinks(s){
@@ -33,7 +35,8 @@
     button.hidden=false;
   }
   function schedule(s,manual=false){
-    if((s.root.dataset.localReady==='1'||s.root.dataset.localPending==='1')||paused || !s.next || s.busy || s.queued || (s.blocked&&!manual)) return;
+    if(s.root.dataset.localReady==='1'){if(paused)return;s.observer?.unobserve(s.controls);if(!window.teacherPublicList?.append())s.blocked=true;afterFrame(()=>watch(s));return;}
+    if(s.root.dataset.localPending==='1'||paused || !s.next || s.busy || s.queued || (s.blocked&&!manual)) return;
     s.queued=true;queue.push({s,manual});pump();
   }
   function pump(){
@@ -89,7 +92,7 @@
     s.ids=new Set([...s.items.querySelectorAll('[data-record-id]')].map(el=>el.dataset.recordId));
     try{s.next=safeNext(s,s.next);}catch{continue;}
     s.more.addEventListener('click',event=>{if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();schedule(s,true);});
-    if('IntersectionObserver' in window && !navigator.connection?.saveData){s.observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))schedule(s);},{rootMargin:'0px 0px 240px 0px'});}
+    if('IntersectionObserver' in window){s.observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))schedule(s);},{rootMargin:'0px 0px 240px 0px'});}
     states.push(s);updateLinks(s);watch(s);
   }
   // Initial homepage slices share the existing queue, including browsers without IO.
@@ -99,13 +102,16 @@
   function pause(){paused=true;queue.length=0;for(const s of states){s.queued=false;s.observer?.disconnect();s.controller?.abort();}}
   document.addEventListener('public:querychange',pause);
   document.addEventListener('public:local-fallback',event=>{for(const s of states)if(s.root===event.target)watch(s);});
-  document.addEventListener('public:local-ready',event=>{for(const s of states)if(s.root===event.target){s.observer?.disconnect();s.controller?.abort();s.next='';}});
+  document.addEventListener('public:local-ready',event=>{for(const s of states)if(s.root===event.target){s.observer?.disconnect();s.controller?.abort();s.next='';paused=false;watch(s);}});
+  document.addEventListener('public:appended',event=>{for(const s of states)if(s.root===event.target&&s.root.dataset.localReady==='1'&&!document.hidden){paused=false;s.blocked=false;watch(s);}});
   document.addEventListener('teacher:navigation-start',pause);
   document.addEventListener('teacher:navigation-cancel',resume);
   function resume(){
     document.body.style.visibility='';
     paused=false;for(const s of states)watch(s);initial();pump();
   }
+  function nearBottom(){if(paused)return;for(const s of states){const box=s.controls.getBoundingClientRect();if(!s.root.hidden&&box.height>0&&box.top<=innerHeight+240&&box.bottom>=0)schedule(s);}}
+  if(!('IntersectionObserver' in window)){window.addEventListener('scroll',nearBottom,{passive:true});window.addEventListener('resize',nearBottom);document.addEventListener('public:appended',()=>afterFrame(nearBottom));}
   window.addEventListener('pagehide',pause);
   window.addEventListener('pageshow',resume);
 })();

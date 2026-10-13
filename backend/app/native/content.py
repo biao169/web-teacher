@@ -57,7 +57,10 @@ class Content:
                     clause,values=public_filter(table,key,value);where+=' AND '+clause;args+=values
                 else:
                     if key not in columns or key in SECRET:raise Error('未知筛选列')
-                    where+=' AND "'+key+'"=?';args.append(value)
+                    if table=='news' and key=='category':
+                        from .public_data import public_filter
+                        clause,values=public_filter(table,key,value);where+=' AND '+clause;args+=values
+                    else:where+=' AND "'+key+'"=?';args.append(value)
         for key,value in query.items():
             if not key.startswith('c.') or not value:continue
             field=key[2:]

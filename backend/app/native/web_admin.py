@@ -107,6 +107,7 @@ def install(app,factory,resources,csrf,render,*,lazy_sync=False):
         from .accounts import ACCOUNT_TABLES,SCOPES,STATES,can_manage,list_context
         account_model=await list_context(r,table,result['rows']);permissions=dict(r.p['permissions'][table])
         message_states={};message_views={}
+        if table=='news':column_specs['category']={**column_specs['category'],'filter_prefix':'f.','filter_note':'按单个分类匹配；分号或换行分隔多项，逗号保留。'}
         if table=='messages':
             from .messages import STATES,views
             message_states=STATES;message_views=await views(r.content,result['rows'])

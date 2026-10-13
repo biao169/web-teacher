@@ -26,7 +26,7 @@ test('cross-origin or backwards continuation is rejected before append',async t=
 test('HTML error pages do not replace cards',async t=>{const f=fixture(t);f.$('[data-load-more]').click();f.resolve(0,{type:'text/html'});await f.tick();assert.equal(f.w.document.querySelectorAll('[data-record-id]').length,1);assert.match(f.$('[data-stream-status]').textContent,/未完成/);});
 test('pagehide aborts active request and clears queued requests',async t=>{const f=fixture(t,{multi:true});f.observers[0].fire();f.observers[1].fire();f.w.dispatchEvent(new f.w.Event('pagehide'));await f.tick();assert.ok(f.requests[0].opts.signal.aborted);assert.equal(f.requests.length,1);assert.equal(f.$('[data-public-stream]').hasAttribute('aria-busy'),false);f.w.dispatchEvent(new f.w.Event('pageshow'));f.observers[0].fire();assert.equal(f.requests.length,2);});
 test('no IntersectionObserver keeps manual load and ordinary link functional',async t=>{const f=fixture(t,{observer:false});assert.equal(f.requests.length,0);assert.ok(f.$('[data-page-fallback]').href.includes('page=2'));f.$('[data-load-more]').click();assert.equal(f.requests.length,1);f.resolve(0);await f.tick();});
-test('data-saving preference disables auto preload, keeps explicit click',async t=>{const f=fixture(t,{saveData:true});assert.equal(f.observers.length,0);f.$('[data-load-more]').click();f.resolve(0);await f.tick();assert.equal(f.requests.length,1);});
+test('data-saving preference retains bounded scroll loading and explicit click',async t=>{const f=fixture(t,{saveData:true});assert.equal(f.observers.length,1);f.observers[0].fire();assert.equal(f.requests.length,1);f.$('[data-load-more]').click();f.resolve(0);await f.tick();assert.equal(f.requests.length,1);});
 test('public append event supports later selection/copy components without replacing existing nodes',async t=>{const f=fixture(t);const first=f.$('[data-record-id=first]');let event;f.$('[data-public-stream]').addEventListener('public:appended',e=>event=e.detail);f.$('[data-load-more]').click();f.resolve(0);await f.tick();assert.equal(f.$('[data-record-id=first]'),first);assert.equal(event.count,1);assert.equal(event.page,2);});
 
 test('five nested homepage modules share one request queue and retain independent rows',async t=>{
@@ -104,3 +104,7 @@ test('BFCache restore resumes without revision requests',async t=>{
  f.observers[0].fire();assert.equal(f.requests.length,1);assert.ok(!f.requests[0].url.includes('cache-revision'));
 });
 test('navigation aborts queued reads and timeout recovery restarts loader',async t=>{const f=fixture(t,{multi:true});f.observers[0].fire();f.observers[1].fire();f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-start'));await f.tick();assert.equal(f.requests.length,1);assert.ok(f.requests[0].opts.signal.aborted);f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-cancel'));f.observers[0].fire();assert.equal(f.requests.length,2);});
+
+test('scroll fallback automatically loads the visible next slice without IntersectionObserver',async t=>{
+ const f=fixture(t,{observer:false});f.$('[data-stream-controls]').getBoundingClientRect=()=>({top:100,bottom:120,height:20});f.w.dispatchEvent(new f.w.Event('scroll'));assert.equal(f.requests.length,1);f.resolve(0);await f.tick();assert.equal(f.requests.length,1);
+});

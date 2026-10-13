@@ -37,3 +37,28 @@ def test_copy_dropdown_and_footer_do_not_change_site_citation(fixture):
     card=html.split('data-record-id="'+uid+'"')[1].split('</article>')[0]
     assert card.index('publication-links')<card.index('content-tags') and 'https://doi.org/10.1/example</a>' in card
     assert 'data-copy-format' not in c.get('/en').text
+
+
+@pytest.mark.parametrize('lang',['zh','en'])
+def test_shared_publication_content_across_standard_fixed_home_and_clone_definition(fixture,lang):
+    from justhtml import JustHTML
+    from backend.app.native.navigation import build_public_path
+    c,r=fixture;uid=add(r,'publications','Unified paper',is_featured=1,doi='10.1000/a(b)',index_type='SCI; EI',display_tags='Tag A; Tag B',corresponding_authors='Smith, John',url='https://publisher.test/paper')
+    run(r.sql.batch([('UPDATE publications SET citation_gbt=? WHERE uid=?',('Saved citation <literal>',uid))]))
+    configure(r,homepage_publication_limit=1)
+    run(r.content.save('navigation_items',r.p,{'title':'Fixed papers','url_name':'fixed-paper','kind':'route','location':'header','visibility':'public','enabled':1,'path':build_public_path('publications',[{'field':'is_featured','operator':'eq','value':1}])}))
+    docs=[JustHTML(c.get(path).text,sanitize=False) for path in ['/'+lang+'/publications','/'+lang+'/n/fixed-paper']]
+    home=c.get('/'+lang+'/publications?home=1&page=1',headers={'X-Public-Fragment':'1'});assert home.status_code==200
+    docs.append(JustHTML(home.json()['html'],sanitize=False))
+    cards=[doc.query('article[data-record-id="'+uid+'"]')[0] for doc in docs]
+    for card in cards:
+        assert card.query('.publication-footer .publication-links [data-copy-citation] svg')
+        assert card.query('.publication-footer .content-tags [data-public-authors]')
+        assert card.query('[data-citation-status]')[0].attrs['aria-live']=='polite'
+        assert card.query('[data-publication-link="doi"]')[0].attrs['href']=='https://doi.org/10.1000/a%28b%29'
+    # Same content-body include drives all three wrappers; dynamic clone includes it too.
+    assert [card.query('[data-citation-text]')[0].to_html() for card in cards].count(cards[0].query('[data-citation-text]')[0].to_html())==3
+    template=docs[0].query('template[data-publication-card]')[0]
+    assert template.query('.publication-footer .publication-links [data-copy-citation] svg')
+    assert template.query('[data-citation-status]') and template.query('template[data-publication-fallback]')
+    assert not docs[1].query('template[data-publication-card]')
