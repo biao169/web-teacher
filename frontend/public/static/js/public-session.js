@@ -91,13 +91,13 @@ async function pump(){
  }catch(error){if(seq===generation){allowed=false;privateHint=false;clearPrivate();}}
  finally{if(seq===generation){busy=false;if(allowed)timer=setTimeout(pump,200);}}
 }
-function start(force=false){
+function start(force=false,pageCheck=false){
  if(checking)return checking;
  if(document.visibilityState==='hidden')return Promise.resolve();
  stop();active=true;controller=new AbortController();
  const saved=cache?.load();
  if(saved){identity(saved,true);heartbeatWanted=saved.authenticated===true;}else defaultLogin();
- if(!force&&saved&&cache.freshUntil(saved)>Date.now()){
+ if(!force&&!pageCheck&&saved&&cache.freshUntil(saved)>Date.now()){
   // A cached hint can initiate a request, but the private endpoint authorizes it.
   allowed=saved.authenticated===true&&(privateHint??saved.can_enter_admin===true);watch();schedule();return Promise.resolve();
  }
@@ -127,5 +127,14 @@ document.addEventListener('public:appended',()=>{if(!active)start();else watch()
 function changed(){privateHint=null;retryUntil=0;nextCheck=0;heartbeatWanted=false;stop();start(true);}
 document.addEventListener('teacher:identity-change',changed);
 document.addEventListener('teacher:identity-invalidated',changed);
-start();
+document.addEventListener('teacher:identity-restored',event=>{
+ const data=cache?.load()||event.detail;
+ if(data?.authenticated!==true||typeof data.username!=='string'||typeof data.display_name!=='string'||typeof data.can_enter_admin!=='boolean')return;
+ // Abort and advance generation before rendering; old anonymous replies cannot win.
+ stop();identity(data,true);privateHint=null;retryUntil=0;nextCheck=Date.now()+HEARTBEAT;
+ lastActivity=Date.now();active=true;allowed=false;heartbeatWanted=true;controller=new AbortController();schedule();
+});
+// One login redirect may consume a short-lived, path-bound handoff. Every other
+// newly loaded public page confirms cookies in the background, even with a snapshot.
+start(false,!cache?.consumeLogin());
 })();

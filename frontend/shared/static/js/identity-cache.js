@@ -1,6 +1,7 @@
 /* Five display fields only; never a permission, session or CSRF cache. */
 (()=>{'use strict';
 const key='teacher:identity-display:v2',stampKey=key+':stamp',change='teacher:identity-change',retryKey='teacher:identity-retry:v1';
+const handoffKey=key+':login-handoff';
 const TTL=300000;let memory=null,memoryStamp='';
 const stamp=()=>{try{return localStorage.getItem(change)||'';}catch{return memoryStamp;}};
 function valid(v){return v&&Object.keys(v).length===5&&typeof v.authenticated==='boolean'&&typeof v.username==='string'&&v.username.length<=150&&typeof v.display_name==='string'&&v.display_name.length<=200&&typeof v.can_enter_admin==='boolean'&&typeof v.checked_at==='string'&&Number.isFinite(Date.parse(v.checked_at))&&Date.parse(v.checked_at)<=Date.now();}
@@ -14,12 +15,22 @@ function save(data){
  memory={authenticated:data.authenticated,username:data.authenticated?data.username.slice(0,150):'',display_name:data.authenticated?(data.display_name||data.username).slice(0,200):'',can_enter_admin:data.authenticated&&data.can_enter_admin===true,checked_at:new Date(Date.now()).toISOString()};
  memoryStamp=stamp();try{sessionStorage.setItem(key,JSON.stringify(memory));sessionStorage.setItem(stampKey,memoryStamp);}catch{}
 }
-function clear(){memory=null;try{sessionStorage.removeItem(key);sessionStorage.removeItem(stampKey);sessionStorage.removeItem('teacher:identity-display:v1');}catch{}}
+function clear(){try{sessionStorage.removeItem(handoffKey);}catch{}memory=null;try{sessionStorage.removeItem(key);sessionStorage.removeItem(stampKey);sessionStorage.removeItem('teacher:identity-display:v1');}catch{}}
 function retry(){try{const v=JSON.parse(sessionStorage.getItem(retryKey)||'null');return v&&Number.isFinite(v.until)&&v.until<=Date.now()+TTL&&Number.isInteger(v.count)&&v.count>=1&&v.count<=3?v:null;}catch{return null;}}
 function success(){try{sessionStorage.removeItem(retryKey);}catch{}}
 function failure(){const count=Math.min(3,(retry()?.count||0)+1),until=Date.now()+Math.min(300,60*2**(count-1))*1000;try{sessionStorage.setItem(retryKey,JSON.stringify({count,until}));}catch{}return until;}
 function invalidate(){clear();success();try{localStorage.setItem(change,Date.now()+':'+Math.random());}catch{}}
-window.TeacherIdentityCache={load,save,clear,invalidate,retryAt:()=>retry()?.until||0,success,failure,freshUntil:v=>Date.parse(v.checked_at)+TTL};
+function acceptLogin(data,target=null){
+ if(data?.authenticated!==true||typeof data.username!=='string'||!data.username||data.username.length>150||typeof data.display_name!=='string'||data.display_name.length>200||typeof data.can_enter_admin!=='boolean')return false;
+ // Advance the cross-tab stamp before saving, so this tab retains its new identity.
+ invalidate();save(data);success();
+ if(target){try{const url=new URL(target,location.href);if(url.origin===location.origin)sessionStorage.setItem(handoffKey,JSON.stringify({path:url.pathname+url.search,stamp:memoryStamp,checked_at:memory.checked_at,expires:Date.now()+30000}));}catch{}}
+ document.dispatchEvent(new CustomEvent('teacher:identity-restored',{detail:{...memory}}));return true;
+}
+function consumeLogin(){
+ try{const item=JSON.parse(sessionStorage.getItem(handoffKey)||'null');sessionStorage.removeItem(handoffKey);const data=load();return !!(item&&data?.authenticated===true&&item.path===location.pathname+location.search&&item.stamp===stamp()&&item.checked_at===data.checked_at&&Number.isFinite(item.expires)&&item.expires>Date.now()&&item.expires<=Date.now()+30000);}catch{return false;}
+}
+window.TeacherIdentityCache={load,save,clear,invalidate,acceptLogin,consumeLogin,retryAt:()=>retry()?.until||0,success,failure,freshUntil:v=>Date.parse(v.checked_at)+TTL};
 // Old expiry/permission-shaped snapshots are never migrated into the new display format.
 try{sessionStorage.removeItem('teacher:identity-display:v1');}catch{}
 document.addEventListener('teacher:identity-change',invalidate);

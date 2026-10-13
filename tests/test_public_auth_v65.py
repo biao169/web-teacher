@@ -72,3 +72,26 @@ def test_setting_changed_after_open_is_rechecked_and_origin_is_required(fixture)
     _,ch=form(c)
     result=c.post('/auth/login',data=dict(challenge=ch[1],username='list-test-admin',password='Synthetic-test-only-032'),headers={'Origin':'https://elsewhere.example','Accept':'application/json'})
     assert result.status_code==403
+
+
+def test_login_handoff_contains_only_display_fields_and_no_extra_principal_read(fixture):
+    c,r=fixture;c.cookies.clear();_,ch=form(c)
+    queries=[];original=r.sql.query
+    async def query(sql,args=()):
+        queries.append(sql)
+        return await original(sql,args)
+    r.sql.query=query
+    result=send(c,r,'login',dict(challenge=ch[1],username='list-test-admin',password='Synthetic-test-only-032',next='/en/profiles'),True)
+    assert result.status_code==200
+    identity=result.json()['identity']
+    assert set(identity)=={'authenticated','username','display_name','can_enter_admin','checked_at'}
+    assert identity['authenticated'] is True and identity['can_enter_admin'] is True
+    assert identity['username']=='list-test-admin'
+    assert result.headers['cache-control']=='no-store' and result.headers['cloudflare-cdn-cache-control']=='no-store'
+    assert not any('FROM auth_sessions s JOIN' in sql for sql in queries)
+
+
+def test_failed_login_never_produces_display_identity(fixture):
+    c,r=fixture;c.cookies.clear();_,ch=form(c)
+    result=send(c,r,'login',dict(challenge=ch[1],username='list-test-admin',password='wrong-password',next='/en/profiles'),True)
+    assert result.status_code==401 and 'identity' not in result.json()

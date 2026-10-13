@@ -2,14 +2,14 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
 const script=fs.readFileSync(require('node:path').join(__dirname,'../frontend/public/static/js/public-session.js'),'utf8');
 const tick=()=>new Promise(r=>setTimeout(r,0));
-function setup(t,count=1,seed=null,clock=false){
+function setup(t,count=1,seed=null,clock=false,handoff=false){
  const dom=new JSDOM('<span data-public-session data-lang="en"><a data-auth-open href="/auth/login">Sign in</a></span>'+Array.from({length:count},(_,i)=>`<div data-project-private="p${i}"><div class="project-main">Public</div></div>`).join(''),{url:'https://site.test/en/projects',runScripts:'outside-only',pretendToBeVisual:true});t.after(()=>dom.window.close());
  const w=dom.window,requests=[];
  if(clock){let at=Date.now(),serial=0;const timers=new Map();w.Date.now=()=>at;
  w.setTimeout=(fn,delay=0)=>{const id=++serial;timers.set(id,{fn,due:at+delay});return id;};w.clearTimeout=id=>timers.delete(id);
  w.advance=async ms=>{const end=at+ms;for(let n=0;n<1000;n++){const due=[...timers].filter(([,v])=>v.due<=end).sort((a,b)=>a[1].due-b[1].due)[0];if(!due)break;at=due[1].due;timers.delete(due[0]);due[1].fn();await tick();}at=end;await tick();};
  }
- w.fetch=(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject}));if(seed)w.sessionStorage.setItem('teacher:identity-display:v2',JSON.stringify(seed));if(seed)w.eval(fs.readFileSync(require('node:path').join(__dirname,'../frontend/shared/static/js/identity-cache.js'),'utf8'));w.eval(script);
+ w.fetch=(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject}));if(seed)w.sessionStorage.setItem('teacher:identity-display:v2',JSON.stringify(seed));if(seed)w.eval(fs.readFileSync(require('node:path').join(__dirname,'../frontend/shared/static/js/identity-cache.js'),'utf8'));if(handoff)w.sessionStorage.setItem('teacher:identity-display:v2:login-handoff',JSON.stringify({path:w.location.pathname+w.location.search,stamp:'',checked_at:seed.checked_at,expires:w.Date.now()+30000}));w.eval(script);
  const reply=(i,data,ok=true)=>requests[i].resolve({ok,json:async()=>data});
  return {w,requests,reply};
 }
@@ -51,8 +51,8 @@ test('malformed identity is unknown, only explicit false means signed out',async
 
 const cached=()=>({authenticated:true,username:'cached',display_name:'Cached User',can_enter_admin:true,checked_at:new Date().toISOString()});
 const dated=()=>({...admin,checked_at:new Date().toISOString(),idle_expires_at:new Date(Date.now()+1800000).toISOString(),absolute_expires_at:new Date(Date.now()+43200000).toISOString(),display_ttl_seconds:300});
-test('fresh display cache skips identity read and contains no CSRF',async t=>{
- const f=setup(t,0,cached());await tick();assert.equal(f.requests.length,0);
+test('login handoff skips one identity read and contains no CSRF',async t=>{
+ const f=setup(t,0,cached(),false,true);await tick();assert.equal(f.requests.length,0);
  assert.match(f.w.document.body.textContent,/Cached User/);assert.equal(f.w.document.querySelector('input'),null);
  f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow',{persisted:true}));await tick();assert.equal(f.requests.length,0);
 });
@@ -80,14 +80,14 @@ test('malformed snapshot is not shown and still checks server',async t=>{
  const f=setup(t,0,{...cached(),checked_at:'invalid'});assert.equal(f.requests.length,1);assert.ok(!f.w.document.body.textContent.includes('Cached User'));
 });
 test('cached logout obtains fresh CSRF before native submit',async t=>{
- const f=setup(t,0,cached());let submitted=null;
+ const f=setup(t,0,cached(),false,true);let submitted=null;
  f.w.HTMLFormElement.prototype.requestSubmit=function(){submitted=new f.w.FormData(this);this.dispatchEvent(new f.w.Event('formdata',{bubbles:true}));};
  f.w.document.querySelector('button').click();assert.equal(f.requests.length,1);assert.equal(submitted,null);
  f.reply(0,dated());await tick();assert.equal(submitted.get('_csrf'),'TOKEN');
  assert.equal(f.w.sessionStorage.getItem('teacher:identity-display:v2'),null);
 });
 test('cached logout disables repeats and gives visible retry feedback',async t=>{
- const f=setup(t,0,cached());f.w.document.querySelector('button').click();
+ const f=setup(t,0,cached(),false,true);f.w.document.querySelector('button').click();
  f.w.document.querySelector('button').click();assert.equal(f.requests.length,1);
  assert.match(f.w.document.body.textContent,/Confirming sign out/);
  f.reply(0,{},false);await tick();
@@ -96,13 +96,13 @@ test('cached logout disables repeats and gives visible retry feedback',async t=>
 });
 
 test('active heartbeat uses existing summary after five minutes',async t=>{
- const f=setup(t,0,cached(),true);await f.w.advance(240000);assert.equal(f.requests.length,0);
+ const f=setup(t,0,cached(),true,true);await f.w.advance(240000);assert.equal(f.requests.length,0);
  f.w.document.dispatchEvent(new f.w.Event('pointerdown'));await f.w.advance(60001);
  assert.equal(f.requests.length,1);assert.equal(f.requests[0].url,'/api/public/session-summary');
  f.reply(0,dated());await tick();f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));assert.equal(f.requests.length,1);
 });
 test('hidden page stops heartbeat and visible restore rechecks once',async t=>{
- const f=setup(t,0,cached(),true);let hidden=true;
+ const f=setup(t,0,cached(),true,true);let hidden=true;
  Object.defineProperty(f.w.document,'hidden',{get:()=>hidden});Object.defineProperty(f.w.document,'visibilityState',{get:()=>hidden?'hidden':'visible'});
  f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));await f.w.advance(300001);assert.equal(f.requests.length,0);
  hidden=false;f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow',{persisted:true}));assert.equal(f.requests.length,1);
@@ -113,16 +113,16 @@ test('failure backs off across visibility changes and retries no sooner than 60s
  await f.w.advance(59999);assert.equal(f.requests.length,1);await f.w.advance(1);assert.equal(f.requests.length,2);
 });
 test('anonymous has no recurring heartbeat',async t=>{
- const f=setup(t,0,{...cached(),authenticated:false},true);await f.w.advance(1200000);assert.equal(f.requests.length,0);
+ const f=setup(t,0,{...cached(),authenticated:false},true);f.reply(0,{authenticated:false});await tick();await f.w.advance(1200000);assert.equal(f.requests.length,1);
 });
 test('inactive page stops heartbeat and activity resumes one overdue confirmation',async t=>{
- const f=setup(t,0,cached(),true);await f.w.advance(300000);f.reply(0,dated());await tick();
+ const f=setup(t,0,cached(),true,true);await f.w.advance(300000);f.reply(0,dated());await tick();
  await f.w.advance(300000);f.reply(1,dated());await tick();await f.w.advance(300001);assert.equal(f.requests.length,2);
  f.w.document.dispatchEvent(new f.w.Event('keydown'));await f.w.advance(1001);assert.equal(f.requests.length,3);
 });
 
 test('twenty navigation restores within TTL issue zero identity reads',async t=>{
- const f=setup(t,0,cached(),true);
+ const f=setup(t,0,cached(),true,true);
  for(let i=0;i<20;i++){
   f.w.dispatchEvent(new f.w.Event('pagehide'));
   f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow',{persisted:true}));
@@ -130,7 +130,7 @@ test('twenty navigation restores within TTL issue zero identity reads',async t=>
  assert.equal(f.requests.length,0);assert.match(f.w.document.body.textContent,/Cached User/);
 });
 test('long sleep has one confirmation and retains stale display until explicit false',async t=>{
- const f=setup(t,0,cached(),true);let hidden=true;
+ const f=setup(t,0,cached(),true,true);let hidden=true;
  Object.defineProperty(f.w.document,'hidden',{get:()=>hidden});
  f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));await f.w.advance(3600000);
  assert.equal(f.requests.length,0);hidden=false;
@@ -150,7 +150,7 @@ test('repeated failure waits 60 then 120 then 240 seconds',async t=>{
  }
 });
 test('two visible tabs invalidate independently without sharing credentials',async t=>{
- const a=setup(t,0,cached(),true),b=setup(t,0,cached(),true);
+ const a=setup(t,0,cached(),true,true),b=setup(t,0,cached(),true,true);
  a.w.document.dispatchEvent(new a.w.Event('teacher:identity-change'));
  const marker=a.w.localStorage.getItem('teacher:identity-change');
  b.w.localStorage.setItem('teacher:identity-change',marker);
@@ -173,16 +173,16 @@ test('aborted summary preserves successful display and only explicit false signs
  f.w.document.dispatchEvent(new f.w.Event('teacher:navigation-cancel'));f.reply(1,{authenticated:false});await tick();assert.match(f.w.document.body.textContent,/Sign in/);
 });
 test('local list replacement resumes components without another summary in the display window',async t=>{
- const f=setup(t,0,cached(),true);for(let i=0;i<20;i++){f.w.document.dispatchEvent(new f.w.Event('public:querychange'));f.w.document.dispatchEvent(new f.w.Event('public:appended'));}
+ const f=setup(t,0,cached(),true,true);for(let i=0;i<20;i++){f.w.document.dispatchEvent(new f.w.Event('public:querychange'));f.w.document.dispatchEvent(new f.w.Event('public:appended'));}
  assert.equal(f.requests.length,0);assert.match(f.w.document.body.textContent,/Cached User/);await f.w.advance(300000);assert.equal(f.requests.length,1);
 });
 test('snapshot fields never carry CSRF, expiry or private permissions and old version is discarded',t=>{
- const f=setup(t,0,cached());f.w.TeacherIdentityCache.save(dated());const value=JSON.parse(f.w.sessionStorage.getItem('teacher:identity-display:v2'));assert.deepEqual(Object.keys(value).sort(),['authenticated','can_enter_admin','checked_at','display_name','username']);
+ const f=setup(t,0,cached(),false,true);f.w.TeacherIdentityCache.save(dated());const value=JSON.parse(f.w.sessionStorage.getItem('teacher:identity-display:v2'));assert.deepEqual(Object.keys(value).sort(),['authenticated','can_enter_admin','checked_at','display_name','username']);
  f.w.sessionStorage.setItem('teacher:identity-display:v2',JSON.stringify({...value,csrf:'FORGED'}));assert.equal(f.w.TeacherIdentityCache.load(),null);
  f.w.sessionStorage.setItem('teacher:identity-display:v1',JSON.stringify(dated()));f.w.eval(fs.readFileSync(require('node:path').join(__dirname,'../frontend/shared/static/js/identity-cache.js'),'utf8'));assert.equal(f.w.sessionStorage.getItem('teacher:identity-display:v1'),null);
 });
 test('a cached admin link never grants private values when the live endpoint rejects it',async t=>{
- const f=setup(t,1,cached());assert.equal(f.requests.length,1);assert.match(f.requests[0].url,/admin-project-fields/);assert.equal(f.requests[0].options.cache,'no-store');f.reply(0,{},false);await tick();assert.equal(f.w.document.querySelector('[data-private-value]'),null);assert.match(f.w.document.body.textContent,/Cached User/);
+ const f=setup(t,1,cached(),false,true);assert.equal(f.requests.length,1);assert.match(f.requests[0].url,/admin-project-fields/);assert.equal(f.requests[0].options.cache,'no-store');f.reply(0,{},false);await tick();assert.equal(f.w.document.querySelector('[data-private-value]'),null);assert.match(f.w.document.body.textContent,/Cached User/);
 });
 test('summary timeout keeps stale identity and delays retries',async t=>{
  const f=setup(t,0,{...cached(),checked_at:new Date(Date.now()-3600000).toISOString()},true);await f.w.advance(15000);assert(f.requests[0].options.signal.aborted);f.requests[0].reject(new f.w.DOMException('Timed out','AbortError'));await tick();
@@ -207,4 +207,29 @@ test('initial timeout and network failure retain the default button silently',as
  const f=setup(t,0,null,true),host=f.w.document.querySelector('[data-public-session]'),initial=host.innerHTML;
  await f.w.advance(15000);assert.equal(f.requests[0].options.signal.aborted,true);f.requests[0].reject(new f.w.DOMException('Timeout','AbortError'));await tick();assert.equal(host.innerHTML,initial);
  await f.w.advance(60000);assert.equal(f.requests.length,2);f.requests[1].reject(Error('Network unavailable'));await tick();assert.equal(host.innerHTML,initial);assert.equal(host.querySelector('.academic-identity-feedback'),null);
+});
+
+test('normal new page paints fresh snapshot then performs exactly one silent check',async t=>{
+ const f=setup(t,0,cached(),false,false);assert.equal(f.requests.length,1);assert.match(f.w.document.body.textContent,/Cached User/);
+ f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));assert.equal(f.requests.length,1);
+ f.reply(0,{},false);await tick();assert.match(f.w.document.body.textContent,/Cached User/);assert.equal(f.w.document.querySelector('.academic-identity-feedback'),null);
+});
+test('login restoration aborts old anonymous response and immediately renders new identity',async t=>{
+ const f=setup(t,0,{...cached(),authenticated:false},false,false);assert.equal(f.requests.length,1);
+ assert(f.w.TeacherIdentityCache.acceptLogin({...cached(),username:'new-user',display_name:'New User'}));
+ assert(f.requests[0].options.signal.aborted);assert.match(f.w.document.body.textContent,/New User/);assert.equal(f.requests.length,1);
+ f.reply(0,{authenticated:false});await tick();assert.match(f.w.document.body.textContent,/New User/);
+ const saved=JSON.parse(f.w.sessionStorage.getItem('teacher:identity-display:v2'));assert.equal(saved.username,'new-user');assert.equal(saved.csrf,undefined);
+});
+test('login handoff is one-use and bound to path, stamp and timeout',async t=>{
+ const f=setup(t,0,cached(),false,true),cache=f.w.TeacherIdentityCache;
+ cache.acceptLogin(cached(),'/en/projects');assert.equal(cache.consumeLogin(),true);assert.equal(cache.consumeLogin(),false);
+ cache.acceptLogin(cached(),'/en/profiles');assert.equal(cache.consumeLogin(),false);
+ cache.acceptLogin(cached(),'/en/projects');const key='teacher:identity-display:v2:login-handoff';const row=JSON.parse(f.w.sessionStorage.getItem(key));row.expires=Date.now()-1;f.w.sessionStorage.setItem(key,JSON.stringify(row));assert.equal(cache.consumeLogin(),false);
+ cache.acceptLogin(cached(),'/en/projects');cache.invalidate();assert.equal(cache.consumeLogin(),false);
+});
+test('storage failure still restores current identity and rejects old response',async t=>{
+ const f=setup(t,0,cached(),false,false);
+ f.w.Storage.prototype.setItem=()=>{throw Error('blocked')};f.w.Storage.prototype.getItem=()=>{throw Error('blocked')};
+ assert(f.w.TeacherIdentityCache.acceptLogin({...cached(),username:'memory',display_name:'Memory User'}));f.reply(0,{authenticated:false});await tick();assert.match(f.w.document.body.textContent,/Memory User/);
 });

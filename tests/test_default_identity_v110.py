@@ -15,7 +15,7 @@ def test_shared_header_sign_in_visible_with_user_icon_before_js(fixture,lang,kin
     assert len(doc.query('[data-public-session] [data-auth-open] svg'))==1
     assert not doc.query('.academic-identity-pending')
     assert 'Checking identity' not in response.text and '身份确认中' not in response.text
-    assert 'public-session.js?v=0.16.110' in response.text
+    assert 'public-session.js?v=0.16.120' in response.text
     assert not doc.query('[data-public-session] input[name="_csrf"]')
     summary=c.get('/api/public/session-summary');assert summary.json()['authenticated'] is True
     assert 'no-store' in summary.headers['cache-control']

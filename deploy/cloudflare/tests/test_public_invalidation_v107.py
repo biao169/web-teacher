@@ -111,3 +111,26 @@ def test_layout_only_write_does_not_invoke_data_entrypoint(entry,monkeypatch):
  response=Response(headers={HEADER:module.encode(Plan(invalidate={'public-layout'}))})
  result=asyncio.run(module.relay(response,NS(exports=NS(PublicPage=NS(update_public_cache=page),PublicData=NS(update_public_cache=data)))))
  assert result.headers.get('X-Teacher-Cache-Update')=='accepted';page.assert_awaited_once();data.assert_not_awaited()
+
+
+def test_navigation_tags_use_existing_rpc_without_publicdata_flush(entry,monkeypatch):
+ from backend.app.native.public_cache_tags import navigation_tag
+ module=copies(monkeypatch);tag=navigation_tag('fixed')
+ plan=Plan(invalidate={'public-layout'},purge={tag})
+ response=Response(headers={HEADER:module.encode(plan)})
+ page=AsyncMock(return_value=True);data=AsyncMock(return_value=True)
+ result=asyncio.run(module.relay(response,NS(exports=NS(PublicPage=NS(update_public_cache=page),PublicData=NS(update_public_cache=data)))))
+ assert result.headers.get('X-Teacher-Cache-Update')=='accepted'
+ assert json.loads(page.call_args.args[0])==plan.payload()
+ data.assert_not_awaited()
+
+
+def test_navigation_tag_update_is_owned_by_page_cache_only(entry,monkeypatch):
+ from backend.app.native.public_cache_tags import navigation_tag
+ ffi(monkeypatch);copies(monkeypatch);tag=navigation_tag('fixed')
+ for name in ['PublicPage','PublicData']:
+  ctx=NS(cache=NS(invalidate=AsyncMock(return_value={'success':True}),purge=AsyncMock(return_value={'success':True})))
+  worker=getattr(entry,name)();worker.ctx=ctx
+  assert asyncio.run(worker.update_public_cache({'invalidate':[],'purge':[tag,'public-navigation']})) is True
+  if name=='PublicPage':assert set(ctx.cache.purge.call_args.args[0]['tags'])=={tag,'public-navigation'}
+  else:ctx.cache.purge.assert_not_awaited()

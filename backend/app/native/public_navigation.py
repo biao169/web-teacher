@@ -13,13 +13,19 @@ def visible_scopes(principal):
         if 'staff' in principal.get('scopes',[]):result.append('staff')
     return result
 
-async def resolve(r,slug,table=None,stamp=None):
+async def load(r,slug):
+    """Read one configured row for this request; no persistent SQL cache."""
     if not isinstance(slug,str) or not SLUG.fullmatch(slug):raise Error('导航不存在',404)
-    if stamp is not None and not re.fullmatch('[a-f0-9]{32}',stamp):raise Error('导航版本无效')
     rows=await r.sql.query('SELECT * FROM navigation_items WHERE url_name=?',(slug,))
     rows=[row for row in rows if row['location'] in PUBLIC_LOCATIONS]
     if len(rows)!=1:raise Error('导航不存在',404)
-    row=rows[0]
+    return rows[0]
+
+async def resolve(r,slug,table=None,stamp=None,*,row=None):
+    if not isinstance(slug,str) or not SLUG.fullmatch(slug):raise Error('导航不存在',404)
+    if stamp is not None and not re.fullmatch('[a-f0-9]{32}',stamp):raise Error('导航版本无效')
+    row=await load(r,slug) if row is None else row
+    if row.get('url_name')!=slug or row.get('location') not in PUBLIC_LOCATIONS:raise Error('导航不存在',404)
     if row['enabled']!=1 or row['visibility'] not in visible_scopes(r.p) or row['kind'] not in ('','route','button',None) or row.get('fragment'):raise Error('导航不存在或不可见',404)
     # Removed conditions must not silently broaden an old fixed-entry address.
     if not has_public_conditions(row.get('path')):raise Error('固定入口已移除，请重新选择导航',404)

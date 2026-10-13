@@ -1,0 +1,14 @@
+{
+  "changed": [
+    "backend/app/native/public_cache_tags.py",
+    "deploy/cloudflare/pyproject.toml",
+    "deploy/cloudflare/tests/test_public_invalidation_v107.py",
+    "deploy/cloudflare/uv.lock",
+    "pyproject.toml"
+  ],
+  "runtime_invalidation": "reused without changes",
+  "frontend_unchanged": true,
+  "sync_unchanged": true,
+  "production_deployed": false,
+  "cloud_tag_propagation_verified": false
+}

@@ -44,6 +44,33 @@ def test_invalid_host_cannot_receive_platform_hit(entry,monkeypatch):
 def test_nonshared_routes_use_dynamic_dispatch(entry,path):
     obj=entry.Default();obj.env=SimpleNamespace();obj.ctx=SimpleNamespace()
     obj._dynamic_fetch=AsyncMock(return_value='dynamic')
-    req=SimpleNamespace(url='https://site.test'+path,method='GET',headers={})
+    req=SimpleNamespace(url='https://site.test'+path,method='GET',headers={'host':'site.test'})
     assert asyncio.run(obj.fetch(req))=='dynamic'
+    obj._dynamic_fetch.assert_awaited_once_with(req)
+
+@pytest.mark.parametrize('path',['/zh/n/nav-any','/en/n/nav-other'])
+def test_fixed_entry_hit_requires_no_python_app_or_database(entry,monkeypatch,path):
+    response=SimpleNamespace(status=200,headers={'cf-cache-status':'HIT'})
+    cached=AsyncMock(return_value=response)
+    obj=entry.Default();obj.env=SimpleNamespace(TEACHER_ORIGIN='https://site.test');obj.ctx=SimpleNamespace(exports=SimpleNamespace(PublicPage=SimpleNamespace(fetch=cached)))
+    monkeypatch.setattr(entry,'build_application',Mock(side_effect=AssertionError('app on HIT')))
+    req=SimpleNamespace(url='https://site.test'+path,method='GET',headers={'host':'site.test'})
+    assert asyncio.run(obj.fetch(req)) is response
+    cached.assert_awaited_once()
+    assert entry.application.application is None
+
+@pytest.mark.parametrize('query',['?s=abc','?direction=asc&size=10','?page=2'])
+def test_fixed_entry_query_bypasses_shared_entrypoint(entry,query):
+    obj=entry.Default();obj.env=SimpleNamespace();obj.ctx=SimpleNamespace();obj._dynamic_fetch=AsyncMock(return_value='dynamic')
+    req=SimpleNamespace(url='https://site.test/zh/n/nav-any'+query,method='GET',headers={})
+    assert asyncio.run(obj.fetch(req))=='dynamic'
+    obj._dynamic_fetch.assert_awaited_once_with(req)
+
+def test_private_fixed_entry_miss_falls_back_once_with_original_session(entry,monkeypatch):
+    js=ModuleType('js');js.Request=JSRequest;monkeypatch.setitem(sys.modules,'js',js)
+    response=SimpleNamespace(status=404,headers={'cache-control':'no-store'})
+    obj=entry.Default();obj.env=SimpleNamespace(TEACHER_ORIGIN='https://site.test');hit=AsyncMock(return_value=response);obj.ctx=SimpleNamespace(exports=SimpleNamespace(PublicPage=SimpleNamespace(fetch=hit)));obj._dynamic_fetch=AsyncMock(return_value='private')
+    req=SimpleNamespace(url='https://site.test/en/n/private-entry',method='GET',headers=Headers({'host':'site.test','cookie':'__Host-ts_session=valid'}))
+    assert asyncio.run(obj.fetch(req))=='private'
+    assert 'cookie' not in hit.call_args.args[0].headers
     obj._dynamic_fetch.assert_awaited_once_with(req)

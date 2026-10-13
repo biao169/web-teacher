@@ -84,9 +84,11 @@ class Default(WorkerEntrypoint):
         from worker_runtime.public_data import eligible as data_eligible, forward as data_forward
         if data_eligible(request, self.env):
             return await data_forward(request, self.env, self.ctx)
-        from worker_runtime.public_page import eligible, forward
+        from worker_runtime.public_page import eligible, forward, restricted_fallback
         if eligible(request, self.env):
-            return await forward(request, self.env, self.ctx)
+            response=await forward(request, self.env, self.ctx)
+            if not restricted_fallback(request,response,self.env):return response
+            return await self._dynamic_fetch(request)
         return await self._dynamic_fetch(request)
 
     @traced('main-site',http=True)

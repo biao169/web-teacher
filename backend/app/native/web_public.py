@@ -137,7 +137,7 @@ def install(app,factory,resources,csrf,render):
         scope=None
         if nav:
             if len(request.query_params.getlist('nv'))>1:raise Error('导航版本重复')
-            scope=await resolve(r,nav,stamp=request.query_params.get('nv'));table=scope['table']
+            scope=getattr(r,'public_navigation_scope',None) or await resolve(r,nav,stamp=request.query_params.get('nv'),row=getattr(r,'public_navigation_row',None));table=scope['table']
         if fragment and (not table or uid):raise Error('仅列表支持分片读取',400)
         fixed=scope['conditions'] if scope else None
         list_path='/'+lang+('/n/'+nav if nav else '/'+table if table else '')

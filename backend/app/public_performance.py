@@ -38,6 +38,21 @@ PUBLIC_TABLES = frozenset(('profiles', 'students', 'research_interests', 'projec
                            'publications', 'patents', 'courses', 'news'))
 PUBLIC_DETAIL_TABLES = frozenset(('profiles', 'courses'))
 
+PUBLIC_NAV_BROWSER_TTL = 60
+PUBLIC_NAV_EDGE_POLICY = 'public, max-age=120, stale-while-revalidate=30, stale-if-error=300'
+
+def navigation_target(request):
+    """Only a bare fixed-entry URL; configuration is verified on render MISS."""
+    import re
+    from urllib.parse import urlsplit
+    if str(getattr(request, 'method', '')) not in ('GET', 'HEAD'):return None
+    headers=request.headers
+    if any(headers.get(k) for k in ('x-public-fragment','range','if-match','if-unmodified-since')) or 'application/json' in str(headers.get('accept') or '').lower():return None
+    url=urlsplit(str(request.url))
+    if url.query or url.fragment:return None
+    match=re.fullmatch(r'/(?:en|zh)/n/([a-z0-9][a-z0-9_-]{0,79})',url.path)
+    return match[1] if match else None
+
 def page_request(request):
     """Static allowlist used before platform lookup and after rendering. No D1."""
     import re
@@ -52,6 +67,7 @@ def page_request(request):
     url = urlsplit(str(request.url))
     if url.fragment:
         return False
+    if navigation_target(request) is not None:return True
     parts = url.path.split('/')
     if len(parts) < 2 or parts[0] or parts[1] not in ('en', 'zh'):
         return False
@@ -64,7 +80,9 @@ def page_request(request):
             and re.fullmatch(r'[A-Za-z0-9_:-]{1,128}', parts[3]) is not None
             and (not url.query or url.query == urlencode({'from': '/' + parts[1] + '/' + parts[2]})))
 
-def page_headers():
+def page_headers(request=None):
+    if request is not None and navigation_target(request) is not None:
+        return {'Cache-Control':f'public, max-age={PUBLIC_NAV_BROWSER_TTL}','Cloudflare-CDN-Cache-Control':PUBLIC_NAV_EDGE_POLICY,'Vary':'X-Public-Fragment'}
     return {'Cache-Control': f'public, max-age={PUBLIC_HTML_TTL}',
             'Cloudflare-CDN-Cache-Control': PUBLIC_EDGE_POLICY,
             'Vary': 'X-Public-Fragment'}

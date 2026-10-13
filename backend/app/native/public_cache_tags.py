@@ -9,7 +9,7 @@ from .public_revision import WRITE
 
 MODULES=frozenset(PUBLIC_TABLES)
 SINGULAR={'profiles':'profile','students':'student','research_interests':'research-interest','projects':'project','publications':'publication','patents':'patent','courses':'course','news':'news'}
-COMMON={'public-layout','public-translations','public-media','public-home'}
+COMMON={'public-layout','public-translations','public-media','public-home','public-navigation'}
 HEADER='x-teacher-public-cache-commit'
 _hint=ContextVar('public_mutation_hint',default=None)
 _current=ContextVar('public_committed_changes',default=None)
@@ -21,6 +21,18 @@ def record_tag(table,uid):
 
 def module_tag(table):return 'public-'+table.replace('_','-')
 
+def navigation_tag(slug):
+    """Language-independent opaque tag for one configured URL name."""
+    if not isinstance(slug,str) or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,79}',slug):raise ValueError('Invalid navigation slug')
+    return 'public-nav-'+hashlib.sha256(slug.encode()).hexdigest()[:32]
+
+def navigation_tags(*rows):
+    tags=set()
+    for row in rows:
+        slug=row.get('url_name')
+        if isinstance(slug,str) and re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,79}',slug):tags.add(navigation_tag(slug))
+    return tags
+
 def page_tags(request):
     parts=urlsplit(str(request.url)).path.strip('/').split('/')
     tags={'public-layout','public-translations','public-media'}
@@ -28,12 +40,15 @@ def page_tags(request):
     elif len(parts)>=2 and parts[1] in MODULES:
         tags.add(module_tag(parts[1]))
         if len(parts)==3:tags.add(record_tag(parts[1],unquote(parts[2])))
+    scope=getattr(getattr(request,'state',None),'public_navigation_scope',None)
+    if scope and scope.get('table') in MODULES:
+        tags.update({module_tag(scope['table']),'public-navigation',navigation_tag(scope['slug'])})
     return ','.join(sorted(tags))
 
 def data_tags(table):return ','.join(sorted({module_tag(table),'public-translations','public-media'}))
 
 def valid_tag(tag):
-    return isinstance(tag,str) and (tag in COMMON or tag in {module_tag(t) for t in MODULES} or any(re.fullmatch(prefix+'-[a-f0-9]{32}',tag) for prefix in SINGULAR.values()))
+    return isinstance(tag,str) and (tag in COMMON or re.fullmatch(r'public-nav-[a-f0-9]{32}',tag) is not None or tag in {module_tag(t) for t in MODULES} or any(re.fullmatch(prefix+'-[a-f0-9]{32}',tag) for prefix in SINGULAR.values()))
 
 @dataclass
 class Plan:
@@ -52,6 +67,8 @@ class Plan:
                 for table,prefix in SINGULAR.items():
                     if module_tag(table) in tags:
                         tags={tag for tag in tags if not re.fullmatch(prefix+'-[a-f0-9]{32}',tag)}
+            if len(tags)>48 and any(re.fullmatch(r'public-nav-[a-f0-9]{32}',tag) for tag in tags):
+                tags={tag for tag in tags if not re.fullmatch(r'public-nav-[a-f0-9]{32}',tag)}|{'public-navigation'}
             if len(tags)>64:raise ValueError('Too many cache tags')
             return sorted(tags)
         return {'invalidate':bounded(self.invalidate-self.purge),'purge':bounded(self.purge)}
@@ -90,7 +107,11 @@ def change_plan(table,uid,before,after,deleted=False):
         plan.add({module_tag('students'),'public-home','public-translations'},hard)
     elif table=='navigation_items':
         if before.get('location')=='admin-sidebar' and after.get('location')=='admin-sidebar':return plan
-        plan.add({'public-layout'},hard)
+        # Header links change globally, while fixed-entry objects are addressed precisely.
+        plan.add({'public-layout'})
+        binding={'url_name','path','visibility','enabled','location','kind','fragment'}
+        entry_hard=deleted or bool(changed & binding)
+        if was or visible or deleted:plan.add(navigation_tags(before,after),entry_hard)
         if changed & set(PUBLIC_DONOR_FIELDS[table]) or hard:plan.add({'public-translations'},hard)
     elif table=='site_settings':
         plan.add({'public-layout'},hard)
@@ -123,7 +144,12 @@ def statements_plan(statements):
         elif table=='media_assets':
             hard=hard or bool(re.match(r'^\s*UPDATE\b',sql,re.I) and re.search(r'\b(status|object_key|storage_kind)\b',assignments,re.I))
             result.add({'public-media'},hard)
-        elif table in ('site_settings','navigation_items'):
+        elif table=='navigation_items':
+            result.add({'public-layout'})
+            binding=bool(re.search(r'\b(url_name|path|visibility|enabled|location|kind|fragment)\b',assignments,re.I))
+            result.add({'public-navigation'},hard or binding)
+            result.add({'public-translations'},hard)
+        elif table=='site_settings':
             result.add({'public-layout'},hard)
             result.add({'public-translations'},hard)
             if table=='site_settings':result.add({module_tag('publications')},hard)

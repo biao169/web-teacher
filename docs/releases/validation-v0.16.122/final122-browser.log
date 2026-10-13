@@ -1,0 +1,1 @@
+{"browser":"153.0.8010.0","same_page_login":"passed","post_login_extra_summary_requests":0,"ordinary_page_confirmation":"passed","failed_page_confirmation_preserves_identity":true,"safe_snapshot_fields":["authenticated","username","display_name","can_enter_admin","checked_at"],"page_errors":[]}

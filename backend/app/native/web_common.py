@@ -68,6 +68,17 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
         r.auth=Auth(r.sql,r.passwords)
         r.public_light=worker_public_read(request,r)
         r.public_shared=shared_public_route(request)
+        from backend.app.public_performance import navigation_target,PUBLIC_TABLES
+        nav=navigation_target(request)
+        r.public_navigation_row=None;r.public_navigation_scope=None
+        if nav is not None:
+            from .public_navigation import load,resolve
+            r.public_navigation_row=await load(r,nav)
+            if r.public_navigation_row.get('visibility')=='public':
+                r.p=None
+                r.public_navigation_scope=await resolve(r,nav,row=r.public_navigation_row)
+                r.public_shared=r.public_navigation_scope['table'] in PUBLIC_TABLES
+                request.state.public_navigation_scope=r.public_navigation_scope
         if r.public_shared:
             route=request.url.path.strip('/').split('/')
             if len(route)==3 and route[1]=='news':
@@ -127,7 +138,7 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
             no_store(response)
         elif cacheable:
             from backend.app.public_performance import page_headers
-            response.headers.update(page_headers())
+            response.headers.update(page_headers(request))
         elif getattr(request.state,'public_shared',False):
             no_store(response)
         else:

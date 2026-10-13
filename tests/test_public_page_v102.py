@@ -21,14 +21,14 @@ def request(path='/en', method='GET', headers=()):
 
 @pytest.mark.parametrize('path', ['/en','/zh','/en/profiles','/zh/projects','/en/publications',
                                   '/zh/students','/en/news','/en/courses/id-123','/zh/profiles/uid_123',
-                                  '/en/profiles/id?from=%2Fen%2Fprofiles'])
+                                  '/en/profiles/id?from=%2Fen%2Fprofiles','/en/n/custom'])
 def test_static_allowlist(path):
     assert page_request(request(path))
     assert page_request(request(path, 'HEAD'))
 
 
 @pytest.mark.parametrize('path', ['/en/','/en/projects?sort=name','/zh/profiles?page=2','/en?x=1',
-                                  '/en/n/custom','/en/news/id','/en/projects/id','/en/profiles/..',
+                                  '/en/n/custom?s=x','/en/news/id','/en/projects/id','/en/profiles/..',
                                   '/admin','/auth/login','/api/public/session-summary','/sync/v1/read',
                                   '/transfer','/en/contact','/en/profiles/id?from=%2Fen%2Fprofiles%3Fpage%3D2'])
 def test_dynamic_routes_excluded(path):
