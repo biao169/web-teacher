@@ -4,15 +4,6 @@
             <a data-publication-link="doi" href="https://doi.org/{{ (row.get('doi') or '')|urlencode }}" target="_blank" rel="noopener noreferrer" title="DOI" aria-label="DOI">
                 <!-- https://doi.org/{{ row.get('doi') or '' }} -->
                 <span class="publication-online-icon-fallback">doi</span>
-                <img
-                    class="publication-online-icon-image"
-                    src="https://cdn.jsdelivr.net/npm/simple-icons@16.35.0/icons/doi.svg"
-                    alt=""
-                    aria-hidden="true"
-                    hidden
-                    onload="this.hidden=false;this.previousElementSibling.hidden=true"
-                    onerror="this.hidden=true;this.previousElementSibling.hidden=false"
-                >
             </a>
         {% endif %}
         {% if publication_template|default(false) or (row.get('url') and row.url.lower().startswith(('https://','http://'))) %}
