@@ -427,55 +427,158 @@ document.addEventListener('public-header-updated',enhancePublicHeader);
  * scrollWidth > clientWidth 判断是否可滚动。
  */
 (()=>{
- const states=new WeakMap();
- /*
- * 可控速度的平滑横向滚动。
- *
- * duration:
- *   900 = 较慢
- *   1100 = 更柔和
- *   1300 = 很慢
- */
-function smoothScrollToX(element,target,duration=1000){
-  const start=element.scrollLeft;
-
-  const distance=target-start;
-
-  if(Math.abs(distance)<1){
-    element.scrollLeft=target;
-    return;
-  }
-
-  const startTime=performance.now();
-
+  const states=new WeakMap();
   /*
-    * easeInOutCubic：
-    * 开始慢 → 中间稍快 → 结束慢
-    */
-  function ease(t){
-    return t<0.5
-    ? 4*t*t*t
-    : 1-Math.pow(-2*t+2,3)/2;
-  }
+  * 可控速度的平滑横向滚动。
+  *
+  * duration:
+  *   900 = 较慢
+  *   1100 = 更柔和
+  *   1300 = 很慢
+  */
+  function smoothScrollToX(
+  element,
+  target,
+  duration=1000,
+  onDone=null
+  ){
+    let start=element.scrollLeft;
+    let remaining=duration;
+    let startTime=0;
+    let raf=0;
+    let paused=false;
+    let cancelled=false;
 
-  function frame(now){
-    if(!element.isConnected)return;
-
-    const elapsed=now-startTime;
-    const progress=Math.min(elapsed/duration,1);
-
-    element.scrollLeft=
-    start+distance*ease(progress);
-
-    if(progress<1){
-    requestAnimationFrame(frame);
-    }else{
-    element.scrollLeft=target;
+    function ease(t){
+      return t<0.5
+      ? 4*t*t*t
+      : 1-Math.pow(-2*t+2,3)/2;
     }
-  }
 
-  requestAnimationFrame(frame);
-}
+    function frame(now){
+      if(
+      cancelled||
+      paused||
+      !element.isConnected
+      ){
+      return;
+      }
+
+      if(!startTime){
+      startTime=now;
+      }
+
+      const distance=target-start;
+
+      if(Math.abs(distance)<1){
+      element.scrollLeft=target;
+      raf=0;
+      onDone?.();
+      return;
+      }
+
+      const elapsed=
+      now-startTime;
+
+      const progress=
+      Math.min(
+        elapsed/remaining,
+        1
+      );
+
+      element.scrollLeft=
+      start+
+      distance*ease(progress);
+
+      if(progress<1){
+      raf=requestAnimationFrame(frame);
+      }else{
+      raf=0;
+      element.scrollLeft=target;
+      onDone?.();
+      }
+    }
+
+    function pause(){
+      if(
+      paused||
+      cancelled
+      ){
+      return;
+      }
+
+      paused=true;
+
+      if(raf){
+      cancelAnimationFrame(raf);
+      raf=0;
+      }
+
+      const elapsed=
+      startTime
+        ? Math.min(
+          performance.now()-startTime,
+          remaining
+          )
+        : 0;
+
+      remaining=
+      Math.max(
+        120,
+        remaining-elapsed
+      );
+
+      /*
+      * 记录暂停时真实位置。
+      * 用户暂停期间即使使用滚轮改变了位置，
+      * resume() 也会重新从当前位置继续。
+      */
+      start=element.scrollLeft;
+      startTime=0;
+    }
+
+    function resume(){
+      if(
+      !paused||
+      cancelled
+      ){
+      return;
+      }
+
+      paused=false;
+
+      start=
+      element.scrollLeft;
+
+      startTime=0;
+
+      raf=
+      requestAnimationFrame(frame);
+    }
+
+    function cancel(){
+      cancelled=true;
+      paused=false;
+
+      if(raf){
+      cancelAnimationFrame(raf);
+      raf=0;
+      }
+    }
+
+    raf=
+      requestAnimationFrame(frame);
+
+    return {
+      pause,
+      resume,
+      cancel,
+
+      get paused(){
+      return paused;
+      }
+    };
+  }
 let cleaned=false;
 
 function cleanup(){
@@ -540,14 +643,369 @@ function cleanup(){
   if(state?.done||state?.running)return;
 
   state={
-   done:false,
-   running:true,
-   attempts:0,
-   timer:0
+    done:false,
+    running:true,
+    attempts:0,
+    timer:0,
+
+    /*
+      * 页面进入时鼠标可能本来就在导航区域。
+      */
+    pointerInside:nav.matches(':hover'),
+
+    /*
+      * 当前自动滚动动画。
+      */
+    animation:null,
+
+    /*
+      * 当前等待过程。
+      */
+    wait:null,
+
+    /*
+      * 自动提示完成后用于删除临时 hover 监听。
+      */
+    onMouseEnter:null,
+    onMouseLeave:null
   };
 
   states.set(nav,state);
+  /*
+  * 可暂停的延迟。
+  *
+  * 用于：
+  * 进入页面后的 550ms 等待；
+  * 滚动到右侧后的 1000ms 停留。
+  */
+  function createPausableDelay(
+  delay,
+  callback
+  ){
+    let remaining=delay;
+    let startedAt=0;
+    let timer=0;
+    let paused=false;
+    let cancelled=false;
 
+    function run(){
+      if(
+      cancelled||
+      paused
+      ){
+      return;
+      }
+
+      startedAt=
+      performance.now();
+
+      timer=setTimeout(()=>{
+      timer=0;
+
+      if(
+        cancelled||
+        paused
+      ){
+        return;
+      }
+
+      callback?.();
+
+      },remaining);
+    }
+
+    function pause(){
+      if(
+      paused||
+      cancelled
+      ){
+      return;
+      }
+
+      paused=true;
+
+      if(timer){
+      const elapsed=
+        performance.now()-
+        startedAt;
+
+      remaining=
+        Math.max(
+        0,
+        remaining-elapsed
+        );
+
+      clearTimeout(timer);
+      timer=0;
+      }
+    }
+
+    function resume(){
+      if(
+      !paused||
+      cancelled
+      ){
+      return;
+      }
+
+      paused=false;
+      run();
+    }
+
+    function cancel(){
+      cancelled=true;
+      paused=false;
+
+      if(timer){
+      clearTimeout(timer);
+      timer=0;
+      }
+    }
+
+    run();
+
+    return {
+      pause,
+      resume,
+      cancel,
+
+      get paused(){
+      return paused;
+      }
+    };
+  }
+
+
+  /*
+  * 鼠标进入导航区域：
+  * 暂停等待和正在运行的动画。
+  */
+  function onMouseEnter(){
+  state.pointerInside=true;
+
+  state.wait?.pause();
+  state.animation?.pause();
+  }
+
+
+  /*
+  * 鼠标离开：
+  * 从原来的地方继续。
+  */
+  function onMouseLeave(){
+  state.pointerInside=false;
+
+  state.wait?.resume();
+  state.animation?.resume();
+  }
+
+  state.onMouseEnter=
+  onMouseEnter;
+
+  state.onMouseLeave=
+  onMouseLeave;
+
+  nav.addEventListener(
+  'mouseenter',
+  onMouseEnter
+  );
+
+  nav.addEventListener(
+  'mouseleave',
+  onMouseLeave
+  );
+
+  /*
+  * 鼠标滚轮控制导航水平滚动。
+  *
+  * wheel 只更新目标位置，
+  * 实际位置通过 requestAnimationFrame
+  * 平滑追踪目标，避免每一格滚轮直接跳变。
+  */
+  let wheelTarget=
+  nav.scrollLeft;
+
+  let wheelRaf=0;
+
+  /*
+  * 越小越柔和、越慢。
+  *
+  * 推荐：
+  * 0.18 = 较快
+  * 0.14 = 柔和
+  * 0.10 = 很柔和
+  */
+  const WHEEL_SMOOTHNESS=.12;
+
+  /*
+  * 单次鼠标滚轮最多增加的目标距离。
+  * 数值越小，每格滚轮移动越细腻。
+  */
+  const WHEEL_MAX_STEP=70;
+
+  function animateWheelScroll(){
+
+  if(!nav.isConnected){
+    wheelRaf=0;
+    return;
+  }
+
+  const current=
+    nav.scrollLeft;
+
+  const distance=
+    wheelTarget-current;
+
+  /*
+    * 已经非常接近目标，
+    * 直接准确落到目标位置并结束 RAF。
+    */
+  if(Math.abs(distance)<.5){
+    nav.scrollLeft=
+    wheelTarget;
+
+    wheelRaf=0;
+    return;
+  }
+
+  /*
+    * 每一帧只移动剩余距离的一部分。
+    *
+    * 因此效果是：
+    * 开始较明显，
+    * 然后越来越慢地靠近目标。
+    */
+  nav.scrollLeft=
+    current+
+    distance*
+    WHEEL_SMOOTHNESS;
+
+  wheelRaf=
+    requestAnimationFrame(
+    animateWheelScroll
+    );
+  }
+
+  nav.addEventListener(
+  'wheel',
+  e=>{
+
+    if(window.innerWidth<=650){
+    return;
+    }
+
+    const maxScroll=
+    nav.scrollWidth-
+    nav.clientWidth;
+
+    if(maxScroll<=2){
+    return;
+    }
+
+    /*
+    * 触控板本身存在明显 deltaX 时，
+    * 使用水平输入；
+    * 普通鼠标则使用 deltaY。
+    */
+    let delta=
+    Math.abs(e.deltaX)>
+    Math.abs(e.deltaY)
+      ? e.deltaX
+      : e.deltaY;
+
+    if(!delta){
+    return;
+    }
+
+    /*
+    * 统一不同浏览器/设备的 wheel 单位。
+    */
+    if(e.deltaMode===1){
+    delta*=16;
+    }else if(e.deltaMode===2){
+    delta*=
+      nav.clientWidth*.8;
+    }
+
+    /*
+    * 防止某些鼠标一次产生非常大的 delta。
+    */
+    delta=
+    Math.sign(delta)*
+    Math.min(
+      Math.abs(delta),
+      WHEEL_MAX_STEP
+    );
+
+    /*
+    * 如果当前没有滚轮动画，
+    * 目标位置必须以真实 scrollLeft 为起点。
+    *
+    * 这样可以兼容：
+    * 自动提示动画、
+    * 鼠标拖动、
+    * 浏览器恢复滚动位置。
+    */
+    if(!wheelRaf){
+    wheelTarget=
+      nav.scrollLeft;
+    }
+
+    /*
+    * 判断用户是不是已经到达边界。
+    *
+    * 到边界后继续往外滚时，
+    * 不拦截 wheel，
+    * 让页面恢复正常上下滚动。
+    */
+    const atLeft=
+    nav.scrollLeft<=.5 &&
+    wheelTarget<=.5;
+
+    const atRight=
+    nav.scrollLeft>=maxScroll-.5 &&
+    wheelTarget>=maxScroll-.5;
+
+    if(
+    (delta<0&&atLeft)||
+    (delta>0&&atRight)
+    ){
+    return;
+    }
+
+    e.preventDefault();
+
+    /*
+    * 连续滚轮时不是从当前画面位置重新计算，
+    * 而是在已有目标位置基础上继续累加。
+    *
+    * 所以快速连续滚动也会保持连贯。
+    */
+    wheelTarget=
+    Math.max(
+      0,
+      Math.min(
+      maxScroll,
+      wheelTarget+delta
+      )
+    );
+
+    /*
+    * 只有不存在动画时才启动新的 RAF。
+    * 已运行时只更新 wheelTarget。
+    */
+    if(!wheelRaf){
+    wheelRaf=
+      requestAnimationFrame(
+      animateWheelScroll
+      );
+    }
+
+  },{
+    passive:false
+  }
+  );
+  
   function probe(){
    if(!nav.isConnected){
     state.running=false;
@@ -600,14 +1058,6 @@ function cleanup(){
 
     return;
    }
-
-   /*
-    * 已经确认存在真实 overflow。
-    *
-    * 再等待 550ms，
-    * 让 Header、字体和账号区域彻底稳定。
-    */
-   state.timer=setTimeout(()=>{
 
     if(!nav.isConnected){
      state.running=false;
@@ -663,62 +1113,153 @@ function cleanup(){
       currentMax
      );
 
-    /*
-     * 从这一刻开始认为提示已经执行，
-     * 防止其他事件重复启动动画。
-     */
+     /*
+    * 从这里开始锁定本次自动提示。
+    * 避免其他 kick() 重复启动第二套动画。
+    */
     state.done=true;
     state.running=false;
 
+
     /*
-     * 第一阶段：
-     * 平滑向右移动。
-     */
-    smoothScrollToX(
+    * 真正开始向右滚动。
+    */
+    function startOutwardScroll(){
+
+    if(!nav.isConnected){
+      cleanup();
+      return;
+    }
+
+    const latestMax=
+      nav.scrollWidth-
+      nav.clientWidth;
+
+    if(latestMax<=4){
+      cleanup();
+      return;
+    }
+
+    state.wait=null;
+
+    state.animation=
+      smoothScrollToX(
       nav,
       Math.min(
         startLeft+distance,
-        currentMax
+        latestMax
       ),
-      1100
-    );
+      1100,
+      ()=>{
 
-    /*
-     * 第二阶段：
-     * 停留 1000ms 后，
-     * 平滑返回原始位置。
-     */
-    // state.timer=setTimeout(()=>{
-    //   if(!nav.isConnected)return;
-    //   smoothScrollToX(
-    //     nav,
-    //     startLeft,
-    //     1100
-    //   );
-    // },1000);
-    state.timer=setTimeout(()=>{
-      if(!nav.isConnected){
-        cleanup();
-        return;
+        state.animation=null;
+
+        /*
+        * 到右侧以后停留 1000ms。
+        *
+        * 如果鼠标进入，
+        * 这 1000ms 也会暂停计时。
+        */
+        state.wait=
+        createPausableDelay(
+          800,
+          ()=>{
+
+          state.wait=null;
+
+          if(!nav.isConnected){
+            cleanup();
+            return;
+          }
+
+          /*
+            * 平滑返回原位置。
+            */
+          state.animation=
+            smoothScrollToX(
+            nav,
+            startLeft,
+            1100,
+            ()=>{
+
+              state.animation=null;
+
+              /*
+              * 自动提示彻底结束。
+              */
+              if(
+              state.onMouseEnter
+              ){
+              nav.removeEventListener(
+                'mouseenter',
+                state.onMouseEnter
+              );
+              }
+
+              if(
+              state.onMouseLeave
+              ){
+              nav.removeEventListener(
+                'mouseleave',
+                state.onMouseLeave
+              );
+              }
+
+              cleanup();
+            }
+            );
+
+          /*
+            * 如果鼠标恰好仍在导航栏，
+            * 返回动画也先暂停。
+            */
+          if(state.pointerInside){
+            state.animation.pause();
+          }
+          }
+        );
+
+        /*
+        * 如果到达右侧的一刻，
+        * 鼠标正在导航区域，
+        * 停留计时先不要继续。
+        */
+        if(state.pointerInside){
+        state.wait.pause();
+        }
       }
-
-      smoothScrollToX(
-        nav,
-        startLeft,
-        1100
       );
 
-      /*
-        * 等返回动画结束以后，
-        * 清理所有只为滚动提示服务的监听器。
-        */
-      setTimeout(()=>{
-        cleanup();
-      },2200);
+    /*
+      * 如果鼠标当前已经在导航区域，
+      * 刚创建的动画立即暂停。
+    */
+    if(state.pointerInside){
+      state.animation.pause();
+    }
+    }
 
-      },1000);
 
-   },550);
+    /*
+    * 原来这里直接 setTimeout(...,550)。
+    *
+    * 现在改为可暂停的 550ms 等待。
+    *
+    * 页面刚进入时，如果鼠标已经在导航区域，
+    * 这 550ms 根本不会继续计算，
+    * 直到鼠标离开。
+    */
+    state.wait=
+    createPausableDelay(
+      550,
+      startOutwardScroll
+    );
+
+    if(state.pointerInside){
+    state.wait.pause();
+    }
+    
+   
   }
 
   /*

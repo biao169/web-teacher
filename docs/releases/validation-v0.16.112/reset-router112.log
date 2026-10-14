@@ -1,8 +1,0 @@
-........................................                                 [100%]
-=============================== warnings summary ===============================
-deploy/cloudflare/tests/test_public_data_router_v104.py::test_callee_miss_uses_d1_without_app_r2_or_auth
-  /workspace/scratch/4e20c0ac0954/deps109/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
-    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-40 passed, 1 warning in 0.61s
