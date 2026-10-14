@@ -7,8 +7,9 @@ def renderer():
     async def context(r,table='',title='',lang='zh',site_options=None):
         """组合公共页面变量、菜单、身份与模块权限。"""
         if site_options is None:
-            rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')
-            site=rows[0] if rows else {'site_name':'','site_name_en':'','hero_title':'','hero_subtitle':'','footer_text':''}
+            from .public_data import public_site_options
+            site=await public_site_options(r)
+            if not site:site={'site_name':'','site_name_en':'','hero_title':'','hero_subtitle':'','footer_text':''}
         else:
             site=dict(site_options)
         browser_site_title=(site.get('site_name_en') or '').strip() or 'Academic Website' if lang=='en' else site.get('site_name') or '教师个人网站'

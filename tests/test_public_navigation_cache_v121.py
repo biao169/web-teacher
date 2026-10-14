@@ -75,3 +75,57 @@ def test_success_body_without_server_validated_navigation_scope_is_not_cacheable
     from backend.app.native.public_http_cache import finish
     response=finish(request('/en/n/any'),HTMLResponse('not validated'),public_ok=True)
     assert response.headers['cache-control']=='no-store'
+
+@pytest.mark.parametrize('lang',['zh','en'])
+def test_configured_navigation_links_and_reset_keep_bare_cacheable_entry(fixture,lang):
+    """Header/hero/footer must not manufacture default query combinations."""
+    from urllib.parse import urlsplit
+    c,r=fixture
+    slugs={'header':'probe-header','hero':'probe-hero','footer':'probe-footer'}
+    for location,slug in slugs.items():entry(r,slug=slug,location=location)
+    add(r,'projects','人工智能');c.cookies.clear()
+    response=c.get('/'+lang);assert response.status_code==200
+    doc=JustHTML(response.text,sanitize=False)
+    targets={a.attrs.get('href') for a in doc.query('a[href]')}
+    for slug in slugs.values():
+        target='/'+lang+'/n/'+slug;assert target in targets
+        parts=urlsplit(target);assert not parts.query and not parts.fragment
+        assert page_request(SimpleNamespace(method='GET',url='https://site.test'+target,headers={}))
+    for slug in slugs.values():
+        html=c.get('/'+lang+'/n/'+slug);assert html.status_code==200
+        nodes=JustHTML(html.text,sanitize=False).query('[data-person-reset]')
+        assert nodes and nodes[0].attrs['href']=='/'+lang+'/n/'+slug
+        assert html.headers['cache-control']=='public, max-age=60'
+
+@pytest.mark.parametrize('lang',['zh','en'])
+@pytest.mark.parametrize('query',['page=1','direction=asc','size=10','direction=asc&size=10'])
+def test_default_control_queries_still_bypass_shared_entry_cache(fixture,lang,query):
+    """Measure the boundary; don't silently fold query requests into the shared object."""
+    c,r=fixture;entry(r);add(r,'projects','人工智能');c.cookies.clear()
+    response=c.get('/'+lang+'/n/ai-projects?'+query)
+    assert response.status_code==200
+    assert response.headers['cache-control']=='no-store'
+    assert response.headers['cloudflare-cdn-cache-control']=='no-store'
+    assert 'x-teacher-render-ok' not in response.headers
+
+
+def test_request_navigation_reuses_rows_but_separates_language_and_visible_scopes(fixture):
+    from backend.app.native.public_footer import navigation
+    c,r=fixture
+    entry(r,slug='memo-public',title='PUBLIC_TITLE',title_en='Public English')
+    entry(r,slug='memo-private',visibility='authenticated',title='PRIVATE_TITLE',title_en='Private English')
+    r.public_render_reads={};r.p=None;queries=[];old=r.sql.query
+    async def query(sql,args=()):queries.append(sql);return await old(sql,args)
+    r.sql.query=query
+    try:
+        en=run(navigation(r,'en'));assert 'Public English' in str(en) and 'Private English' not in str(en)
+        # Caller mutation must not poison the cached display or original language.
+        target=next(item for item in en['header'] if item['title']=='Public English');target['title']='MUTATED'
+        again=run(navigation(r,'en'));assert 'MUTATED' not in str(again) and 'Public English' in str(again)
+        zh=run(navigation(r,'zh'));assert 'PUBLIC_TITLE' in str(zh) and 'Public English' not in str(zh)
+        assert sum('FROM navigation_items WHERE enabled=1' in sql for sql in queries)==1
+        r.p={'scopes':['public']}
+        auth=run(navigation(r,'en'));assert 'Private English' in str(auth)
+        assert sum('FROM navigation_items WHERE enabled=1' in sql for sql in queries)==2
+        r.p=None;assert 'Private English' not in str(run(navigation(r,'en')))
+    finally:r.sql.query=old

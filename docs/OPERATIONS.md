@@ -1,6 +1,6 @@
 # 部署、数据与维护
 
-适用 v0.16.127；与 [功能手册](README.md)、[源码索引](SOURCE.md) 配套。本轮不执行部署、数据库恢复、缓存清理或生产测试。以下为当前程序入口和操作方法，具体配置以现有站点和源码校验结果为准。
+适用 v0.16.133；与 [功能手册](README.md)、[源码索引](SOURCE.md) 配套。本轮不执行部署、数据库恢复、缓存清理或生产测试。以下为当前程序入口和操作方法，具体配置以现有站点和源码校验结果为准。
 
 ## 1. 平台和目录
 
@@ -45,6 +45,18 @@ sudo bash install.sh --domain teacher.example.org --port 8003 --python /usr/bin/
 ```
 
 解释器必须可被服务账号访问；--repo/--branch 选择来源，--pip-source tuna|pypi 选择依赖源。内部端口不需要对公网开放，HTTPS 由现有 nginx/Caddy 提供。安装器准备环境、数据库、服务账号和管理员；遇到冲突不杀死其他服务。仅前台运行用 bash start.sh --port 8003；start-transfer.sh 复用同一主站。
+
+### Ubuntu/Debian 的运行与缓存策略
+
+默认由systemd管理一个主站进程，deploy/shared/service.py：main启动uvicorn，workers=1；网站、/admin与/transfer共用服务与主SQLite数据库，site_sync/integration/host.py接入同服务后台推进。不为PublicData、快传或同步另开HTTP端口。deploy/linux/tweb.py：Manager.generate生成配置，实际服务路径用tweb paths查询，不把示例路径当作所有实例的真实路径。
+
+公开页面仍发送统一Cache-Control和ETag，浏览器可直接复用fresh内容；普通HTML1800秒、固定公开导航基础页60秒、PublicData 300秒。浏览器缓存未命中或显式重新验证时，请求进入Python/SQLite/Jinja；PublicData重新生成粗粒度JSON。当前代码没有跨请求HTML LRU或Read Model内存缓存，r.public_render_reads仅复用同一请求中的设置、媒体和导航结果，请求结束后不复用。304在生成/读取之后验证ETag，不代表零数据库读取。
+
+默认Nginx片段只有同一upstream的proxy_pass，proxy_buffering off、proxy_request_buffering off，没有proxy_cache配置。Cloudflare-CDN-Cache-Control和Cache-Tag只是响应头，在未另行配置兼容CDN时不产生Ubuntu边缘缓存或标签失效能力。不要照搬Worker的HIT/stale结论；Ubuntu停服时，浏览器已fresh的副本可能仍可显示，过期/强制刷新/首次访问则不能保证旧内容回退。
+
+TEACHER_PUBLIC_STREAM_CONCURRENCY默认2、允许1..4，控制前台流加载并发，不是uvicorn进程数或全站数据库并发上限。旧TEACHER_PUBLIC_CACHE_TTL_SECONDS等开关不再启用页面缓存。cache_dir/transfer_cache_dir以及媒体缓存对象属于实际文件/业务存储，不是公开HTML Cache；tweb remove --scope cache不能当作清理公开页面的方法。后台模块缓存维护在本地返回not_applicable，不会清除浏览器fresh副本或远端Worker对象。
+
+Admin/Auth/session-summary、私有字段、CSRF及写请求仍no-store、实时服务端鉴权。普通列表拿到完整公开模型后，在浏览器本地筛选/排序/分页；固定/n/{nav}与不支持的条件仍走服务端，无query的公开基础入口才满足短HTML缓存条件。
 
 安装后 tweb 进入双语菜单；命令行可使用以下入口，实际路径先用 tweb paths 查询。
 
@@ -118,6 +130,24 @@ CLI main 是 async 函数，维护脚本需 asyncio.run；不能把 Python 内�
 
 具体必填、名称格式及首次部署阶段依 deploy_config.py、pipeline.settings、build.preflight 为准。旧包中的“固定两个/三个 Worker”描述已经失效：当前包含 Admin/Native 等辅助服务；PublicPage/PublicData 是主 Worker 的 entrypoint，不是两个新增 Worker。实际拓扑由 site_workers、辅助构建和执行器模式生成。
 
+### Worker 的请求运行策略
+
+| 路径/阶段 | 运行行为 | 代码入口 |
+| --- | --- | --- |
+| Default | cache OFF；先按静态GET/HEAD边界选择PublicData或PublicPage；其他请求走原动态路径 | runtime/entrypoint.py：Default.fetch；cache_policy.py：entrypoint_cache |
+| PublicPage HIT | 由平台持有的成功公开表示响应；转发前核验Host并移除Cookie/Authorization，避免共享身份 | runtime/public_page.py：forward、eligible；平台缓存配置 |
+| PublicPage MISS | LazyApplication成功构造后复用路由应用；每请求重新建立资源/请求内读取容器；Python/D1/Jinja生成匿名视图，校验成功后才附缓存头 | entrypoint.py：LazyApplication.__call__；web_common.py：resources；web_public.py：install；public_http_cache.py：finish |
+| PublicData HIT | 平台返回粗粒度公开JSON，不执行生成路径/D1 | entrypoint.py：PublicData；runtime/public_data.py：forward |
+| PublicData MISS | 最小D1资源生成JSON，不创建FastAPI/Jinja应用、R2客户端或身份资源；不逐条缓存SQL | runtime/public_data.py：serve；public_read_api.py：generate；public_read_model.py：build |
+| 动态请求 | Admin交给现有SITE_ADMIN；Native、Sync、Auth、transfer按现有路由处理，均不加入Public共享缓存 | entrypoint.py：Default._dynamic_fetch；runtime/site_routes.py：owner；runtime/routing.py：dispatch |
+
+LazyApplication缓存的是路由应用对象，不是公开数据库结果；业务数据只在同一请求内复用，不把principal或私有设置留在跨请求读取容器。PublicPage路由静态筛选不读取D1；固定导航还需在MISS渲染时复核配置，私有固定入口的会话请求可按restricted_fallback回到动态鉴权路径，不能把所有/n/路径视为公共。
+
+Worker的public_stream_concurrency由runtime/cache_policy.py：policy固定为1；这是页面流加载并发，并非调高CPU或内存限额。英文HTML使用80字段/128KiB有界译文批次；媒体键每批40；PublicData完整性/行数/JSON尺寸/查询预算与前后revision检查保留。HTML MISS不串联多个PublicData请求。v132空列表/已有人工译文短路只减少必要分支的SQL；自动译文、非空列表仍保留原安全选择。
+
+现有Admin/Native/可选Sync Executor辅助组件和TransferCoordinator保持原拓扑；本轮没有新增Worker、公开缓存巡检Cron、预热或Recovery层，也没有修改已有同步调度。离线separate-sync配置仍含既有每分钟Cron（* * * * *），用于同步推进，不是扫描或预热Public Cache；不要把“无新增缓存Cron”写成“系统没有Cron”。构建与缓存声明见site_workers.py、pipeline.py及cache_policy.py。1101/1102或平台硬终止时应用无法继续执行补救代码，只有已有成功平台对象且平台允许stale回退时才可能返回旧内容；具体边界见第6节。
+
+
 | 命令（deploy/cloudflare 目录） | 是否发布 | 用途 |
 | --- | --- | --- |
 | python build.py check | 否 | 版本、锁文件、源码和构建环境检查；--deployment-config 加配置校验 |
@@ -140,6 +170,17 @@ D1 新站初始化、管理员创建和 Secrets 跟随当前 Cloudflare README �
 | PublicData | max-age=300 | 与标准 HTML 边缘策略相同 | 八模块×zh/en，共16个固定 URL，无访客 query |
 | Admin/Auth/session-summary/CSRF/私有接口/写请求 | no-store | no-store，共享缓存关闭 | 真正实时鉴权 |
 | 4xx/5xx、未标记成功200、Set-Cookie等 | no-store | no-store | 不产生新的成功共享对象 |
+
+### 两端缓存能力对照
+
+| 能力 | Cloudflare Worker | Ubuntu/Debian默认部署 |
+| --- | --- | --- |
+| 浏览器成功HTML/公开JSON缓存 | 使用上表统一响应头 | 使用同一响应头 |
+| 共享Page/Data响应缓存 | 现有可缓存entrypoint，由平台管理 | 无应用结果缓存；默认代理不启用proxy_cache |
+| HIT跳过数据库生成 | 平台持有成功对象时可以 | 浏览器fresh副本可不发请求；已进入服务器的请求仍读取SQLite |
+| stale故障回退 | 依平台对象、窗口与链路能力，非1101/1102全覆盖保证 | 无默认服务端旧页回退层，不能仅凭CDN响应头承诺可用 |
+| 后台提交标签失效/模块维护 | 现有Page/Data RPC通道；不清浏览器fresh副本 | Page/Data维护not_applicable；标签头本身不删除对象 |
+| Request-local读复用 | 每个HTTP请求独立容器 | 同样仅当前请求复用 |
 
 Default Router 缓存关闭，只将确认白名单 GET/HEAD 交给 PublicPage/PublicData。Python 不操作 Cache API、不缓存零散 SQL、自由 query 或无限组合，不新增恢复页、预热或缓存 Cron 巡检。浏览器 fresh 内容可能不访问 Worker；边缘 HIT 可跳过 Python/D1，MISS 仍使用原生成路径。
 
@@ -257,4 +298,64 @@ DOM需要tests/package.json的Node依赖；Windows入口deploy/windows/test.cmd�
 
 部署预演沿用 tests/stage_release_v016001.py 与 --separate-sync；输出到源码外，Wrangler --dry-run不发布。源码打包使用 deploy/shared/package_release.py 的 archive/main 和 deploy/vps/release.py 的 inventory/write_manifest/verify，输出必须源码外，不包含实际数据库、凭据、local.cmd、缓存或运行对象。完整性manifest更新是文件列表变化的必要元数据操作，不改应用策略。
 
-文档-only包保留应用版本v0.16.127，单独用文件名标识docs整理；没有提升运行代码版本，没有部署或自动清理任何存储。后续记录当前功能更新到三份手册，不再把历次测试产物放回docs。
+先前docs整理包保留v0.16.127；当前v0.16.128是性能优化第一步诊断发布，没有部署或自动清理任何存储。后续记录当前功能更新到三份手册，不再把历次测试产物放回docs。
+
+## 性能基线工具：第一步
+
+在准备好现有测试依赖后，从项目根运行：
+
+```bash
+python -B tests/probe_public_performance.py --local --output /tmp/teacher-public-baseline.json
+```
+
+输出必须新文件且位于源码目录外；该模式不读取生产数据库配置，复用list_fixture/client_at与原Content服务，在临时目录造数。r.kind=r2仅选择已有Worker轻量渲染分支，仍是SQLite/本机ASGI，不能称真实Worker/D1/R2。不要用asgi_wall_ms或sqlite_query_wall_ms当CPU时间。
+
+显式线上只读探测（本轮没有执行）：
+
+```bash
+python -B tests/probe_public_performance.py --origin https://teacher.example.org --nav YOUR_CONFIGURED_NAV --expected-release 0.16.128 --output /tmp/teacher-online-baseline.json
+```
+
+YOUR_CONFIGURED_NAV换成后台真实url_name；可提供至多两个origin及四个nav，每个nav分别测zh/en基础和默认query。此工具不是Cron、预热或生产监控，不自动从网站爬取所有导航。first不预先宣称MISS，只记录实际Cf-Cache-Status；没有该头为not_reported。参数query不折叠；HTTPS根地址校验，无Cookie/Authorization，不跟随重定向，网络失败不重试，无ETag时跳过conditional。线上expected-release默认取当前项目版本，尚未发布的站点应填写实际预期版本。
+
+下一步修改translation_sources、web_public及适用public_footer，将同页英文覆盖有界批量处理；复用public_read_model现有安全候选语义，不使HTML依赖整个模型。第三步再处理请求内媒体结果复用；revision前后检查保持不变。
+
+## v0.16.129英文批量读取验证
+
+继续运行同一tests/probe_public_performance.py --local，不增加监控进程、预热或Cron。与v128同数据比对查询数量，区分local和Worker渲染路径模拟；SQL形状和参数只保留指纹，不记录原文/参数。英文卡片先完整原文匹配译文，再按原顺序裁剪摘要，新闻全文和格式隔离保持原规则。
+
+HTML缓存TTL/标记/tag/失效、身份及Sync均不变；public_read_model.py不改动，其两次revision读取用于一致性保护。现有大字段可独立成批，方法不会承诺任意大小JSON无限缓存，也不读取整段历史。真实D1/Worker CPU与1101/1102需要部署后专项验证，本轮没有发布。
+
+发现基础包已有旧首页字符串结构断言和5条DOM失败；对v128执行相同检查得到同样失败，当前译文改动没有增加DOM失败，不回退用户页头、字体或专利布局。相关失败结果保存在源码外，三份docs及reference结构保持不变。
+
+## v0.16.130请求内读取复用
+
+仅在当前HTTP resources副本保存public_render_reads；每次请求清空，下一请求重新读取当前站点/媒体状态和导航。设置与原始导航不原地翻译，展示副本独立；导航展示按(lang, visible_scopes)分开。媒体只存active对象的UID/MIME或确认缺失，未完成/失败SQL不登记缺失；授权仍由原Auth/Media/路由实时执行。
+
+继续运行同一显式--local探测，无Cron、预热、后台巡检或多层缓存lookup。相同采样媒体重复查询已减少，不能为了进一步降低计数而取消PublicData前后revision或固定入口配置校验。网站设置原本已主路由传递，是否减少SQL以实测为准；不读取global_settings全部密钥来替代公开投影。
+
+本轮263项专项回归通过；DOM基线442通过/5失败未增加，既知旧首页完整字符串断言未作为本轮通过声明。生产平台CPU/内存、HIT及故障回退未测试，尚未发布。静态资源引用和布局未改写；版本号与清单随发布包更新。
+
+### v0.16.131首屏与脚本检查
+
+普通列表在开发者工具确认data-local-adopted="1"；同revision初始卡片应保持原DOM节点，筛选/续页继续使用同一模型。旧HTML没有data-local-size时允许完整重绘。固定入口不请求PublicData；首页/详情不加载普通列表脚本。public-list.js版本引用为v0.16.131，自定义academic.js维持v0.16.130。不要为此调整缓存TTL、执行purge或预热。
+
+本轮真实浏览器使用tests/public-browser-fixture-v119.py的临时数据库，不访问用户运行站点。复现DOM检查使用tests/run_dom_tests.cjs，SSR脚本分配使用tests/test_public_list_model_v105.py，首屏/迟到stream接管使用tests/public-list-local-v105.test.cjs。已有五条DOM基线失败及两条旧HTML字符串断言与v130一致，不能据此改写用户卡片/导航；云端CPU仍需部署后的独立观测。
+
+### v0.16.132测量与边界
+
+仍使用tests/probe_public_performance.py --local --output <源码外路径>建立临时SQLite基线。空页/人工分支的查询预算回归分别位于test_public_performance_v055.py：test_public_zero_count_skips_data_and_group_rules_after_validation及test_translation_regression.py：test_local_terminal_translation_never_queries_donors、test_mixed_translation_only_packs_fields_allowed_to_reuse、test_wrong_local_text_cannot_block_needed_shared_lookup。
+
+空列表直接返回前仍执行非法筛选/排序/页码/projection校验；私有与导出列表不走短路。人工译文、显式复用和停用状态须精确匹配源hash/text/format；不匹配仍查共享候选。全人工批次仅本地一次查询，混合批次共享查询仍保留。无需数据库升级、purge、预热或Cron；本轮没有生产部署及真实云端CPU测试。
+
+### v0.16.133第六步回归结果与覆盖范围
+
+| 检查 | 结果 | 验证边界 |
+| --- | --- | --- |
+| 公共列表/译文/权限/故障/Ubuntu及部署配置 | 445通过，1条既有首页HTML字符串断言排除 | 临时SQLite、ASGI、模拟系统命令，非实际systemd部署 |
+| Worker路由与Page/Data/标签/模块维护 | 60通过 | 模拟平台绑定；HIT路径不创建生成资源、失败保持no-store，不证明真实跨节点stale |
+| 全部DOM回归 | 446通过、5条既有基线失败 | 五条与v131一致：统一样式token、Logo重复重试/卸载两条、专利旧布局断言两条；没有新增失败，不重写用户布局 |
+| 离线separate-sync部署预演 | Worker/VPS源码准备、snapshot和executor导入、域名及模块资源验证通过 | 未运行Wrangler SDK bundle、真实D1/R2及服务器发布；既有每分钟同步Cron保持 |
+| 发布包 | manifest、文件集合、哈希、ZIP CRC及项目锁定版本检查 | 正式生成包时验证；无新源码/测试/文档文件，reference内容不变 |
+
+本轮只更新三份现行说明、根README、项目/Worker版本元数据和发布manifest；运行源码、前台、Cache/Read Model、数据库结构和Sync与v132字节一致。前五步测量数值仍是临时环境对照，不能因回归通过宣称真实云端CPU/1101/1102已验收。若线上继续异常，使用已有有界匿名探测，结合该请求日志及平台指标判断生成路径，不用循环purge。

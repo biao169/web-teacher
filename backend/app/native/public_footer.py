@@ -56,14 +56,24 @@ def navigation_link(row,lang):
 async def navigation(r,lang):
     from .public_navigation import visible_scopes
     allowed=visible_scopes(r.p)
-    rows=await r.sql.query("SELECT * FROM navigation_items WHERE enabled=1 AND visibility IN ("+','.join('?' for _ in allowed)+") AND (location IN ('header','hero','footer') OR location IS NULL OR location='') ORDER BY sort_order,id",tuple(allowed))
+    reads=getattr(r,'public_render_reads',None)
+    scope=tuple(allowed);key=(lang,scope)
+    if reads is not None:
+        prepared=reads.setdefault('navigation_display',{})
+        if key in prepared:return {area:[dict(item) for item in links] for area,links in prepared[key].items()}
+        raw=reads.setdefault('navigation_rows',{})
+    else:raw={}
+    if scope not in raw:
+        raw[scope]=await r.sql.query("SELECT * FROM navigation_items WHERE enabled=1 AND visibility IN ("+','.join('?' for _ in allowed)+") AND (location IN ('header','hero','footer') OR location IS NULL OR location='') ORDER BY sort_order,id",scope)
+    rows=[dict(row) for row in raw[scope]]
     result={'header':[],'hero':[],'footer':[]}
+    if lang=='en':
+        from .translation_sources import overlay_many
+        await overlay_many(r.sql,'navigation_items',rows)
     for row in rows:
-        if lang=='en':
-            from .translation_sources import overlay
-            await overlay(r.sql,'navigation_items',row)
         item=navigation_link(row,lang)
         if item:result[row['location'] if row['location'] in ('hero','footer') else 'header'].append(item)
+    if reads is not None:prepared[key]={area:[dict(item) for item in links] for area,links in result.items()}
     return result
 
 def footer_html(value,links_html=''):

@@ -89,16 +89,30 @@ async def public_listing(r,table,query,site=None,home=False,profile_overview=Fal
     result['query']=q
     return result
 
+async def public_site_options(r):
+    """One raw public projection per request; return copies before translation/render mutation."""
+    reads=getattr(r,'public_render_reads',None)
+    if reads is not None and 'site_options' in reads:return dict(reads['site_options'])
+    rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')
+    site=dict(rows[0]) if rows else {}
+    if reads is not None:reads['site_options']=site
+    return dict(site)
+
 async def public_media_map(r,data):
-    """Only resolve keys referenced by this response, never scan the whole media library."""
+    """Resolve referenced public keys once per request, including MIME and missing results."""
     keys=sorted({row.get(f) for rows in data.values() for row in rows for f in ('avatar_key','cover_key','pdf_key','certificate_key','syllabus_key','material_key','logo_key','favicon_key') if row.get(f) and (f!='pdf_key' or row.get('pdf_visibility')=='public') and (f!='material_key' or row.get('material_visibility')=='public')})
-    result={}
-    types={}
-    for offset in range(0,len(keys),40):
-        batch=keys[offset:offset+40]
+    reads=getattr(r,'public_render_reads',None)
+    known=reads.setdefault('media_keys',{}) if reads is not None else {}
+    missing=[key for key in keys if key not in known]
+    for offset in range(0,len(missing),40):
+        batch=missing[offset:offset+40]
         rows=await r.sql.query("SELECT uid,object_key,mime_type FROM media_assets WHERE status='active' AND object_key IN ("+','.join('?' for _ in batch)+')',batch)
-        result.update({m['object_key']:m['uid'] for m in rows})
-        types.update({m['object_key']:m['mime_type'] for m in rows})
+        # Keep missing keys too; no repeated empty lookup within this request.
+        found={m['object_key']:{'uid':m['uid'],'mime_type':m['mime_type']} for m in rows}
+        known.update({key:found.get(key) for key in batch})
+    # Return only this call's public whitelist, never everything previously resolved.
+    result={key:known[key]['uid'] for key in keys if known.get(key)}
+    types={key:known[key]['mime_type'] for key in keys if known.get(key)}
     for row in data.get('news',[]):
         row['_cover_type']=types.get(row.get('cover_key'),'')
     for row in data.get('courses',[]):

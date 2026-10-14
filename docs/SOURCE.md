@@ -1,6 +1,6 @@
 # 源码、函数与路由索引
 
-对应v0.16.127。用法先读[功能手册](README.md)及[部署手册](OPERATIONS.md)，再按完整文件路径查本索引。本文从当前Python定义提取实际函数名、参数与路由；不使用旧文档推测函数名。包含运行源码和部署工具，不包含测试、历史prototype/example程序或第三方vendor。列出符号不等于所有旧适配均是推荐入口。
+对应v0.16.133。用法先读[功能手册](README.md)及[部署手册](OPERATIONS.md)，再按完整文件路径查本索引。本文从当前Python定义提取实际函数名、参数与路由；不使用旧文档推测函数名。包含运行源码和部署工具，不包含测试、历史prototype/example程序或第三方vendor。列出符号不等于所有旧适配均是推荐入口。
 
 ## 如何调用
 
@@ -929,24 +929,25 @@ Presentation helpers only; public_actions retains validation, throttle and save.
 
 ### [backend/app/native/public_data.py](../backend/app/native/public_data.py)
 
-公开列表投影、媒体、摘要和字段筛选；访问共享 HTML 时仍保持匿名字段白名单。
+Bounded public list projections; full details still use the existing authorized reader.
 
-| 函数/方法（实际参数） | 用途 / HTTP注册入口 |
+| 函数/方法（实际参数） | 用途 / 路由 |
 | --- | --- |
 | `project_private_allowed(principal)` | Use the live system-role marker, never a role name or a client flag. |
-| `citation_style(site)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
-| `page_number(value)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
-| `home_limit(table, site)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
+| `citation_style(site)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `page_number(value)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `home_limit(table, site)` | 由所属路由/模块调用，参数及权限按源码处理。 |
 | `validate_listing_query(table, query, home=False)` | Pure validation shared by the early validator and normal list execution. |
 | `async public_listing(r, table, query, site=None, home=False, profile_overview=False, *, fixed_conditions=None)` | One SQL page per request; home totals cap all subsequent pages as well as the first. |
-| `async public_media_map(r, data)` | Only resolve keys referenced by this response, never scan the whole media library. |
+| `async public_site_options(r)` | One raw public projection per request; return copies before translation/render mutation. |
+| `async public_media_map(r, data)` | Resolve referenced public keys once per request, including MIME and missing results. |
 | `trim_snippets(row, table=None)` | Trim only after exact-source translation lookup; never hash a shortened original. |
 | `facet_column(table, field)` | Only trusted catalog fields may become SQL identifiers. |
-| `year_expression(column)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
+| `year_expression(column)` | 由所属路由/模块调用，参数及权限按源码处理。 |
 | `facet_parts(column, source='')` | Same ; / fullwidth ; / CR / LF delimiters as existing history suggestions. |
 | `public_filter(table, field, value)` | Public-only predicates, shared with the facet catalog. Admin equality is unchanged. |
-| `async people_facet(content, table, field, page=1, *, fixed_conditions=None, lang='zh')` | 本模块内部/组装函数；先通过所属功能入口使用。 |
-| `async people_facets(content, table, *, fixed_conditions=None, lang='zh', query=None)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
+| `async people_facet(content, table, field, page=1, *, fixed_conditions=None, lang='zh')` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `async people_facets(content, table, *, fixed_conditions=None, lang='zh', query=None)` | 由所属路由/模块调用，参数及权限按源码处理。 |
 
 ### [backend/app/native/public_descriptions.py](../backend/app/native/public_descriptions.py)
 
@@ -960,11 +961,11 @@ Read one public description on demand; no private columns or writes.
 
 Safe footer HTML and configured links; source text is never a template program.
 
-| 函数/方法（实际参数） | 用途 / HTTP注册入口 |
+| 函数/方法（实际参数） | 用途 / 路由 |
 | --- | --- |
-| `safe_href(value, mail=True)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
-| `navigation_link(row, lang)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
-| `async navigation(r, lang)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
+| `safe_href(value, mail=True)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `navigation_link(row, lang)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `async navigation(r, lang)` | 由所属路由/模块调用，参数及权限按源码处理。 |
 | `footer_html(value, links_html='')` | Sanitize every render (including translations/imports), then fill one controlled slot. |
 
 ### [backend/app/native/public_home.py](../backend/app/native/public_home.py)
@@ -1424,9 +1425,9 @@ Five providers share text segmentation, finite budgets and safe rich-text recons
 
 ### [backend/app/native/translation_sources.py](../backend/app/native/translation_sources.py)
 
-Allowlisted public text sources and exact-hash English overlays shared by scan and display.
+公开原文来源、原生英文字段与有界英文批量覆盖；overlay兼容单条调用，overlay_many按当前页读取胜出译文，无写入/服务调用。
 
-| 函数/方法（实际参数） | 用途 / HTTP注册入口 |
+| 函数/方法（实际参数） | 用途 |
 | --- | --- |
 | `reference(table, uid, field)` | Construct a source key from native table/field allowlists, retaining colon-bearing UIDs. |
 | `split_reference(value)` | Decode a source reference without accepting arbitrary SQL identifiers. |
@@ -1435,7 +1436,10 @@ Allowlisted public text sources and exact-hash English overlays shared by scan a
 | `source_format(table, row, field)` | 缓存复用区分纯文本、Markdown和HTML，不能只判断是否HTML。 |
 | `html_source(table, row, field)` | Only news HTML body fields require structural translation and media validation. |
 | `candidate(table, row, field)` | Classify empty, manual, English-only and oversized text without transmitting it. |
-| `async overlay(sql, table, row)` | Read shared live translations without writing caches or invoking providers. |
+| `_overlay_slots(table, rows)` | Capture each row's original field hashes before changing any presentation text. |
+| `async _overlay_batch(sql, batch)` | Two bounded winner queries; local selection keeps the single-row hash scope. |
+| `async overlay_many(sql, table, rows)` | Mutate only these presentation rows, preserving native English and exact-source rules. |
+| `async overlay(sql, table, row)` | Compatible single-record entry; share the same bounded selection implementation. |
 
 ### [backend/app/native/web.py](../backend/app/native/web.py)
 
@@ -1503,65 +1507,60 @@ Allowlisted public text sources and exact-hash English overlays shared by scan a
 
 Request resources, validation and HTTP policy shared by both route groups.
 
-| 函数/方法（实际参数） | 用途 / HTTP注册入口 |
+| 函数/方法（实际参数） | 用途 / 路由 |
 | --- | --- |
 | `async payload(request, limit=500000)` | Bound request size and reject duplicate form/JSON keys before dispatch. |
 | `payload.pairs(items)` | 为访客模板组织有值的原生字段标签及内容。 |
 | `shared_public_route(request)` | Standard shared HTML allowlist; form-bearing news is checked separately. |
 | `worker_public_read(request, r)` | Only Worker public read routes; media, forms, auth, admin and writes stay full. |
-| `create_base(factory, static_root=None, *, areas=('shared', 'public', 'admin'), sync_assets=True)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
+| `create_base(factory, static_root=None, *, areas=('shared', 'public', 'admin'), sync_assets=True)` | 由所属路由/模块调用，参数及权限按源码处理。 |
 | `async create_base.resources(request)` | 按请求复制资源上下文并获取当前身份，防止请求之间串用权限。 |
 | `create_base.csrf(request, r, data)` | Require configured origin plus session-bound CSRF, including fetch and multipart alternatives. |
 | `async create_base.headers(request, call_next)` | 核对Host并为响应设置安全策略和缓存控制。 |
-| `async create_base.unexpected_error(request, exc)` | 内部步骤；在外层函数/实例生命周期中使用。 |
+| `async create_base.unexpected_error(request, exc)` | 由所属路由/模块调用，参数及权限按源码处理。 |
 | `async create_base.domain_error(request, exc)` | 将业务异常转换为对应状态码及页面或JSON错误。 |
 | `async create_base.database_error(request, exc)` | 将数据库约束失败转换为保存冲突提示。 |
-| `async create_base.health(request: Request)` | 返回服务就绪信息，供启动器和反向代理检查。；路由：GET /health/ready；GET /health |
-
-动态注册/挂载：
-
-- `app.mount('/assets/' + area, StaticFiles(directory=static_root / 'frontend' / area / 'static'), name='assets-' + area)`
-- `app.mount('/assets/site-sync', StaticFiles(directory=static_root / 'site_sync/frontend/static'), name='assets-site-sync')`
+| `async create_base.health(request: Request)` | 返回服务就绪信息，供启动器和反向代理检查。；路由：GET '/health/ready'；GET '/health' |
 
 ### [backend/app/native/web_context.py](../backend/app/native/web_context.py)
 
 Shared template context; no route registration or task execution.
 
-| 函数/方法（实际参数） | 用途 / HTTP注册入口 |
+| 函数/方法（实际参数） | 用途 / 路由 |
 | --- | --- |
-| `renderer()` | 本模块内部/组装函数；先通过所属功能入口使用。 |
+| `renderer()` | 由所属路由/模块调用，参数及权限按源码处理。 |
 | `async renderer.context(r, table='', title='', lang='zh', site_options=None)` | 组合公共页面变量、菜单、身份与模块权限。 |
 | `async renderer.render(r, name, table='', title='', **values)` | 使用指定模板与上下文输出HTML。 |
 
 ### [backend/app/native/web_public.py](../backend/app/native/web_public.py)
 
-公开首页、列表、详情、表单、媒体与 sitemap；通过 install 统一注册。
+Public routes, installed on an existing application.
 
-| 函数/方法（实际参数） | 用途 / HTTP注册入口 |
+| 函数/方法（实际参数） | 用途 / 路由 |
 | --- | --- |
-| `public_headers(request, r, revision, fragment=False, form=False, safe=False)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
-| `install(app, factory, resources, csrf, render)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
-| `async install.contact_response(r, lang, values=None, message='', success=False, status=200)` | 内部步骤；在外层函数/实例生命周期中使用。 |
-| `async install.cache_revision(request: Request)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /api/public/cache-revision |
-| `async install.public_form(request: Request, lang: str='en')` | Render public registration/contact with a short-lived form token.；路由：GET /{lang}/contact |
-| `async install.public_submit(request: Request, lang: str='en')` | Check origin/token, then invoke the native public action with bounded fields.；路由：POST /{lang}/contact |
-| `async install.media(request: Request, uid: str)` | 公开正文、封面和PDF阅读复用同一鉴权及分段读取接口。；路由：GET /media/{uid}；HEAD /media/{uid} |
-| `async install.transfer_entry(request: Request)` | 本地进入同站快传，旧Worker仍使用显式来源配置。；路由：GET /transfer |
-| `async install.crawler_rules(request: Request)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /robots.txt |
-| `async install.sitemap_index(request: Request)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /sitemap.xml |
-| `async install.sitemap_home(request: Request)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /sitemap-home.xml |
-| `async install.sitemap_chunk(request: Request, table: str, part: int)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /sitemap-{table}-{part}.xml |
-| `async install.home()` | 将根页面重定向到默认语言首页。；路由：GET / |
-| `async install.public_description_text(request: Request, lang: str, table: str, uid: str)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /api/public/{lang}/{table}/{uid}/description |
-| `async install.public_saved_citations(request: Request)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /api/public/publications/citations |
-| `async install.public_people_facet(request: Request, table: str, field: str)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /api/public/people/{table}/facets/{field} |
-| `async install.public_navigation_entry(request: Request, lang: str, nav: str, uid: str=None)` | 内部步骤；在外层函数/实例生命周期中使用。；路由：GET /{lang}/n/{nav}；HEAD /{lang}/n/{nav}；GET /{lang}/n/{nav}/{uid}；HEAD /{lang}/n/{nav}/{uid} |
-| `async install.public(request: Request, lang: str, table: str=None, uid: str=None, nav: str=None)` | 从原生字段组合访客列表、详情、首页和翻译内容。；路由：GET /{lang}；HEAD /{lang}；GET /{lang}/{table}；HEAD /{lang}/{table}；GET /{lang}/{table}/{uid}；HEAD /{lang}/{table}/{uid} |
-| `install.public.next_url(t, page)` | 内部步骤；在外层函数/实例生命周期中使用。 |
-| `install.public.versioned(url)` | 内部步骤；在外层函数/实例生命周期中使用。 |
-| `install.public.detail_url(t, key)` | 内部步骤；在外层函数/实例生命周期中使用。 |
-| `install.public.language_url(code)` | 内部步骤；在外层函数/实例生命周期中使用。 |
-| `create_public_app(factory, static_root=None)` | 本模块内部/组装函数；先通过所属功能入口使用。 |
+| `public_headers(request, r, revision, fragment=False, form=False, safe=False)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `install(app, factory, resources, csrf, render)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `async install.contact_response(r, lang, values=None, message='', success=False, status=200)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `async install.cache_revision(request: Request)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/api/public/cache-revision' |
+| `async install.public_form(request: Request, lang: str='en')` | Render public registration/contact with a short-lived form token.；路由：GET '/{lang}/contact' |
+| `async install.public_submit(request: Request, lang: str='en')` | Check origin/token, then invoke the native public action with bounded fields.；路由：POST '/{lang}/contact' |
+| `async install.media(request: Request, uid: str)` | 公开正文、封面和PDF阅读复用同一鉴权及分段读取接口。；路由：GET '/media/{uid}'；HEAD '/media/{uid}' |
+| `async install.transfer_entry(request: Request)` | 本地进入同站快传，旧Worker仍使用显式来源配置。；路由：GET '/transfer' |
+| `async install.crawler_rules(request: Request)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/robots.txt' |
+| `async install.sitemap_index(request: Request)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/sitemap.xml' |
+| `async install.sitemap_home(request: Request)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/sitemap-home.xml' |
+| `async install.sitemap_chunk(request: Request, table: str, part: int)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/sitemap-{table}-{part}.xml' |
+| `async install.home()` | 将根页面重定向到默认语言首页。；路由：GET '/' |
+| `async install.public_description_text(request: Request, lang: str, table: str, uid: str)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/api/public/{lang}/{table}/{uid}/description' |
+| `async install.public_saved_citations(request: Request)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/api/public/publications/citations' |
+| `async install.public_people_facet(request: Request, table: str, field: str)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/api/public/people/{table}/facets/{field}' |
+| `async install.public_navigation_entry(request: Request, lang: str, nav: str, uid: str=None)` | 由所属路由/模块调用，参数及权限按源码处理。；路由：GET '/{lang}/n/{nav}'；HEAD '/{lang}/n/{nav}'；GET '/{lang}/n/{nav}/{uid}'；HEAD '/{lang}/n/{nav}/{uid}' |
+| `async install.public(request: Request, lang: str, table: str=None, uid: str=None, nav: str=None)` | 从原生字段组合访客列表、详情、首页和翻译内容。；路由：GET '/{lang}'；HEAD '/{lang}'；GET '/{lang}/{table}'；HEAD '/{lang}/{table}'；GET '/{lang}/{table}/{uid}'；HEAD '/{lang}/{table}/{uid}' |
+| `install.public.next_url(t, page)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `install.public.versioned(url)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `install.public.detail_url(t, key)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `install.public.language_url(code)` | 由所属路由/模块调用，参数及权限按源码处理。 |
+| `create_public_app(factory, static_root=None)` | 由所属路由/模块调用，参数及权限按源码处理。 |
 
 ### [backend/app/ports/diagnostics.py](../backend/app/ports/diagnostics.py)
 
@@ -3735,7 +3734,7 @@ Independent transfer Worker with separately configurable D1, media and cache sto
 | [frontend/public/static/js/public-auth.js](../frontend/public/static/js/public-auth.js) | `focusContent(scope)`；`validURL(value)`；`load(value,scope=slot)`；`openPage(value)` | Shared dialog/page authentication, using existing same-origin routes and cookies. |
 | [frontend/public/static/js/public-authors.js](../frontend/public/static/js/public-authors.js) | `paintAuthors(root=document)` | Reuse the existing pure author matching helper; never alter stored author/citation text. |
 | [frontend/public/static/js/public-filters.js](../frontend/public/static/js/public-filters.js) | `visible(node)`；`close(restore=false)`；`position(s)`；`active(s,index)`；`sync(s)`；`open(s,last=false)`；`choose(s,index)` | One progressive select enhancement; native selects still own form values. |
-| [frontend/public/static/js/public-list.js](../frontend/public/static/js/public-list.js) | `appendIcon(button,name)`；`decode(url)`；`result(state)`；`node(tag,classes,text)`；`safeURL(value,local=false)`；`publicationCard(item,index,total,state)`；`newsCard(item,index,total,state)`；`compactCard(item,index,total,state)`；`card(item,index,total,state)`；`pageURL(state,page)`；`syncForm(state)`；`render(url,push=false,append=false)`；`valid(value)`；`facets()`；`load()`；`fallback()` | Complete public read models; HTML and scoped navigation remain independent. |
+| [frontend/public/static/js/public-list.js](../frontend/public/static/js/public-list.js) | `appendIcon(button,name)`；`decode(url)`；`result(state)`；`node(tag,classes,text)`；`safeURL(value,local=false)`；`publicationCard(item,index,total,state)`；`newsCard(item,index,total,state)`；`compactCard(item,index,total,state)`；`card(item,index,total,state)`；`pageURL(state,page)`；`syncForm(state)`；`paging(state,data)`；`adoptInitial(url)`；`render(url,push=false,append=false)`；`valid(value)`；`facets(preserve=false)`；`load()`；`fallback()` | Complete public read models; HTML and scoped navigation remain independent. |
 | [frontend/public/static/js/public-people.js](../frontend/public/static/js/public-people.js) | `fieldText(el)`；`copy(value,status)`；`cancelCitation()`；`copyCitations(items,status)`；`prepareCitations(scope=document)`；`refresh()`；`prepare()`；`markReset()`；`changingQuery()`；`navigate(event)` | Shared public list/detail controls. Existing HTML routes; no admin API or bulk prefetch. |
 | [frontend/public/static/js/public-query.js](../frontend/public/static/js/public-query.js) | 模块初始化 / 匿名事件回调；具体方法见源码 | Encode visitor text state only; fixed conditions never come from this form. |
 | [frontend/public/static/js/public-session.js](../frontend/public/static/js/public-session.js) | `schedule()`；`activity()`；`clearPrivate()`；`clear(reset=false)`；`feedback(text)`；`defaultLogin()`；`stop()`；`read(url,signal)`；`identity(data,cached=false)`；`apply(row)`；`watch()`；`pump()`；`start(force=false,pageCheck=false)`；`changed()` | Shared Public identity display; private data and CSRF remain request-bound. |
@@ -3934,3 +3933,31 @@ Independent transfer Worker with separately configurable D1, media and cache sto
 - site_sync/core、adapters、transport、worker保持现有签名、任务、checkpoint、租约和原生协议；其函数列在Python索引。不要根据某一子模块文件名启动第二套应用。
 - transfer/backend/vps.py保留明确拒绝旧独立监听的提示，正常本地入口backend.entrypoints.vps。旧桥接/独立适配的存在不代表推荐部署方式。
 - tests及各子项目测试目录保留现有测试；其函数不在生产索引。新增函数、移动模板或路由变更后同步更新本索引，不继续积累逐版复制文档。
+
+## 显式性能探测（测试工具，不进入Worker热路径）
+
+文件tests/probe_public_performance.py复用原探测：samples(navs=())定义有界路径；classification(status,headers)只呈现观测到的边缘状态；probe(origin,expected,navs=())执行匿名HTTP，不跟随重定向、无登录/写入/重试、单响应最多读取512KiB+1；SQLCounter临时包装既有SQL对象，计数后恢复方法；measure_local(client,sql,targets)逐请求记录；local_baseline()只在TemporaryDirectory造数并读取；main()解析--local或--origin，不接受源码内或已存在输出文件。
+
+SQLCounter报告仅含SQL形状指纹、调用/重复次数、分类、返回行数和SQLite等待耗时，不包含原SQL、参数或查询内容。相同形状不等于相同参数，exact_duplicate_calls也不意味着可以删除安全校验。此工具仅显式测试CLI加载，生产资源工厂/路由未接入计数。
+
+## 请求内设置与媒体入口
+
+public_site_options(r)读取raw公开站点设置，返回副本；public_media_map(r,data)返回仅当前data允许的UID映射、附加既有MIME字段并复用已读/缺失键；public_footer.navigation(r,lang)使用当前可见范围与语言，原始行和展示副本分别保存。public_render_reads由web_common.create_base.resources每请求重新分配，缺少该容器的内部直接调用沿用即时读取，不在factory或模块中偷偷创建持久缓存。
+
+### v0.16.132内部读取调整
+
+backend/app/native/content.py：Content.listing签名不变。public=True且COUNT=0，在所有projection校验后返回正常空分页结果；无需调用方添加分支。backend/app/native/translation_sources.py：_overlay_batch(sql,batch)签名不变；仅未被精确本地决定阻断的字段进入共享查询，overlay/overlay_many调用方式及80字段/128KiB有界批次不变。两处不新增公共API、文件或配置选项。
+
+### 两端运行/缓存策略定位
+
+| 平台功能 | 文件/函数 | 具体用法 |
+| --- | --- | --- |
+| 公共HTTP策略 | backend/app/public_performance.py：page_request、navigation_target、page_headers、data_target、data_headers | 内部按GET/HEAD、URL/query和响应类型白名单判定；TTL为当前固定常量，不读取已废弃缓存环境开关 |
+| Worker缓存开关与并发 | deploy/cloudflare/runtime/cache_policy.py：entrypoint_cache、edge_cache、policy | 构建时关闭default/general edge cache，启用PublicPage/Data缓存entrypoint；policy将流并发固定1 |
+| Worker应用与数据生成 | deploy/cloudflare/runtime/entrypoint.py：LazyApplication.__call__、Default.fetch、PublicPage.fetch、PublicData.fetch；runtime/public_data.py：serve | 路由应用实例成功后复用；数据MISS最小D1生成；请求业务结果不跨请求共享 |
+| 公开匿名转发 | deploy/cloudflare/runtime/public_page.py：eligible、forward、restricted_fallback | Host检查、去身份头、私有固定入口的既有动态回退；不由管理员传任意可缓存URL |
+| Ubuntu主服务 | deploy/shared/service.py：main；deploy/linux/tweb.py：Manager.generate、paths | 单进程uvicorn和统一HTTP端口；paths查看实例实际位置；generate不生成Nginx proxy_cache |
+| 请求内读取复用 | backend/app/native/web_common.py：create_base.resources；public_data.py：public_site_options、public_media_map；public_footer.py：navigation | r.public_render_reads每请求新建；返回副本/分语言分可见范围复用；不是Ubuntu跨请求缓存 |
+| 模块维护 | backend/app/native/public_cache_tags.py及deploy/cloudflare/runtime/public_invalidation.py：relay、relay_reset、update | 后台提交后复用已有标签通道；Ubuntu维护返回not_applicable，不能清浏览器副本 |
+
+详细边界和操作见部署手册第3/5/6节；此表是现有内部函数索引，不新增配置、服务或接口。

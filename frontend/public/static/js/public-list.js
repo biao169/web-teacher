@@ -6,6 +6,10 @@
   const table=root.dataset.table,lang=root.dataset.lang,en=lang==='en',path='/'+lang+'/'+table;
   if(location.pathname!==path)return;
   const items=root.querySelector('[data-stream-items]'),controls=root.querySelector('[data-stream-controls]');
+  const serverControls=[...controls.querySelectorAll('[data-load-more],[data-page-fallback],[data-stream-status]')];
+  const ids=()=>[...items.children].filter(x=>x.matches('article[data-record-id]')).map(x=>x.dataset.recordId);
+  const main=root.closest('[data-public-revision]');
+  const initial={url:location.pathname+location.search,revision:main?.dataset.publicRevision,shared:main?.dataset.publicShared==='1',page:root.dataset.page,total:root.dataset.total,size:root.dataset.localSize,query:root.dataset.queryId,ids:ids()};
   // Capture once, before replacing SSR cards. Existing cached HTML may lack templates.
   const cardIcons=new Map(['chevron-down','box-arrow-up-right'].map(name=>[name,
     root.querySelector('template[data-public-card-icon="'+name+'"]')?.content.querySelector('svg') ||
@@ -186,6 +190,20 @@
     for(const control of form.elements){if(!control.name)continue;if(control.type==='radio')control.checked=state[control.name]===control.value;else if(control.name==='size')control.value=String(state.size);else if(control.name==='q'||control.name.startsWith('f.')||control.name.startsWith('c.'))control.value=state[control.name]||'';}
     form.querySelectorAll('select').forEach(select=>select.dispatchEvent(new Event('public:facet-options')));
   }
+  function paging(state,data){
+    // Keep the original controls for a stream script that initializes after data arrives.
+    controls.replaceChildren(...serverControls);serverControls.forEach(x=>{x.hidden=true;});
+    for(const [page,label] of [[data.page-1,say('上一页','Previous page')],[data.page+1,say('下一页','Next page')]])if(page>=1&&page<=data.pages){const link=node('a','btn btn-outline-secondary',label);link.href=pageURL(state,page).href;link.dataset.localPage='';if(page>data.page)link.dataset.localNext='';controls.append(link);}
+    const status=node('span','',say(`第 ${data.page} / ${data.pages} 页，共 ${data.total} 条`,`Page ${data.page} / ${data.pages}, ${data.total} results`));status.setAttribute('role','status');controls.append(status);
+  }
+  function adoptInitial(url){
+    if(!initial.shared||!initial.revision||String(model.revision)!==initial.revision||initial.url!==location.pathname+location.search||![10,20].includes(Number(initial.size)))return false;
+    if(root.dataset.page!==initial.page||root.dataset.total!==initial.total||root.dataset.queryId!==initial.query||JSON.stringify(ids())!==JSON.stringify(initial.ids))return false;
+    const state=decode(url),data=result(state);
+    if(state.size!==Number(initial.size)||data.page!==Number(initial.page)||data.total!==Number(initial.total)||JSON.stringify(data.rows.map(x=>x.uid))!==JSON.stringify(initial.ids))return false;
+    // Same anonymous snapshot: retain selection, expanded biography, focus and draft controls.
+    state.page=data.page;paging(state,data);root.dataset.next='';root.dataset.localReady='1';root.dataset.localAdopted='1';return true;
+  }
   function render(url,push=false,append=false){
     const state=decode(url),data=result(state);state.page=data.page;
     // Build the complete replacement before touching the visible server content.
@@ -193,9 +211,7 @@
     if(!data.rows.length)fragment.append(node('p','text-secondary public-empty',say('暂无公开内容。','No public content.')));
     if(push)history.pushState({publicList:true},'',url.pathname+url.search); // URL is set before preparing detail links below.
     if(!append){root.dispatchEvent(new CustomEvent('public:querychange',{bubbles:true}));items.replaceChildren(fragment);}else items.append(fragment);root.dataset.total=String(data.total);root.dataset.page=String(data.page);root.dataset.next='';
-    controls.replaceChildren();
-    for(const [page,label] of [[data.page-1,say('上一页','Previous page')],[data.page+1,say('下一页','Next page')]])if(page>=1&&page<=data.pages){const link=node('a','btn btn-outline-secondary',label);link.href=pageURL(state,page).href;link.dataset.localPage='';if(page>data.page)link.dataset.localNext='';controls.append(link);}
-    const status=node('span','',say(`第 ${data.page} / ${data.pages} 页，共 ${data.total} 条`,`Page ${data.page} / ${data.pages}, ${data.total} results`));status.setAttribute('role','status');controls.append(status);
+    paging(state,data);
     for(const link of document.querySelectorAll('[data-public-language]')){const target=new URL(link.href);target.pathname=path.replace(/^\/(en|zh)/,'/'+link.dataset.publicLanguage);target.search=location.search;target.hash=location.hash;link.href=target.href;}
     syncForm(state);root.dispatchEvent(new CustomEvent('public:appended',{bubbles:true,detail:{count:data.rows.length,page:data.page,total:data.total}}));
     // Rebuild return links on every transition, including back/forward.
@@ -209,8 +225,8 @@
     if(table==='news'&&!value.semantics.filters.category?.facet_tokens){const facet=value.facets.find(x=>x.field==='category');if(facet)facet.values=[...new Set(facet.values.flatMap(splitValues))];}
     return value;
   }
-  function facets(){
-    const style=model.items.find(item=>item.citation)?.citation.style,copyFormat=document.querySelector('[data-copy-format]');if(style&&copyFormat)copyFormat.value=style;
+  function facets(preserve=false){
+    const style=model.items.find(item=>item.citation)?.citation.style,copyFormat=document.querySelector('[data-copy-format]');if(!preserve&&style&&copyFormat)copyFormat.value=style;
     for(const facet of model.facets){const host=[...form.querySelectorAll('[data-person-facet]')].find(x=>x.dataset.field===facet.field);if(!host)continue;const select=host.querySelector('select'),selected=select.value,first=select.options[0]?.cloneNode(true);select.replaceChildren();if(first)select.append(first);for(const value of facet.values)select.add(new Option(facet.labels[value]||value,value));if(selected&&![...select.options].some(o=>o.value===selected))select.add(new Option(selected,selected));select.value=selected;host.querySelector('[data-facet-more]')?.setAttribute('hidden','');select.dispatchEvent(new Event('public:facet-options'));}
   }
   async function load(){
@@ -228,5 +244,5 @@
   window.addEventListener('popstate',()=>{if(!model)return;try{if(location.pathname!==path)throw Error('Path');render(new URL(location.href));}catch{location.reload();}});
   // Start after initial HTML is visible; errors leave it and normal navigation intact.
   function fallback(){model=null;failed=true;delete root.dataset.localPending;root.dispatchEvent(new CustomEvent('public:local-fallback',{bubbles:true}));}
-  load().then(()=>{if(away){fallback();return;}try{render(new URL(location.href));facets();delete root.dataset.localPending;root.dispatchEvent(new CustomEvent('public:local-ready',{bubbles:true}));}catch{fallback();}}).catch(fallback);
+  load().then(()=>{if(away){fallback();return;}try{const url=new URL(location.href),adopted=adoptInitial(url);if(!adopted)render(url);facets(adopted);delete root.dataset.localPending;root.dispatchEvent(new CustomEvent('public:local-ready',{bubbles:true}));}catch{fallback();}}).catch(fallback);
 })();

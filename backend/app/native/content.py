@@ -99,6 +99,11 @@ class Content:
                 return value+' AS "'+k+'"'
             selected=','.join(projected(k) for k in projection)
         else:selected=','.join('"'+k+'"' for k in columns if k not in SECRET)
+        # COUNT already proves the public result is empty. Keep all input/projection
+        # checks above, but avoid a second data read and unused student rules.
+        # Admin/export paths retain their existing read sequence.
+        if public and count==0:
+            return {'rows':[],'page':page,'pages':pages,'size':size,'total':count}
         order=f'"{sort}" {direction},id {direction if public else "ASC"}';order_args=[];rules=[]
         if grouped:
             from .public_students import rules_for,group_expression,annotate

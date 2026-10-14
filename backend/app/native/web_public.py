@@ -126,7 +126,7 @@ def install(app,factory,resources,csrf,render):
     async def public(request:Request,lang:str,table:str=None,uid:str=None,nav:str=None):
         """从原生字段组合访客列表、详情、首页和翻译内容。"""
         if lang not in ('zh','en') or (table and table not in CONTENT):raise Error('页面不存在',404)
-        from .public_data import public_listing,public_media_map,trim_snippets
+        from .public_data import public_listing,public_media_map,public_site_options,trim_snippets
         fragment=request.headers.get('x-public-fragment')=='1'
         home_mode=request.query_params.get('home')=='1'
         r=await resources(request);data={};detail=None;pages=None;home_pages={}
@@ -151,9 +151,7 @@ def install(app,factory,resources,csrf,render):
         if table and not uid:
             from .public_data import validate_listing_query
             validate_listing_query(table,query,home_mode)
-        site_options={}
-        site_rows=await r.sql.query('SELECT uid,site_name,site_name_en,hero_title,hero_subtitle,footer_text,homepage_profile_uid,homepage_publication_limit,homepage_news_limit,homepage_project_limit,homepage_student_limit,homepage_patent_limit,publication_citation_style,logo_key,favicon_key,seo_title,seo_description FROM site_settings WHERE is_active=1 ORDER BY id LIMIT 1')
-        site_options=site_rows[0] if site_rows else {}
+        site_options=await public_site_options(r)
         if uid:
             detail=await r.content.get(table,uid,public=True,fixed_conditions=fixed)
             if table not in ('profiles','courses','news'):
@@ -165,13 +163,15 @@ def install(app,factory,resources,csrf,render):
         else:
             from .public_home import homepage_rows
             data,home_pages=await homepage_rows(r,site_options)
-        media_map=await public_media_map(r,{table:[detail]} if detail else data)
+        media_input={table:[detail]} if detail else dict(data)
+        # Full HTML needs branding too; combine keys before one bounded lookup.
+        if not fragment:media_input['site_settings']=[site_options]
+        media_map=await public_media_map(r,media_input)
         # Translation is a presentation overlay; original title/name fields remain unchanged.
         if lang=='en':
-            from .translation_sources import overlay
+            from .translation_sources import overlay_many
             for t,rows in data.items():
-                for row in rows+([detail] if detail and t==table else []):
-                    await overlay(r.sql,t,row)
+                await overlay_many(r.sql,t,rows+([detail] if detail and t==table else []))
         for t,rows in data.items():
             for row in rows+([detail] if detail and t==table else []):
                 if row is not detail:trim_snippets(row,t)

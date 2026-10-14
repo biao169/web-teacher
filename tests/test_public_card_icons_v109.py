@@ -30,4 +30,4 @@ def test_empty_and_populated_lists_include_inert_icons_and_accessible_ssr(fixtur
         assert page.headers['x-teacher-render-ok']=='1'
         link=next(a for a in icons.links if '/profiles/'+uid in a['href'])
         assert link['title']==link['aria-label']==label
-        assert '/assets/public/js/public-list.js?v=0.16.127' in page.text
+        assert '/assets/public/js/public-list.js?v=0.16.131' in page.text

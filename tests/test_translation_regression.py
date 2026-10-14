@@ -209,3 +209,150 @@ def test_publication_and_target_gates(fixture,condition):
     else:
         a=source(r);cache(r,'profiles',a,'title');b['visibility']='hidden'
     assert translated(r,'courses',b,'name')=='共同原文'
+
+
+def test_public_batch_reads_only_local_winners_for_twelve_manual_rows_without_writes(fixture):
+    from backend.app.native.translation_sources import overlay_many
+    _,r=fixture
+    rows=[]
+    for i in range(12):
+        original=source(r,'profiles','name','批量姓名'+str(i))
+        cache(r,'profiles',original,'name','Person '+str(i),manual=1)
+        rows.append({key:original[key] for key in ('uid','name','visibility')})
+    queries=[];old=r.sql.query;before=run(old('SELECT count(*) n FROM translation_cache'))
+    async def query(sql,args=()):queries.append((sql,len(args)));return await old(sql,args)
+    r.sql.query=query
+    try:returned=run(overlay_many(r.sql,'profiles',rows))
+    finally:r.sql.query=old
+    assert returned is rows and [row['name'] for row in rows]==['Person '+str(i) for i in range(12)]
+    assert len(queries)==1 and all(count<=2 for _,count in queries)
+    assert run(old('SELECT count(*) n FROM translation_cache'))==before
+
+
+def test_public_batch_preserves_target_protection_and_visibility(fixture):
+    from backend.app.native.translation_sources import overlay_many
+    _,r=fixture;donor=source(r);cache(r,'profiles',donor,'title','Global',manual=1)
+    rows=[];expected=[]
+    for protection in ('native','manual','empty','stopped','explicit','hidden','automatic'):
+        row=source(r,'profiles','name','共同原文')
+        result='共同原文'
+        if protection=='native':row['name_en']='Native';result='Native'
+        elif protection=='manual':cache(r,'profiles',row,'name','Local',manual=1);result='Local'
+        elif protection=='empty':cache(r,'profiles',row,'name','',manual=1)
+        elif protection=='stopped':cache(r,'profiles',row,'name','Old',current=0,meta={'_inactive':True})
+        elif protection=='explicit':cache(r,'profiles',row,'name','Explicit',meta={'_reuse':{'explicit':True}});result='Explicit'
+        elif protection=='hidden':row['visibility']='hidden'
+        # Conflicting manual versions Global/Local intentionally block a shared choice.
+        rows.append(row);expected.append(result)
+    run(overlay_many(r.sql,'profiles',rows));assert [row['name'] for row in rows]==expected
+
+
+def test_public_batch_respects_original_per_row_local_hash_scope(fixture):
+    """Another row's hash must not make a malformed newer local version suppress a valid one."""
+    from backend.app.native.translation_sources import overlay_many
+    _,r=fixture;a=source(r,'profiles','name','第一原文');b=source(r,'profiles','name','第二原文')
+    cache(r,'profiles',a,'name','Valid local',manual=1)
+    cache(r,'profiles',a,'name','Wrong newer local',manual=1,current=0,source_text=b['name'],meta={'_inactive':True})
+    # Both hashes enter one batch, but the first row's old selector only allowed its own hash.
+    rows=[{'uid':a['uid'],'name':a['name'],'visibility':'public'},{'uid':b['uid'],'name':b['name'],'visibility':'public'}]
+    run(overlay_many(r.sql,'profiles',rows));assert rows[0]['name']=='Valid local' and rows[1]['name']=='第二原文'
+
+
+def test_public_batch_keeps_plain_markdown_html_and_legacy_formats_separate(fixture):
+    from backend.app.native.translation_sources import overlay_many
+    _,r=fixture;rows=[]
+    for fmt in ('plain','markdown','html'):
+        row=source(r,'news','content','共同正文',content_format=fmt)
+        cache(r,'news',row,'content','Translated '+fmt,manual=1)
+        rows.append(row)
+    run(overlay_many(r.sql,'news',rows))
+    assert [row['content'] for row in rows]==['Translated '+fmt for fmt in ('plain','markdown','html')]
+    legacy=source(r,'news','content','旧正文',content_format='plain');item=cache(r,'news',legacy,'content','Legacy')
+    run(r.sql.batch([('UPDATE translation_cache SET source_refs=? WHERE uid=?',(json.dumps([{'table':'news','uid':legacy['uid'],'field':'content'}]),item['uid']))]))
+    run(overlay_many(r.sql,'news',[legacy]));assert legacy['content']=='旧正文'
+
+
+def test_public_batch_splits_field_and_byte_budget_without_dropping_large_field(fixture,monkeypatch):
+    import backend.app.native.translation_sources as translations
+    _,r=fixture;rows=[]
+    for i in range(3):
+        row=source(r,'profiles','name','姓名'+str(i));cache(r,'profiles',row,'name','Person '+str(i),manual=1)
+        rows.append({'uid':row['uid'],'name':row['name'],'visibility':'public'})
+    calls=[];old=r.sql.query
+    async def query(sql,args=()):calls.append(sql);return await old(sql,args)
+    r.sql.query=query
+    monkeypatch.setattr(translations,'OVERLAY_BATCH_FIELDS',1)
+    try:run(translations.overlay_many(r.sql,'profiles',rows))
+    finally:r.sql.query=old
+    assert len(calls)==3 and [row['name'] for row in rows]==['Person '+str(i) for i in range(3)]
+    large=source(r,'profiles','bio','长简介'*300);cache(r,'profiles',large,'bio','Full biography',manual=1)
+    monkeypatch.setattr(translations,'OVERLAY_BATCH_BYTES',32)
+    run(translations.overlay_many(r.sql,'profiles',[large]));assert large['bio']=='Full biography'
+
+
+def test_public_batch_hashes_full_biography_before_page_snippet_trim(fixture):
+    client,r=fixture;rows=[]
+    for i in range(2):
+        row=source(r,'profiles','name','完整姓名'+str(i),bio='很长简介'*600)
+        cache(r,'profiles',row,'bio','Biography after exact full-source match '+str(i),manual=1);rows.append(row)
+    client.cookies.clear();html=client.get('/en/profiles').text
+    assert all('Biography after exact full-source match '+str(i) in html for i in range(2))
+
+
+def test_public_navigation_batch_reuses_winners_and_native_english(fixture):
+    from backend.app.native.public_footer import navigation
+    _,r=fixture;wanted={}
+    for i in range(12):
+        row=source(r,'navigation_items','title','批量导航'+str(i),title_en='Native navigation' if i==0 else '')
+        cache(r,'navigation_items',row,'title','Navigation '+str(i),manual=1)
+        wanted[row['uid']]='Native navigation' if i==0 else 'Navigation '+str(i)
+    queries=[];old=r.sql.query
+    async def query(sql,args=()):queries.append(sql);return await old(sql,args)
+    r.sql.query=query
+    try:links=run(navigation(r,'en'))
+    finally:r.sql.query=old
+    titles={item['uid']:item['title'] for items in links.values() for item in items}
+    assert all(titles[uid]==title for uid,title in wanted.items())
+    assert sum('translation_cache' in sql for sql in queries)==1
+
+@pytest.mark.parametrize('protection',['manual','empty','failed','stopped','explicit'])
+def test_local_terminal_translation_never_queries_donors(fixture,protection):
+    from backend.app.native.translation_sources import overlay_many
+    from probe_public_performance import SQLCounter
+    _,r=fixture;row=source(r,'profiles','name','受保护姓名');options={};expected='受保护姓名'
+    if protection=='manual':options={'manual':1};expected='Protected'
+    elif protection=='empty':options={'manual':1};
+    elif protection=='failed':options={'manual':1,'current':0,'status':'failed'}
+    elif protection=='stopped':options={'current':0,'meta':{'_inactive':True}}
+    else:options={'meta':{'_reuse':{'explicit':True}}};expected='Protected'
+    cache(r,'profiles',row,'name','' if protection=='empty' else 'Protected',**options)
+    display={'uid':row['uid'],'name':row['name'],'visibility':'public'}
+    with SQLCounter(r.sql) as counted:run(overlay_many(r.sql,'profiles',[display]));report=counted.report()
+    assert display['name']==expected and report['query_calls']==1 and report['batch_statements']==0
+
+
+def test_mixed_translation_only_packs_fields_allowed_to_reuse(fixture):
+    from backend.app.native.translation_sources import overlay_many
+    _,r=fixture;row=source(r,'profiles','name','本地姓名',title='自动职称')
+    cache(r,'profiles',row,'name','Local name',manual=1)
+    donor=source(r,'profiles','title','自动职称');cache(r,'profiles',donor,'title','Shared title',manual=1)
+    seen=[];old=r.sql.query
+    async def query(sql,args=()):seen.append((sql,args));return await old(sql,args)
+    r.sql.query=query
+    display={'uid':row['uid'],'name':row['name'],'title':row['title'],'visibility':'public'}
+    try:run(overlay_many(r.sql,'profiles',[display]))
+    finally:r.sql.query=old
+    assert display['name']=='Local name' and display['title']=='Shared title'
+    assert len(seen)==2
+    keys=json.loads(seen[1][1][-1]);assert len(keys)==1 and keys[0][1]=='自动职称'
+
+
+def test_wrong_local_text_cannot_block_needed_shared_lookup(fixture):
+    from backend.app.native.translation_sources import overlay_many
+    from probe_public_performance import SQLCounter
+    _,r=fixture;row=source(r,'profiles','name','正确原文')
+    cache(r,'profiles',row,'name','Malformed manual',manual=1,source_text='错误原文')
+    donor=source(r,'profiles','title','正确原文');cache(r,'profiles',donor,'title','Correct shared',manual=1)
+    display={'uid':row['uid'],'name':row['name'],'visibility':'public'}
+    with SQLCounter(r.sql) as counted:run(overlay_many(r.sql,'profiles',[display]));report=counted.report()
+    assert display['name']=='Correct shared' and report['query_calls']==2

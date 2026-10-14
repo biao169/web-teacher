@@ -63,6 +63,8 @@ def create_base(factory,static_root=None,*,areas=("shared","public","admin"),syn
     async def resources(request):
         """按请求复制资源上下文并获取当前身份，防止请求之间串用权限。"""
         r=copy.copy(factory(request))
+        # Fresh per request; never inherit memoized reads from a shared resource factory.
+        r.public_render_reads={}
         from backend.app.public_performance import PublicPerformance
         r.public_performance=getattr(r,'public_performance',None) or PublicPerformance.from_env()
         r.auth=Auth(r.sql,r.passwords)
