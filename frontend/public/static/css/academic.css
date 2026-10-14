@@ -733,7 +733,7 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
         background:
             color-mix(
                 in srgb,
-                var(--surface) 92%,
+                var(--surface) 93%,
                 transparent
             );
         -webkit-backdrop-filter:
