@@ -1,4 +1,4 @@
-import {adminFetch} from './native-access.js?v=0.15.28';
+import {adminFetch} from './native-access.js?v=0.16.133';
 /** Shared authenticated helper requests; callers may cancel stale read-only previews. */
 export async function assist(path,data,{signal,csrf}={}){
  const form=document.querySelector('#native-editor');
