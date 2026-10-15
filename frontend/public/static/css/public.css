@@ -100,3 +100,11 @@
 .native-site-footer .footer-grid{grid-template-columns:1fr;gap:1rem;}
 .native-site-footer{padding-inline:1.25rem;}
 }
+
+html[lang^="zh"] .footer-lang-en{
+ display:none!important;
+}
+
+html[lang^="en"] .footer-lang-zh{
+ display:none!important;
+}
