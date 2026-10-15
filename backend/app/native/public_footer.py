@@ -4,7 +4,7 @@ from urllib.parse import urlsplit,urlunsplit,quote,unquote
 from justhtml import JustHTML,SanitizationPolicy,UrlPolicy,UrlRule
 from backend.app.domain.richtext import plain_to_html
 
-CLASSES={'footer-grid','footer-brand','footer-meta','footer-note','footer-links','footer-nav','btn','btn-primary','btn-outline-secondary','nav-link'}
+CLASSES={'footer-grid','footer-brand','footer-meta','footer-note','footer-links','footer-nav', 'footer-lang-en', 'footer-lang-zh','btn','btn-primary','btn-outline-secondary','nav-link'}
 POLICY=SanitizationPolicy(
  allowed_tags={'div','section','nav','p','br','span','small','h2','h3','strong','b','em','i','ul','ol','li','a','hr'},
  allowed_attributes={'*':{'class'},'nav':{'data-footer-navigation','aria-label'},'a':{'href','title','target','rel','data-navigation-id'}},
