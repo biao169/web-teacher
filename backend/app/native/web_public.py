@@ -147,6 +147,14 @@ def install(app,factory,resources,csrf,render):
             canonical=query_url(list_path,query)
             actual=request.url.path+('?' +request.url.query if request.url.query else '')
             if actual!=canonical:return RedirectResponse(canonical,303)
+        # Public lists default to newest/highest configured order first.
+        # Add this only after canonical URL handling so bare public URLs stay clean.
+        if (
+            table
+            and not uid
+            and 'direction' not in query
+        ):
+            query['direction']='desc'
         # Validate all list-only semantics before a conditional short circuit.
         if table and not uid:
             from .public_data import validate_listing_query
@@ -225,7 +233,7 @@ def install(app,factory,resources,csrf,render):
             values['people_facets']=await people_facets(r.content,table,fixed_conditions=fixed,lang=lang,query=query) if table and not uid else []
         # Canonicalize default list controls; retain meaningful paging/filter state.
         seo_query=dict(query)
-        for key,default in (('page','1'),('size','10'),('direction','asc')):
+        for key,default in (('page','1'),('size','10'),('direction','desc')):
             if str(seo_query.get(key,''))==default:seo_query.pop(key,None)
         seo_query.pop('sort',None)
         if uid:seo_query={}

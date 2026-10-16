@@ -56,14 +56,15 @@ async def public_listing(r,table,query,site=None,home=False,profile_overview=Fal
     limit=None
     if home:
         limit=home_limit(table,site)
-        if not limit:return {'rows':[],'total':0,'page':1,'pages':1,'size':BATCH_SIZE,'query':{'home':'1','size':BATCH_SIZE,'page':1}}
-        q={'size':BATCH_SIZE,'page':min(page_number(q.get('page',1)),max(1,(limit+BATCH_SIZE-1)//BATCH_SIZE)),'f.is_featured':1}
+        if not limit:return {'rows':[],'total':0,'page':1,'pages':1,'size':BATCH_SIZE,'query':{'home':'1','size':BATCH_SIZE,'page':1,'direction':'desc',}}
+        # q={'size':BATCH_SIZE,'page':min(page_number(q.get('page',1)),max(1,(limit+BATCH_SIZE-1)//BATCH_SIZE)),'f.is_featured':1}
+        q={'size':BATCH_SIZE,'page':min(page_number(q.get('page',1)),max(1,(limit+BATCH_SIZE-1)//BATCH_SIZE)),'f.is_featured':1,'direction':'desc'}
     else:
         q['size']=min(int(q.get('size',BATCH_SIZE)),MAX_BATCH_SIZE)
     default=DEFAULT_SORT.get(table,'created_at')
     if default!='student_category' and default not in TABLES[table]['columns']:default='created_at'
     # Public presentation has one configured order; normalize legacy field-sort URLs.
-    q['sort']=default;q['direction']='desc' if q.get('direction')=='desc' else 'asc'
+    q['sort']=default; q['direction']='asc' if q.get('direction')=='asc' else 'desc'
     projection=[f for f in PUBLIC_FIELDS[table] if f in TABLES[table]['columns']]
     if table=='profiles' and not profile_overview:
         projection=[f for f in projection if f not in ('recruiting','is_featured','sort_order')]
@@ -85,7 +86,7 @@ async def public_listing(r,table,query,site=None,home=False,profile_overview=Fal
         result['pages']=max(1,(result['total']+result['size']-1)//result['size'])
         result['rows']=result['rows'][:max(0,limit-(result['page']-1)*result['size'])]
     q['page']=result['page']
-    if home:q={'home':'1','page':result['page'],'size':result['size']}
+    if home:q={'home':'1','page':result['page'],'size':result['size'], 'direction':'desc',}
     result['query']=q
     return result
 

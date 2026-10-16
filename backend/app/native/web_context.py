@@ -34,7 +34,8 @@ def renderer():
             menu.append({'key':key,'label':name,'url':'/admin/'+target,'locked':not bool(r.p['permissions'].get(target,{}).get('can_view'))})
         if r.p:
             from .navigation_options import sidebar_presentation
-            for nav in await r.sql.query("SELECT * FROM navigation_items WHERE location='admin-sidebar' AND enabled=1 ORDER BY sort_order,id"):
+            # for nav in await r.sql.query("SELECT * FROM navigation_items WHERE location='admin-sidebar' AND enabled=1 ORDER BY sort_order,id"):
+            for nav in await r.sql.query("SELECT * FROM navigation_items WHERE location='admin-sidebar' AND enabled=1 ORDER BY sort_order DESC,id DESC"):
                 try:
                     target,_=r.content.parse_navigation(nav['path'] or '')
                     if nav['url_name'] and nav['visibility'] in r.p['scopes'] and r.p['permissions'].get(target,{}).get('can_view'):menu.append({'key':nav['uid'],'label':nav['title'],'url':'/admin/n/'+nav['url_name'],**sidebar_presentation(nav)})

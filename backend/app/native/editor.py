@@ -12,7 +12,7 @@ FIELD_HELP = {
     'orcid':'填写ORCID完整链接或0000-0000-0000-000X形式的编号。',
     'path':'后台示例：/admin/publications?f.year=2026；固定条件保存在服务端。',
     'location':'后台侧栏使用admin-sidebar；前台导航使用对应的展示位置。',
-    'sort_order':'数字较小的条目优先；其他排序条件仍按列表设置执行。',
+    'sort_order':'数字越大越优先；新增记录默认使用当前最大排序值加1；排序值相同时，后添加的记录优先。',
     'display_order':'数字较小的分类优先。',
     'visibility':'公开、启用和首页精选分别控制不同属性，精选不会自动公开。',
     'contact_visibility':'单独控制联系方式，公开个人资料不会自动公开联系方式。',
@@ -163,7 +163,8 @@ async def reference_choices(r,table,row):
 async def citation_profile(r):
     """读取首位公开精选教师及当前有效英文姓名；只返回引用高亮所需信息。"""
     from .translation_sources import overlay
-    rows=await r.sql.query("SELECT uid,name,name_en FROM profiles WHERE visibility='public' AND is_active=1 AND is_featured=1 ORDER BY sort_order,id LIMIT 1")
+    # rows=await r.sql.query("SELECT uid,name,name_en FROM profiles WHERE visibility='public' AND is_active=1 AND is_featured=1 ORDER BY sort_order,id LIMIT 1")
+    rows=await r.sql.query("SELECT uid,name,name_en FROM profiles WHERE visibility='public' AND is_active=1 AND is_featured=1 ORDER BY sort_order DESC,id DESC LIMIT 1")
     if not rows:return {'name':'','name_en':'','english_source':'missing','names':[]}
     row=rows[0];english=await overlay(r.sql,'profiles',dict(row))
     name=row['name'].strip();name_en=(row.get('name_en') or '').strip();source='manual' if name_en else 'missing'

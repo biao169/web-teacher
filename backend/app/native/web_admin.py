@@ -204,8 +204,28 @@ def install(app,factory,resources,csrf,render,*,lazy_sync=False):
         from .accounts import ACCOUNT_TABLES,scope_choices
         if table in ACCOUNT_TABLES and not r.p['is_system']:raise Error('账号与授权仅系统管理员可以更改',403)
         if table=='operation_logs' or (table in ('media_assets','translation_cache','messages') and not uid):raise Error('请在该功能列表中使用专用操作')
-        row=await r.content.get(table,uid,r.p) if uid else defaults(table)|{k:int(v) if TABLES[table]['columns'][k]['kind'] in ('integer','boolean') else v for k,v in base.items()}
-        if table=='auth_users' and not uid:row.update(status=base.get('status','active'),must_change_password=1)
+        # row=await r.content.get(table,uid,r.p) if uid else defaults(table)|{k:int(v) if TABLES[table]['columns'][k]['kind'] in ('integer','boolean') else v for k,v in base.items()}
+        # if table=='auth_users' and not uid:row.update(status=base.get('status','active'),must_change_password=1)
+        row=await r.content.get(table,uid,r.p) if uid else defaults(table)|{
+            k:int(v) if TABLES[table]['columns'][k]['kind'] in ('integer','boolean') else v
+            for k,v in base.items()
+        }
+
+        if (
+            not uid
+            and 'sort_order' in TABLES[table]['columns']
+            and 'sort_order' not in base
+        ):
+            rows=await r.sql.query(
+                f'SELECT COALESCE(MAX(sort_order),0)+1 AS next_order FROM "{table}"'
+            )
+            row['sort_order']=int(rows[0]['next_order'])
+
+        if table=='auth_users' and not uid:
+            row.update(
+                status=base.get('status','active'),
+                must_change_password=1
+            )
         if uid and not in_scope(table,row,base):raise Error('条目不在固定筛选范围内',403)
         if not uid and set(base)-set(fields(table)):raise Error('固定范围包含系统字段，请从普通模块入口新增',403)
         choices=await reference_choices(r,table,row)

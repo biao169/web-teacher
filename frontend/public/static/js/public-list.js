@@ -51,7 +51,7 @@
       if(/[\x00-\x1f\x7f]/.test(value))throw Error('Control');
     }
     const size=Number(state.size||10);if(![10,20,50,100].includes(size))throw Error('Size');
-    return {...state,size:Math.min(size,20),page:Number(state.page||1),direction:state.direction||'asc'};
+    return {...state,size:Math.min(size,20),page:Number(state.page||1),direction:state.direction||'desc'};
   }
   function result(state){
     const predicates=Object.entries(state).filter(([key,value])=>(key.startsWith('f.')||key.startsWith('c.'))&&value!=='');

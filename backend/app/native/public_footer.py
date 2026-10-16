@@ -64,7 +64,8 @@ async def navigation(r,lang):
         raw=reads.setdefault('navigation_rows',{})
     else:raw={}
     if scope not in raw:
-        raw[scope]=await r.sql.query("SELECT * FROM navigation_items WHERE enabled=1 AND visibility IN ("+','.join('?' for _ in allowed)+") AND (location IN ('header','hero','footer') OR location IS NULL OR location='') ORDER BY sort_order,id",scope)
+        # raw[scope]=await r.sql.query("SELECT * FROM navigation_items WHERE enabled=1 AND visibility IN ("+','.join('?' for _ in allowed)+") AND (location IN ('header','hero','footer') OR location IS NULL OR location='') ORDER BY sort_order,id",scope)
+        raw[scope]=await r.sql.query("SELECT * FROM navigation_items WHERE enabled=1 AND visibility IN ("+','.join('?' for _ in allowed)+") AND (location IN ('header','hero','footer') OR location IS NULL OR location='') ORDER BY sort_order DESC,id DESC",scope)
     rows=[dict(row) for row in raw[scope]]
     result={'header':[],'hero':[],'footer':[]}
     if lang=='en':

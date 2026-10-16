@@ -81,7 +81,7 @@ class Content:
         sort=query.get('sort','sort_order' if 'sort_order' in columns else 'id')
         grouped=public and table=='students' and sort=='student_category'
         if not grouped and (sort not in columns or sort in SECRET):raise Error('未知排序列')
-        direction='DESC' if query.get('direction')=='desc' else 'ASC'
+        direction='ASC' if query.get('direction')=='asc' else 'DESC'
         try:size=int(query.get('size',20));page=max(1,int(query.get('page',1)))
         except (TypeError,ValueError):raise Error('页码无效') from None
         if size not in (10,20,50,100):raise Error('每页支持10、20、50、100条')
@@ -132,7 +132,25 @@ class Content:
         if new_uid is not None and (uid or not isinstance(new_uid,str) or not re.fullmatch('[a-f0-9]{32}',new_uid)):raise Error('新增标识无效')
         if table=='operation_logs':raise Error('操作日志只读')
         if table in ('media_assets','translation_cache') and not uid:raise Error('请使用上传或从源内容建立翻译')
-        current=await self.get(table,uid,p) if uid else {};patch=normalize(table,values)
+        # current=await self.get(table,uid,p) if uid else {};patch=normalize(table,values)
+        current=await self.get(table,uid,p) if uid else {}
+        if (
+            not uid
+            and 'sort_order' in TABLES[table]['columns']
+            and (
+                'sort_order' not in values
+                or values.get('sort_order') in (None,'')
+            )
+        ):
+            rows=await self.sql.query(
+                f'SELECT COALESCE(MAX(sort_order),0)+1 AS next_order FROM "{table}"'
+            )
+
+            values={
+                **values,
+                'sort_order':int(rows[0]['next_order'])
+            }
+        patch=normalize(table,values)
         if table in ('auth_users','auth_roles','auth_permissions') and not p['is_system']:raise Error('账号与授权仅系统管理员可以更改',403)
         if secret_values:
             allowed=SECRET & set(TABLES['global_settings']['columns'])

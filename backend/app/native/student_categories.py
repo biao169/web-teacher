@@ -51,6 +51,7 @@ async def match_page(content,principal,keywords,query=None):
     pages=max(1,(total+size-1)//size);page=min(page,pages)
     # Preview cells are bounded independently of stored free text; private contact fields are omitted.
     projection='uid,'+','.join(f'substr("{field}",1,500) AS "{field}"' for field in DISPLAY_FIELDS)
-    rows=await content.sql.query(f'SELECT {projection} FROM students WHERE {where} ORDER BY sort_order,id LIMIT ? OFFSET ?',(*args,size,(page-1)*size)) if total else []
+    # rows=await content.sql.query(f'SELECT {projection} FROM students WHERE {where} ORDER BY sort_order,id LIMIT ? OFFSET ?',(*args,size,(page-1)*size)) if total else []
+    rows=await content.sql.query(f'SELECT {projection} FROM students WHERE {where} ORDER BY sort_order DESC,id DESC LIMIT ? OFFSET ?',(*args,size,(page-1)*size)) if total else []
     return {'rows':rows,'total':total,'page':page,'pages':pages,'size':size,'keywords':words,
             'page_numbers':page_numbers(page,pages),'can_edit':bool(principal['permissions']['students'].get('can_edit'))}
