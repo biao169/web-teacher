@@ -114,7 +114,7 @@ body.section-public{--page:var(--public-page);--surface:var(--public-surface);--
 @media (max-width:650px) {
 .section-public .container{width:calc(100% - 32px);}
 .section-public .academic-brand{flex-basis:170px;font-size:var(--public-font-size-26);}
-.section-public .academic-header-inner{padding-block:13px;}
+/* .section-public .academic-header-inner{padding-block:13px;} */
 .section-public .academic-account{gap:9px;}
 .section-public .academic-nav{flex-wrap:nowrap;max-width:100%;overflow-x:auto;}
 .section-public .academic-nav a{flex-shrink:0;white-space:nowrap;font-size:var(--public-font-size-7);}
@@ -654,8 +654,7 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
 
     z-index:2202;
 
-    padding-top:env(safe-area-inset-top);
-
+    padding-top: 0;   /*  env(safe-area-inset-top);  */
     background:
         color-mix(
             in srgb,
@@ -693,10 +692,8 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
         display:flex;
         position:fixed;
         left:max(12px,env(safe-area-inset-left));
-        top:max(
-            /* 62px, calc(env(safe-area-inset-top) + 62px) */
-            env(safe-area-inset-top) + 68px
-        );
+         /* 62px, calc(env(safe-area-inset-top) + 62px) */
+        top:max( 68px ); /*  env(safe-area-inset-top) +  */ 
 
         right:auto;
         bottom:auto;
