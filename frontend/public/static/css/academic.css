@@ -730,9 +730,9 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
         background:
             color-mix(
                 in srgb,
-                var(--surface) 93%,
+                var(--surface) 95%,
                 transparent
-            );
+            );   /*  手机导航栏透明度 */
         -webkit-backdrop-filter:
             blur(14px)
             saturate(1.05);
