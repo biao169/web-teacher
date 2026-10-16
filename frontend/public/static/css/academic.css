@@ -566,7 +566,7 @@ body.section-public .academic-identity-feedback{position:absolute;right:0;top:10
     .section-public .academic-brand-logo{
         display:block;
         width:auto;
-        height:46px;   /* 46px */
+        /* height:38px; */   /*   46px */
         max-height: 100%;
         max-width:68px;  /* 38px  */
         flex:0 0 auto;
@@ -1047,3 +1047,17 @@ body.section-public .course-heading .content-facts p{margin:0;min-width:0;overfl
 body.section-public .patent-records{gap:3px 18px}
 body.section-public .patent-record{gap:3px 10px}
 body.section-public .patent-record [data-public-field="legal_status"]{padding:1px 6px;border-radius:5px;background:var(--public-accent-soft)}
+
+/* Public long-form text: justified alignment */
+.section-public p,
+.section-public .bio,
+.section-public .description,
+.section-public .summary,
+.section-public .abstract,
+.section-public .content-text,
+.section-public .news-content,
+.section-public .detail-content,
+.faculty-detail-sections .faculty-section-text{
+ text-align:justify;
+ text-justify:inter-ideograph;
+}
