@@ -4,7 +4,7 @@ import re
 from .catalog import Error,now
 
 FIELDS={
- 'profiles':('name','role','title','organization','lab','bio','education','experience','recruiting'),
+ 'profiles':('name','role','title','organization','lab','office','bio','education','experience','recruiting'),
  'research_interests':('name','description'),
  'publications':('title','authors','venue','publication_type','author_role','corresponding_authors','index_type','display_tags','keywords'),
  'projects':('name','source','fund_name','project_role','principal','members','status'),
