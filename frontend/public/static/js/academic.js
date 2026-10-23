@@ -85,7 +85,7 @@ document.addEventListener('public-header-updated',enhancePublicHeader);
         '[data-public-menu-panel]'
       );
 
-      const nav=h.querySelector(
+      let nav=h.querySelector(
         '.academic-nav'
       );
 
@@ -93,11 +93,11 @@ document.addEventListener('public-header-updated',enhancePublicHeader);
         '[data-public-menu]'
       );
 
-      const brand=h.querySelector(
+      let brand=h.querySelector(
         '.academic-brand'
       );
 
-      const account=h.querySelector(
+      let account=h.querySelector(
         '.academic-account'
       );
 
@@ -304,37 +304,399 @@ document.addEventListener('public-header-updated',enhancePublicHeader);
       /*
        * Existing desktop navigation fit detection.
        */
-      function fit(){
+      // function fit(){
 
-        if(!h.isConnected)return;
+      //   if(!h.isConnected)return;
 
 
-        if(window.innerWidth<=1100){
+      //   if(window.innerWidth<=1100){
 
+      //     h.classList.remove(
+      //       'nav-second-row'
+      //     );
+
+      //     return;
+      //   }
+
+
+      //   const items=[
+      //     ...nav.children
+      //   ];
+
+
+      //   const gap=
+      //     parseFloat(
+      //       getComputedStyle(nav).columnGap
+      //     )||0;
+
+
+      //   const headerStyle=
+      //     getComputedStyle(h);
+
+
+      //   const spacing=
+      //     parseFloat(
+      //       headerStyle.columnGap
+      //     )||0;
+
+
+      //   const padding=
+      //     (parseFloat(
+      //       headerStyle.paddingLeft
+      //     )||0)
+      //     +
+      //     (parseFloat(
+      //       headerStyle.paddingRight
+      //     )||0);
+
+
+      //   const required=
+      //     items.reduce(
+      //       (total,item)=>
+      //         total+
+      //         item.getBoundingClientRect().width,
+      //       0
+      //     )
+      //     +
+      //     Math.max(
+      //       0,
+      //       items.length-1
+      //     )*gap;
+
+
+      //   const available=
+      //     h.clientWidth
+      //     -padding
+      //     -brand.getBoundingClientRect().width
+      //     -account.getBoundingClientRect().width
+      //     -spacing*2;
+
+
+      //   h.classList.toggle(
+      //     'nav-second-row',
+      //     required>available+1
+      //   );
+      // }
+      
+      // if(window.ResizeObserver){
+
+      //   const observer=
+      //     new ResizeObserver(fit);
+
+      //   for(
+      //     const node of [
+      //       h,
+      //       brand,
+      //       account,
+      //       nav
+      //     ]
+      //   ){
+      //     observer.observe(node);
+      //   }
+
+      // }else{
+
+      //   window.addEventListener(
+      //     'resize',
+      //     fit
+      //   );
+      // }
+      // document.fonts?.ready.then(fit);
+      // fit();
+
+      function setBrandWidth(width, smooth=true){
+
+        const value=
+          Math.max(
+            0,
+            Math.round(width)
+          )+'px';
+        if(smooth){
+          h.classList.add(
+            'header-width-animate'
+          );
+        }else{
           h.classList.remove(
+            'header-width-animate'
+          );
+        }
+
+        if(
+          h.style.getPropertyValue(
+            '--academic-brand-width'
+          )===value
+        ){
+          return;
+        }
+
+
+        h.style.setProperty(
+          '--academic-brand-width',
+          value
+        );
+      }
+
+
+      /*
+       * FLIP只负责单行/双行的位置切换。
+       */
+      const layoutAnimations=
+        new WeakMap();
+
+
+      function changeLayout(
+        secondRow,
+        brandWidth
+      ){
+        h.classList.remove(
+        'header-width-animate'
+      );
+        const current=
+          h.classList.contains(
             'nav-second-row'
+          );
+
+
+        /*
+         * 状态没变化，只修改Logo宽度。
+         */
+        if(current===secondRow){
+
+          setBrandWidth(
+            brandWidth,
+            false
           );
 
           return;
         }
 
 
-        const items=[
-          ...nav.children
-        ];
+        const elements=[
+          brand,
+          nav,
+          account
+        ].filter(Boolean);
 
 
-        const gap=
-          parseFloat(
-            getComputedStyle(nav).columnGap
-          )||0;
+        /*
+         * 连续resize时取消旧动画。
+         */
+        for(const element of elements){
+
+          const previous=
+            layoutAnimations.get(
+              element
+            );
 
 
+          if(previous){
+
+            previous.cancel();
+
+            layoutAnimations.delete(
+              element
+            );
+          }
+        }
+
+
+        /*
+         * FLIP：First
+         */
+        const before=
+          new Map(
+            elements.map(
+              element=>[
+                element,
+                element.getBoundingClientRect()
+              ]
+            )
+          );
+
+
+        /*
+         * 修改实际布局。
+         */
+        h.classList.toggle(
+          'nav-second-row',
+          secondRow
+        );
+
+
+        setBrandWidth(
+          brandWidth
+        );
+
+
+        /*
+         * FLIP：Last
+         *
+         * 同步读取新布局。
+         */
+        const after=
+          new Map(
+            elements.map(
+              element=>[
+                element,
+                element.getBoundingClientRect()
+              ]
+            )
+          );
+
+
+        const reduceMotion=
+          window.matchMedia?.(
+            '(prefers-reduced-motion: reduce)'
+          ).matches;
+
+
+        if(reduceMotion){
+          return;
+        }
+
+
+        /*
+         * FLIP：Invert + Play
+         */
+        for(const element of elements){
+
+          const oldRect=
+            before.get(element);
+
+          const newRect=
+            after.get(element);
+
+
+          if(
+            !oldRect||
+            !newRect
+          ){
+            continue;
+          }
+
+
+          const x=
+            oldRect.left-
+            newRect.left;
+
+
+          const y=
+            oldRect.top-
+            newRect.top;
+
+
+          if(
+            Math.abs(x)<1&&
+            Math.abs(y)<1
+          ){
+            continue;
+          }
+
+
+          const animation=
+            element.animate(
+              [
+                {
+                  transform:
+                    `translate(${x}px,${y}px)`
+                },
+                {
+                  transform:
+                    'translate(0,0)'
+                }
+              ],
+              {
+                duration:220,
+                easing:
+                  'cubic-bezier(.2,.8,.2,1)'
+              }
+            );
+
+
+          layoutAnimations.set(
+            element,
+            animation
+          );
+
+
+          const clearAnimation=()=>{
+
+            if(
+              layoutAnimations.get(
+                element
+              )===animation
+            ){
+
+              layoutAnimations.delete(
+                element
+              );
+            }
+          };
+
+
+          animation.addEventListener(
+            'finish',
+            clearAnimation,
+            {once:true}
+          );
+
+
+          animation.addEventListener(
+            'cancel',
+            clearAnimation,
+            {once:true}
+          );
+        }
+      }
+
+
+      function fit(){
+
+        if(!h.isConnected){
+          return;
+        }
+
+
+        /*
+         * 手机继续使用现有浮动菜单。
+         */
+        if(window.innerWidth<=650){
+
+          h.classList.remove(
+            'nav-second-row'
+          );
+
+
+          h.style.removeProperty(
+            '--academic-brand-width'
+          );
+
+
+          return;
+        }
+
+
+        /*
+         * Logo允许缩到的最低宽度。
+         */
+        const BRAND_MIN=160;
+
+
+        /*
+         * 双行恢复单行时增加28px回差，
+         * 防止临界位置反复跳动。
+         */
+        const RETURN_RESERVE=28;
+
+
+        /*
+         * Header可用宽度。
+         */
         const headerStyle=
           getComputedStyle(h);
 
 
-        const spacing=
+        const headerGap=
           parseFloat(
             headerStyle.columnGap
           )||0;
@@ -350,61 +712,415 @@ document.addEventListener('public-header-updated',enhancePublicHeader);
           )||0);
 
 
-        const required=
-          items.reduce(
-            (total,item)=>
-              total+
-              item.getBoundingClientRect().width,
-            0
-          )
+        const usable=
+          h.clientWidth-
+          padding;
+
+
+        /*
+         * Account真实宽度。
+         *
+         * CSS已经使用：
+         * width:max-content
+         * grid column:max-content
+         */
+        const accountNatural=
+          Math.ceil(
+            account
+              .getBoundingClientRect()
+              .width
+          );
+
+
+        /*
+         * Navigation真正需要的自然宽度。
+         */
+        const items=[
+          ...nav.children
+        ].filter(
+          item=>
+            !item.hidden
+            &&
+            !item.matches(
+              '[data-public-menu-close]'
+            )
+            &&
+            getComputedStyle(item)
+              .display!=='none'
+        );
+
+
+        const navStyle=
+          getComputedStyle(nav);
+
+
+        const navGap=
+          parseFloat(
+            navStyle.columnGap
+          )||0;
+
+
+        const navRequired=
+          Math.ceil(
+
+            items.reduce(
+              (total,item)=>
+                total+
+                item
+                  .getBoundingClientRect()
+                  .width,
+              0
+            )
+
+            +
+
+            Math.max(
+              0,
+              items.length-1
+            )*navGap
+
+          );
+
+
+        /*
+         * Logo图片 + 网站名称完整自然宽度。
+         */
+        const logo=
+          brand.querySelector(
+            '.academic-brand-logo:not([hidden])'
+          );
+
+
+        const brandText=
+          brand.querySelector(
+            ':scope > span'
+          );
+
+
+        const brandStyle=
+          getComputedStyle(
+            brand
+          );
+
+
+        const brandGap=
+          parseFloat(
+            brandStyle.columnGap
+          )||0;
+
+
+        const brandPadding=
+          (parseFloat(
+            brandStyle.paddingLeft
+          )||0)
           +
+          (parseFloat(
+            brandStyle.paddingRight
+          )||0);
+
+
+        const logoWidth=
+          logo
+            ? logo
+                .getBoundingClientRect()
+                .width
+            : 0;
+
+
+        /*
+         * scrollWidth取得被省略号隐藏部分的完整宽度。
+         */
+        const textWidth=
+          brandText
+            ? brandText.scrollWidth
+            : 0;
+
+
+        const brandNatural=
+          Math.ceil(
+            logoWidth
+            +
+            textWidth
+            +
+            (
+              logoWidth&&textWidth
+                ? brandGap
+                : 0
+            )
+            +
+            brandPadding
+          );
+
+
+        /*
+         * 如果Logo本身不足160px，
+         * 不人为撑到160px。
+         */
+        const brandFloor=
+          Math.min(
+            BRAND_MIN,
+            brandNatural
+          );
+
+
+        /*
+         * ==================================================
+         * 单行空间计算
+         *
+         * Header =
+         *
+         * Brand
+         * + gap
+         * + Navigation
+         * + gap
+         * + Account
+         * ==================================================
+         */
+        const oneRowBrandRoom=
+          usable
+          -accountNatural
+          -navRequired
+          -headerGap*2;
+
+
+        const isSecondRow=
+          h.classList.contains(
+            'nav-second-row'
+          );
+
+
+        /*
+         * ==================================================
+         * 当前是单行
+         * ==================================================
+         */
+        if(!isSecondRow){
+
+
+          /*
+           * Logo还可以保持最低宽度。
+           *
+           * 导航优先，
+           * Logo使用：
+           *
+           * min(
+           *   自然宽度,
+           *   剩余空间
+           * )
+           */
+          if(
+            oneRowBrandRoom>=
+            brandFloor
+          ){
+
+            setBrandWidth(
+              Math.min(
+                brandNatural,
+                oneRowBrandRoom
+              )
+            );
+
+
+            return;
+          }
+
+
+          /*
+           * Logo已经缩到底，
+           * Navigation仍然放不下。
+           *
+           * 此时才切双行。
+           */
+          const twoRowBrandRoom=
+            Math.max(
+              0,
+              usable
+              -accountNatural
+              -headerGap
+            );
+
+
+          changeLayout(
+            true,
+            Math.min(
+              brandNatural,
+              twoRowBrandRoom
+            )
+          );
+
+
+          return;
+        }
+
+
+        /*
+         * ==================================================
+         * 当前是双行
+         * ==================================================
+         */
+
+
+        /*
+         * 能恢复单行，而且比临界值额外多28px，
+         * 才切回单行。
+         */
+        if(
+          oneRowBrandRoom>=
+          brandFloor+
+          RETURN_RESERVE
+        ){
+
+          changeLayout(
+            false,
+            Math.min(
+              brandNatural,
+              oneRowBrandRoom
+            )
+          );
+
+
+          return;
+        }
+
+
+        /*
+         * 继续双行。
+         *
+         * 第一行只有：
+         *
+         * Logo | Account
+         *
+         * 因此Logo重新使用账号左侧全部剩余空间。
+         */
+        const twoRowBrandRoom=
           Math.max(
             0,
-            items.length-1
-          )*gap;
+            usable
+            -accountNatural
+            -headerGap
+          );
 
 
-        const available=
-          h.clientWidth
-          -padding
-          -brand.getBoundingClientRect().width
-          -account.getBoundingClientRect().width
-          -spacing*2;
-
-
-        h.classList.toggle(
-          'nav-second-row',
-          required>available+1
+        setBrandWidth(
+          Math.min(
+            brandNatural,
+            twoRowBrandRoom
+          )
         );
       }
-
-      if(window.ResizeObserver){
-
-        const observer=
-          new ResizeObserver(fit);
-
-        for(
-          const node of [
-            h,
-            brand,
-            account,
-            nav
-          ]
-        ){
-          observer.observe(node);
+      let fitFrame=0;
+      function scheduleFit(){
+        if(fitFrame){
+          return;
         }
+        fitFrame=
+          requestAnimationFrame(()=>{
+            fitFrame=0;
+            fit();
+          });
+      }
+      if(window.ResizeObserver){
+        const observer=
+          new ResizeObserver(
+            scheduleFit
+          );
+        /*
+         * Header总宽度变化。
+         */
+        observer.observe(
+          h
+        );
+
+        /*
+         * 登录状态、用户名等变化时，
+         * Account真实宽度也可能变化。
+         *
+         * Account是输入条件，
+         * 所以允许观察。
+         */
+        observer.observe(
+          account
+        );
 
       }else{
 
         window.addEventListener(
           'resize',
-          fit
+          scheduleFit,
+          {
+            passive:true
+          }
         );
       }
 
+      /*
+      * Navigation内容变化。
+      *
+      * 导航按钮可能因为：
+      *
+      * 权限
+      * 配置
+      * 登录状态
+      * 页面更新
+      * 语言切换
+      *
+      * 被增加、删除、隐藏或修改文字。
+      *
+      * Grid中的nav容器宽度本身可能不会变化，
+      * 所以ResizeObserver不能可靠发现这种情况。
+      */
+      const navMutationObserver=
+        new MutationObserver(
+          scheduleFit
+        );
 
-      document.fonts?.ready.then(fit);
-      fit();
+
+      navMutationObserver.observe(
+        nav,
+        {
+          /*
+          * 添加 / 删除导航按钮。
+          */
+          childList:true,
+
+          /*
+          * 监听按钮内部文字或图标结构变化。
+          */
+          subtree:true,
+
+          /*
+          * 导航文字本身发生改变。
+          */
+          characterData:true,
+
+          /*
+          * 某个导航按钮通过属性被隐藏或改变样式。
+          */
+          attributes:true,
+
+          attributeFilter:[
+            'hidden',
+            'class',
+            'style'
+          ]
+        }
+      );
+
+      /*
+       * 阅读字号变化也会改变导航按钮宽度。
+       */
+      document.addEventListener(
+        'public-reading-change',
+        scheduleFit
+      );
+
+
+      document.fonts?.ready.then(
+        scheduleFit
+      );
+
+
+      scheduleFit();
     }
   }
 
